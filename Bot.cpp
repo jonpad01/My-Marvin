@@ -564,20 +564,20 @@ Area Bot::InArea(Vector2f position) {
     Area result = { 0 };
     Vector2f position_ = game_->GetPlayer().position;
 
-    result.in_center = regions_->IsConnected(position, Vector2f(512, 512));
-    result.in_tunnel = regions_->IsConnected(position, Vector2f(27, 354));
-    result.in_1 = regions_->IsConnected(position, Vector2f(854, 358));
-    result.in_2 = regions_->IsConnected(position, Vector2f(823, 488));
-    result.in_3 = regions_->IsConnected(position, Vector2f(696, 817));
-    result.in_4 = regions_->IsConnected(position, Vector2f(587, 776));
-    result.in_5 = regions_->IsConnected(position, Vector2f(125, 877));
-    result.in_6 = regions_->IsConnected(position, Vector2f(254, 493));
-    result.in_7 = regions_->IsConnected(position, Vector2f(154, 358));
-    result.in_8 = regions_->IsConnected(position, Vector2f(620, 250));
+    result.in_center = regions_->IsConnected((MapCoord)position, MapCoord(512, 512));
+    result.in_tunnel = regions_->IsConnected((MapCoord)position, MapCoord(27, 354));
+    result.in_1 = regions_->IsConnected((MapCoord)position, MapCoord(854, 358));
+    result.in_2 = regions_->IsConnected((MapCoord)position, MapCoord(823, 488));
+    result.in_3 = regions_->IsConnected((MapCoord)position, MapCoord(696, 817));
+    result.in_4 = regions_->IsConnected((MapCoord)position, MapCoord(587, 776));
+    result.in_5 = regions_->IsConnected((MapCoord)position, MapCoord(125, 877));
+    result.in_6 = regions_->IsConnected((MapCoord)position, MapCoord(254, 493));
+    result.in_7 = regions_->IsConnected((MapCoord)position, MapCoord(154, 358));
+    result.in_8 = regions_->IsConnected((MapCoord)position, MapCoord(620, 250));
     result.in_base = result.in_1 || result.in_2 || result.in_3 || result.in_4 || result.in_5 || result.in_6 || result.in_7;
-    result.connected = regions_->IsConnected(position, position_);
+    result.connected = regions_->IsConnected((MapCoord)position, (MapCoord)position_);
     //should be used on enemy targets
-    result.in_diff = !regions_->IsConnected(position, position_) && result.in_base;
+    result.in_diff = !regions_->IsConnected((MapCoord)position, (MapCoord)position_) && result.in_base;
     //stores first 7 results in a vector
     result.in = { result.in_1, result.in_2, result.in_3, result.in_4, result.in_5, result.in_6, result.in_7 };
 
