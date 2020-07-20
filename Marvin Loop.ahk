@@ -170,7 +170,7 @@ Loop {
 							}
 						}
 						Sleep, 1000
-						if (WinExist("Injector") {
+						if (WinExist("Injector")) {
 						Injector := WinExist("Injector")
 						}
 						else {
