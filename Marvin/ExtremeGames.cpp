@@ -1,145 +1,165 @@
-#include "Devastation.h"
+#include "ExtremeGames.h"
 
 namespace marvin {
-	namespace deva {
+    namespace eg {
 
         behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
             Area bot_is = ctx.bot->InArea(game.GetPlayer().position);
+
             uint64_t time = ctx.bot->GetTime();
             uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
+            uint64_t f7_check = ctx.blackboard.ValueOr<uint64_t>("F7SpamCheck", 0);
+            uint64_t chat_check = ctx.blackboard.ValueOr<uint64_t>("ChatWait", 0);
+            uint64_t p_check = ctx.blackboard.ValueOr<uint64_t>("!PCheck", 0);
             bool no_spam = time > spam_check;
+            bool chat_wait = time > chat_check;
+            bool no_p = time > p_check;
+            bool no_f7_spam = time > f7_check;
 
-            float deva_energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy) * 100.0f;
-            Duelers duelers = ctx.bot->FindDuelers();
-            int open_freq = ctx.bot->FindOpenFreq();
-            bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
-            bool on_0 = game.GetPlayer().frequency == 00;
-            bool on_1 = game.GetPlayer().frequency == 01;
-//#if 0
-            //if baseduelers are uneven jump in
-            if (duelers.freq_0s > duelers.freq_1s) {
-                if (!dueling) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(1);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
-                    }
-                    return behavior::ExecuteResult::Success;
-                }
-                //if on team and uneven jump out
-                else if (on_0 && (bot_is.in_center || (duelers.team_in_base || duelers.freq_0s < 2))) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(open_freq);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
-                    }
-                    return behavior::ExecuteResult::Success;
+            std::vector<Player> duelers;
+            std::vector<Player> players = game.GetPlayers();
+            bool team_in_base = false;
+            
+            //find and store attachable team players
+            for (std::size_t i = 0; i < players.size(); i++) {
+                const Player& player = players[i];
+                Area player_is = ctx.bot->InArea(player.position);
+                bool same_team = player.frequency == game.GetPlayer().frequency;
+                bool not_bot = player.id != game.GetPlayer().id;
+                if (!player_is.in_center && same_team && not_bot && player.ship < 8) {
+                    duelers.push_back(players[i]);
+                    team_in_base = true;
                 }
             }
-            if (duelers.freq_0s < duelers.freq_1s) {
-                if (!dueling) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(0);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
+
+            //read private messages for !p and send the same message to join a duel team
+            std::vector<std::string> chat = game.GetChat(5);
+
+                for (std::size_t i = 0; i < chat.size(); i++) {
+                    if (chat[i] == "!p" && no_p) {
+                        game.P();
+                        ctx.blackboard.Set("!PCheck", time + 3000);
+                        ctx.blackboard.Set("ChatWait", time + 200);
+                        return behavior::ExecuteResult::Success;
                     }
+                    else if (chat[i] == "!l" && no_p) {
+                        game.L();
+                        ctx.blackboard.Set("!PCheck", time + 3000);
+                        ctx.blackboard.Set("ChatWait", time + 200);
+                        return behavior::ExecuteResult::Success;
+                    }
+                    else if (chat[i] == "!r" && no_p) {
+                        game.R();
+                        ctx.blackboard.Set("!PCheck", time + 3000);
+                        ctx.blackboard.Set("ChatWait", time + 200);
+                        return behavior::ExecuteResult::Success;
+                    }
+                }
+                //bot needs to halt so eg can process chat input, i guess
+                if (!chat_wait) {
                     return behavior::ExecuteResult::Success;
                 }
-                else if (on_1 && (bot_is.in_center || (duelers.team_in_base || duelers.freq_1s < 2))) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(open_freq);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
+
+                
+                bool dueling = game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01;
+            
+            // attach code
+                //the region registry doesnt thing the eg center bases are connected to center 
+            if (bot_is.in_center && duelers.size() != 0 && team_in_base && dueling) {
+
+                //a saved value to keep the ticker moving up or down
+                bool up_down = ctx.blackboard.ValueOr<bool>("UpDown", true);
+                
+                //what player the ticker is currently on
+                const Player& selected_player = game.GetSelectedPlayer();
+
+                //if ticker is on a player in base attach
+                for (std::size_t i = 0; i < duelers.size(); i++) {
+                    const Player& player = duelers[i];
+                    Area player_is = ctx.bot->InArea(player.position);
+                    if (player.id == selected_player.id && IsValidPosition(player.position)) {
+                        if (CheckStatus(ctx)) game.F7();
+                        return behavior::ExecuteResult::Success;
                     }
-                    return behavior::ExecuteResult::Success;
                 }
+
+                //if the ticker is not on a player in base then move the ticker for the next check
+                if (up_down) game.PageUp();
+                else game.PageDown();
+
+                //find the ticker position
+                int64_t ticker = game.TickerPosition();
+                //if the ticker has reached the end of the list switch direction
+                if (ticker <= 0) ctx.blackboard.Set("UpDown", false);
+                else if (ticker >= game.GetPlayers().size() - 1) ctx.blackboard.Set("UpDown", true);
+
+                return behavior::ExecuteResult::Success;
             }
-//#endif
-            //if dueling then attach
-            if (dueling) {
-              
-                if (bot_is.in_center && duelers.team.size() != 0 && duelers.team_in_base) {
 
-                    //a saved value to keep the ticker moving up or down
-                    bool up_down = ctx.blackboard.ValueOr<bool>("UpDown", true);
-                    //used to skip f7 and make attaching more random
-                    bool page_or_f7 = ctx.blackboard.ValueOr<bool>("PageOrF7", false);
-                    //what player the ticker is currently on
-                    const Player& selected_player = game.GetSelectedPlayer();
-
-                    //if ticker is on a player in base attach
-                    for (std::size_t i = 0; i < duelers.team.size(); i++) {
-                        const Player& player = duelers.team[i];
-                        Area player_is = ctx.bot->InArea(player.position);
-                        if (!player_is.in_center && player.ship < 8 && player.id == selected_player.id && !page_or_f7/*IsValidPosition(player.position)*/) {
-                            if (CheckStatus(ctx)) game.F7();
-                            ctx.blackboard.Set("PageOrF7", true);
+                    Vector2f bot_position = game.GetPlayer().position;
+                    bool in_safe = game.GetMap().GetTileId(bot_position) == kSafeTileId;
+                    //try to detach
+                    for (std::size_t i = 0; i < duelers.size(); i++) {
+                        const Player& player = duelers[i];
+                        if (player.position == bot_position && no_f7_spam && !bot_is.in_center) {
+                            game.F7();
+                            ctx.blackboard.Set("F7SpamCheck", time + 150);
                             return behavior::ExecuteResult::Success;
                         }
                     }
-
-                    //if the ticker is not on a player in base then move the ticker for the next check
-                    if (up_down) game.PageUp();
-                    else game.PageDown();
-
-                    if (page_or_f7) ctx.blackboard.Set("PageOrF7", false);
-                    else ctx.blackboard.Set("PageOrF7", true);
-
-                    //find the ticker position
-                    int64_t ticker = game.TickerPosition();
-                    //if the ticker has reached the end of the list switch direction
-                    if (ticker <= 0) ctx.blackboard.Set("UpDown", false);
-                    else if (ticker >= game.GetPlayers().size() - 1) ctx.blackboard.Set("UpDown", true);
-
-                    return behavior::ExecuteResult::Success;
-                }
-
-                Vector2f bot_position = game.GetPlayer().position;
-                bool in_safe = game.GetMap().GetTileId(bot_position) == kSafeTileId;
-                //try to detach
-                for (std::size_t i = 0; i < duelers.team.size(); i++) {
-                    const Player& player = duelers.team[i];
-                    if (player.position == bot_position && no_spam) {
-                        game.F7();
-                        ctx.blackboard.Set("SpamCheck", time + 150);
-                        //return behavior::ExecuteResult::Success;
-                    }
-                } 
-            }
-
-            bool x_active = (game.GetPlayer().status & 4) != 0; 
+        
+            
+//#if 0
+            
+            bool x_active = (game.GetPlayer().status & 4) != 0;
             bool stealthing = (game.GetPlayer().status & 1) != 0;
             bool cloaking = (game.GetPlayer().status & 2) != 0;
 
-            bool has_xradar = (game.GetShipSettings().XRadarStatus & 3) != 0;
+            bool has_xradar = (game.GetShipSettings().XRadarStatus & 1) != 0;
             bool has_stealth = (game.GetShipSettings().StealthStatus & 1) != 0;
             bool has_cloak = (game.GetShipSettings().CloakStatus & 3) != 0;
-
+#if 0
             //if stealth isnt on but availible, presses home key in continuumgameproxy.cpp
             if (!stealthing && has_stealth && no_spam) {
                 game.Stealth();
                 ctx.blackboard.Set("SpamCheck", time + 300);
                 return behavior::ExecuteResult::Success;
             }
+#endif
+#if 0
             //same as stealth but presses shift first
             if (!cloaking && has_cloak && no_spam) {
                 game.Cloak(ctx.bot->GetKeys());
                 ctx.blackboard.Set("SpamCheck", time + 300);
                 return behavior::ExecuteResult::Success;
             }
+//#endif
+//#if 0
             //in deva xradar is free so just turn it on
             if (!x_active && has_xradar && no_spam) {
-                    game.XRadar();
-                    ctx.blackboard.Set("SpamCheck", time + 300);
-                    return behavior::ExecuteResult::Success;
+                game.XRadar();
+                ctx.blackboard.Set("SpamCheck", time + 300);
+                return behavior::ExecuteResult::Success;
             }
+//#endif
+#endif
             return behavior::ExecuteResult::Failure;
         }
 
         bool FreqWarpAttachNode::CheckStatus(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
-            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy) * 100.0f;
+            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
             bool result = false;
-            if ((game.GetPlayer().status & 2) != 0) game.Cloak(ctx.bot->GetKeys());
-            //if ((game.GetPlayer().status & 1) != 0) game.Stealth();
-            if (energy_pct == 100.0f) result = true;
+            if ((game.GetPlayer().status & 2) != 0) {
+                game.Cloak(ctx.bot->GetKeys());
+                return false;
+            }
+            if ((game.GetPlayer().status & 1) != 0) {
+                game.Stealth();
+                return false;
+            }
+            if (energy_pct >= 100.0f) result = true;
             return result;
         }
 
@@ -169,9 +189,9 @@ namespace marvin {
                 CastResult in_sight = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
 
                 //make players in line of sight high priority
-                //TODO: add flaggers switch targets if enemy gets close to anchor
+
                 if (!in_sight.hit) {
-                    cost = CalculateCost(game, bot, player) / 1000;
+                    cost = CalculateCost(game, bot, player) / 100;
                 }
                 else {
                     cost = CalculateCost(game, bot, player);
@@ -198,10 +218,10 @@ namespace marvin {
                     target = current_target;
                 }
             }
-           
+
             //and this sets the current_target for the next loop
             ctx.blackboard.Set("target_player", target);
-            
+
             return result;
         }
 
@@ -221,9 +241,9 @@ namespace marvin {
         bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
             const auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
-            Area bot_is = ctx.bot->InArea(bot_player.position);
+            //Area bot_is = ctx.bot->InArea(bot_player.position);
 
-            if (target.dead && !bot_is.in_center) return false;
+            //if (target.dead && !bot_is.in_center) return false;
             if (target.id == game.GetPlayer().id) return false;
             if (target.ship > 7) return false;
             if (target.frequency == game.GetPlayer().frequency) return false;
@@ -265,9 +285,6 @@ namespace marvin {
 
         behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
-            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy) * 100.0f;
-            Area bot_is = ctx.bot->InArea(game.GetPosition());
-            if (energy_pct < 25.0f && bot_is.in_center) game.Repel(ctx.bot->GetKeys());
 
             Vector2f bot = game.GetPosition();
             Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
@@ -285,34 +302,9 @@ namespace marvin {
             auto& game = ctx.bot->GetGame();
             Vector2f from = game.GetPosition();
             Path path = ctx.blackboard.ValueOr("path", Path());
-            Area bot_is = ctx.bot->InArea(from);
-            Duelers enemy = ctx.bot->FindDuelers();
-            std::vector<Vector2f> nodes;
+            std::vector<Vector2f> nodes { Vector2f(570, 540), Vector2f(455, 540), Vector2f(455, 500), Vector2f(570, 500) };
             int index = ctx.blackboard.ValueOr<int>("patrol_index", 0);
-            int taunt_index = ctx.blackboard.ValueOr<int>("taunt_index", 0);
-            uint64_t time = ctx.bot->GetTime();
-            uint64_t hoorah_expire = ctx.blackboard.ValueOr<uint64_t>("HoorahExpire", 0);
-            bool in_safe = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
-
-            if (bot_is.in_center) {
-                nodes = { Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(568, 568),
-                Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454) };
-            }
-            else {
-                if (time > hoorah_expire && !enemy.enemy_in_base && !in_safe) {
-                    std::vector<std::string> taunts = { "we gotem", "man, im glad im not on that freq", "high score is that bad",
-                    "kill all humans", "that team is almost as bad as Daman24/7 is", "robots unite", "this is all thanks to my high quality attaching skills" };
-                    std::string taunt = taunts.at(taunt_index);
-                    game.SendChatMessage(taunt);
-                    taunt_index = (taunt_index + 1) % taunts.size();
-                    ctx.blackboard.Set("taunt_index", taunt_index);
-                    ctx.blackboard.Set("HoorahExpire", time + 600000);
-                }
             
-                return behavior::ExecuteResult::Failure;
-            }
-          
-
             Vector2f to = nodes.at(index);
 
             if (game.GetPosition().DistanceSq(to) < 5.0f * 5.0f) {
@@ -341,7 +333,7 @@ namespace marvin {
 
             Vector2f current = path.front();
 
-            while (path.size() > 1 && CanMoveBetween(game, game.GetPosition(), path.at(1))) { //while
+            while (path.size() > 1 && CanMoveBetween(game, game.GetPosition(), path.at(1))) {
                 path.erase(path.begin());
                 current = path.front();
             }
@@ -393,13 +385,7 @@ namespace marvin {
             CastResult ray_cast = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
 
             if (!ray_cast.hit) {
-                result = behavior::ExecuteResult::Success;
-                //if bot is not in center, almost dead, and in line of sight of its target burst
-                Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPlayer().position);
-                float energy_pct = ctx.bot->GetGame().GetEnergy() / (float)ctx.bot->GetGame().GetShipSettings().MaximumEnergy;
-                if (energy_pct < 0.10f && !bot_is.in_center) {
-                    ctx.bot->GetGame().Burst(ctx.bot->GetKeys());
-                }
+                result = behavior::ExecuteResult::Success;   
             }
 
             return result;
@@ -409,8 +395,7 @@ namespace marvin {
 
 
         behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            const auto target_player =
-                ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+            const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
             if (target_player == nullptr) return behavior::ExecuteResult::Failure;
 
@@ -436,7 +421,7 @@ namespace marvin {
                 game.GetSettings().ShipSettings[target.ship].GetRadius();
 
             float aggression = ctx.blackboard.ValueOr("aggression", 0.0f);
-            float radius_multiplier = 1.1f;
+            float radius_multiplier = 1.0f;
 
             //if the target is cloaking and bot doesnt have xradar make the bot shoot wide
             if (!(game.GetPlayer().status & 4)) {
@@ -477,12 +462,23 @@ namespace marvin {
             return behavior::ExecuteResult::Failure;
         }
 
+        bool LookingAtEnemyNode::CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target) {
+            if (bot_player.position.DistanceSq(target.position) > 60 * 60) return false;
+            if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
+
+            return true;
+        }
+
 
 
 
         behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            int ship = ctx.bot->GetGame().GetPlayer().ship;
-            if (ship == 3 || ship == 6) ctx.bot->GetKeys().Press(VK_TAB);
+           
+            const Player& target_player = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+           
+            if (ctx.bot->GetGame().GetPosition().DistanceSq(target_player.position) > 18 * 18) {
+                ctx.bot->GetKeys().Press(VK_TAB);
+            }
             else ctx.bot->GetKeys().Press(VK_CONTROL);
 
             return behavior::ExecuteResult::Success;
@@ -490,109 +486,39 @@ namespace marvin {
 
 
 
-
         behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
             
-            Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPlayer().position);
+            float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy;
             
-            float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
-            const Player& player = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-            float player_energy_pct = player.energy / (float)game.GetShipSettings().MaximumEnergy;
-            
-            float energy_check = ctx.blackboard.ValueOr<float>("EnergyCheck", 0);
-            bool emped = ctx.blackboard.ValueOr<bool>("Emped", false);
-            
-            uint64_t time = ctx.bot->GetTime();
-            uint64_t energy_time_check = ctx.blackboard.ValueOr<uint64_t>("EnergyTimeCheck", 0);
-            uint64_t emp_cooldown_check = ctx.blackboard.ValueOr<uint64_t>("EmpCooldown", 0);
-            uint64_t repel_cooldown = ctx.blackboard.ValueOr<uint64_t>("RepelCooldown", 0);
-            uint64_t repel_check = ctx.blackboard.ValueOr<uint64_t>("RepelCheck", 0);
-
+            Area bot_is = ctx.bot->InArea(game.GetPosition());
             bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
             Vector2f target_position = ctx.blackboard.ValueOr("target_position", Vector2f());
-
-            /*monkey> no i dont have a list of the types
-monkey> i think it's some kind of combined thing with weapon flags in it
-monkey> im pretty sure type & 0x01 is whether or not it's bouncing
-monkey> and the 0x8000 is the alternative bit for things like mines and multifire
-monkey> i was using type & 0x8F00 to see if it was a mine and it worked decently well
-monkey> 0x0F00 worked ok for seeing if its a bomb
-monkey> and 0x00F0 for bullet, but i don't think it's exact*/
-
-            /*
-            0x0000 = nothing
-            0x1000 & 0x0F00 & 0x1100 & 0x1800 & 0x1F00 & 0x0001 = mine or bomb
-            0x0800 = emp mine or bomb
-            0x8000 & 0x8100 = mine or multifire
-            0x8001 = multi mine bomb
-            0xF000 & 0x8800 & 0x8F00 & 0xF100 & 0xF800 & 0xFF00 = mine multi bomb
-            0x000F & 0x00F0 = any weapon
-
-            stopped at 0x0F01
-            */
-            
-//#if 0
-            //weapon type sees mines and bombs as same so this checks if the bomb is in the same position
-            //so it only triggers for mines
-            Vector2f weapon_position = ctx.blackboard.ValueOr<Vector2f>("WeaponPosition", Vector2f());
-            const Player* weapon_player_ = ctx.blackboard.ValueOr<const Player*>("WeaponPlayer", nullptr);
-
-            if (time > repel_check) {
-                for (Weapon* weapon : game.GetWeapons()) {
-                    const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
-                    if (weapon_player == nullptr) continue;
-                    if (weapon_player->frequency == game.GetPlayer().frequency) continue;
-                    if (weapon->GetType() & 0x8000) {
-                        ctx.blackboard.Set("WeaponPosition", weapon->GetPosition());
-                        ctx.blackboard.Set("WeaponPlayer", weapon_player);
-                        if (weapon_position == weapon->GetPosition() && weapon_player_ == weapon_player) {
-                            //when it gets hit with a bomb its a false trigger so check against bots position
-                            if (weapon_position.Distance(game.GetPosition()) < 8.0f) {
-                                //if (time > repel_cooldown) {
-                                    game.Repel(ctx.bot->GetKeys());
-                                    //ctx.bot->GetKeys().Press(VK_TAB);
-                                   // ctx.blackboard.Set("RepelCooldown", time + 50);
-                                   // return behavior::ExecuteResult::Success;
-                                //}
-                            }
-                        }
-                    }
+          
+            int ship = game.GetPlayer().ship;
+            //#if 0
+            Vector2f mine_position(0, 0);
+            for (Weapon* weapon : game.GetWeapons()) {
+                const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
+                if (weapon_player == nullptr) continue;
+                if (weapon_player->frequency == game.GetPlayer().frequency) continue;
+                if (weapon->GetType() & 0x8000) mine_position = (weapon->GetPosition());
+                if (mine_position.Distance(game.GetPosition()) < 5.0f) {
+                    game.Repel(ctx.bot->GetKeys());
                 }
-                ctx.blackboard.Set("RepelCheck", time + 100);
             }
-//#endif
+            //#endif
             float hover_distance = 0.0f;
-            if (time > energy_time_check) {
-                float energy = (float)game.GetEnergy();
-                ctx.blackboard.Set("EnergyTimeCheck", time + 25);
-                ctx.blackboard.Set("EnergyCheck", energy);
-                if (energy == energy_check && energy_pct < 0.95f) {
-                    ctx.blackboard.Set("Emped", true);
-                    ctx.blackboard.Set("EmpCooldown", time + 1000);
-                }
-            }
-            if (emped && time > emp_cooldown_check) {
-                ctx.blackboard.Set("Emped", 0);
-            }
+         
 
             if (in_safe) hover_distance = 0.0f;
-            else {
-                if (bot_is.in_center) {
-                    if (emped) {
-                        hover_distance = 30.0f;
-                    }
-                    else {
-                        float diff = (energy_pct - player_energy_pct) * 20.0f;
-                        hover_distance = 10.0f - diff;
-                        if (hover_distance < 0.0f) hover_distance = 0.0f;
-                    }
-                }
-                else {
-                    hover_distance = 3.0f;
-                }
+            else if (bot_is.in_center) {
+                hover_distance = 10.0f / energy_pct;  
             }
-
+            else {
+                hover_distance = 3.0f / energy_pct;
+            }
+            if (hover_distance < 0.0f) hover_distance = 0.0f;
             const Player& shooter = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
             ctx.bot->Move(target_position, hover_distance);
@@ -648,5 +574,5 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
             return false;
         }
-	} //namespace deva
+    } //namespace eg
 } //namespace marvin

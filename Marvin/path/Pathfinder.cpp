@@ -62,18 +62,34 @@ namespace marvin {
             return std::sqrt(dx * dx + dy * dy);
         }
 
-        Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor)
-            : processor_(std::move(processor)) {}
+        Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor) : processor_(std::move(processor)) {}
 
-        std::vector<Vector2f> Pathfinder::FindPath(const Vector2f& from,
-            const Vector2f& to, float radius) {
+        std::vector<Vector2f> Pathfinder::FindPath(std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to, float radius) {
+           
             std::vector<Vector2f> path;
 
             processor_->ResetNodes();
 
             Node* start = processor_->GetNode(ToNodePoint(from));
             Node* goal = processor_->GetNode(ToNodePoint(to));
-
+            
+#if 0
+            if (processor_->IsSolid(goal->point.x, goal->point.y)) {
+                NodePoint point = ToNodePoint(to);
+                
+                for (int x = -1; x <= 1; x++) {
+                    for (int y = -1; y <= 1; y++) {
+                        point.x += x;
+                        point.y += y;
+                        if (!processor_->IsSolid(point.x, point.y)) {
+                            goal = processor_->GetNode(point);
+                            break;
+                        }
+                    }
+                }
+                
+            }
+#endif
             if (start == nullptr || goal == nullptr) {
                 return path;
             }
@@ -90,7 +106,7 @@ namespace marvin {
 
                 node->closed = true;
 
-                NodeConnections connections = processor_->FindEdges(node, start, goal, radius);
+                NodeConnections connections = processor_->FindEdges(mines, node, start, goal, radius);
 
                 for (std::size_t i = 0; i < connections.count; ++i) {
                     Node* edge = connections.neighbors[i];

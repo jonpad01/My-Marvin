@@ -12,9 +12,35 @@
 #include "platform/Platform.h"
 #include "Hyperspace.h"
 #include "Devastation.h"
+#include "ExtremeGames.h"
 
 
 namespace marvin {
+   
+#if 0
+    bool WallShot(behavior::ExecuteContext& ctx, const marvin::Player& bot_player) {
+        int bounces = 2;
+        Vector2f position = bot_player.position;
+        Vector2f initial_heading = bot_player.GetHeading() * (ctx.bot->GetGame().GetShipSettings().BombSpeed / 16.0f / 10.0f);
+        Vector2f direction = Normalize(initial_heading + bot_player.velocity);
+        for (int i = 0; i < bounces + 1; ++i) {
+            CastResult result = RayCast(ctx.bot->GetGame().GetMap(), position, direction, 1000.0f);
+
+            if (result.hit) {
+                //RenderWorldLine(player, position, result.position);
+                //RenderRadarLine(player, position, result.position, game_->GetSettings().MapZoomFactor);
+
+                direction = direction - (result.normal * (2.0f * direction.Dot(result.normal)));
+
+                position = result.position;
+            }
+            else {
+                //RenderWorldLine(player, position, position + direction * result.distance);
+                break;
+            }
+        }
+    }
+#endif
     //the viewing area the bot could see if it were a player
     bool InRect(marvin::Vector2f pos, marvin::Vector2f min_rect,
         marvin::Vector2f max_rect) {
@@ -68,7 +94,8 @@ namespace marvin {
 
     float PathingNode::PathLength(behavior::ExecuteContext& ctx, Vector2f from, Vector2f to) {
         auto& game = ctx.bot->GetGame();
-        Path path = ctx.bot->GetPathfinder().FindPath(from, to, game.GetSettings().ShipSettings[6].GetRadius());
+        std::vector< Vector2f > mines;
+        Path path = ctx.bot->GetPathfinder().FindPath(mines, from, to, game.GetSettings().ShipSettings[6].GetRadius());
         //Path path = CreatePath(ctx, "length", from, to, game.GetSettings().ShipSettings[6].GetRadius());
         float length = from.Distance(path[0]);
         
@@ -89,6 +116,7 @@ namespace marvin {
     Path PathingNode::CreatePath(behavior::ExecuteContext& ctx, const std::string& pathname, Vector2f from, Vector2f to, float radius) {
         bool build = true;
         auto& game = ctx.bot->GetGame();
+
 
         Path path = ctx.blackboard.ValueOr(pathname, Path());
 
@@ -117,7 +145,16 @@ namespace marvin {
         }
 
         if (build) {
-            path = ctx.bot->GetPathfinder().FindPath(from, to, radius);
+            std::vector<Vector2f> mines;
+//#if 0
+            for (Weapon* weapon : game.GetWeapons()) {
+                const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
+                if (weapon_player == nullptr) continue;
+                if (weapon_player->frequency == game.GetPlayer().frequency) continue;
+                if (weapon->GetType() & 0x8000) mines.push_back(weapon->GetPosition());
+            }
+//#endif
+            path = ctx.bot->GetPathfinder().FindPath(mines, from, to, radius);
             path = ctx.bot->GetPathfinder().SmoothPath(path, game.GetMap(), radius);
         }
 
@@ -127,7 +164,7 @@ namespace marvin {
 void Bot::Hyperspace() {
 
     
-        // auto freq_or_warp = std::make_unique<FreqOrWarp>();
+        auto freq_warp_attach = std::make_unique<hs::FreqWarpAttachNode>();
         auto find_enemy = std::make_unique<hs::FindEnemyNode>();
         auto looking_at_enemy = std::make_unique<hs::LookingAtEnemyNode>();
         auto target_in_los = std::make_unique<hs::InLineOfSightNode>(
@@ -171,10 +208,11 @@ void Bot::Hyperspace() {
         auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
         //handle enemy is the first step, it moves directly into find_enemy, if find enemy fails it falls back to patrol path sequence
         auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
-        //this is the beginning of the behavoir tree, the selector nodes always start with the first argument (handle enemy)
-        auto root_selector = std::make_unique<behavior::SelectorNode>(/*freq_or_warp.get(), */handle_enemy.get(), patrol_path_sequence.get());
+        //this is the beginning of the behavoir tree, the selector nodes always start with the first argument
+        //if the first argument returns a failure then the selector runs the next node
+        auto root_selector = std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
 
-        // behavior_nodes_.push_back(std::move(freq_or_warp));
+        behavior_nodes_.push_back(std::move(freq_warp_attach));
         behavior_nodes_.push_back(std::move(find_enemy));
         behavior_nodes_.push_back(std::move(looking_at_enemy));
         behavior_nodes_.push_back(std::move(target_in_los));
@@ -198,6 +236,8 @@ void Bot::Hyperspace() {
 }
 
 void Bot::Devastation() {
+
+    auto freq_warp_attach = std::make_unique<deva::FreqWarpAttachNode>();
     auto find_enemy = std::make_unique<deva::FindEnemyNode>();
     auto looking_at_enemy = std::make_unique<deva::LookingAtEnemyNode>();
     auto target_in_los = std::make_unique<deva::InLineOfSightNode>(
@@ -218,9 +258,8 @@ void Bot::Devastation() {
     auto move_to_enemy = std::make_unique<deva::MoveToEnemyNode>();
     auto follow_path = std::make_unique<deva::FollowPathNode>();
     auto patrol = std::make_unique<deva::PatrolNode>();
-    auto bundle_shots = std::make_unique<deva::BundleShots>();
 
-    auto move_method_selector = std::make_unique<behavior::SelectorNode>(bundle_shots.get(), move_to_enemy.get());
+    auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
     auto shoot_sequence = std::make_unique<behavior::SequenceNode>(looking_at_enemy.get(), shoot_enemy.get());
     auto parallel_shoot_enemy = std::make_unique<behavior::ParallelNode>(shoot_sequence.get(), move_method_selector.get());
     auto los_shoot_conditional = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy.get());
@@ -228,8 +267,9 @@ void Bot::Devastation() {
     auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path.get());
     auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
     auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
-    auto root_selector = std::make_unique<behavior::SelectorNode>(handle_enemy.get(), patrol_path_sequence.get());
+    auto root_selector = std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
 
+    behavior_nodes_.push_back(std::move(freq_warp_attach));
     behavior_nodes_.push_back(std::move(find_enemy));
     behavior_nodes_.push_back(std::move(looking_at_enemy));
     behavior_nodes_.push_back(std::move(target_in_los));
@@ -238,7 +278,62 @@ void Bot::Devastation() {
     behavior_nodes_.push_back(std::move(move_to_enemy));
     behavior_nodes_.push_back(std::move(follow_path));
     behavior_nodes_.push_back(std::move(patrol));
-    behavior_nodes_.push_back(std::move(bundle_shots));
+
+    behavior_nodes_.push_back(std::move(move_method_selector));
+    behavior_nodes_.push_back(std::move(shoot_sequence));
+    behavior_nodes_.push_back(std::move(parallel_shoot_enemy));
+    behavior_nodes_.push_back(std::move(los_shoot_conditional));
+    behavior_nodes_.push_back(std::move(enemy_path_sequence));
+    behavior_nodes_.push_back(std::move(patrol_path_sequence));
+    behavior_nodes_.push_back(std::move(path_or_shoot_selector));
+    behavior_nodes_.push_back(std::move(handle_enemy));
+    behavior_nodes_.push_back(std::move(root_selector));
+}
+
+void Bot::ExtremeGames() {
+
+    auto freq_warp_attach = std::make_unique<eg::FreqWarpAttachNode>();
+    auto find_enemy = std::make_unique<eg::FindEnemyNode>();
+    auto looking_at_enemy = std::make_unique<eg::LookingAtEnemyNode>();
+    auto target_in_los = std::make_unique<eg::InLineOfSightNode>(
+        [](marvin::behavior::ExecuteContext& ctx) {
+            const Vector2f* result = nullptr;
+
+            const Player* target_player =
+                ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+
+            if (target_player) {
+                result = &target_player->position;
+            }
+            return result;
+        });
+
+    auto shoot_enemy = std::make_unique<eg::ShootEnemyNode>();
+    auto path_to_enemy = std::make_unique<eg::PathToEnemyNode>();
+    auto move_to_enemy = std::make_unique<eg::MoveToEnemyNode>();
+    auto follow_path = std::make_unique<eg::FollowPathNode>();
+    auto patrol = std::make_unique<eg::PatrolNode>();
+ 
+
+    auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+    auto shoot_sequence = std::make_unique<behavior::SequenceNode>(looking_at_enemy.get(), shoot_enemy.get());
+    auto parallel_shoot_enemy = std::make_unique<behavior::ParallelNode>(shoot_sequence.get(), move_method_selector.get());
+    auto los_shoot_conditional = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy.get());
+    auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
+    auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path.get());
+    auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
+    auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
+    auto root_selector = std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
+
+    behavior_nodes_.push_back(std::move(freq_warp_attach));
+    behavior_nodes_.push_back(std::move(find_enemy));
+    behavior_nodes_.push_back(std::move(looking_at_enemy));
+    behavior_nodes_.push_back(std::move(target_in_los));
+    behavior_nodes_.push_back(std::move(shoot_enemy));
+    behavior_nodes_.push_back(std::move(path_to_enemy));
+    behavior_nodes_.push_back(std::move(move_to_enemy));
+    behavior_nodes_.push_back(std::move(follow_path));
+    behavior_nodes_.push_back(std::move(patrol));
 
     behavior_nodes_.push_back(std::move(move_method_selector));
     behavior_nodes_.push_back(std::move(shoot_sequence));
@@ -253,14 +348,9 @@ void Bot::Devastation() {
 
 Bot::Bot(std::unique_ptr<GameProxy> game) : game_(std::move(game)), steering_(this) {
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
-  bool in_hs = game_->Zone() == "hyperspace";
-  bool in_deva = game_->Zone() == "devastation";
+  
   last_ship_change_ = 0;
   last_base_change_ = 0;
-  last_attach = 0;
-  last_page = 0;
-  page_count = 0;
-  repel_trigger = 0;
   ship_ = game_->GetPlayer().ship;
   
 
@@ -270,16 +360,13 @@ Bot::Bot(std::unique_ptr<GameProxy> game) : game_(std::move(game)), steering_(th
   
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
 
-  if (in_hs) {
+  if (game_->Zone() == "hyperspace") {
       Hyperspace();
       behavior_ctx_.blackboard.Set("patrol_nodes", std::vector<Vector2f>({ Vector2f(585, 540), Vector2f(400, 570) }));
       behavior_ctx_.blackboard.Set("patrol_index", 0);
   }
-  else if (in_deva) {
-      Devastation();
-      behavior_ctx_.blackboard.Set("patrol_nodes", std::vector<Vector2f>({ Vector2f(551, 469), Vector2f(551, 552) }));
-      behavior_ctx_.blackboard.Set("patrol_index", 0);
-  }
+  else if (game_->Zone() == "devastation") Devastation();
+  else if (game_->Zone() == "extreme games") ExtremeGames();
 
   behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
 
@@ -292,6 +379,7 @@ void Bot::Update(float dt) {
     game_->Update(dt);
     bool in_hs = game_->Zone() == "hyperspace";
     bool in_deva = game_->Zone() == "devastation";
+    bool in_eg = game_->Zone() == "extreme games";
     uint64_t timestamp = GetTime();
     uint64_t ship_cooldown = 10000;
     if (in_deva) ship_cooldown = 10800000;
@@ -305,198 +393,6 @@ void Bot::Update(float dt) {
         }
         return;
     }
-
-    MapCoord spawn = game_->GetSettings().SpawnSettings[0].GetCoord();
-    MapCoord current_coord((uint16_t)game_->GetPosition().x,
-        (uint16_t)game_->GetPosition().y);
-    Vector2f bot_position = game_->GetPlayer().position;
-    Players lanc = FindFlaggers();
-    const Player& enemy = lanc.enemy;
-    const Player& team = lanc.team;
-    bool lanc_in_safe = game_->GetMap().GetTileId(lanc.team.position) == kSafeTileId;
-    Area lanc_is = InArea(lanc.team.position);
-    Area bot_is = InArea(game_->GetPlayer().position);
-    Area enemy_is = InArea(enemy.position);
-    
-    int bot_ship = game_->GetPlayer().ship;
-    bool flagging = game_->GetPlayer().frequency == 90 || game_->GetPlayer().frequency == 91;
-    bool in_lanc = game_->GetPlayer().ship == 6;
-    bool anchor = flagging && in_lanc;
-    bool in_safe = game_->GetMap().GetTileId(game_->GetPosition()) == kSafeTileId;
-    //initial energy is basically the ships max energy without any prizes
-    float energy_pct = (game_->GetEnergy() / (float)game_->GetShipSettings().InitialEnergy) * 100.0f;
-    bool respawned = in_safe && bot_is.in_center && energy_pct == 100.0f;
-    //creates a 200ms delay to prevent the bot from spamming
-    bool no_spam = timestamp - last_ship_change_ > 200;
-    bool no_ship_spam = timestamp - last_ship_change_ > 1000;
-    bool stealth_cooldown = timestamp - last_ship_change_ > 400;
-    //lancs can flash cloak on/off to update thier position when far away
-    bool flash_cooldown = timestamp - last_ship_change_ > 30000;
-    bool duel_wait = timestamp - last_ship_change_ > 5000;
-    bool no_attach_spam = timestamp - last_attach > 200;
-    bool no_page_spam = timestamp - last_page > 10;
-    if (in_hs) {
-        if (bot_is.in_base && enemy_is.in_diff) {
-            if (CheckStatus()) GetGame().Warp();
-            return;
-        }
-        //checkstatus turns off stealth and cloak before warping
-        if (!bot_is.in_center && !flagging) {
-            if (CheckStatus()) game_->Warp();
-            return;
-        }
-        //join a flag team, spams too much without the timer
-        if (lanc.flaggers < 20 && !flagging && respawned && no_spam) {
-            if (CheckStatus()) game_->Flag();
-            last_ship_change_ = timestamp;
-        }
-        //switch to lanc if team doesnt have one
-        if (flagging && lanc.team_lancs == 0 && !in_lanc && respawned && no_spam) {
-            //try to remember what ship it was in
-            behavior_ctx_.blackboard.Set<int>("last_ship", game_->GetPlayer().ship);
-            if (CheckStatus()) game_->SetShip(6);
-            last_ship_change_ = timestamp;
-        }
-        //if there is more than two lancs on the team, switch back to original ship
-        if (flagging && lanc.team_lancs > 1 && in_lanc && no_spam) {
-            if (lanc_is.in_base || !bot_is.in_base) {
-                int ship = behavior_ctx_.blackboard.ValueOr<int>("last_ship", 0);
-                if (CheckStatus()) game_->SetShip(ship);
-                last_ship_change_ = timestamp;
-            }
-        }
-
-        //leave a flag team by spectating, will reenter ship on the next update
-        if (lanc.flaggers > 22 && flagging && !in_lanc && respawned && no_spam) {
-            if (CheckStatus()) game_->Spec();
-            last_ship_change_ = timestamp;
-        }
-
-        //if flagging try to attach
-        if (flagging && !lanc_in_safe && !in_lanc && no_spam) {
-            uint16_t target = lanc.team.id;
-            bool same_target = target == last_target;
-            //all ships will attach after respawning, all but lancs will attach if not in the same base
-            if (respawned || (!lanc_is.connected && (same_target || lanc.team_lancs < 2))) {
-                if (CheckStatus()) game_->Attach(lanc.team.name);
-                last_ship_change_ = timestamp;
-                last_target = target;
-            }
-        }
-    }
-    if (in_deva) {
-        Players duelers = FindDuelers();
-        int open_freq = FindOpenFreq();
-        bool dueling = game_->GetPlayer().frequency == 00 || game_->GetPlayer().frequency == 01;
-        bool on_0 = game_->GetPlayer().frequency == 00;
-        bool on_1 = game_->GetPlayer().frequency == 01;
-        
-        //if baseduelers are uneven jump in
-        if (duelers.freq_0s > duelers.freq_1s) {
-            if (!dueling && no_spam) {
-                 game_->SetFreq(1);
-                last_ship_change_ = timestamp;
-            }
-            //if on team and uneven jump out
-            else if (on_0 && no_spam && (bot_is.in_deva_center || duelers.in_base)) {
-                game_->SetFreq(open_freq);
-                last_ship_change_ = timestamp;
-                return;
-            }
-        }
-        if (duelers.freq_0s < duelers.freq_1s) {
-            if (!dueling && no_spam) {
-                game_->SetFreq(0);
-                last_ship_change_ = timestamp;
-            }
-            else if (on_1 && no_spam && (bot_is.in_deva_center || duelers.in_base)) {
-                game_->SetFreq(open_freq);
-                last_ship_change_ = timestamp;
-                return;
-            }
-        }
-        //if dueling then attach, the page trigger keeps bot from sending page and f7 in the same loop, that causes the page key to be ignored
-        if (dueling) {
-        float deva_energy_pct = (game_->GetEnergy() / (float)game_->GetShipSettings().InitialEnergy) * 100.0f;
-                if (bot_is.in_deva_center && duelers.duel_team.size() != 0 && duelers.in_base) {
-                    int size = game_->GetPlayers().size();
-                    bool page_trigger = 0;
-                    if (page_count < size && no_page_spam) {
-                        game_->PageDown(); 
-                        page_trigger = 1;
-                        page_count++;
-                        last_page = timestamp;
-                    }
-                    if (page_count >= size && no_page_spam) {
-                        game_->PageUp();
-                        page_trigger = 1;
-                        page_count++;
-                        last_page = timestamp;
-                        if (page_count > size * 2) {
-                            page_count = 0;
-                        }
-                    }
-                    if (!page_trigger) {
-                        game_->F7();
-                    }
-                   //return the flow back to main.cpp, the bot effectivly does nothing until this condition is not met
-                    return;
-                }
-                bool attached = 0;
-                //try to repel then detach
-                for (std::size_t i = 0; i < duelers.duel_team.size(); i++) {
-                    const Player& player = duelers.duel_team[i];
-                    if (player.position == bot_position && !in_safe) {
-                        attached = 1;
-                    }
-                }
-                
-                if (attached) {
-                    if (repel_trigger < 18) {
-                        game_->F7();
-                        repel_trigger++;                     
-                    }
-                    if (repel_trigger == 18) {
-                        keys_.Press(VK_SHIFT);
-                        keys_.Press(VK_CONTROL);
-                        //repel_trigger++;
-                        repel_trigger = 0;
-                    }
-                   // if (repel_trigger > 22) repel_trigger = 0;
-                    return;
-                }
-                
-        }
-        
-    }
-
-    
-  
-    bool x_active = (game_->GetPlayer().status & 4) != 0;
-    bool has_xradar = (game_->GetShipSettings().XRadarStatus & 1);
-    bool stealthing = (game_->GetPlayer().status & 1) != 0;
-    bool cloaking = (game_->GetPlayer().status & 2) != 0;
-    bool has_stealth = (game_->GetShipSettings().StealthStatus & 2);
-    bool has_cloak = (game_->GetShipSettings().CloakStatus & 2);
-   
-    //if stealth isnt on but availible, presses home key in continuumgameproxy.cpp
-    if (!stealthing && has_stealth && stealth_cooldown) {
-        game_->Stealth();
-        last_ship_change_ = timestamp;
-    }
-    //same as stealth but presses shift first
-    if ((!cloaking && has_cloak && stealth_cooldown) || (anchor && flash_cooldown)) {
-      game_->Cloak(keys_);
-      last_ship_change_ = timestamp;
-    }
-    //in deva xradar is free so just turn it on
-    if (!x_active && has_xradar && stealth_cooldown) {
-        if (in_deva) {
-        game_->XRadar();
-        last_ship_change_ = timestamp;
-        }
-    }
-  
 
   steering_.Reset();
 
@@ -620,10 +516,12 @@ void Bot::Steer() {
               RenderText_Centered);
           debug_y -= 20;
       }
+
+
 #endif
 }
 
-void Bot::Move(const Vector2f& target, float target_distance) { //const Vector2f& target
+void Bot::Move(const Vector2f& target, float target_distance) {
   const Player& bot_player = game_->GetPlayer();
   float distance = bot_player.position.Distance(target);
   Vector2f heading = game_->GetPlayer().GetHeading();
@@ -631,8 +529,8 @@ void Bot::Move(const Vector2f& target, float target_distance) { //const Vector2f
   Vector2f target_position = behavior_ctx_.blackboard.ValueOr("target_position", Vector2f());
   float dot = heading.Dot(Normalize(target_position - game_->GetPosition()));
   bool anchor = (bot_player.frequency == 90 || bot_player.frequency == 91) && bot_player.ship == 6;
-  Players lanc = FindFlaggers();
-  const Player& enemy = lanc.enemy;
+  Flaggers flaggers = FindFlaggers();
+  const Player& enemy = flaggers.enemy_anchor;
   Area enemy_is = InArea(enemy.position);
   Area bot_is = InArea(bot_player.position);
   //seek makes the bot hunt the target hard
@@ -640,26 +538,18 @@ void Bot::Move(const Vector2f& target, float target_distance) { //const Vector2f
   //this works with steering.Face in MoveToEnemyNode
   //there is a small gap where the bot wont do anything at all
   if (distance > target_distance) {
-      if (anchor && bot_is.in_base && enemy_is.connected) steering_.AnchorSpeed(target);
+      if (bot_is.in_base && enemy_is.connected && (anchor || game_->GetPlayer().ship == 2)) {
+              steering_.AnchorSpeed(target); 
+      }
       else steering_.Seek(target);
   }
   
- // if (distance < target_distance) {
-      //steering_.Arrive(target, 0.3f);
-  //}
-  if (distance < target_distance) {
-      if (dot < 0.85f) steering_.Face(target);
-      if (dot > 0.55f) {
-          keys_.Press(VK_DOWN);
-      }
-      else if (dot < 0.54f) {
-          keys_.Press(VK_UP);
-      }
-  }
-      /*Vector2f to_target = target - bot_player.position;
+  else if (distance <= target_distance) {
+      
+      Vector2f to_target = target - bot_player.position;
 
-      steering_.Seek(target - Normalize(to_target) * target_distance);*/
-  
+      steering_.Seek(target - Normalize(to_target) * target_distance);
+  }
 }
 
 uint64_t Bot::GetTime() const {
@@ -672,23 +562,22 @@ Area Bot::InArea(Vector2f position) {
     Area result = { 0 };
     Vector2f position_ = game_->GetPlayer().position;
 
-    result.in_center = regions_->IsConnected(position, Vector2f(453, 472));
-    result.in_tunnel = regions_->IsConnected(position, Vector2f(27, 354));
-    result.in_1 = regions_->IsConnected(position, Vector2f(854, 358));
-    result.in_2 = regions_->IsConnected(position, Vector2f(823, 488));
-    result.in_3 = regions_->IsConnected(position, Vector2f(696, 817));
-    result.in_4 = regions_->IsConnected(position, Vector2f(587, 776));
-    result.in_5 = regions_->IsConnected(position, Vector2f(125, 877));
-    result.in_6 = regions_->IsConnected(position, Vector2f(254, 493));
-    result.in_7 = regions_->IsConnected(position, Vector2f(154, 358));
-    result.in_8 = regions_->IsConnected(position, Vector2f(620, 250));
+    result.in_center = regions_->IsConnected((MapCoord)position, MapCoord(512, 512));
+    result.in_tunnel = regions_->IsConnected((MapCoord)position, MapCoord(27, 354));
+    result.in_1 = regions_->IsConnected((MapCoord)position, MapCoord(854, 358));
+    result.in_2 = regions_->IsConnected((MapCoord)position, MapCoord(823, 488));
+    result.in_3 = regions_->IsConnected((MapCoord)position, MapCoord(696, 817));
+    result.in_4 = regions_->IsConnected((MapCoord)position, MapCoord(587, 776));
+    result.in_5 = regions_->IsConnected((MapCoord)position, MapCoord(125, 877));
+    result.in_6 = regions_->IsConnected((MapCoord)position, MapCoord(254, 493));
+    result.in_7 = regions_->IsConnected((MapCoord)position, MapCoord(154, 358));
+    result.in_8 = regions_->IsConnected((MapCoord)position, MapCoord(620, 250));
     result.in_base = result.in_1 || result.in_2 || result.in_3 || result.in_4 || result.in_5 || result.in_6 || result.in_7;
-    result.connected = regions_->IsConnected(position, position_);
+    result.connected = regions_->IsConnected((MapCoord)position, (MapCoord)position_);
     //should be used on enemy targets
-    result.in_diff = !regions_->IsConnected(position, position_) && result.in_base;
+    result.in_diff = !regions_->IsConnected((MapCoord)position, (MapCoord)position_) && result.in_base;
     //stores first 7 results in a vector
     result.in = { result.in_1, result.in_2, result.in_3, result.in_4, result.in_5, result.in_6, result.in_7 };
-    result.in_deva_center = regions_->IsConnected(position, Vector2f(551, 552));
 
     return result;
 }
@@ -699,23 +588,22 @@ int Bot::BaseSelector() {
     if (base_cooldown) {
         base++;
         behavior_ctx_.blackboard.Set<int>("base", base);
+        last_base_change_ = timestamp;
     }
-    last_base_change_ = timestamp;
+    
     if (base > 6) {
         base = 0;
         behavior_ctx_.blackboard.Set<int>("base", base);
     }
     return base;
 }
-Players Bot::FindFlaggers() {
+Flaggers Bot::FindFlaggers() {
     std::vector < Player > players = game_->GetPlayers();
     const Player& bot = game_->GetPlayer();
     Vector2f position = game_->GetPlayer().position;
-    std::vector < Player > enemy; //*
-    std::vector < Player > team; //*
-    Players result; // = { nullptr };
-    int flaggers = 0;
-    int team_lancs = 0;
+    std::vector < Player > enemy_anchors, team_anchors;
+    Flaggers result;
+    result.flaggers = 0; result.team_lancs = 0; result.team_spiders = 0;
     
     //grab all flaggers in lancs and sort by team then store in a vector
     for (std::size_t i = 0; i < players.size(); ++i) {
@@ -726,76 +614,73 @@ Players Bot::FindFlaggers() {
         bool same_team = player.frequency == bot.frequency;
 
         if (flagging && player.name[0] != '<') {
-            flaggers++;
-            if (player.ship == 6 && same_team) team_lancs++;
+            result.flaggers++;
+            if (player.ship == 6 && same_team) result.team_lancs++;
+            if (player.ship == 2 && same_team) result.team_spiders++;
             if (player.ship == 6 && not_bot) {
                 //find and store in a vector
-                if (enemy_team) enemy.push_back(players[i]); //&
-                if (same_team) team.push_back(players[i]); //&
+                if (enemy_team) enemy_anchors.push_back(players[i]);
+                if (same_team) team_anchors.push_back(players[i]);
             }
         }
     }
-    result.flaggers = flaggers;
-    result.team_lancs = team_lancs;
+   
     //loops through lancs and rejects any not in base, unless it reaches the last one
-    for (std::size_t i = 0; i < enemy.size(); i++) {
-        const Player& player = enemy[i]; //*
+    for (std::size_t i = 0; i < enemy_anchors.size(); i++) {
+        const Player& player = enemy_anchors[i];
         Area player_is = InArea(player.position);
-        if (!player_is.in_base && i != enemy.size() - 1) {
+        if (!player_is.in_base && i != enemy_anchors.size() - 1) {
             continue;
         }
         else {
-            result.enemy = enemy[i];
+            result.enemy_anchor = enemy_anchors[i];
         }
     }
-    for (std::size_t i = 0; i < team.size(); i++) {
-        const Player& player = team[i]; //*
+    for (std::size_t i = 0; i < team_anchors.size(); i++) {
+        const Player& player = team_anchors[i];
         Area player_is = InArea(player.position);
-        if (!player_is.in_base && i != team.size() - 1) {
+        if (!player_is.in_base && i != team_anchors.size() - 1) {
             continue;
         }
         else {
-            result.team = team[i];
+            result.team_anchor = team_anchors[i];
         }
     }
     return result;
 }
-Players Bot::FindDuelers() {
+Duelers Bot::FindDuelers() {
     std::vector < Player > players = game_->GetPlayers();
     const Player& bot = game_->GetPlayer();
-    std::vector < Player > team; 
-    Players result;
-    int freq_0s = 0;
-    int freq_1s = 0;
-    bool in_base = 0;
+    
+    Duelers result = { 0 };
+
+    //find team sizes and push team mates into a vector
     for (std::size_t i = 0; i < players.size(); i++) {
         const Player& player = players[i];
-        if (player.frequency == 00) freq_0s++;
-        if (player.frequency == 01) freq_1s++;
+        Area player_is = InArea(player.position);
+        if (player.frequency == 00) result.freq_0s++;
+        if (player.frequency == 01) result.freq_1s++;
         bool dueling = player.frequency == 00 || player.frequency == 01;
         bool not_bot = player.id != bot.id;
-        bool same_team = player.frequency == bot.frequency;
-        if (dueling && not_bot && same_team) {
-            team.push_back(players[i]);
+        if (dueling && not_bot) {
+            if (player.frequency == bot.frequency) {
+                if (!player_is.in_center) result.team_in_base = 1;
+                result.team.push_back(players[i]);
+            }
+            else if (player.frequency != bot.frequency) {
+                if (!player_is.in_center) result.enemy_in_base = 1;
+            }
         }
     }
-    for (std::size_t i = 0; i < team.size(); i++) {
-        const Player& player = team[i];
-        Area player_is = InArea(player.position);
-        if (!player_is.in_deva_center) in_base = 1;
-    }
-    result.freq_0s = freq_0s;
-    result.freq_1s = freq_1s;
-    result.duel_team = team;
-    result.in_base = in_base;
+    
     return result;
 }
 bool Bot::CheckStatus() {
     float energy_pct = (game_->GetEnergy() / (float)game_->GetShipSettings().InitialEnergy) * 100.0f;
-    bool result = 0;
+    bool result = false;
     if ((game_->GetPlayer().status & 2) != 0) game_->Cloak(keys_);
     if ((game_->GetPlayer().status & 1) != 0) game_->Stealth();
-    if (energy_pct == 100.0f) result = 1;
+    if (energy_pct == 100.0f) result = true;
     return result;
 }
 int Bot::FindOpenFreq() {

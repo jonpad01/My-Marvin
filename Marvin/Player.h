@@ -14,10 +14,12 @@ struct Player {
   std::string name;
   std::string squad;
   std::string wins;
+  bool dead;
 
   int32_t energy;
   uint16_t id;
   uint16_t ship;
+  int32_t bounty;
 
   Vector2f position;
   Vector2f velocity;

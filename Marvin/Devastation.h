@@ -5,6 +5,13 @@
 namespace marvin {
     namespace deva {
 
+        class FreqWarpAttachNode : public behavior::BehaviorNode {
+        public:
+            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+        private:
+            bool CheckStatus(behavior::ExecuteContext& ctx);
+        };
+
         class FindEnemyNode : public PathingNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
@@ -47,8 +54,7 @@ namespace marvin {
 
         class InLineOfSightNode : public behavior::BehaviorNode {
         public:
-            using VectorSelector =
-                std::function<const Vector2f * (marvin::behavior::ExecuteContext&)>;
+            using VectorSelector = std::function<const Vector2f * (marvin::behavior::ExecuteContext&)>;
             InLineOfSightNode(VectorSelector selector) : selector_(selector) {}
 
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
@@ -62,16 +68,6 @@ namespace marvin {
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
         };
 
-
-        class BundleShots : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            bool ShouldActivate(behavior::ExecuteContext& ctx, const Player& target);
-            
-            uint64_t start_time_;
-            bool running_;
-        };
 
 
         class MoveToEnemyNode : public behavior::BehaviorNode {

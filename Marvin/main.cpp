@@ -15,7 +15,7 @@
 
 const char* kEnabledText = "Continuum (enabled)";
 const char* kDisabledText = "Continuum (disabled)";
-char bot_title[1024] = "0";
+
 
 using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
@@ -38,7 +38,12 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 #else
   if (!g_Enabled) {
 #endif
-    return RealGetAsyncKeyState(vKey);
+    //return RealGetAsyncKeyState(vKey);
+      if (GetActiveWindow() == g_hWnd) {
+          return RealGetAsyncKeyState(vKey);
+      }
+
+      return 0;
   }
 
   if (g_Bot->GetKeys().IsPressed(vKey)) {
@@ -81,7 +86,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
                           wRemoveMsg);
 }
 
-HWND GetMainWindow() {
+/*HWND GetMainWindow() {
   DWORD proc_id = GetCurrentProcessId();
   HWND hwnd = nullptr;
 
@@ -96,12 +101,33 @@ HWND GetMainWindow() {
       GetWindowText(hwnd, title, 1024);
 
       if (strcmp(title, "Continuum") == 0) {
-        return hwnd;
+      return hwnd;
       }
     }
   } while (hwnd);
 
   return NULL;
+}*/
+
+BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
+    DWORD pid;
+
+    GetWindowThreadProcessId(hwnd, &pid);
+
+    if (pid == lParam) {
+        g_hWnd = hwnd;
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+HWND GetMainWindow() {
+    DWORD pid = GetCurrentProcessId();
+
+    EnumWindows(MyEnumWindowsProc, pid);
+
+    return g_hWnd;
 }
 
 marvin::Bot& CreateBot() {
@@ -122,7 +148,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   try {
     CreateBot();
   } catch (std::exception& e) {
-  //  MessageBox(NULL, e.what(), "A", MB_OK);
+    MessageBox(NULL, e.what(), "A", MB_OK);
   }
 
   DetourRestoreAfterWith();
@@ -134,11 +160,9 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourTransactionCommit();
 
   
-  if (bot_title[0] != '0') {
-      SetWindowText(g_hWnd, bot_title);
-      strcpy_s(bot_title, "0");
-  }
-  else SetWindowText(g_hWnd, kEnabledText);
+  char buf[1024];
+  GetWindowText(g_hWnd, buf, 1024);
+  if (strcmp(buf, "Continuum") == 0) SetWindowText(g_hWnd, kEnabledText);
   
   marvin::debug_log << "Marvin started successfully." << std::endl;
 }
@@ -150,12 +174,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourTransactionCommit();
 
-  char buf[1024];
-  GetWindowText(g_hWnd, buf, 1024);
-  if (buf != "Continuum (enabled)" && buf != "Continuum (disabled)") {
-      strcpy_s(bot_title, buf);
-  }
-  SetWindowText(g_hWnd, "Continuum");
+  //SetWindowText(g_hWnd, "Continuum");
 
   marvin::debug_log << "Shutting down Marvin." << std::endl;
 

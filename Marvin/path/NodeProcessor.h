@@ -7,11 +7,11 @@
 #include "../Map.h"
 #include "Node.h"
 
+
 namespace marvin {
 namespace path {
 
 constexpr std::size_t kMaxNodes = 1024 * 1024;
-constexpr std::size_t kMaxMacroNodes = 341 * 341;
 
 struct NodeConnections {
   Node* neighbors[8];
@@ -28,9 +28,12 @@ class NodeProcessor {
 
   void ResetNodes();
 
+  bool Mined(std::vector<Vector2f> mines, NodePoint point);
+
   //NodeConnections FindEdges(Node* node, Node* start, Node* goal);
-  NodeConnections FindEdges(Node* node, Node* start, Node* goal, float radius);
+  NodeConnections FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal, float radius);
   Node* GetNode(NodePoint point);
+  bool IsSolid(u16 x, u16 y) { return map_.IsSolid(x, y); }
 
  private:
   std::vector<Node> nodes_;

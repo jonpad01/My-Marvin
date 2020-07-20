@@ -3,28 +3,28 @@
 namespace marvin {
 namespace path {
 
-/*bool ShipCanTraverse(const Map& map, Vector2f pos, float radius) {
-  int radius_check = (int)(radius + 0.5f);
+    bool NodeProcessor::Mined(std::vector<Vector2f> mines, NodePoint point) {
+        if (mines.empty()) return false;
+        for (std::size_t i = 0; i < mines.size(); i++) {
 
-  for (int y = -radius_check; y <= radius_check; ++y) {
-    for (int x = -radius_check; x <= radius_check; ++x) {
-      uint16_t world_x = (uint16_t)(pos.x + x);
-      uint16_t world_y = (uint16_t)(pos.y + y);
+            NodePoint np;
+            np.x = (uint16_t)mines[i].x;
+            np.y = (uint16_t)mines[i].y;
 
-      if (map.IsSolid(world_x, world_y)) {
+
+            if (np.x - 1 == point.x || np.x == point.x || np.x + 1 == point.x) {
+                if (np.y - 1 == point.y || np.y == point.y || np.y + 1 == point.y) {
+                    return true;
+                }
+            }
+        }
         return false;
-      }
     }
-  }
 
-  return true;
-}
-
-NodeConnections NodeProcessor::FindEdges(Node* node, Node* start, Node* goal) {*/
-    NodeConnections NodeProcessor::FindEdges(Node* node, Node* start, Node* goal, float radius) {
+//NodeConnections NodeProcessor::FindEdges(Node* node, Node* start, Node* goal) {
+    NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal, float radius) {
     NodeConnections connections;
-
-  connections.count = 0;
+    connections.count = 0;
 
   for (int y = -1; y <= 1; ++y) {
     for (int x = -1; x <= 1; ++x) {
@@ -36,18 +36,16 @@ NodeConnections NodeProcessor::FindEdges(Node* node, Node* start, Node* goal) {*
 
       Vector2f check_pos(world_x + 0.5f, world_y + 0.5f);
 
-      //if (!ShipCanTraverse(map_, check_pos,
-               //            game_.GetShipSettings().GetRadius()))
-      if (!map_.CanOccupy(check_pos, radius))
-      continue;
+      
+      if (!map_.CanOccupy(check_pos, radius)) continue;
 
       NodePoint point(world_x, world_y);
       Node* current = GetNode(point);
 
       if (current != nullptr) {
-        if (map_.GetTileId(point.x, point.y) == kSafeTileId) {
-          current->weight = 10.0f;
-        }
+        if (Mined(mines, point)) current->weight = 100.0f;
+        else if (map_.GetTileId(point.x, point.y) == kSafeTileId) current->weight = 10.0f;
+        else current->weight = 0.0f;
         connections.neighbors[connections.count++] = current;
 
         if (connections.count >= 8) {
@@ -92,3 +90,4 @@ Node* NodeProcessor::GetNode(NodePoint point) {
 
 }  // namespace path
 }  // namespace marvin
+

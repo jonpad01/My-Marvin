@@ -3,14 +3,152 @@
 namespace marvin {
 	namespace hs {
 
+        /*monkey> no i dont have a list of the types
+monkey> i think it's some kind of combined thing with weapon flags in it
+monkey> im pretty sure type & 0x01 is whether or not it's bouncing
+monkey> and the 0x8000 is the alternative bit for things like mines and multifire
+monkey> i was using type & 0x8F00 to see if it was a mine and it worked decently well
+monkey> 0x0F00 worked ok for seeing if its a bomb
+monkey> and 0x00F0 for bullet, but i don't think it's exact*/
+
+        behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
+            auto& game = ctx.bot->GetGame();
+            
+            Flaggers flaggers = ctx.bot->FindFlaggers();
+            const Player& enemy_anchor = flaggers.enemy_anchor, team_anchor = flaggers.team_anchor;
+            
+            Area bot_is = ctx.bot->InArea(game.GetPlayer().position);
+            Area enemy_anchor_is = ctx.bot->InArea(enemy_anchor.position);
+            Area team_anchor_is = ctx.bot->InArea(team_anchor.position);
+            
+            bool team_anchor_in_safe = game.GetMap().GetTileId(flaggers.team_anchor.position) == kSafeTileId;
+            bool in_safe = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
+            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
+            bool respawned = in_safe && bot_is.in_center && energy_pct == 100.0f;
+            
+            uint64_t time = ctx.bot->GetTime();
+            uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
+            uint64_t flash_check = ctx.blackboard.ValueOr<uint64_t>("FlashCoolDown", 0);
+            bool no_spam = time > spam_check;
+            bool flash_cooldown = time > flash_check;
+            
+            bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
+            bool in_lanc = game.GetPlayer().ship == 6; bool in_spid = game.GetPlayer().ship == 2;
+            bool anchor = flagging && in_lanc;
+            
+            
+                if (bot_is.in_base && enemy_anchor_is.in_diff) {
+                    if (ctx.bot->CheckStatus()) game.Warp();
+                    return behavior::ExecuteResult::Success;
+                }
+                //checkstatus turns off stealth and cloak before warping
+                if (!bot_is.in_center && !flagging) {
+                    if (ctx.bot->CheckStatus()) game.Warp();
+                    return behavior::ExecuteResult::Success;
+                }
+                //join a flag team, spams too much without the timer
+                if (flaggers.flaggers < 14 && !flagging && respawned && no_spam) {
+                    if (ctx.bot->CheckStatus()) game.Flag();
+                    ctx.blackboard.Set("SpamCheck", time + 200);
+                }
+                //switch to lanc if team doesnt have one
+                if (flagging && flaggers.team_lancs == 0 && !in_lanc && respawned && no_spam) {
+                    //try to remember what ship it was in
+                    ctx.blackboard.Set<int>("last_ship", (int)game.GetPlayer().ship);
+                    if (ctx.bot->CheckStatus()) game.SetShip(6);
+                    ctx.blackboard.Set("SpamCheck", time + 200);
+                }
+                //if there is more than one lanc on the team, switch back to original ship
+                if (flagging && flaggers.team_lancs > 1 && in_lanc && no_spam) {
+                    if (team_anchor_is.in_base || !bot_is.in_base) {
+                        int ship = ctx.blackboard.ValueOr<int>("last_ship", 0);
+                        if (ctx.bot->CheckStatus()) game.SetShip(ship);
+                        ctx.blackboard.Set("SpamCheck", time + 200);
+                        return behavior::ExecuteResult::Success;
+                    }
+                }
+
+                //switch to spider if team doesnt have one
+                if (flagging && flaggers.team_spiders == 0 && !in_spid && respawned && no_spam) {
+                    //try to remember what ship it was in
+                    ctx.blackboard.Set<int>("last_ship", (int)game.GetPlayer().ship);
+                    if (ctx.bot->CheckStatus()) game.SetShip(2);
+                    ctx.blackboard.Set("SpamCheck", time + 200);
+                }
+                //if there is more than two spiders on the team, switch back to original ship
+                if (flagging && flaggers.team_spiders > 2 && in_spid && respawned && no_spam) {
+                        int ship = ctx.blackboard.ValueOr<int>("last_ship", 0);
+                        if (ctx.bot->CheckStatus()) game.SetShip(ship);
+                        ctx.blackboard.Set("SpamCheck", time + 200);
+                        return behavior::ExecuteResult::Success;      
+                }
+
+                //leave a flag team by spectating, will reenter ship on the next update
+                if (flaggers.flaggers > 16 && flagging && !in_lanc && respawned && no_spam) {
+                    int freq = ctx.bot->FindOpenFreq();
+                    if (ctx.bot->CheckStatus()) game.SetFreq(freq);// game.Spec();
+                    ctx.blackboard.Set("SpamCheck", time + 200);
+                }
+
+                //if flagging try to attach
+                if (flagging && !team_anchor_in_safe && !in_lanc && no_spam) {
+                    uint64_t last_target = ctx.blackboard.ValueOr<uint64_t>("LastTarget", 0);
+                    uint64_t target = flaggers.team_anchor.id;
+                    bool same_target = target == last_target;
+                    //all ships will attach after respawning, all but lancs will attach if not in the same base
+                    if (respawned || (!team_anchor_is.connected && (same_target || flaggers.team_lancs < 2))) {
+                        if (ctx.bot->CheckStatus()) game.Attach(flaggers.team_anchor.name);
+                        ctx.blackboard.Set("SpamCheck", time + 200);
+                        ctx.blackboard.Set("LastTarget", target);
+                        return behavior::ExecuteResult::Success;
+                    }
+                }
+            
+            
+            
+            
+            
+            bool x_active = (game.GetPlayer().status & 4) != 0;
+            bool has_xradar = (game.GetShipSettings().XRadarStatus & 1);
+            bool stealthing = (game.GetPlayer().status & 1) != 0;
+            bool cloaking = (game.GetPlayer().status & 2) != 0;
+            bool has_stealth = (game.GetShipSettings().StealthStatus & 2);
+            bool has_cloak = (game.GetShipSettings().CloakStatus & 2);
+
+            //if stealth isnt on but availible, presses home key in continuumgameproxy.cpp
+            if (!stealthing && has_stealth && no_spam) {
+                game.Stealth();
+                ctx.blackboard.Set("SpamCheck", time + 500);
+                return behavior::ExecuteResult::Success;
+            }
+            //same as stealth but presses shift first
+            if ((!cloaking && has_cloak && no_spam) || (anchor && flash_cooldown)) {
+                game.Cloak(ctx.bot->GetKeys());
+                ctx.blackboard.Set("SpamCheck", time + 500);
+                ctx.blackboard.Set("FlashCoolDown", time + 30000);
+                return behavior::ExecuteResult::Success;
+            }
+            //TODO: make this better
+           // if (!x_active && has_xradar && no_spam) {
+                 //   game.XRadar();
+                 //    ctx.blackboard.Set("SpamCheck", time + 300);
+                    //return behavior::ExecuteResult::Success;
+           // }
+
+            return behavior::ExecuteResult::Failure;
+        }
+
         behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
             float closest_cost = std::numeric_limits<float>::max();
-            float cost = 0;
+            float cost = 0.0f;
             auto& game = ctx.bot->GetGame();
+            Flaggers flaggers = ctx.bot->FindFlaggers();
+            const Player& team_anchor = flaggers.team_anchor;
             std::vector< Player > players = game.GetPlayers();
             const Player* target = nullptr;
             const Player& bot = ctx.bot->GetGame().GetPlayer();
+            bool flagging = bot.frequency == 90 || bot.frequency == 91;
             bool anchor = (bot.frequency == 90 || bot.frequency == 91) && bot.ship == 6;
             Area bot_is = ctx.bot->InArea(bot.position);
             Vector2f position = game.GetPosition();
@@ -32,13 +170,21 @@ namespace marvin {
                 CastResult in_sight = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
 
                 //make players in line of sight high priority
-                //TODO: add flaggers switch targets if enemy gets close to anchor
-                if (!in_sight.hit) {
-                    cost = CalculateCost(game, bot, player) / 1000;
+                
+                if (flagging && player.position.Distance(team_anchor.position) < 10.0f) {
+                    cost = CalculateCost(game, bot, player) / 100.0f;
+                }
+                else if (player.bounty >= 100 && !flagging) {
+                    cost = CalculateCost(game, bot, player) / 100.0f;
+                }
+                else if (!in_sight.hit) {
+                    if (anchor) cost = CalculateCost(game, bot, player) / 1000.0f;
+                    else cost = CalculateCost(game, bot, player) / 10.0f;
                 }
                 else {
                     cost = CalculateCost(game, bot, player);
                 }
+                
                 if (cost < closest_cost) {
                     closest_cost = cost;
                     target = &game.GetPlayers()[i];
@@ -86,7 +232,7 @@ namespace marvin {
             const auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
 
-            if (target.energy < 0.0f) return false;
+            if (target.dead) return false;
             if (target.id == game.GetPlayer().id) return false;
             if (target.ship > 7) return false;
             if (target.frequency == game.GetPlayer().frequency) return false;
@@ -130,6 +276,7 @@ namespace marvin {
             auto& game = ctx.bot->GetGame();
 
             bool anchor = (game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91) && game.GetPlayer().ship == 6;
+            bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
 
             Vector2f bot = game.GetPosition();
             Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
@@ -140,9 +287,12 @@ namespace marvin {
             //keep the anchor on the same path until it performs another path check
             //path probably gets wiped from the blackboard somewhere so use destination to track anchor paths
             Path path = ctx.blackboard.ValueOr<Path>("Destination", std::vector<Vector2f>());
+            bool path_switch = ctx.blackboard.ValueOr<bool>("PathSwitch", false);
+            float enemy_length = ctx.blackboard.ValueOr<float>("EnemyLength", 0.0f);
+            float bot_length = ctx.blackboard.ValueOr<float>("BotLength", 0.0f);
 
             if (anchor) {
-                if (time > path_check) {
+               if (time > path_check) {
                     float length = PathLength(ctx, bot, enemy);
                     if (length < 32) {
                         Area bot_is = ctx.bot->InArea(bot);
@@ -152,7 +302,18 @@ namespace marvin {
                                                             Vector2f(489, 836), Vector2f(292, 812), Vector2f(159, 571), Vector2f(205, 204) };
                         for (std::size_t i = 0; i < room.size(); i++) {
                             if (bot_is.in[i]) {
-                                if (PathLength(ctx, enemy, room[i]) > PathLength(ctx, bot, room[i])) {
+                                if (path_switch) {
+                                    enemy_length = PathLength(ctx, enemy, room[i]);
+                                    ctx.blackboard.Set("PathSwitch", false);
+                                    ctx.blackboard.Set("EnemyLength", enemy_length);
+                                }
+                                else {
+                                    bot_length = PathLength(ctx, bot, room[i]);
+                                    ctx.blackboard.Set("PathSwitch", true);
+                                    ctx.blackboard.Set("BotLength", bot_length);
+                                }
+
+                                if (enemy_length > bot_length) {
                                     path = CreatePath(ctx, "path", bot, room[i], game.GetShipSettings().GetRadius());
                                 }
                                 else {
@@ -168,7 +329,16 @@ namespace marvin {
                         path = CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
                     }
                     ctx.blackboard.Set("PathCheck", time + 200);
+               }
+            }
+            else if (game.GetPlayer().ship == 2 && flagging) {
+                Flaggers flaggers = ctx.bot->FindFlaggers();
+                const Player& team_anchor = flaggers.team_anchor;
+                Area anchor_is = ctx.bot->InArea(team_anchor.position);
+                if (team_anchor.position.Distance(game.GetPosition()) > 15.0f && anchor_is.connected) {
+                    path = CreatePath(ctx, "path", bot, team_anchor.position, game.GetShipSettings().GetRadius());
                 }
+                else path = CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
             }
             else {
                 path = CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
@@ -207,12 +377,12 @@ namespace marvin {
 
             if (flagging) {
 
-                Players is = ctx.bot->FindFlaggers();
-                const Player& player = is.enemy;
-                Area player_is = ctx.bot->InArea(player.position);
+                Flaggers flaggers = ctx.bot->FindFlaggers();
+                const Player& enemy_anchor = flaggers.enemy_anchor;
+                Area enemy_anchor_is = ctx.bot->InArea(enemy_anchor.position);
 
                 if (bot_is.in_center) {
-                    if (!player_is.in_base) {
+                    if (!enemy_anchor_is.in_base) {
                         if (gate == 0 || gate == 1 || gate == 2) {
                             path = CreatePath(ctx, "path", from, center_gate_r, game.GetShipSettings().GetRadius());
                         }
@@ -220,7 +390,7 @@ namespace marvin {
                             path = CreatePath(ctx, "path", from, center_gate_l, game.GetShipSettings().GetRadius());
                         }
                     }
-                    if (player_is.in_1 || player_is.in_2 || player_is.in_3) {
+                    if (enemy_anchor_is.in_1 || enemy_anchor_is.in_2 || enemy_anchor_is.in_3) {
                         path = CreatePath(ctx, "path", from, center_gate_r, game.GetShipSettings().GetRadius());
                     }
                     else {
@@ -229,11 +399,11 @@ namespace marvin {
                 }
                 if (bot_is.in_tunnel) {
                     for (std::size_t i = 0; i < gates.size(); i++) {
-                        if (player_is.in[i]) path = CreatePath(ctx, "path", from, gates[i], game.GetShipSettings().GetRadius());
+                        if (enemy_anchor_is.in[i]) path = CreatePath(ctx, "path", from, gates[i], game.GetShipSettings().GetRadius());
                     }
-                    if (!player_is.in_base) path = CreatePath(ctx, "path", from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
+                    if (!enemy_anchor_is.in_base) path = CreatePath(ctx, "path", from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
                 }
-                if (!player_is.in_base) {
+                if (!enemy_anchor_is.in_base) {
                     //camp is coords for position part way into base for bots to move to when theres no enemy
                     std::vector< Vector2f > camp = { Vector2f(855, 245), Vector2f(801, 621), Vector2f(773, 839),
                                                       Vector2f(554, 825), Vector2f(325, 877), Vector2f(208, 614), Vector2f(151, 253) };
@@ -458,10 +628,10 @@ namespace marvin {
             uint64_t bomb_level = game.GetShipSettings().InitialBombs;
             float fire_distance = 0.0f;
 
-            if (bomb_level == 1) fire_distance = 99.0f / 16.0f;
-            if (bomb_level == 2) fire_distance = 198.0f / 16.0f;
-            if (bomb_level == 3) fire_distance = 297.0f / 16.0f;
-            if (bomb_level == 4) fire_distance = 396.0f / 16.0f;
+            if (bomb_level == 0) fire_distance = 99.0f / 16.0f;
+            if (bomb_level == 1) fire_distance = 198.0f / 16.0f;
+            if (bomb_level == 2) fire_distance = 297.0f / 16.0f;
+            if (bomb_level == 3) fire_distance = 396.0f / 16.0f;
 
             //warbird spid terr
             if (ship == 0 || ship == 2 || ship == 4) {
@@ -476,8 +646,12 @@ namespace marvin {
                 bomb_delay = bomb_fire_delay * 200;
             }
 
-            if (time > bomb_expire&& distance > fire_distance) {
+            if (time > bomb_expire && distance > fire_distance) {
                 ctx.bot->GetKeys().Press(VK_TAB);
+                //int chat_ = ctx.bot->GetGame().GetSelected();
+                //std::string chat = std::to_string(chat_);
+                //std::string chat = ctx.bot->GetGame().TickName();
+                 //ctx.bot->GetGame().SendChatMessage(chat);
                 ctx.blackboard.Set("BombCooldownExpire", time + bomb_delay);
             }
             else {
@@ -571,26 +745,38 @@ namespace marvin {
             auto& game = ctx.bot->GetGame();
 
             Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPlayer().position);
-            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
+            Flaggers flaggers = ctx.bot->FindFlaggers();
+            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy);
 
             Vector2f target_position = ctx.blackboard.ValueOr("target_position", Vector2f());
-            Vector2f heading = game.GetPlayer().GetHeading();
-            float dot = heading.Dot(Normalize(target_position - game.GetPosition()));
+            
             int ship = game.GetPlayer().ship;
-
-            std::vector<float> ship_distance{ 15.0f, 25.0f, 20.0f, 30.0f, 20.0f, 25.0f, 20.0f, 15.0f };
+            
+            std::vector<float> ship_distance{ 5.0f, 10.0f, 5.0f, 15.0f, 5.0f, 10.0f, 5.0f, 5.0f };
 
             float hover_distance = 0.0f;
 
             if (bot_is.in_base) {
-                hover_distance = 2.0f;
+                if (ship == 2) {
+                    const Player& team_anchor = flaggers.team_anchor;
+                    ctx.bot->Move(team_anchor.position, 0.0f);
+                    ctx.bot->GetSteering().Face(target_position);
+                    return behavior::ExecuteResult::Success;
+                }
+                else {
+                    for (std::size_t i = 0; i < ship_distance.size(); i++) {
+                        if (ship == i) {
+                            hover_distance = ship_distance[i];
+                        }
+                    }
+                }
             }
             else {
                 for (std::size_t i = 0; i < ship_distance.size(); i++) {
                     if (ship == i) {
-                        hover_distance = ship_distance[i];
-                        if ((ship == 0 || ship == 2 || ship == 4) && dot >= 0.95) {
-                            hover_distance = 2.0f;
+                        hover_distance = (ship_distance[i] / energy_pct);
+                        if (ship == 0 || ship == 2 || ship == 4) {
+                            //hover_distance = 2.0f;
                         }
                     }
                 }
@@ -606,8 +792,58 @@ namespace marvin {
 
             const Player& shooter =
                 *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+#if 0  // Simple weapon avoidance but doesn't work great
+            bool weapon_dodged = false;
+            for (Weapon* weapon : game.GetWeapons()) {
+                const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
 
-            if (energy_pct < 25.0f) {
+                if (weapon_player == nullptr) continue;
+
+                if (weapon_player->frequency == game.GetPlayer().frequency) continue;
+
+                const auto& player = game.GetPlayer();
+
+                if (weapon->GetType() & 0x8F00 && weapon->GetPosition().DistanceSq(player.position) < 20 * 20) {
+                    Vector2f direction = Normalize(player.position - weapon->GetPosition());
+                    Vector2f perp = Perpendicular(direction);
+
+                    if (perp.Dot(player.velocity) < 0) {
+                        perp = -perp;
+                    }
+
+                    ctx.bot->GetSteering().Seek(player.position + perp, 100.0f);
+                    weapon_dodged = true;
+                }
+                else if (weapon->GetPosition().DistanceSq(player.position) < 50 * 50) {
+                    Vector2f direction = Normalize(weapon->GetVelocity());
+
+                    float radius = game.GetShipSettings(player.ship).GetRadius() * 6.0f;
+                    Vector2f box_pos = player.position - Vector2f(radius, radius);
+                    Vector2f extent(radius * 2, radius * 2);
+
+                    float dist;
+                    Vector2f norm;
+
+                    if (RayBoxIntersect(weapon->GetPosition(), direction, box_pos, extent, &dist, &norm)) {
+                        Vector2f perp = Perpendicular(direction);
+
+                        if (perp.Dot(player.velocity) < 0) {
+                            perp = perp * -1.0f;
+                        }
+
+                        ctx.bot->GetSteering().Seek(player.position + perp, 2.0f);
+                        weapon_dodged = true;
+                    }
+                }
+            }
+
+            if (weapon_dodged) {
+                return behavior::ExecuteResult::Success;
+            }
+#endif
+
+
+            if (energy_pct < 0.25f && !bot_is.in_base) {
                 Vector2f dodge;
 
                 if (IsAimingAt(game, shooter, game.GetPlayer(), &dodge)) {
@@ -617,7 +853,7 @@ namespace marvin {
             }
             ctx.bot->Move(target_position, hover_distance);
 
-            //ctx.bot->GetSteering().Face(target_position);
+            ctx.bot->GetSteering().Face(target_position);
 
             return behavior::ExecuteResult::Success;
         }

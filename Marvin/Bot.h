@@ -19,32 +19,20 @@ namespace marvin {
 
 extern std::ofstream debug_log;
 struct Area {
-    bool in_base;
-    bool in_tunnel;
-    bool in_center;
-    bool in_1;
-    bool in_2;
-    bool in_3;
-    bool in_4;
-    bool in_5;
-    bool in_6;
-    bool in_7;
-    bool in_8;
-    bool connected;
-    bool in_diff;
+    bool in_base, in_tunnel, in_center;
+    bool in_1, in_2, in_3, in_4, in_5, in_6, in_7, in_8;
+    bool connected, in_diff;
     std::vector<bool> in;
-    bool in_deva_center;
 };
-struct Players {
-    Player enemy;
-    Player team;
-    int flaggers;
-    int team_lancs;
-    int base_duelers;
-    int freq_0s;
-    int freq_1s;
-    std::vector< Player > duel_team;
-    bool in_base;
+struct Flaggers {
+    Player enemy_anchor, team_anchor;
+    int flaggers, team_lancs, team_spiders;
+    
+};
+struct Duelers {
+    int freq_0s, freq_1s;
+    std::vector< Player > team;
+    bool team_in_base, enemy_in_base;
 };
 
 class GameProxy;
@@ -55,6 +43,7 @@ public:
     Bot(std::unique_ptr<GameProxy> game);
     void Hyperspace();
     void Devastation();
+    void ExtremeGames();
 
   void Update(float dt);
 
@@ -83,8 +72,8 @@ public:
 
   int BaseSelector();
 
-  Players FindFlaggers();
-  Players FindDuelers();
+  Flaggers FindFlaggers();
+  Duelers FindDuelers();
   bool CheckStatus();
   int FindOpenFreq();
 
@@ -97,13 +86,8 @@ public:
   std::unique_ptr<RegionRegistry> regions_;
   behavior::ExecuteContext behavior_ctx_;
   int ship_;
-  int page_count;
-  int repel_trigger;
-  uint64_t last_attach;
-  uint64_t last_page;
-  uint64_t last_base_change_;
   uint64_t last_ship_change_;
-  uint16_t last_target;
+  uint64_t last_base_change_;
   SteeringBehavior steering_;
 
   std::vector<std::unique_ptr<behavior::BehaviorNode>> behavior_nodes_;
@@ -111,6 +95,8 @@ public:
   // TODO: Action-key map would be more versatile
   KeyController keys_;
 };
+
+bool WallShot(behavior::ExecuteContext& ctx, const marvin::Player& bot_player);
 
 bool InRect(marvin::Vector2f pos, marvin::Vector2f min_rect,
     marvin::Vector2f max_rect);

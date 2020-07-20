@@ -6,8 +6,7 @@
 
 namespace marvin {
 
-void FloodFillEmptyRegion(const Map& map, const MapCoord& coord,
-                          RegionRegistry& registry, RegionIndex region_index) {
+void FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionRegistry& registry, RegionIndex region_index) {
   if (map.IsSolid(coord.x, coord.y)) return;
 
   registry.Insert(coord, region_index);

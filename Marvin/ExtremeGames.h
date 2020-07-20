@@ -4,11 +4,13 @@
 #include "Debug.h"
 
 namespace marvin {
-    namespace hs {
+    namespace eg {
 
         class FreqWarpAttachNode : public behavior::BehaviorNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+        private:
+            bool CheckStatus(behavior::ExecuteContext& ctx);
         };
 
         class FindEnemyNode : public PathingNode {
@@ -17,7 +19,6 @@ namespace marvin {
 
         private:
             float CalculateCost(GameProxy& game, const Player& bot_player, const Player& target);
-
             bool IsValidTarget(behavior::ExecuteContext& ctx, const Player& target);
 
             Vector2f view_min_;
@@ -28,6 +29,14 @@ namespace marvin {
         class PathToEnemyNode : public PathingNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+        };
+
+
+        class LookingAtEnemyNode : public behavior::BehaviorNode {
+        public:
+            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+        private:
+            bool CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target);
         };
 
 
@@ -48,22 +57,12 @@ namespace marvin {
 
         class InLineOfSightNode : public behavior::BehaviorNode {
         public:
-            using VectorSelector =
-                std::function<const Vector2f * (marvin::behavior::ExecuteContext&)>;
+            using VectorSelector = std::function<const Vector2f * (marvin::behavior::ExecuteContext&)>;
             InLineOfSightNode(VectorSelector selector) : selector_(selector) {}
 
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-
         private:
             VectorSelector selector_;
-        };
-
-
-
-
-        class LookingAtEnemyNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
         };
 
 
@@ -73,16 +72,6 @@ namespace marvin {
         };
 
 
-        class BundleShots : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-
-        private:
-            bool ShouldActivate(behavior::ExecuteContext& ctx, const Player& target);
-
-            uint64_t start_time_;
-            bool running_;
-        };
 
         class MoveToEnemyNode : public behavior::BehaviorNode {
         public:
@@ -91,19 +80,5 @@ namespace marvin {
         private:
             bool IsAimingAt(GameProxy& game, const Player& shooter, const Player& target, Vector2f* dodge);
         };
-
-
-
-
-    } // namesspace hs
+    } // namespace eg
 }  // namespace marvin
-
-
-
-
-
-
-
-
-
-

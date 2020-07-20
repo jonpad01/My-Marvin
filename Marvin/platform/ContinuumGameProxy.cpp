@@ -17,18 +17,17 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) {
   game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
 
   position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+  
   std::string path = GetServerFolder();
   // TODO: Either find this from memory or pass it in through config
-  if (path == "zones\\SSCE Hyperspace") {
-      path += "\\jun2018.lvl";
-  }
-  if (path == "zones\\SSCJ Devastation") {
-      path += "\\bd.lvl";
-  }
+  if (path == "zones\\SSCE Hyperspace") path += "\\jun2018.lvl";
+  else if (path == "zones\\SSCJ Devastation") path += "\\bd.lvl";
+  else if (path == "zones\\SSCU Extreme Games") path += "\\colpub20v4.lvl";
   
   map_ = Map::Load(path);
 
   FetchPlayers();
+
 
   for (auto& player : players_) {
     if (player.name == GetName()) {
@@ -44,12 +43,32 @@ void ContinuumGameProxy::Update(float dt) {
   SetWindowFocus();
 
   FetchPlayers();
+
+  // Grab the address to the main player structure
+  u32 player_addr = *(u32*)(game_addr_ + 0x13070);
+
+  // Follow a pointer that leads to weapon data
+  u32 ptr = *(u32*)(player_addr + 0x0C);
+  u32 weapon_count = *(u32*)(ptr + 0x1DD0) + *(u32*)(ptr + 0x1DD4);
+  u32 weapon_ptrs = (ptr + 0x21F4);
+
+  weapons_.clear();
+
+  for (size_t i = 0; i < weapon_count; ++i) {
+      u32 weapon_data = *(u32*)(weapon_ptrs + i * 4);
+
+      WeaponData* data = (WeaponData*)(weapon_data);
+
+      weapons_.emplace_back(data);
+  }
 }
 
 void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kPosOffset = 0x04;
   const std::size_t kVelocityOffset = 0x10;
   const std::size_t kIdOffset = 0x18;
+  const std::size_t kBountyOffset1 = 0x20;
+  const std::size_t kBountyOffset2 = 0x24;
   const std::size_t kRotOffset = 0x3C;
   const std::size_t kShipOffset = 0x5C;
   const std::size_t kFreqOffset = 0x58;
@@ -57,6 +76,7 @@ void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kNameOffset = 0x6D;
   const std::size_t kEnergyOffset1 = 0x208;
   const std::size_t kEnergyOffset2 = 0x20C;
+  
 
 
   std::size_t base_addr = game_addr_ + 0x127EC;
@@ -99,8 +119,12 @@ void ContinuumGameProxy::FetchPlayers() {
 
     player.name = process_.ReadString(player_addr + kNameOffset, 23);
 
+    player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
+
+    player.dead = process_.ReadU32(player_addr + 0x178) == 0;
 
     // Energy calculation @4485FA
+    if (player.id == player_id_) {
     u32 energy1 = process_.ReadU32(player_addr + kEnergyOffset1); 
     u32 energy2 = process_.ReadU32(player_addr + kEnergyOffset2); 
 
@@ -108,6 +132,13 @@ void ContinuumGameProxy::FetchPlayers() {
     u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;
 
     player.energy = static_cast<uint16_t>(energy);
+    }
+    else {
+        u32 first = *(u32*)(player_addr + 0x150);
+        u32 second = *(u32*)(player_addr + 0x154);
+
+        player.energy = static_cast<uint16_t>(first + second);
+    }
 
     players_.emplace_back(player);
 
@@ -115,6 +146,16 @@ void ContinuumGameProxy::FetchPlayers() {
       player_ = &players_.back();
     }
   }
+}
+
+std::vector<Weapon*> ContinuumGameProxy::GetWeapons() {
+    std::vector<Weapon*> weapons;
+
+    for (std::size_t i = 0; i < weapons_.size(); ++i) {
+        weapons.push_back(&weapons_[i]);
+    }
+
+    return weapons;
 }
 
 const ClientSettings& ContinuumGameProxy::GetSettings() const {
@@ -167,6 +208,16 @@ const std::vector<Player>& ContinuumGameProxy::GetPlayers() const {
 const Map& ContinuumGameProxy::GetMap() const { return *map_; }
 const Player& ContinuumGameProxy::GetPlayer() const { return *player_; }
 
+const Player* ContinuumGameProxy::GetPlayerById(u16 id) const {
+    for (std::size_t i = 0; i < players_.size(); ++i) {
+        if (players_[i].id == id) {
+            return &players_[i];
+        }
+    }
+
+    return nullptr;
+}
+
 // TODO: Find level data or level name in memory
 std::string ContinuumGameProxy::GetServerFolder() const {
   std::size_t folder_addr = *(uint32_t*)(game_addr_ + 0x127ec + 0x5a3c) + 0x10D;
@@ -180,6 +231,7 @@ std::string ContinuumGameProxy::Zone() {
     std::string result = "";
     if (path == "zones\\SSCE Hyperspace") result = "hyperspace";
     if (path == "zones\\SSCJ Devastation") result = "devastation";
+    if (path == "zones\\SSCU Extreme Games") result = "extreme games";
     return result;
 }
 void ContinuumGameProxy::SetFreq(int freq) {
@@ -191,19 +243,7 @@ void ContinuumGameProxy::SetFreq(int freq) {
     }
     SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
 }
-std::string ContinuumGameProxy::TickName() {
-    std::string name = ":%selfname:";
- 
-    //SendMessage(hwnd_, WM_CHAR, (WPARAM)('%'), 0);
-    for (std::size_t i = 0; i < name.size(); i++) {
-        char letter = name[i];
-        SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
-    }
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
-    
-    //player.resize(5);
-    return name;
-}
+
 void ContinuumGameProxy::PageUp() {
     SendKey(VK_PRIOR);
 }
@@ -216,7 +256,10 @@ void ContinuumGameProxy::XRadar() {
 void ContinuumGameProxy::Burst(KeyController& keys) {
     keys.Press(VK_SHIFT);
     SendKey(VK_DELETE);
-    keys.Release(VK_SHIFT);
+}
+void ContinuumGameProxy::Repel(KeyController& keys) {
+    keys.Press(VK_SHIFT);
+    keys.Press(VK_CONTROL);
 }
 
 void ContinuumGameProxy::F7() {
@@ -245,23 +288,44 @@ void ContinuumGameProxy::Warp() {
 void ContinuumGameProxy::Stealth() { 
     SendKey(VK_HOME);
 }
-//it presses shift before calling this function
-//if i change this the way monkey has it, use ctx.bot->GetKeys().Cloak to call it
+
 void ContinuumGameProxy::Cloak(KeyController& keys) {
     keys.Press(VK_SHIFT);
     SendKey(VK_HOME);
-    keys.Release(VK_SHIFT);
 }
 
 void ContinuumGameProxy::MultiFire() { SendKey(VK_DELETE); }
+
 void ContinuumGameProxy::Flag() {
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('?'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('f'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('l'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('a'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('g'), 0);
+
+    std::string message = "?flag";
+
+    for (std::size_t i = 0; i < message.size(); i++) {
+        char letter = message[i];
+        SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
+    }
+
     SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
 }
+
+void ContinuumGameProxy::P() {
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)('!'), 0);
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)('p'), 0);
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+}
+
+void ContinuumGameProxy::L() {
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)('!'), 0);
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)('l'), 0);
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+}
+
+void ContinuumGameProxy::R() {
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)('!'), 0);
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)('r'), 0);
+    SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+}
+
 bool ContinuumGameProxy::Spec() {
     int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
 
@@ -277,26 +341,14 @@ bool ContinuumGameProxy::Spec() {
     return menu_open;
 }
 void ContinuumGameProxy::Attach(std::string name) {
-/*std::string test = GetServerFolder();
-for (std::size_t i = 0; i < test.size(); i++) {
-    char letter = test[i];
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
-}
-SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);*/
 
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)(':'), 0);
-    for (std::size_t i = 0; i < name.size(); i++) {
-        char letter = name[i];
+    std::string message = ":" + name + ":?attach";
+
+    for (std::size_t i = 0; i < message.size(); i++) {
+        char letter = message[i];
         SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
     }
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)(':'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('?'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('a'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('t'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('t'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('a'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('c'), 0);
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('h'), 0);
+
     SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
 }
 
@@ -311,6 +363,72 @@ ExeProcess& ContinuumGameProxy::GetProcess() { return process_; }
 void ContinuumGameProxy::SendKey(int vKey) {
   SendMessage(hwnd_, WM_KEYDOWN, (WPARAM)vKey, 0);
   SendMessage(hwnd_, WM_KEYUP, (WPARAM)vKey, 0);
+}
+
+void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
+
+    typedef void(__fastcall* ChatSendFunction)(void* This, void* thiscall_garbage, char* msg, u32* unknown1, u32* unknown2);
+
+    if (mesg.empty()) return;
+
+    // The address to the current text input buffer
+    std::size_t chat_input_addr = game_addr_ + 0x2DD14;
+    char* input = (char*)(chat_input_addr);
+    memcpy(input, mesg.c_str(), mesg.length());
+    input[mesg.length()] = 0;
+
+    ChatSendFunction send_func = (ChatSendFunction)(*(u32*)(module_base_continuum_ + 0xAC30C));
+
+
+    void* This = (void*)(game_addr_ + 0x2DBF0);
+
+
+    // Some value that the client passes in for some reason
+    u32 value = 0x4AC370;
+
+    send_func(This, nullptr, input, &value, 0);
+
+    // Clear the text buffer after sending the message
+    input[0] = 0;
+}
+
+std::vector<std::string> ContinuumGameProxy::GetChat(int type) const {
+
+    u32 chat_base_addr = game_addr_ + 0x2DD08;
+
+    ChatEntry* chat_ptr = *(ChatEntry**)(chat_base_addr);
+    u32 entry_count = *(u32*)(chat_base_addr + 8);
+
+    //read the last 6 lines, starting with the most recent, if any match the type return that line
+    std::vector<std::string> lines;
+    for (std::size_t i = 1; i < 2; i++) {
+        ChatEntry* current = chat_ptr + (entry_count - i);
+        if (current->type == type) {
+            lines.push_back(current->message);
+        }
+    }
+    /*  Arena = 0,
+        Public = 2,
+        Private = 5,
+        Channel = 9 */
+    //if no lines match just return the most recent
+    //ChatEntry* current = chat_ptr + (entry_count - 1);
+    return lines;
+}
+
+int64_t ContinuumGameProxy::TickerPosition() {
+    //this reads the same adress as get selected player but returns a number
+    //used to determine if the bot should page up or page down
+    u32 addr = game_addr_ + 0x2DF44;
+
+    int64_t selected = process_.ReadU32(addr) & 0xFFFF;
+    return selected;
+}
+
+const Player& ContinuumGameProxy::GetSelectedPlayer() const {
+    u32 selected_index = *(u32*)(game_addr_ + 0x127EC + 0x1B758);
+
+    return players_[selected_index];
 }
 
 }  // namespace marvin
