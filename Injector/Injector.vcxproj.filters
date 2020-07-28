@@ -18,5 +18,22 @@
     <ClCompile Include="injector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Multicont.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AutoMode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Multicont.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="injector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoMode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -142,7 +142,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AutoMode.cpp" />
     <ClCompile Include="injector.cpp" />
+    <ClCompile Include="Multicont.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AutoMode.h" />
+    <ClInclude Include="injector.h" />
+    <ClInclude Include="Multicont.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
