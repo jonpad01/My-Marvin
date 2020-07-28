@@ -8,7 +8,9 @@ namespace marvin {
             Area bot_is = ctx.bot->InArea(game.GetPlayer().position);
             uint64_t time = ctx.bot->GetTime();
             uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
+            uint64_t F7_check = ctx.blackboard.ValueOr<uint64_t>("F7", 0);
             bool no_spam = time > spam_check;
+            bool no_F7_spam = time > F7_check;
 
             float deva_energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy) * 100.0f;
             Duelers duelers = ctx.bot->FindDuelers();
@@ -69,9 +71,14 @@ namespace marvin {
                         const Player& player = duelers.team[i];
                         Area player_is = ctx.bot->InArea(player.position);
                         if (!player_is.in_center && player.ship < 8 && player.id == selected_player.id && !page_or_f7/*IsValidPosition(player.position)*/) {
-                            if (CheckStatus(ctx)) game.F7();
-                            ctx.blackboard.Set("PageOrF7", true);
-                            return behavior::ExecuteResult::Success;
+                            if (no_F7_spam) {
+                                if (CheckStatus(ctx)) {
+                                    game.F7();
+                                    ctx.blackboard.Set("PageOrF7", true);
+                                    ctx.blackboard.Set("F7", time + 150);
+                                }
+                            }
+                            return behavior::ExecuteResult::Success;   
                         }
                     }
 

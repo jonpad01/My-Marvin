@@ -394,6 +394,20 @@ void Bot::Update(float dt) {
         return;
     }
 
+    //check chat for disconected message or spec message in eg and terminate continuum
+    std::string name = game_->GetName();
+    std::string disconnected = "WARNING: ";
+    std::string eg_specced = "[ " + name + " ]";
+    std::size_t len = 4 + name.size();
+
+    std::vector<std::string> chat = game_->GetChat(0);
+    for (std::size_t i = 0; i < chat.size(); i++) {
+        if (chat[i].compare(0, 9, disconnected) == 0 || chat[i].compare(0, len, eg_specced) == 0) {
+            exit(5);
+        }
+    }
+
+
   steering_.Reset();
 
   behavior_ctx_.bot = this;
