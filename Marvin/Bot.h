@@ -19,7 +19,7 @@ namespace marvin {
 
 extern std::ofstream debug_log;
 struct Area {
-    bool in_base, in_tunnel, in_center;
+    bool in_base, in_tunnel, in_center, in_gs_spawn, in_gs_free_mode, in_gs_warp;
     bool in_1, in_2, in_3, in_4, in_5, in_6, in_7, in_8;
     bool connected, in_diff;
     std::vector<bool> in;
@@ -44,6 +44,7 @@ public:
     void Hyperspace();
     void Devastation();
     void ExtremeGames();
+    void GalaxySports();
 
   void Update(float dt);
 

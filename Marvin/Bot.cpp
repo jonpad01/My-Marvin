@@ -13,6 +13,7 @@
 #include "Hyperspace.h"
 #include "Devastation.h"
 #include "ExtremeGames.h"
+#include "GalaxySports.h"
 
 
 namespace marvin {
@@ -290,6 +291,62 @@ void Bot::Devastation() {
     behavior_nodes_.push_back(std::move(root_selector));
 }
 
+void Bot::GalaxySports() {
+
+    auto freq_warp_attach = std::make_unique<gs::FreqWarpAttachNode>();
+    auto find_enemy = std::make_unique<gs::FindEnemyNode>();
+    auto looking_at_enemy = std::make_unique<gs::LookingAtEnemyNode>();
+    auto target_in_los = std::make_unique<gs::InLineOfSightNode>(
+        [](marvin::behavior::ExecuteContext& ctx) {
+            const Vector2f* result = nullptr;
+
+            const Player* target_player =
+                ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+
+            if (target_player) {
+                result = &target_player->position;
+            }
+            return result;
+        });
+
+    auto shoot_enemy = std::make_unique<gs::ShootEnemyNode>();
+    auto path_to_enemy = std::make_unique<gs::PathToEnemyNode>();
+    auto move_to_enemy = std::make_unique<gs::MoveToEnemyNode>();
+    auto follow_path = std::make_unique<gs::FollowPathNode>();
+    auto patrol = std::make_unique<gs::PatrolNode>();
+ 
+
+    auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+    auto shoot_sequence = std::make_unique<behavior::SequenceNode>(looking_at_enemy.get(), shoot_enemy.get());
+    auto parallel_shoot_enemy = std::make_unique<behavior::ParallelNode>(shoot_sequence.get(), move_method_selector.get());
+    auto los_shoot_conditional = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy.get());
+    auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
+    auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path.get());
+    auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
+    auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
+    auto root_selector = std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
+
+    behavior_nodes_.push_back(std::move(freq_warp_attach));
+    behavior_nodes_.push_back(std::move(find_enemy));
+    behavior_nodes_.push_back(std::move(looking_at_enemy));
+    behavior_nodes_.push_back(std::move(target_in_los));
+    behavior_nodes_.push_back(std::move(shoot_enemy));
+    behavior_nodes_.push_back(std::move(path_to_enemy));
+    behavior_nodes_.push_back(std::move(move_to_enemy));
+    behavior_nodes_.push_back(std::move(follow_path));
+    behavior_nodes_.push_back(std::move(patrol));
+
+    behavior_nodes_.push_back(std::move(move_method_selector));
+    behavior_nodes_.push_back(std::move(shoot_sequence));
+    behavior_nodes_.push_back(std::move(parallel_shoot_enemy));
+    behavior_nodes_.push_back(std::move(los_shoot_conditional));
+    behavior_nodes_.push_back(std::move(enemy_path_sequence));
+    behavior_nodes_.push_back(std::move(patrol_path_sequence));
+    behavior_nodes_.push_back(std::move(path_or_shoot_selector));
+    behavior_nodes_.push_back(std::move(handle_enemy));
+    behavior_nodes_.push_back(std::move(root_selector));
+}
+
 void Bot::ExtremeGames() {
 
     auto freq_warp_attach = std::make_unique<eg::FreqWarpAttachNode>();
@@ -313,7 +370,7 @@ void Bot::ExtremeGames() {
     auto move_to_enemy = std::make_unique<eg::MoveToEnemyNode>();
     auto follow_path = std::make_unique<eg::FollowPathNode>();
     auto patrol = std::make_unique<eg::PatrolNode>();
- 
+
 
     auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
     auto shoot_sequence = std::make_unique<behavior::SequenceNode>(looking_at_enemy.get(), shoot_enemy.get());
@@ -367,6 +424,7 @@ Bot::Bot(std::unique_ptr<GameProxy> game) : game_(std::move(game)), steering_(th
   }
   else if (game_->Zone() == "devastation") Devastation();
   else if (game_->Zone() == "extreme games") ExtremeGames();
+  else if (game_->Zone() == "galaxy sports") GalaxySports();
 
   behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
 
@@ -575,6 +633,10 @@ uint64_t Bot::GetTime() const {
 Area Bot::InArea(Vector2f position) {
     Area result = { 0 };
     Vector2f position_ = game_->GetPlayer().position;
+
+    result.in_gs_spawn = regions_->IsConnected((MapCoord)position, MapCoord(62, 62));
+    result.in_gs_free_mode = regions_->IsConnected((MapCoord)position, MapCoord(193, 80));
+    result.in_gs_warp = regions_->IsConnected((MapCoord)position, MapCoord(7, 7));
 
     result.in_center = regions_->IsConnected((MapCoord)position, MapCoord(512, 512));
     result.in_tunnel = regions_->IsConnected((MapCoord)position, MapCoord(27, 354));
