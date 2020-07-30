@@ -36,7 +36,7 @@ void AutoMode() {
     else hide_windows = false;
 
     //loop through the awnser and start bots
-    for (int i = 0; i < bots; i++) {
+    for (std::size_t i = 0; i < bots; i++) {
 
         //start bot with index i
         DWORD pid = StartBot(i, hide_windows);
@@ -57,8 +57,10 @@ void AutoMode() {
     DWORD StartBot(std::size_t index, bool hide_window) {
 
         hmenu = NULL;
+        herror = NULL;
         hprofile = NULL;
         hgame = NULL;
+        hinjected = NULL;
         hinformation = NULL;
         HWND hlist = NULL;
 
@@ -71,6 +73,11 @@ void AutoMode() {
         
         //return pid to caller
         pid = result.pid;
+
+        //grab path and access to Process
+        std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
+        auto process = std::make_unique<marvin::Process>(pid);
+        HANDLE handle = process->GetHandle();
 
         //find the menus handle by using the pid
         while (hmenu == NULL) {
@@ -124,55 +131,73 @@ void AutoMode() {
 
             if (herror != NULL) {
                 PostMessage(herror, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(herror, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-                herror = NULL;
+                TerminateProcess(handle, 0);
+                CloseHandle(handle);
                 return 0;
             }
 
             if (hinformation != NULL) {
                 PostMessage(hinformation, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hinformation, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-                Sleep(100);
+                Sleep(300);
                 PostMessage(hmenu, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hmenu, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
             }
             hinformation = NULL;   
         } 
 
-       //grab path and access to Process
-        std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
-        auto process = std::make_unique<marvin::Process>(pid);
-        HANDLE handle = process->GetHandle();
-
         //wait for the client to log in by waiting for the chat address to return an enter message
         std::string enter_msg = "";
+        int loops = 0;
 
         while (enter_msg == "") {
             Sleep(100);
-            std::size_t module_base = 0;
-            while (module_base == 0) {
-                Sleep(100);
-                module_base = process->GetModuleBase("Continuum.exe");
-            }
-            enter_msg = ReadChatEntry(module_base, handle);
+            loops++;
 
+            std::size_t module_base = process->GetModuleBase("Continuum.exe");
+   
+            enter_msg = ReadChatEntry(module_base, handle);
 
             EnumWindows(error::MyEnumWindowsProc, pid);
             if (herror != NULL) {
                 PostMessage(herror, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(herror, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-                herror = NULL;
+                TerminateProcess(handle, 0);
+                CloseHandle(handle);
                 return 0;
             }
-            
+            //break from this loop if the loading screen hangs
+            if (loops > 200) {
+                //PostMessage(hgame, WM_KEYDOWN, (WPARAM)(VK_ESCAPE), 0); PostMessage(hgame, WM_KEYUP, (WPARAM)(VK_ESCAPE), 0);
+                TerminateProcess(handle, 0);
+                CloseHandle(handle);
+                return 0;
+            }  
         }
 
      //need a second after getting chat or game will likely crash when trying to minimize or hide window
         Sleep(1000);
 
+        //inject the loader and marvin dll
+        if (!process->InjectModule(inject_path)) {
+            TerminateProcess(handle, 0);
+            CloseHandle(handle);
+            return 0;
+        }
+        loops = 0;
+        //wait for windows title to change before minimizing
+        while (hinjected == NULL) {
+            Sleep(100);
+            loops++;
+            EnumWindows(injected::MyEnumWindowsProc, pid);
+
+            if (loops > 200) {
+                TerminateProcess(handle, 0);
+                CloseHandle(handle);
+                return 0;
+            }
+        }
+        
         //6 to minimize or 0 to hide the game
         if (hide_window) ShowWindow(hgame, 0);
         else ShowWindow(hgame, 6);
-
-        Sleep(200);
-        //inject the loader and marvin dll
-        if (!process->InjectModule(inject_path)) TerminateProcess(handle, 0);
     
         CloseHandle(handle);
 
