@@ -14,6 +14,7 @@
 #include "Devastation.h"
 #include "ExtremeGames.h"
 #include "GalaxySports.h"
+#include "Hockey.h"
 
 
 namespace marvin {
@@ -351,7 +352,8 @@ void Bot::ExtremeGames() {
 
     auto freq_warp_attach = std::make_unique<eg::FreqWarpAttachNode>();
     auto find_enemy = std::make_unique<eg::FindEnemyNode>();
-    auto looking_at_enemy = std::make_unique<eg::LookingAtEnemyNode>();
+    auto aim_with_gun = std::make_unique<eg::AimWithGunNode>();
+    auto aim_with_bomb = std::make_unique<eg::AimWithBombNode>();
     auto target_in_los = std::make_unique<eg::InLineOfSightNode>(
         [](marvin::behavior::ExecuteContext& ctx) {
             const Vector2f* result = nullptr;
@@ -365,11 +367,75 @@ void Bot::ExtremeGames() {
             return result;
         });
 
-    auto shoot_enemy = std::make_unique<eg::ShootEnemyNode>();
+    auto shoot_gun = std::make_unique<eg::ShootGunNode>();
+    auto shoot_bomb = std::make_unique<eg::ShootBombNode>();
     auto path_to_enemy = std::make_unique<eg::PathToEnemyNode>();
     auto move_to_enemy = std::make_unique<eg::MoveToEnemyNode>();
     auto follow_path = std::make_unique<eg::FollowPathNode>();
     auto patrol = std::make_unique<eg::PatrolNode>();
+
+
+    auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+    auto gun_sequence = std::make_unique<behavior::SequenceNode>(aim_with_gun.get(), shoot_gun.get());
+    auto bomb_sequence = std::make_unique<behavior::SequenceNode>(aim_with_bomb.get(), shoot_bomb.get());
+    auto bomb_gun_sequence = std::make_unique<behavior::SelectorNode>(bomb_sequence.get(), gun_sequence.get());
+    auto parallel_shoot_enemy = std::make_unique<behavior::ParallelNode>(bomb_gun_sequence.get(), move_method_selector.get());
+    auto los_shoot_conditional = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy.get());
+    auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
+    auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path.get());
+    auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
+    auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
+    auto root_selector = std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
+
+    behavior_nodes_.push_back(std::move(freq_warp_attach));
+    behavior_nodes_.push_back(std::move(find_enemy));
+    behavior_nodes_.push_back(std::move(aim_with_gun));
+    behavior_nodes_.push_back(std::move(aim_with_bomb));
+    behavior_nodes_.push_back(std::move(target_in_los));
+    behavior_nodes_.push_back(std::move(shoot_gun));
+    behavior_nodes_.push_back(std::move(shoot_bomb));
+    behavior_nodes_.push_back(std::move(path_to_enemy));
+    behavior_nodes_.push_back(std::move(move_to_enemy));
+    behavior_nodes_.push_back(std::move(follow_path));
+    behavior_nodes_.push_back(std::move(patrol));
+
+    behavior_nodes_.push_back(std::move(move_method_selector));
+    behavior_nodes_.push_back(std::move(bomb_gun_sequence));
+    behavior_nodes_.push_back(std::move(bomb_sequence));
+    behavior_nodes_.push_back(std::move(gun_sequence));
+    behavior_nodes_.push_back(std::move(parallel_shoot_enemy));
+    behavior_nodes_.push_back(std::move(los_shoot_conditional));
+    behavior_nodes_.push_back(std::move(enemy_path_sequence));
+    behavior_nodes_.push_back(std::move(patrol_path_sequence));
+    behavior_nodes_.push_back(std::move(path_or_shoot_selector));
+    behavior_nodes_.push_back(std::move(handle_enemy));
+    behavior_nodes_.push_back(std::move(root_selector));
+}
+
+
+void Bot::HockeyZone() {
+
+    auto freq_warp_attach = std::make_unique<hz::FreqWarpAttachNode>();
+    auto find_enemy = std::make_unique<hz::FindEnemyNode>();
+    auto looking_at_enemy = std::make_unique<hz::LookingAtEnemyNode>();
+    auto target_in_los = std::make_unique<hz::InLineOfSightNode>(
+        [](marvin::behavior::ExecuteContext& ctx) {
+            const Vector2f* result = nullptr;
+
+            const Player* target_player =
+                ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+
+            if (target_player) {
+                result = &target_player->position;
+            }
+            return result;
+        });
+
+    auto shoot_enemy = std::make_unique<hz::ShootEnemyNode>();
+    auto path_to_enemy = std::make_unique<hz::PathToEnemyNode>();
+    auto move_to_enemy = std::make_unique<hz::MoveToEnemyNode>();
+    auto follow_path = std::make_unique<hz::FollowPathNode>();
+    auto patrol = std::make_unique<hz::PatrolNode>();
 
 
     auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
@@ -425,6 +491,7 @@ Bot::Bot(std::unique_ptr<GameProxy> game) : game_(std::move(game)), steering_(th
   else if (game_->Zone() == "devastation") Devastation();
   else if (game_->Zone() == "extreme games") ExtremeGames();
   else if (game_->Zone() == "galaxy sports") GalaxySports();
+  else if (game_->Zone() == "hockey") HockeyZone();
 
   behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
 
@@ -625,9 +692,7 @@ void Bot::Move(const Vector2f& target, float target_distance) {
 }
 
 uint64_t Bot::GetTime() const {
-    return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now())
-        .time_since_epoch()
-      .count();
+    return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 }
 
 Area Bot::InArea(Vector2f position) {

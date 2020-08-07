@@ -18,6 +18,7 @@ namespace marvin {
             bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
             bool on_0 = game.GetPlayer().frequency == 00;
             bool on_1 = game.GetPlayer().frequency == 01;
+
 //#if 0
             //if baseduelers are uneven jump in
             if (duelers.freq_0s > duelers.freq_1s) {
@@ -228,9 +229,10 @@ namespace marvin {
         bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
             const auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
-            Area bot_is = ctx.bot->InArea(bot_player.position);
+            //Area bot_is = ctx.bot->InArea(bot_player.position);
 
-            if (target.dead && !bot_is.in_center) return false;
+            //if (target.dead && !bot_is.in_center) return false;
+            if (!target.active) return false;
             if (target.id == game.GetPlayer().id) return false;
             if (target.ship > 7) return false;
             if (target.frequency == game.GetPlayer().frequency) return false;

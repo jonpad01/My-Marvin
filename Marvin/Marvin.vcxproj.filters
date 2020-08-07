@@ -75,6 +75,9 @@
     <ClCompile Include="GalaxySports.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Hockey.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameProxy.h">
@@ -156,6 +159,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GalaxySports.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hockey.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

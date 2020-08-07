@@ -80,6 +80,7 @@ class ContinuumGameProxy : public GameProxy {
   int64_t TickerPosition() override;
   const Player& GetSelectedPlayer() const override;
   const Player* GetPlayerById(u16 id) const override;
+  const BallData GetBallData() const override;
 
   std::vector<Weapon*> GetWeapons() override;
   
@@ -103,6 +104,8 @@ class ContinuumGameProxy : public GameProxy {
   void Repel(KeyController& keys) override;
   void F7() override;
   void SendChatMessage(const std::string& mesg) const override;
+  void ReadWriteEnergy(bool write) override;
+  
 
   void SetWindowFocus();
 

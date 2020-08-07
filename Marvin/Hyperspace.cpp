@@ -232,7 +232,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             const auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
 
-            if (target.dead) return false;
+            if (!target.active) return false;
             if (target.id == game.GetPlayer().id) return false;
             if (target.ship > 7) return false;
             if (target.frequency == game.GetPlayer().frequency) return false;

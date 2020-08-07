@@ -241,9 +241,8 @@ namespace marvin {
         bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
             const auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
-            //Area bot_is = ctx.bot->InArea(bot_player.position);
 
-            //if (target.dead && !bot_is.in_center) return false;
+            if (!target.active) return false;
             if (target.id == game.GetPlayer().id) return false;
             if (target.ship > 7) return false;
             if (target.frequency == game.GetPlayer().frequency) return false;
@@ -394,7 +393,7 @@ namespace marvin {
 
 
 
-        behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+        behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
             const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
             if (target_player == nullptr) return behavior::ExecuteResult::Failure;
@@ -403,22 +402,17 @@ namespace marvin {
             auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
 
-            float proj_speed =
-                game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f /
-                16.0f;
+            float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
 
             Vector2f target_pos = target.position;
 
-            Vector2f seek_position =
-                CalculateShot(game.GetPosition(), target_pos, bot_player.velocity,
-                    target.velocity, proj_speed);
+            Vector2f seek_position = CalculateShot(game.GetPosition(), target_pos, bot_player.velocity, target.velocity, proj_speed);
 
-            Vector2f projectile_trajectory =
-                (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
+            Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
 
             Vector2f projectile_direction = Normalize(projectile_trajectory);
-            float target_radius =
-                game.GetSettings().ShipSettings[target.ship].GetRadius();
+
+            float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
 
             float aggression = ctx.blackboard.ValueOr("aggression", 0.0f);
             float radius_multiplier = 1.0f;
@@ -446,12 +440,14 @@ namespace marvin {
                     box_min, box_extent, &dist, &norm);
             }
 
+
             if (seek_position.DistanceSq(target_player->position) < 15 * 15) {
                 ctx.blackboard.Set("target_position", seek_position);
             }
             else {
                 ctx.blackboard.Set("target_position", target.position);
             }
+
 
             if (hit) {
                 if (CanShoot(game.GetMap(), bot_player, target)) {
@@ -462,8 +458,81 @@ namespace marvin {
             return behavior::ExecuteResult::Failure;
         }
 
-        bool LookingAtEnemyNode::CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target) {
-            if (bot_player.position.DistanceSq(target.position) > 60 * 60) return false;
+        bool AimWithGunNode::CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target) {
+            if (bot_player.position.DistanceSq(target.position) > 18 * 18) return false;
+            if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
+
+            return true;
+        }
+
+
+
+        behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) {
+            const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+
+            if (target_player == nullptr) return behavior::ExecuteResult::Failure;
+
+            const Player& target = *target_player;
+            auto& game = ctx.bot->GetGame();
+            const Player& bot_player = game.GetPlayer();
+
+            float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BombSpeed / 10.0f / 16.0f;
+
+            Vector2f target_pos = target.position;
+
+            Vector2f seek_position = CalculateShot(game.GetPosition(), target_pos, bot_player.velocity, target.velocity, proj_speed);
+
+            Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
+
+            Vector2f projectile_direction = Normalize(projectile_trajectory);
+            
+            float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
+
+            float radius_multiplier = 0.80f;
+
+            //if the target is cloaking and bot doesnt have xradar make the bot shoot wide
+            if (!(game.GetPlayer().status & 4)) {
+                if (target.status & 2) {
+                    radius_multiplier = 3.0f;
+                }
+            }
+
+            float nearby_radius = target_radius * radius_multiplier;
+
+            Vector2f box_min = target.position - Vector2f(nearby_radius, nearby_radius);
+            Vector2f box_extent(nearby_radius, nearby_radius);
+            float dist;
+            Vector2f norm;
+
+            //bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
+
+           // if (!hit) {
+
+
+            box_min = seek_position - Vector2f(nearby_radius, nearby_radius);
+
+               bool hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
+           // }
+
+
+            if (seek_position.DistanceSq(target_player->position) < 15 * 15) {
+                ctx.blackboard.Set("target_position", seek_position);
+            }
+            else {
+                ctx.blackboard.Set("target_position", target.position);
+            }           
+
+            if (hit) {
+                if (CanShoot(game.GetMap(), bot_player, target)) {
+                    return behavior::ExecuteResult::Success;
+                }
+            }
+
+            return behavior::ExecuteResult::Failure;
+        }
+
+        bool AimWithBombNode::CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target) {
+            if (bot_player.position.DistanceSq(target.position) < 18 * 18) return false;
             if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
 
             return true;
@@ -472,15 +541,15 @@ namespace marvin {
 
 
 
-        behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-           
-            const Player& target_player = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-           
-            if (ctx.bot->GetGame().GetPosition().DistanceSq(target_player.position) > 18 * 18) {
-                ctx.bot->GetKeys().Press(VK_TAB);
-            }
-            else ctx.bot->GetKeys().Press(VK_CONTROL);
+        behavior::ExecuteResult ShootGunNode::Execute(behavior::ExecuteContext& ctx) {
+           ctx.bot->GetKeys().Press(VK_CONTROL);
+           return behavior::ExecuteResult::Success;
+        }
 
+
+
+        behavior::ExecuteResult ShootBombNode::Execute(behavior::ExecuteContext& ctx) {
+            ctx.bot->GetKeys().Press(VK_TAB);
             return behavior::ExecuteResult::Success;
         }
 
@@ -513,10 +582,10 @@ namespace marvin {
 
             if (in_safe) hover_distance = 0.0f;
             else if (bot_is.in_center) {
-                hover_distance = 10.0f / energy_pct;  
+                hover_distance = 12.0f / energy_pct;  
             }
             else {
-                hover_distance = 3.0f / energy_pct;
+                hover_distance = 3.0f;
             }
             if (hover_distance < 0.0f) hover_distance = 0.0f;
             const Player& shooter = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);

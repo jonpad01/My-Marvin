@@ -1,32 +1,13 @@
-#include "GalaxySports.h"
+#include "Hockey.h"
 
 namespace marvin {
-    namespace gs {
+    namespace hz {
 
         behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
-            
-            uint64_t time = ctx.bot->GetTime();
+           
+            //#if 0
 
-            Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPosition());
-            
-            //some stuff to make bot wait for the warp after respawning
-            uint64_t death_check = ctx.blackboard.ValueOr<uint64_t>("DeathWait", 0);
-            bool death_wait = ctx.blackboard.ValueOr<bool>("DeathTrigger", false);
-
-            if (time > death_check) {
-                ctx.blackboard.Set("DeathTrigger", false);
-            }
-            if (death_wait) {
-                return behavior::ExecuteResult::Success;
-            }
-            if (bot_is.in_gs_warp) {
-                ctx.blackboard.Set("DeathTrigger", true);
-                ctx.blackboard.Set("DeathWait", time + 500);
-                return behavior::ExecuteResult::Success;
-            }
-
-            
             bool x_active = (game.GetPlayer().status & 4) != 0;
             bool stealthing = (game.GetPlayer().status & 1) != 0;
             bool cloaking = (game.GetPlayer().status & 2) != 0;
@@ -62,96 +43,31 @@ namespace marvin {
             return behavior::ExecuteResult::Failure;
         }
 
-        bool FreqWarpAttachNode::CheckStatus(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
-            bool result = false;
-            if ((game.GetPlayer().status & 2) != 0) {
-                game.Cloak(ctx.bot->GetKeys());
-                return false;
-            }
-            if ((game.GetPlayer().status & 1) != 0) {
-                game.Stealth();
-                return false;
-            }
-            if (energy_pct >= 100.0f) result = true;
-            return result;
-        }
-
 
         behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
-
-            float closest_cost = std::numeric_limits<float>::max();
-            float cost = 0;
+            
+           
             auto& game = ctx.bot->GetGame();
             std::vector< Player > players = game.GetPlayers();
             const Player* target = nullptr;
-            const Player& bot = ctx.bot->GetGame().GetPlayer();
 
-            Area bot_is = ctx.bot->InArea(bot.position);
-            Vector2f position = game.GetPosition();
-            Vector2f resolution(1920, 1080);
-            view_min_ = bot.position - resolution / 2.0f / 16.0f;
-            view_max_ = bot.position + resolution / 2.0f / 16.0f;
+            const BallData ball = game.GetBallData();
 
-            //this loop checks every player and finds the closest one based on a cost formula
-            //if this does not succeed then there is no target, it will go into patrol mode
             for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
                 const Player& player = players[i];
 
                 if (!IsValidTarget(ctx, player)) continue;
-                auto to_target = player.position - position;
-                CastResult in_sight = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
-
-                //make players in line of sight high priority
-
-                if (!in_sight.hit) {
-                    cost = CalculateCost(game, bot, player) / 100;
-                }
-                else {
-                    cost = CalculateCost(game, bot, player);
-                }
-                if (cost < closest_cost) {
-                    closest_cost = cost;
+                
+                if (ball.held && player.id == ball.last_holder_id) {
                     target = &game.GetPlayers()[i];
                     result = behavior::ExecuteResult::Success;
                 }
             }
-            //on the first loop, there is nothing in current_target
-            const Player* current_target = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-            //const marvin::Player& check_current_target = *current_target;
-
-            //on the following loops, this compares what it found to the current_target
-            //and checks if the current_target is still valid
-            if (current_target && IsValidTarget(ctx, *current_target)) {
-                // Calculate the cost to the current target so there's some stickiness
-                // between close targets.
-                const float kStickiness = 2.5f;
-                float cost = CalculateCost(game, bot, *current_target);
-
-                if (cost * kStickiness < closest_cost) {
-                    target = current_target;
-                }
-            }
-
-            //and this sets the current_target for the next loop
+            
             ctx.blackboard.Set("target_player", target);
 
             return result;
-        }
-
-        float FindEnemyNode::CalculateCost(GameProxy& game, const Player& bot_player, const Player& target) {
-            float dist = bot_player.position.Distance(target.position);
-            // How many seconds it takes to rotate 180 degrees
-            float rotate_speed = game.GetShipSettings().InitialRotation / 200.0f; //MaximumRotation
-            float move_cost =
-                dist / (game.GetShipSettings().InitialSpeed / 10.0f / 16.0f); //MaximumSpeed
-            Vector2f direction = Normalize(target.position - bot_player.position);
-            float dot = std::abs(bot_player.GetHeading().Dot(direction) - 1.0f) / 2.0f;
-            float rotate_cost = std::abs(dot) * rotate_speed;
-
-            return move_cost + rotate_cost;
         }
 
         bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
@@ -178,19 +94,6 @@ namespace marvin {
             if (!ctx.bot->GetRegions().IsConnected(bot_coord, target_coord)) {
                 return false;
             }
-            //TODO: check if player is cloaking and outside radar range
-            //1 = stealth, 2= cloak, 3 = both, 4 = xradar 
-            bool stealthing = (target.status & 1) != 0;
-            bool cloaking = (target.status & 2) != 0;
-
-            //if the bot doesnt have xradar
-            if (!(game.GetPlayer().status & 4)) {
-                if (stealthing && cloaking) return false;
-
-                bool visible = InRect(target.position, view_min_, view_max_);
-
-                if (stealthing && !visible) return false;
-            }
 
             return true;
         }
@@ -216,22 +119,44 @@ namespace marvin {
         behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
             Vector2f from = game.GetPosition();
-            Path path;
-
-            std::vector<Vector2f> nodes;
-            Area bot_is = ctx.bot->InArea(from);
-            int index = ctx.blackboard.ValueOr<int>("patrol_index", 0);
             
-            //if bot is in spawn move to warp gate
-            if (bot_is.in_gs_spawn) {
-            nodes = { Vector2f(43, 64) };
-            index = 0;
-            }
-            else if (bot_is.in_gs_free_mode) {
-                nodes = { Vector2f(192, 50), Vector2f(224, 80), Vector2f(192, 110), Vector2f(159, 80) };   
-            }
-            else return behavior::ExecuteResult::Failure;
+            Path path;
+            const BallData ball = game.GetBallData();
+            
 
+            const Vector2f goal_0 = Vector2f(390, 512);
+            const Vector2f goal_1 = Vector2f(633, 512);
+
+            if (ball.held && ball.last_holder_id == game.GetPlayer().id) {
+#if 0
+                if (game.GetPlayer().frequency == 01) {
+                    if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), goal_0)) {
+                        path = CreatePath(ctx, "path", from, goal_0, game.GetShipSettings().GetRadius());
+                    }
+                    else path = CreatePath(ctx, "path", from, goal_1, game.GetShipSettings().GetRadius());
+                }
+                else if (game.GetPlayer().frequency == 00) {
+                 
+                    if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), goal_1)) {
+                        path = CreatePath(ctx, "path", from, goal_1, game.GetShipSettings().GetRadius());
+                    }
+                    else path = CreatePath(ctx, "path", from, goal_0, game.GetShipSettings().GetRadius());
+                }
+#endif
+                path = CreatePath(ctx, "path", from, goal_0, game.GetShipSettings().GetRadius());
+
+                if (game.GetPosition().DistanceSq(goal_1) < 25.0f * 25.0f || game.GetPosition().DistanceSq(goal_0) < 25.0f * 25.0f) {
+                    ctx.bot->GetKeys().Press(VK_CONTROL);
+                }
+
+            }
+            else path = CreatePath(ctx, "path", from, ball.position, game.GetShipSettings().GetRadius());
+            
+            
+            
+#if 0
+            std::vector<Vector2f> nodes{ Vector2f(570, 540), Vector2f(455, 540), Vector2f(455, 500), Vector2f(570, 500) };
+            int index = ctx.blackboard.ValueOr<int>("patrol_index", 0);
             Vector2f to = nodes.at(index);
 
             if (game.GetPosition().DistanceSq(to) < 5.0f * 5.0f) {
@@ -239,8 +164,9 @@ namespace marvin {
                 ctx.blackboard.Set("patrol_index", index);
                 to = nodes.at(index);
             }
-
-            path = CreatePath(ctx, "path", from, to, game.GetShipSettings().GetRadius());
+#endif
+            
+                
             ctx.blackboard.Set("path", path);
 
             return behavior::ExecuteResult::Success;
@@ -390,7 +316,7 @@ namespace marvin {
         }
 
         bool LookingAtEnemyNode::CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target) {
-            if (bot_player.position.DistanceSq(target.position) > 60 * 60) return false;
+            if (bot_player.position.DistanceSq(target.position) > 4 * 4) return false;
             if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
 
             return true;
@@ -401,12 +327,7 @@ namespace marvin {
 
         behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
-            const Player& target_player = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-
-            if (ctx.bot->GetGame().GetPosition().DistanceSq(target_player.position) > 25 * 25) {
-                ctx.bot->GetKeys().Press(VK_TAB);
-            }
-            else ctx.bot->GetKeys().Press(VK_CONTROL);
+            ctx.bot->GetKeys().Press(VK_CONTROL);
 
             return behavior::ExecuteResult::Success;
         }
@@ -416,37 +337,10 @@ namespace marvin {
         behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
 
-            float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy;
-
-            Area bot_is = ctx.bot->InArea(game.GetPosition());
-            bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
+           
             Vector2f target_position = ctx.blackboard.ValueOr("target_position", Vector2f());
-
-            int ship = game.GetPlayer().ship;
-            //#if 0
-            Vector2f mine_position(0, 0);
-            for (Weapon* weapon : game.GetWeapons()) {
-                const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
-                if (weapon_player == nullptr) continue;
-                if (weapon_player->frequency == game.GetPlayer().frequency) continue;
-                if (weapon->GetType() & 0x8000) mine_position = (weapon->GetPosition());
-                if (mine_position.Distance(game.GetPosition()) < 5.0f) {
-                    game.Repel(ctx.bot->GetKeys());
-                }
-            }
-            //#endif
-            float hover_distance = 0.0f;
-
-
-            if (in_safe) hover_distance = 0.0f;
-            else if (bot_is.in_center) {
-                hover_distance = 10.0f / energy_pct;
-            }
-            else {
-                hover_distance = 3.0f / energy_pct;
-            }
-            if (hover_distance < 0.0f) hover_distance = 0.0f;
-            const Player& shooter = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+    
+            float hover_distance = 1.0f;
 
             ctx.bot->Move(target_position, hover_distance);
 
@@ -501,5 +395,5 @@ namespace marvin {
 
             return false;
         }
-    } //namespace gs
+    } //namespace hz
 } //namespace marvin

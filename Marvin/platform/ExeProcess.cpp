@@ -48,8 +48,7 @@ std::string ExeProcess::ReadString(std::size_t address,
 }
 
 std::size_t ExeProcess::GetModuleBase(const char* module_name) {
-  HANDLE hSnapshot = CreateToolhelp32Snapshot(
-      TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, process_id_);
+  HANDLE hSnapshot = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, process_id_);
   MODULEENTRY32 me = {0};
 
   me.dwSize = sizeof(me);

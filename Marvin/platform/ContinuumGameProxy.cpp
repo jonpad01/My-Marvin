@@ -23,7 +23,9 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) {
   if (path == "zones\\SSCE Hyperspace") path += "\\jun2018.lvl";
   else if (path == "zones\\SSCJ Devastation") path += "\\bd.lvl";
   else if (path == "zones\\SSCU Extreme Games") path += "\\colpub20v4.lvl";
-  
+  else if (path == "zones\\SSCJ Galaxy Sports") path += "\\public.lvl";
+  else if (path == "zones\\SSCE HockeyFootball Zone") path += "\\5rink_30.lvl";
+
   map_ = Map::Load(path);
 
   FetchPlayers();
@@ -121,7 +123,10 @@ void ContinuumGameProxy::FetchPlayers() {
 
     player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
 
+    //triggers if player is not moving and has no velocity
     player.dead = process_.ReadU32(player_addr + 0x178) == 0;
+
+    player.active = *(u32*)(player_addr + 0x4C) == 0 && *(u32*)(player_addr + 0x40) == 0;
 
     // Energy calculation @4485FA
     if (player.id == player_id_) {
@@ -129,7 +134,7 @@ void ContinuumGameProxy::FetchPlayers() {
     u32 energy2 = process_.ReadU32(player_addr + kEnergyOffset2); 
 
     u32 combined = energy1 + energy2;
-    u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;
+    u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;  // 1000 = 64000 = 3e800000000 = 
 
     player.energy = static_cast<uint16_t>(energy);
     }
@@ -232,6 +237,8 @@ std::string ContinuumGameProxy::Zone() {
     if (path == "zones\\SSCE Hyperspace") result = "hyperspace";
     if (path == "zones\\SSCJ Devastation") result = "devastation";
     if (path == "zones\\SSCU Extreme Games") result = "extreme games";
+    if (path == "zones\\SSCJ Galaxy Sports") result = "galaxy sports";
+    if (path == "zones\\SSCE HockeyFootball Zone") result = "hockey";
     return result;
 }
 void ContinuumGameProxy::SetFreq(int freq) {
@@ -429,6 +436,36 @@ const Player& ContinuumGameProxy::GetSelectedPlayer() const {
     u32 selected_index = *(u32*)(game_addr_ + 0x127EC + 0x1B758);
 
     return players_[selected_index];
+}
+
+ const BallData ContinuumGameProxy::GetBallData() const {
+
+    BallData data;
+
+    for (size_t i = 0; ; ++i) {
+        u32 ball_ptr = *(u32*)(game_addr_ + 0x2F3C8 + i * 4);
+         
+
+        if (ball_ptr == 0) break;
+
+            data.inactive_timer = *(u32*)(ball_ptr + 0x38);
+            data.held = *(u32*)(ball_ptr + 0x34) == 0;
+
+            data.last_holder_id = *(u16*)(ball_ptr + 0x32);
+
+            data.position.x = *(u32*)(ball_ptr + 0x04) / 1000.0f / 16.0f;
+            data.position.y = *(u32*)(ball_ptr + 0x08) / 1000.0f / 16.0f;
+
+            data.velocity.x = *(i32*)(ball_ptr + 0x10) / 10.0f / 16.0f;
+            data.velocity.y = *(i32*)(ball_ptr + 0x14) / 10.0f / 16.0f;
+
+            data.last_activity.x = *(u16*)(ball_ptr + 0x2A) / 1000.0f / 16.0f;
+            data.last_activity.y = *(u16*)(ball_ptr + 0x2C) / 1000.0f / 16.0f;
+
+            if (data.position.x == 0 && data.position.y == 0) continue;
+            else return data;
+    }
+    return data;
 }
 
 }  // namespace marvin

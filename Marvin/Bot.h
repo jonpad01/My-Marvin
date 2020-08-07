@@ -35,6 +35,8 @@ struct Duelers {
     bool team_in_base, enemy_in_base;
 };
 
+
+
 class GameProxy;
 struct Player;
 
@@ -45,6 +47,7 @@ public:
     void Devastation();
     void ExtremeGames();
     void GalaxySports();
+    void HockeyZone();
 
   void Update(float dt);
 

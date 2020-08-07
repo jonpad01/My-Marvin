@@ -10,11 +10,17 @@
 
 namespace marvin {
 
+struct BallData {
+    Vector2f position, velocity, last_activity;
+    uint32_t inactive_timer, last_holder_id;
+    bool held;
+};
+
 struct Player {
   std::string name;
   std::string squad;
   std::string wins;
-  bool dead;
+  bool dead, active;
 
   int32_t energy;
   uint16_t id;

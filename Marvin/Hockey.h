@@ -4,13 +4,11 @@
 #include "Debug.h"
 
 namespace marvin {
-    namespace eg {
+    namespace hz {
 
         class FreqWarpAttachNode : public behavior::BehaviorNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            bool CheckStatus(behavior::ExecuteContext& ctx);
         };
 
         class FindEnemyNode : public PathingNode {
@@ -29,6 +27,14 @@ namespace marvin {
         class PathToEnemyNode : public PathingNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+        };
+
+
+        class LookingAtEnemyNode : public behavior::BehaviorNode {
+        public:
+            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+        private:
+            bool CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target);
         };
 
 
@@ -58,30 +64,7 @@ namespace marvin {
         };
 
 
-        class AimWithGunNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            bool CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target);
-        };
-
-
-        class AimWithBombNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            bool CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target);
-        };
-
-
-        class ShootGunNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        };
-
-
-
-        class ShootBombNode : public behavior::BehaviorNode {
+        class ShootEnemyNode : public behavior::BehaviorNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
         };
@@ -95,5 +78,5 @@ namespace marvin {
         private:
             bool IsAimingAt(GameProxy& game, const Player& shooter, const Player& target, Vector2f* dodge);
         };
-    } // namespace eg
+    } // namespace hz
 }  // namespace marvin

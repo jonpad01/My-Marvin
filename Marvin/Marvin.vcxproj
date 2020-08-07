@@ -154,6 +154,7 @@
     <ClCompile Include="Devastation.cpp" />
     <ClCompile Include="ExtremeGames.cpp" />
     <ClCompile Include="GalaxySports.cpp" />
+    <ClCompile Include="Hockey.cpp" />
     <ClCompile Include="Hyperspace.cpp" />
     <ClCompile Include="KeyController.cpp" />
     <ClCompile Include="Map.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="ExtremeGames.h" />
     <ClInclude Include="GalaxySports.h" />
     <ClInclude Include="Hash.h" />
+    <ClInclude Include="Hockey.h" />
     <ClInclude Include="Hyperspace.h" />
     <ClInclude Include="KeyController.h" />
     <ClInclude Include="Map.h" />
