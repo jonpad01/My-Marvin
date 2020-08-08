@@ -67,7 +67,6 @@ class GameProxy {
   virtual void Burst(KeyController& keys) = 0;
   virtual void Repel(KeyController& keys) = 0;
   virtual void F7() = 0;
-  virtual void ReadWriteEnergy(bool write) = 0;
   
 };
 

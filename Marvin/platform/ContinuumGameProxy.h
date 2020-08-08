@@ -104,7 +104,7 @@ class ContinuumGameProxy : public GameProxy {
   void Repel(KeyController& keys) override;
   void F7() override;
   void SendChatMessage(const std::string& mesg) const override;
-  void ReadWriteEnergy(bool write) override;
+ 
   
 
   void SetWindowFocus();

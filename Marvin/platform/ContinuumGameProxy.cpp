@@ -133,8 +133,10 @@ void ContinuumGameProxy::FetchPlayers() {
     u32 energy1 = process_.ReadU32(player_addr + kEnergyOffset1); 
     u32 energy2 = process_.ReadU32(player_addr + kEnergyOffset2); 
 
+    //energy1 and energy2 are larger than a uint32_t can store so it rolls over
     u32 combined = energy1 + energy2;
-    u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;  // 1000 = 64000 = 3e800000000 = 
+    //this then takes the result and basically divides it by 1000
+    u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;
 
     player.energy = static_cast<uint16_t>(energy);
     }
