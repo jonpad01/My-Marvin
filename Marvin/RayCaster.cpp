@@ -24,6 +24,7 @@ bool LineBoxIntersect(Vector2f point, Vector2f direction, Vector2f box_pos, Vect
 }
 
 bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist, Vector2f* norm) {
+
   Vector2f recip(1.0f / direction.x, 1.0f / direction.y);
   Vector2f lb = box_pos + Vector2f(0, box_extent.y);
   Vector2f rt = box_pos + Vector2f(box_extent.x, 0);
@@ -32,17 +33,19 @@ bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vect
   float t2 = (float)((rt.x - origin.x) * recip.x);
   float t3 = (float)((lb.y - origin.y) * recip.y);
   float t4 = (float)((rt.y - origin.y) * recip.y);
+  float t5 = (float)((box_pos.x - origin.x) * recip.x);
+  float t6 = (float)((box_pos.y - origin.y) * recip.y);
 
   using std::min;
   using std::max;
 
-  float tmin = max(min(t1, t2), min(t3, t4));
-  float tmax = min(max(t1, t2), max(t3, t4));
+  float tmin = max(min(min(t1, t2), t5), min(min(t3, t4), t6));
+  float tmax = min(max(max(t1, t2), t5), max(max(t3, t4), t6));
 
   bool intersected = false;
   float t;
 
-  if (tmax < 0) {
+  if (tmax < 0.0f) {
     t = tmax;
   } else if (tmin > tmax) {
     t = tmax;
@@ -80,19 +83,20 @@ CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_
   Vector2f closest_normal;
 
   result.distance = max_length;
-  Vector2f from_base(std::floor(from.x), std::floor(from.y));
+  Vector2f from_base(std::floor(from.x), std::floor(from.y)); //shaves off decimal
 
-  for (float i = 0; i < max_length; ++i) {
-    Vector2f current = from_base + direction * i;
+  for (float i = 1; i < max_length; ++i) { //i = 0;
+    Vector2f current = from_base + direction * i; //step into the direction
 
     for (Vector2f check_direction : kDirections) {
-      Vector2f check = current + check_direction;
+      Vector2f check = current + check_direction; //checks 4 tiles around current?
 
-      if (!map.IsSolid((unsigned short)check.x, (unsigned short)check.y)) continue;
+      if (!map.IsSolid((unsigned short)check.x, (unsigned short)check.y)) continue; //this tile isnt a wall
 
       float dist;
       Vector2f normal;
 
+      //wall tiles are checked and returns distance + norm
       if (RayBoxIntersect(from, direction, check, Vector2f(1, 1), &dist, &normal)) {
         if (dist < closest_distance && dist >= 0) {
           closest_distance = dist;
@@ -111,5 +115,45 @@ CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_
 
   return result;
 }
+
+CastResult GunCast(const Map& map, Vector2f from, Vector2f direction, float max_length) {
+
+    CastResult result = { 0 };
+    float closest_distance = std::numeric_limits<float>::max();
+    Vector2f closest_normal;
+    Vector2f last_check;
+
+    float dist;
+    Vector2f normal;
+
+    result.distance = max_length;
+
+    for (float i = 0; i < max_length; i += 0.1f) {
+        Vector2f current = from + (direction * i); //step into the direction
+
+        Vector2f check(std::floor(current.x), std::floor(current.y)); //checks 4 tiles around current?
+
+        if (check == last_check) { continue; }
+
+        if (!map.IsSolid((unsigned short)check.x, (unsigned short)check.y)) { continue; }//this tile isnt a wall
+
+         //wall tiles are checked and returns distance + norm
+        if (RayBoxIntersect(from, direction, check, Vector2f(1, 1), &dist, &normal)) {
+            if (dist < closest_distance && dist >= 0) {
+                closest_distance = dist;
+                closest_normal = normal;
+            }
+        }
+        if (closest_distance < max_length) {
+            result.hit = true;
+            result.normal = closest_normal;
+            result.distance = closest_distance;
+            result.position = from + direction * closest_distance;
+        }
+        last_check = check;
+    }
+    return result;
+}
+
 
 }

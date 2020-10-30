@@ -61,16 +61,12 @@ namespace marvin {
         class AimWithGunNode : public behavior::BehaviorNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            bool CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target);
         };
 
 
         class AimWithBombNode : public behavior::BehaviorNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            bool CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target);
         };
 
 

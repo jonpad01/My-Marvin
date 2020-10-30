@@ -42,6 +42,7 @@ TileId Map::GetTileId(const Vector2f& position) const {
 
 bool Map::CanOccupy(const Vector2f& position, float radius) const {
     int radius_check = (int)(radius + 0.5f);
+    //int radius_check = (int)(radius);
 
     for (int y = -radius_check; y <= radius_check; ++y) {
         for (int x = -radius_check; x <= radius_check; ++x) {

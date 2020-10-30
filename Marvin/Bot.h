@@ -18,24 +18,12 @@ namespace marvin {
     using Path = std::vector<Vector2f>;
 
 extern std::ofstream debug_log;
-struct Area {
-    bool in_base, in_tunnel, in_center, in_gs_spawn, in_gs_free_mode, in_gs_warp;
-    bool in_1, in_2, in_3, in_4, in_5, in_6, in_7, in_8;
-    bool connected, in_diff;
-    std::vector<bool> in;
-};
+
 struct Flaggers {
-    Player enemy_anchor, team_anchor;
+    const Player* enemy_anchor; const Player* team_anchor;
     int flaggers, team_lancs, team_spiders;
     
 };
-struct Duelers {
-    int freq_0s, freq_1s;
-    std::vector< Player > team;
-    bool team_in_base, enemy_in_base;
-};
-
-
 
 class GameProxy;
 struct Player;
@@ -48,6 +36,7 @@ public:
     void ExtremeGames();
     void GalaxySports();
     void HockeyZone();
+    void PowerBall();
 
   void Update(float dt);
 
@@ -71,18 +60,83 @@ public:
       behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior);
   }
 
-
-  Area InArea(Vector2f position);
+  Vector2f FindPowerBallGoal();
 
   int BaseSelector();
 
   Flaggers FindFlaggers();
-  Duelers FindDuelers();
+  
   bool CheckStatus();
   int FindOpenFreq();
 
+  
+  //HS specific members
+  Path GetBasePaths(std::size_t base_number) { return hs_base_paths_[base_number]; }
+  bool InHSBase(Vector2f position);
+  std::vector<bool> InHSBaseNumber(Vector2f position);
+
+  //Devastation specific members
+
+  std::vector<uint16_t> GetFreqList() { return freq_list; }
+  std::vector<Player>& GetDevaTeam() { return deva_team; }
+  std::vector<Player>& GetDevaEnemyTeam() { return deva_enemy_team; }
+  std::vector<Player>& GetDevaDuelers() { return deva_duelers; }
+  bool LastBotStanding() { return last_bot_standing; }
+  bool InCenter() { return in_center; }
+  Vector2f GetTeamSafe() { return team_safe; }
+  Vector2f GetEnemySafe() { return enemy_safe; }
+  Path GetDevaBasePath() { return deva_base_paths[index]; }
+
+  float PathLength(Vector2f point_1, Vector2f point_2);
+
+  bool CanShootGun(const Map& map, const Player& bot_player, const Player& target);
+  bool CanShootBomb(const Map& map, const Player& bot_player, const Player& target);
+
+  void LookForWallShot(Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time, uint8_t bounces);
+  bool CalculateWallShot(Vector2f target_pos, Vector2f target_vel, Vector2f desired_direction, float proj_speed, int alive_time, uint8_t bounces);
+  Vector2f GetWallShot() { return wall_shot; }
+  bool HasWallShot() { return has_wall_shot; }
+
  private:
   void Steer();
+
+  void CreateHSBasePaths();
+  void CheckHSBaseRegions(Vector2f position);
+  
+  std::size_t FindClosestPathNode(Vector2f position);
+  
+  void FindDevaSafeTiles();
+  void CreateDevaBasePaths();
+  void SortDevaPlayers();
+  void CheckCenterRegion();
+  bool SetDevaCurrentSafes();
+  void SetDevaBaseRegion();
+
+  
+
+  bool in_center;
+  std::vector<uint16_t> freq_list;
+  Vector2f wall_shot;
+  bool has_wall_shot;
+
+  Vector2f enemy_node;
+  Vector2f bot_node;
+  std::size_t index;
+  Vector2f team_safe;
+  Vector2f enemy_safe;
+  bool last_bot_standing;
+  int deva_freq_0s, deva_freq_1s;
+  //these must be cleared before use as they are never deconstructed
+  std::vector<Player> deva_team;
+  std::vector<Player> deva_enemy_team;
+  std::vector<Player> deva_duelers;
+  //these are calculated once and saved
+  std::vector<MapCoord> base_safe_1;
+  std::vector<MapCoord> base_safe_2;
+  std::vector<Path> deva_base_paths;
+
+  bool hs_in_1, hs_in_2, hs_in_3, hs_in_4, hs_in_5, hs_in_6, hs_in_7, hs_in_8;
+  std::vector<Path> hs_base_paths_;
 
   std::unique_ptr<GameProxy> game_;
   std::unique_ptr<path::Pathfinder> pathfinder_;
@@ -100,15 +154,14 @@ public:
   KeyController keys_;
 };
 
-bool WallShot(behavior::ExecuteContext& ctx, const marvin::Player& bot_player);
+
 
 bool InRect(marvin::Vector2f pos, marvin::Vector2f min_rect,
     marvin::Vector2f max_rect);
 
 bool IsValidPosition(marvin::Vector2f position);
 
-bool CanShoot(const marvin::Map& map, const marvin::Player& bot_player,
-    const marvin::Player& target);
+
 
 marvin::Vector2f CalculateShot(const marvin::Vector2f& pShooter,
     const marvin::Vector2f& pTarget,

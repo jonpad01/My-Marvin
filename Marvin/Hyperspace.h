@@ -28,6 +28,17 @@ namespace marvin {
         class PathToEnemyNode : public PathingNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+        private:
+            void FindClosestNodes(behavior::ExecuteContext& ctx);
+            bool IsDefendingAnchor(behavior::ExecuteContext& ctx);
+            float DistanceToEnemy(behavior::ExecuteContext& ctx);
+
+            Vector2f enemy_;
+            Flaggers flaggers_;
+            Path base_path_;
+            std::size_t enemy_node;
+            std::size_t enemy_anchor_node;
+            std::size_t bot_node;
         };
 
 

@@ -5,8 +5,8 @@ namespace marvin {
 
         behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
-            Area bot_is = ctx.bot->InArea(game.GetPlayer().position);
-
+            
+            bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
             uint64_t time = ctx.bot->GetTime();
             uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
             uint64_t f7_check = ctx.blackboard.ValueOr<uint64_t>("F7SpamCheck", 0);
@@ -24,10 +24,10 @@ namespace marvin {
             //find and store attachable team players
             for (std::size_t i = 0; i < players.size(); i++) {
                 const Player& player = players[i];
-                Area player_is = ctx.bot->InArea(player.position);
+                bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
                 bool same_team = player.frequency == game.GetPlayer().frequency;
                 bool not_bot = player.id != game.GetPlayer().id;
-                if (!player_is.in_center && same_team && not_bot && player.ship < 8) {
+                if (!in_center && same_team && not_bot && player.ship < 8) {
                     duelers.push_back(players[i]);
                     team_in_base = true;
                 }
@@ -66,7 +66,7 @@ namespace marvin {
             
             // attach code
                 //the region registry doesnt thing the eg center bases are connected to center 
-            if (bot_is.in_center && duelers.size() != 0 && team_in_base && dueling) {
+            if (in_center && duelers.size() != 0 && team_in_base && dueling) {
 
                 //a saved value to keep the ticker moving up or down
                 bool up_down = ctx.blackboard.ValueOr<bool>("UpDown", true);
@@ -77,7 +77,7 @@ namespace marvin {
                 //if ticker is on a player in base attach
                 for (std::size_t i = 0; i < duelers.size(); i++) {
                     const Player& player = duelers[i];
-                    Area player_is = ctx.bot->InArea(player.position);
+             
                     if (player.id == selected_player.id && IsValidPosition(player.position)) {
                         if (CheckStatus(ctx)) game.F7();
                         return behavior::ExecuteResult::Success;
@@ -102,7 +102,7 @@ namespace marvin {
                     //try to detach
                     for (std::size_t i = 0; i < duelers.size(); i++) {
                         const Player& player = duelers[i];
-                        if (player.position == bot_position && no_f7_spam && !bot_is.in_center) {
+                        if (player.position == bot_position && no_f7_spam && !in_center) {
                             game.F7();
                             ctx.blackboard.Set("F7SpamCheck", time + 150);
                             return behavior::ExecuteResult::Success;
@@ -173,7 +173,7 @@ namespace marvin {
             const Player* target = nullptr;
             const Player& bot = ctx.bot->GetGame().GetPlayer();
 
-            Area bot_is = ctx.bot->InArea(bot.position);
+            
             Vector2f position = game.GetPosition();
             Vector2f resolution(1920, 1080);
             view_min_ = bot.position - resolution / 2.0f / 16.0f;
@@ -402,6 +402,10 @@ namespace marvin {
             auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
 
+            if (!ctx.bot->CanShootGun(game.GetMap(), bot_player, target)) {
+                return behavior::ExecuteResult::Failure;
+            }
+
             float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
 
             Vector2f target_pos = target.position;
@@ -450,21 +454,11 @@ namespace marvin {
 
 
             if (hit) {
-                if (CanShoot(game.GetMap(), bot_player, target)) {
                     return behavior::ExecuteResult::Success;
-                }
             }
 
             return behavior::ExecuteResult::Failure;
         }
-
-        bool AimWithGunNode::CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target) {
-            if (bot_player.position.DistanceSq(target.position) > 18 * 18) return false;
-            if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
-
-            return true;
-        }
-
 
 
         behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) {
@@ -475,6 +469,10 @@ namespace marvin {
             const Player& target = *target_player;
             auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
+
+            if (!ctx.bot->CanShootBomb(game.GetMap(), bot_player, target)) {
+                return behavior::ExecuteResult::Failure;
+            }
 
             float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BombSpeed / 10.0f / 16.0f;
 
@@ -504,15 +502,12 @@ namespace marvin {
             float dist;
             Vector2f norm;
 
-            //bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
+            bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
 
-           // if (!hit) {
-
-
-            box_min = seek_position - Vector2f(nearby_radius, nearby_radius);
-
-               bool hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
-           // }
+            if (!hit) {
+                box_min = seek_position - Vector2f(nearby_radius, nearby_radius);
+                hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
+            }
 
 
             if (seek_position.DistanceSq(target_player->position) < 15 * 15) {
@@ -523,21 +518,11 @@ namespace marvin {
             }           
 
             if (hit) {
-                if (CanShoot(game.GetMap(), bot_player, target)) {
                     return behavior::ExecuteResult::Success;
-                }
             }
 
             return behavior::ExecuteResult::Failure;
         }
-
-        bool AimWithBombNode::CanShoot(const marvin::Map& map, const marvin::Player& bot_player, const marvin::Player& target) {
-            if (bot_player.position.DistanceSq(target.position) < 18 * 18) return false;
-            if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
-
-            return true;
-        }
-
 
 
 
@@ -545,7 +530,6 @@ namespace marvin {
            ctx.bot->GetKeys().Press(VK_CONTROL);
            return behavior::ExecuteResult::Success;
         }
-
 
 
         behavior::ExecuteResult ShootBombNode::Execute(behavior::ExecuteContext& ctx) {
@@ -560,7 +544,7 @@ namespace marvin {
             
             float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy;
             
-            Area bot_is = ctx.bot->InArea(game.GetPosition());
+            bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
             bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
             Vector2f target_position = ctx.blackboard.ValueOr("target_position", Vector2f());
           
@@ -581,7 +565,7 @@ namespace marvin {
          
 
             if (in_safe) hover_distance = 0.0f;
-            else if (bot_is.in_center) {
+            else if (in_center) {
                 hover_distance = 12.0f / energy_pct;  
             }
             else {

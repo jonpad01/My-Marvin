@@ -24,6 +24,7 @@ struct Player {
 
   int32_t energy;
   uint16_t id;
+  uint16_t attach_id;
   uint16_t ship;
   int32_t bounty;
 
@@ -42,6 +43,20 @@ struct Player {
     float y = -std::sin(rads);
 
     return Vector2f(x, y);
+  }
+  Vector2f ConvertToHeading(uint16_t rotation) const {
+      const float kToRads = (static_cast<float>(M_PI) / 180.0f);
+      float rads = (((40 - (rotation + 30)) % 40) * 9.0f) * kToRads;
+      float x = std::cos(rads);
+      float y = -std::sin(rads);
+
+      return Vector2f(x, y);
+  }
+  float ConvertToRads(uint16_t rotation) const {
+      const float kToRads = (static_cast<float>(M_PI) / 180.0f);
+      float rads = (((40 - (rotation + 30)) % 40) * 9.0f) * kToRads;
+ 
+      return rads;
   }
 };
 

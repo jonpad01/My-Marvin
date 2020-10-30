@@ -5,112 +5,111 @@ namespace marvin {
 
         behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
-            Area bot_is = ctx.bot->InArea(game.GetPlayer().position);
+         
             uint64_t time = ctx.bot->GetTime();
-            uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
-            uint64_t F7_check = ctx.blackboard.ValueOr<uint64_t>("F7", 0);
-            bool no_spam = time > spam_check;
-            bool no_F7_spam = time > F7_check;
 
-            float deva_energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy) * 100.0f;
-            Duelers duelers = ctx.bot->FindDuelers();
-            int open_freq = ctx.bot->FindOpenFreq();
-            bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
-            bool on_0 = game.GetPlayer().frequency == 00;
-            bool on_1 = game.GetPlayer().frequency == 01;
+            uint64_t freq_cooldown = ctx.blackboard.ValueOr<uint64_t>("FreqCooldown", 0);
+  
+            uint64_t toggle_cooldown = ctx.blackboard.ValueOr<uint64_t>("ToggleCooldown", 0);
 
-//#if 0
-            //if baseduelers are uneven jump in
-            if (duelers.freq_0s > duelers.freq_1s) {
-                if (!dueling) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(1);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
+            //bots on the same team tend to switch out at the same time when team is uneven, they need unique wait timers
+            uint64_t freq_timer_offset = ((uint64_t)game.GetPlayer().id * 100) + 1000;
+
+            //makes the timers load up for the first pass, needed to keep multiple bots from spamming frequency changes
+            bool set_timer = ctx.blackboard.ValueOr<bool>("SetTimer", true);
+            //reset the timer if it gets toggled but not toggled back
+            if (time > freq_cooldown + 150) set_timer = true;
+
+            //if player is on a non duel team size greater than 2, breaks the zone balancer
+            if (game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01) {
+                if (ctx.bot->GetFreqList()[game.GetPlayer().frequency] > 1) {
+                    if (set_timer) {
+                        ctx.blackboard.Set("FreqCooldown", time + freq_timer_offset);
+                        ctx.blackboard.Set("SetTimer", false);
                     }
-                    return behavior::ExecuteResult::Success;
-                }
-                //if on team and uneven jump out
-                else if (on_0 && (bot_is.in_center || (duelers.team_in_base || duelers.freq_0s < 2))) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(open_freq);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
+                    //this team is too large, find an open freq
+                    else if (time > freq_cooldown && CheckStatus(ctx)) {
+                        game.SetFreq(ctx.bot->FindOpenFreq());
+                        ctx.blackboard.Set("SetTimer", true);
                     }
-                    return behavior::ExecuteResult::Success;
                 }
             }
-            if (duelers.freq_0s < duelers.freq_1s) {
-                if (!dueling) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(0);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
-                    }
-                    return behavior::ExecuteResult::Success;
-                }
-                else if (on_1 && (bot_is.in_center || (duelers.team_in_base || duelers.freq_1s < 2))) {
-                    if (CheckStatus(ctx) && no_spam) {
-                        game.SetFreq(open_freq);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
-                    }
-                    return behavior::ExecuteResult::Success;
-                }
-            }
-//#endif
-            //if dueling then attach
-            if (dueling) {
-              
-                if (bot_is.in_center && duelers.team.size() != 0 && duelers.team_in_base) {
 
-                    //a saved value to keep the ticker moving up or down
-                    bool up_down = ctx.blackboard.ValueOr<bool>("UpDown", true);
-                    //used to skip f7 and make attaching more random
-                    bool page_or_f7 = ctx.blackboard.ValueOr<bool>("PageOrF7", false);
-                    //what player the ticker is currently on
-                    const Player& selected_player = game.GetSelectedPlayer();
-
-                    //if ticker is on a player in base attach
-                    for (std::size_t i = 0; i < duelers.team.size(); i++) {
-                        const Player& player = duelers.team[i];
-                        Area player_is = ctx.bot->InArea(player.position);
-                        if (!player_is.in_center && player.ship < 8 && player.id == selected_player.id && !page_or_f7/*IsValidPosition(player.position)*/) {
-                            if (no_F7_spam) {
-                                if (CheckStatus(ctx)) {
-                                    game.F7();
-                                    ctx.blackboard.Set("PageOrF7", true);
-                                    ctx.blackboard.Set("F7", time + 150);
-                                }
-                            }
-                            return behavior::ExecuteResult::Success;   
+            //duel team is uneven
+            if (ctx.bot->GetFreqList()[0] != ctx.bot->GetFreqList()[1]) {
+                    //bot is not on a duel team
+                if (game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01) {
+                    //get on a baseduel freq as fast as possible
+                    if (CheckStatus(ctx)) {
+                        //get on freq 0
+                        if (ctx.bot->GetFreqList()[0] < ctx.bot->GetFreqList()[1]) {
+                            game.SetFreq(0);
+                        }
+                        //get on freq 1
+                        else {
+                            game.SetFreq(1);
                         }
                     }
-
-                    //if the ticker is not on a player in base then move the ticker for the next check
-                    if (up_down) game.PageUp();
-                    else game.PageDown();
-
-                    if (page_or_f7) ctx.blackboard.Set("PageOrF7", false);
-                    else ctx.blackboard.Set("PageOrF7", true);
-
-                    //find the ticker position
-                    int64_t ticker = game.TickerPosition();
-                    //if the ticker has reached the end of the list switch direction
-                    if (ticker <= 0) ctx.blackboard.Set("UpDown", false);
-                    else if (ticker >= game.GetPlayers().size() - 1) ctx.blackboard.Set("UpDown", true);
-
                     return behavior::ExecuteResult::Success;
                 }
+                    //bot is on a duel team
+                else if (ctx.bot->InCenter() || ctx.bot->GetDevaTeam().size() == 0) {
 
-                Vector2f bot_position = game.GetPlayer().position;
-                bool in_safe = game.GetMap().GetTileId(bot_position) == kSafeTileId;
-                //try to detach
-                for (std::size_t i = 0; i < duelers.team.size(); i++) {
-                    const Player& player = duelers.team[i];
-                    if (player.position == bot_position && no_spam) {
-                        game.F7();
-                        ctx.blackboard.Set("SpamCheck", time + 150);
-                        //return behavior::ExecuteResult::Success;
+                    if ((game.GetPlayer().frequency == 00 && ctx.bot->GetFreqList()[0] > ctx.bot->GetFreqList()[1]) ||
+                        (game.GetPlayer().frequency == 01 && ctx.bot->GetFreqList()[0] < ctx.bot->GetFreqList()[1])) {
+                        
+                        //look for players not on duel team, make bot wait longer to see if the other player will get in
+                        for (std::size_t i = 2; i < ctx.bot->GetFreqList().size(); i++) {
+                            if (ctx.bot->GetFreqList()[i] > 0) {
+                                freq_timer_offset += 10000;
+                                break;
+                            }
+                        }
+
+                        /* set the timer first, the bot waits before it can switch out of a team, but only if the conditions are
+                           still valid when the timer expires.  this keeps multiple bots on the same team from switching out at the ame time */
+                        if (set_timer) {
+                            ctx.blackboard.Set("FreqCooldown", time + freq_timer_offset);
+                            ctx.blackboard.Set("SetTimer", false);
+                        }
+                            //this team is too large, find an open freq
+                        else if (time > freq_cooldown && CheckStatus(ctx)) {
+
+                            game.SetFreq(ctx.bot->FindOpenFreq());
+                            ctx.blackboard.Set("SetTimer", true);
+                        }
+                        return behavior::ExecuteResult::Success;
                     }
-                } 
+                }
             }
+
+            //if dueling then run checks for attaching
+            if (game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01) {
+
+                //if this check is valid the bot will halt here untill it attaches
+                if (ctx.bot->InCenter() && TeamInBase(ctx)) {
+
+                    SetAttachTarget(ctx);
+
+                    //checks if energy is full
+                    if (CheckStatus(ctx)) {
+                        game.F7();
+                        ctx.blackboard.Set("PressedF7", true);
+                    }
+                    return behavior::ExecuteResult::Success;
+                }
+                ctx.blackboard.Set("PressedF7", false);
+                ctx.blackboard.Set("LastTarget", nullptr);
+            }
+            //if attached to a player detach
+            if (game.GetPlayer().attach_id != 65535) {
+                game.F7();
+                return behavior::ExecuteResult::Success;
+            }
+
+            
+            //std::string text = std::to_string(game.GetSelectedPlayerIndex());
+            //RenderText(text.c_str(), GetWindowCenter() - Vector2f(0, 200), RGB(100, 100, 100), RenderText_Centered);
 
             bool x_active = (game.GetPlayer().status & 4) != 0; 
             bool stealthing = (game.GetPlayer().status & 1) != 0;
@@ -121,35 +120,138 @@ namespace marvin {
             bool has_cloak = (game.GetShipSettings().CloakStatus & 3) != 0;
 
             //if stealth isnt on but availible, presses home key in continuumgameproxy.cpp
-            if (!stealthing && has_stealth && no_spam) {
+            if (!stealthing && has_stealth && time > toggle_cooldown) {
                 game.Stealth();
-                ctx.blackboard.Set("SpamCheck", time + 300);
+                //ctx.blackboard.Set("ToggleCooldown", time + 300);
                 return behavior::ExecuteResult::Success;
             }
             //same as stealth but presses shift first
-            if (!cloaking && has_cloak && no_spam) {
+            if (!cloaking && has_cloak && time > toggle_cooldown) {
                 game.Cloak(ctx.bot->GetKeys());
-                ctx.blackboard.Set("SpamCheck", time + 300);
+                ctx.blackboard.Set("ToggleCooldown", time + 300);
                 return behavior::ExecuteResult::Success;
             }
             //in deva xradar is free so just turn it on
-            if (!x_active && has_xradar && no_spam) {
+            if (!x_active && has_xradar && time > toggle_cooldown) {
                     game.XRadar();
-                    ctx.blackboard.Set("SpamCheck", time + 300);
+                    //ctx.blackboard.Set("ToggleCooldown", time + 300);
                     return behavior::ExecuteResult::Success;
             }
             return behavior::ExecuteResult::Failure;
         }
 
         bool FreqWarpAttachNode::CheckStatus(behavior::ExecuteContext& ctx) {
+            
             auto& game = ctx.bot->GetGame();
             float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy) * 100.0f;
             bool result = false;
             if ((game.GetPlayer().status & 2) != 0) game.Cloak(ctx.bot->GetKeys());
-            //if ((game.GetPlayer().status & 1) != 0) game.Stealth();
             if (energy_pct == 100.0f) result = true;
             return result;
         }
+
+        void FreqWarpAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
+            auto& game = ctx.bot->GetGame();
+
+            float closest_distance = std::numeric_limits<float>::max();
+            float closest_team_distance_to_team = std::numeric_limits<float>::max();
+            float closest_team_distance_to_enemy = std::numeric_limits<float>::max();
+            float closest_enemy_distance_to_team = std::numeric_limits<float>::max();
+            float closest_enemy_distance_to_enemy = std::numeric_limits<float>::max(); 
+
+            bool enemy_leak = false;
+            bool team_leak = false;
+
+            const Player* closest_team_to_team = nullptr;
+            Vector2f closest_enemy_to_team;
+            const Player* closest_team_to_enemy = nullptr;
+            const Player* closest_enemy_to_enemy = nullptr;
+
+            //find closest player to team and enemy safe
+            for (std::size_t i = 0; i < ctx.bot->GetDevaDuelers().size(); i++) {
+                const Player& player = ctx.bot->GetDevaDuelers()[i];
+                bool player_in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
+                if (!player_in_center && IsValidPosition(player.position) && player.ship < 8) {
+                    
+                    if (player.frequency == game.GetPlayer().frequency) {
+                        float distance_to_team = ctx.bot->PathLength(player.position, ctx.bot->GetTeamSafe());
+                        float distance_to_enemy = ctx.bot->PathLength(player.position, ctx.bot->GetEnemySafe());
+
+                        if (distance_to_team < closest_team_distance_to_team) {
+                            closest_team_distance_to_team = distance_to_team;
+                            closest_team_to_team = &ctx.bot->GetDevaDuelers()[i];
+                        }
+                        if (distance_to_enemy < closest_team_distance_to_enemy) {
+                            closest_team_distance_to_enemy = distance_to_enemy;
+                            closest_team_to_enemy = &ctx.bot->GetDevaDuelers()[i];
+                        }
+                    }
+                    else {
+                        float distance_to_team = ctx.bot->PathLength(player.position, ctx.bot->GetTeamSafe());
+                        float distance_to_enemy = ctx.bot->PathLength(player.position, ctx.bot->GetEnemySafe());
+
+                        if (distance_to_team < closest_enemy_distance_to_team) {
+                            closest_enemy_distance_to_team = distance_to_team;
+                            closest_enemy_to_team = player.position;
+                        }
+                        if (distance_to_enemy < closest_enemy_distance_to_enemy) {
+                            closest_enemy_distance_to_enemy = distance_to_enemy;
+                            closest_enemy_to_enemy = &ctx.bot->GetDevaDuelers()[i];
+                        }
+                    }
+                }
+            }
+
+
+
+            if (closest_team_distance_to_team > closest_enemy_distance_to_team) {
+                    enemy_leak = true;
+            }
+            if (closest_enemy_distance_to_enemy > closest_team_distance_to_enemy) {
+                    team_leak = true;
+            }
+
+            if (team_leak || enemy_leak) {
+                game.SetSelectedPlayer(*closest_team_to_team);
+                return;
+            }
+
+            //find closest team player to the enemy closest to team safe
+            for (std::size_t i = 0; i < ctx.bot->GetDevaTeam().size(); i++) {
+                const Player& player = ctx.bot->GetDevaTeam()[i];
+
+                bool player_in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
+
+                //as long as the player is not in center and has a valid position, it will hold its position for a moment after death
+                if (!player_in_center && IsValidPosition(player.position) && player.ship < 8) {
+
+                    float distance_to_enemy_position = ctx.bot->PathLength(player.position, closest_enemy_to_team);
+
+                    //get the closest player
+                    if (distance_to_enemy_position < closest_distance) {
+                        closest_distance = distance_to_enemy_position;
+                        game.SetSelectedPlayer(ctx.bot->GetDevaTeam()[i]);
+                    }   
+                }
+            }  
+        }
+
+        bool FreqWarpAttachNode::TeamInBase(behavior::ExecuteContext& ctx) {
+
+            bool in_base = false;
+
+            for (std::size_t i = 0; i < ctx.bot->GetDevaTeam().size(); i++) {
+                const Player& player = ctx.bot->GetDevaTeam()[i];
+                bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
+                if (!in_center && IsValidPosition(player.position)) {
+                    in_base = true;
+                }
+            }
+            return in_base;
+        }
+
+
+
 
 
         behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
@@ -161,7 +263,7 @@ namespace marvin {
             const Player* target = nullptr;
             const Player& bot = ctx.bot->GetGame().GetPlayer();
 
-            Area bot_is = ctx.bot->InArea(bot.position);
+            //bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
             Vector2f position = game.GetPosition();
             Vector2f resolution(1920, 1080);
             view_min_ = bot.position - resolution / 2.0f / 16.0f;
@@ -209,7 +311,7 @@ namespace marvin {
            
             //and this sets the current_target for the next loop
             ctx.blackboard.Set("target_player", target);
-            
+            //if (target != nullptr) { ctx.bot->LookForWallShot(*target, false); }
             return result;
         }
 
@@ -229,9 +331,8 @@ namespace marvin {
         bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
             const auto& game = ctx.bot->GetGame();
             const Player& bot_player = game.GetPlayer();
-            //Area bot_is = ctx.bot->InArea(bot_player.position);
 
-            //if (target.dead && !bot_is.in_center) return false;
+            if (!ctx.bot->InCenter() && ctx.bot->LastBotStanding()) return false;
             if (!target.active) return false;
             if (target.id == game.GetPlayer().id) return false;
             if (target.ship > 7) return false;
@@ -275,13 +376,28 @@ namespace marvin {
         behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
             float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy) * 100.0f;
-            Area bot_is = ctx.bot->InArea(game.GetPosition());
-            if (energy_pct < 25.0f && bot_is.in_center) game.Repel(ctx.bot->GetKeys());
+            
+            if (energy_pct < 25.0f && ctx.bot->InCenter()) game.Repel(ctx.bot->GetKeys());
 
             Vector2f bot = game.GetPosition();
             Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-            Path path = CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
+            Path path;
+            float radius = game.GetShipSettings().GetRadius();
+
+            if (!ctx.bot->InCenter()) {
+                if (game.GetPlayer().ship == 2) {
+                    if (ctx.bot->PathLength(bot, enemy) < 55.0f || ctx.bot->LastBotStanding()) {
+                        path = CreatePath(ctx, "path", bot, ctx.bot->GetTeamSafe(), radius);
+                    }
+                    else path = CreatePath(ctx, "path", bot, enemy, radius);
+                }
+                else if (ctx.bot->LastBotStanding()) {
+                    path = CreatePath(ctx, "path", bot, ctx.bot->GetTeamSafe(), radius);
+                }
+                else path = CreatePath(ctx, "path", bot, enemy, radius);
+            }
+            else path = CreatePath(ctx, "path", bot, enemy, radius);
 
             ctx.blackboard.Set("path", path);
             return behavior::ExecuteResult::Success;
@@ -294,8 +410,8 @@ namespace marvin {
             auto& game = ctx.bot->GetGame();
             Vector2f from = game.GetPosition();
             Path path = ctx.blackboard.ValueOr("path", Path());
-            Area bot_is = ctx.bot->InArea(from);
-            Duelers enemy = ctx.bot->FindDuelers();
+            float radius = game.GetShipSettings().GetRadius();
+ 
             std::vector<Vector2f> nodes;
             int index = ctx.blackboard.ValueOr<int>("patrol_index", 0);
             int taunt_index = ctx.blackboard.ValueOr<int>("taunt_index", 0);
@@ -303,12 +419,23 @@ namespace marvin {
             uint64_t hoorah_expire = ctx.blackboard.ValueOr<uint64_t>("HoorahExpire", 0);
             bool in_safe = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
 
-            if (bot_is.in_center) {
+            if (ctx.bot->InCenter()) {
                 nodes = { Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(568, 568),
                 Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454) };
             }
             else {
-                if (time > hoorah_expire && !enemy.enemy_in_base && !in_safe) {
+                if (ctx.bot->LastBotStanding()) {
+                    path = CreatePath(ctx, "path", from, ctx.bot->GetTeamSafe(), radius);
+                    ctx.blackboard.Set("path", path);
+                    return behavior::ExecuteResult::Success;
+                }
+                else {
+                    path = CreatePath(ctx, "path", from, ctx.bot->GetEnemySafe(), radius);
+                    ctx.blackboard.Set("path", path);
+                    return behavior::ExecuteResult::Success;
+                }
+                /*
+                if (time > hoorah_expire && !in_safe) {
                     std::vector<std::string> taunts = { "we gotem", "man, im glad im not on that freq", "high score is that bad",
                     "kill all humans", "that team is almost as bad as Daman24/7 is", "robots unite", "this is all thanks to my high quality attaching skills" };
                     std::string taunt = taunts.at(taunt_index);
@@ -317,8 +444,9 @@ namespace marvin {
                     ctx.blackboard.Set("taunt_index", taunt_index);
                     ctx.blackboard.Set("HoorahExpire", time + 600000);
                 }
-            
-                return behavior::ExecuteResult::Failure;
+            */
+                //return behavior::ExecuteResult::Failure;
+
             }
           
 
@@ -330,7 +458,7 @@ namespace marvin {
                 to = nodes.at(index);
             }
 
-            path = CreatePath(ctx, "path", from, to, game.GetShipSettings().GetRadius());
+            path = CreatePath(ctx, "path", from, to, radius);
             ctx.blackboard.Set("path", path);
 
             return behavior::ExecuteResult::Success;
@@ -344,7 +472,6 @@ namespace marvin {
 
             size_t path_size = path.size();
             auto& game = ctx.bot->GetGame();
-
 
             if (path.empty()) return behavior::ExecuteResult::Failure;
 
@@ -378,10 +505,8 @@ namespace marvin {
             float radius = game.GetShipSettings().GetRadius();
 
             CastResult center = RayCast(game.GetMap(), from, direction, distance);
-            CastResult side1 =
-                RayCast(game.GetMap(), from + side * radius, direction, distance);
-            CastResult side2 =
-                RayCast(game.GetMap(), from - side * radius, direction, distance);
+            CastResult side1 = RayCast(game.GetMap(), from + side * radius, direction, distance);
+            CastResult side2 = RayCast(game.GetMap(), from - side * radius, direction, distance);
 
             return !center.hit && !side1.hit && !side2.hit;
         }
@@ -391,12 +516,16 @@ namespace marvin {
 
         behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
             behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
-            auto target = selector_(ctx);
+            const Vector2f* target = selector_(ctx);
 
-            if (target == nullptr) return behavior::ExecuteResult::Failure;
+            if (target == nullptr) { return behavior::ExecuteResult::Failure; }
+            auto& game = ctx.bot->GetGame();  
 
-            auto& game = ctx.bot->GetGame();
-
+            float bullet_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
+            float bomb_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
+            int bullet_time = game.GetSettings().BulletAliveTime;
+            int bomb_time = game.GetSettings().BombAliveTime;
+            uint8_t bounces = game.GetSettings().ShipSettings[game.GetPlayer().ship].BombBounceCount;
 
             auto to_target = *target - game.GetPosition();
             CastResult ray_cast = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
@@ -404,10 +533,22 @@ namespace marvin {
             if (!ray_cast.hit) {
                 result = behavior::ExecuteResult::Success;
                 //if bot is not in center, almost dead, and in line of sight of its target burst
-                Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPlayer().position);
+                bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
                 float energy_pct = ctx.bot->GetGame().GetEnergy() / (float)ctx.bot->GetGame().GetShipSettings().MaximumEnergy;
-                if (energy_pct < 0.10f && !bot_is.in_center) {
+                if (energy_pct < 0.10f && !in_center) {
                     ctx.bot->GetGame().Burst(ctx.bot->GetKeys());
+                }
+            }
+            else {
+                const Player* target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+                if (target_player != nullptr) {
+                   // ctx.bot->LookForWallShot(target_player->position, target_player->velocity, bomb_speed, bomb_time, bounces);
+                    //if (!ctx.bot->HasWallShot()) {
+                        ctx.bot->LookForWallShot(target_player->position, target_player->velocity, bullet_speed, bullet_time, 10);
+                        if (ctx.bot->HasWallShot()) {
+                            result = behavior::ExecuteResult::Success;
+                        }
+                   // }
                 }
             }
 
@@ -418,31 +559,29 @@ namespace marvin {
 
 
         behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            const auto target_player =
-                ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+
+            if (ctx.bot->HasWallShot()) {
+                ctx.blackboard.Set("target_position", ctx.bot->GetWallShot());
+                return behavior::ExecuteResult::Success;
+            }
+
+            const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
             if (target_player == nullptr) return behavior::ExecuteResult::Failure;
 
             const Player& target = *target_player;
             auto& game = ctx.bot->GetGame();
-            const Player& bot_player = game.GetPlayer();
+            const Player& bot_player = game.GetPlayer(); 
 
-            float proj_speed =
-                game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f /
-                16.0f;
+            float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
 
-            Vector2f target_pos = target.position;
+            Vector2f seek_position = CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed);
 
-            Vector2f seek_position =
-                CalculateShot(game.GetPosition(), target_pos, bot_player.velocity,
-                    target.velocity, proj_speed);
-
-            Vector2f projectile_trajectory =
-                (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
+            Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
 
             Vector2f projectile_direction = Normalize(projectile_trajectory);
-            float target_radius =
-                game.GetSettings().ShipSettings[target.ship].GetRadius();
+
+            float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
 
             float aggression = ctx.blackboard.ValueOr("aggression", 0.0f);
             float radius_multiplier = 1.1f;
@@ -460,14 +599,12 @@ namespace marvin {
             Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
             float dist;
             Vector2f norm;
-
-            bool hit = RayBoxIntersect(bot_player.position, projectile_direction,
-                box_min, box_extent, &dist, &norm);
+            
+            bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
 
             if (!hit) {
-                box_min = seek_position - Vector2f(nearby_radius, nearby_radius);
-                hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(),
-                    box_min, box_extent, &dist, &norm);
+               Vector2f box_min = seek_position - Vector2f(nearby_radius, nearby_radius);
+               hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
             }
 
             if (seek_position.DistanceSq(target_player->position) < 15 * 15) {
@@ -478,7 +615,7 @@ namespace marvin {
             }
 
             if (hit) {
-                if (CanShoot(game.GetMap(), bot_player, target)) {
+                if (ctx.bot->CanShootGun(game.GetMap(), bot_player, target)) {
                     return behavior::ExecuteResult::Success;
                 }
             }
@@ -491,7 +628,7 @@ namespace marvin {
 
         behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             int ship = ctx.bot->GetGame().GetPlayer().ship;
-            if (ship == 3 || ship == 6) ctx.bot->GetKeys().Press(VK_TAB);
+            if (ship == 3 || ship == 6 || ship == 2) ctx.bot->GetKeys().Press(VK_TAB);
             else ctx.bot->GetKeys().Press(VK_CONTROL);
 
             return behavior::ExecuteResult::Success;
@@ -502,8 +639,6 @@ namespace marvin {
 
         behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
-            
-            Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPlayer().position);
             
             float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
             const Player& player = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
@@ -520,6 +655,10 @@ namespace marvin {
 
             bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
             Vector2f target_position = ctx.blackboard.ValueOr("target_position", Vector2f());
+            if (ctx.bot->HasWallShot()) {
+                target_position = ctx.bot->GetWallShot();
+            }
+
 
             /*monkey> no i dont have a list of the types
 monkey> i think it's some kind of combined thing with weapon flags in it
@@ -587,7 +726,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
             if (in_safe) hover_distance = 0.0f;
             else {
-                if (bot_is.in_center) {
+                if (ctx.bot->InCenter()) {
                     if (emped) {
                         hover_distance = 30.0f;
                     }
@@ -598,7 +737,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                     }
                 }
                 else {
-                    hover_distance = 3.0f;
+                        hover_distance = 7.0f;                  
                 }
             }
 

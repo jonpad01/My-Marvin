@@ -46,11 +46,29 @@ namespace marvin {
             return !cast_center.hit && !cast_side1.hit && !cast_side2.hit;
         }
 
-        NodePoint ToNodePoint(const Vector2f v) {
+        NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
             NodePoint np;
 
             np.x = (uint16_t)v.x;
             np.y = (uint16_t)v.y;
+
+            Vector2f check_pos(np.x, np.y);
+
+            //searches outward from the center, prevents the end node from breaking the pathfinder
+            if (!map.CanOccupy(check_pos, radius)) {
+                for (int i = 1; i < radius + 2; i++) {
+                    for (int x = -i; x < i + 1; x++) {
+                        for (int y = -i; y < i + 1; y++) {
+                            Vector2f check_pos(np.x + (float)x, np.y + (float)y);
+                            if (map.CanOccupy(check_pos, radius)) {
+                                np.y += y;
+                                np.x += x;
+                                return np;
+                            }
+                        }
+                    }
+                }
+            }
 
             return np;
         }
@@ -64,14 +82,14 @@ namespace marvin {
 
         Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor) : processor_(std::move(processor)) {}
 
-        std::vector<Vector2f> Pathfinder::FindPath(std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to, float radius) {
+        std::vector<Vector2f> Pathfinder::FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to, float radius) {
            
             std::vector<Vector2f> path;
 
             processor_->ResetNodes();
 
-            Node* start = processor_->GetNode(ToNodePoint(from));
-            Node* goal = processor_->GetNode(ToNodePoint(to));
+            Node* start = processor_->GetNode(ToNodePoint(from, radius, map));
+            Node* goal = processor_->GetNode(ToNodePoint(to, radius, map));
             
 #if 0
             if (processor_->IsSolid(goal->point.x, goal->point.y)) {

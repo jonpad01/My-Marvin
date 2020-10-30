@@ -42,9 +42,10 @@ class GameProxy {
   virtual void SendChatMessage(const std::string& mesg) const = 0;
   virtual int64_t TickerPosition() = 0;
   virtual const Player& GetSelectedPlayer() const = 0;
+  virtual const uint32_t GetSelectedPlayerIndex() const = 0;
   virtual const Player* GetPlayerById(u16 id) const = 0;
   virtual std::vector<Weapon*> GetWeapons() = 0;
-  virtual const BallData GetBallData() const = 0;
+  virtual const BallData& GetBallData() const = 0;
   
 
   // May need to be called more than once to transition the game menu
@@ -67,6 +68,7 @@ class GameProxy {
   virtual void Burst(KeyController& keys) = 0;
   virtual void Repel(KeyController& keys) = 0;
   virtual void F7() = 0;
+  virtual void SetSelectedPlayer(const Player& target) = 0;
   
 };
 

@@ -15,16 +15,18 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             auto& game = ctx.bot->GetGame();
             
             Flaggers flaggers = ctx.bot->FindFlaggers();
-            const Player& enemy_anchor = flaggers.enemy_anchor, team_anchor = flaggers.team_anchor;
+
+            bool team_anchor_in_safe = false;
+            uint64_t target_id = 0;
             
-            Area bot_is = ctx.bot->InArea(game.GetPlayer().position);
-            Area enemy_anchor_is = ctx.bot->InArea(enemy_anchor.position);
-            Area team_anchor_is = ctx.bot->InArea(team_anchor.position);
+            bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
             
-            bool team_anchor_in_safe = game.GetMap().GetTileId(flaggers.team_anchor.position) == kSafeTileId;
+            if (flaggers.team_anchor != nullptr) {
+                team_anchor_in_safe = game.GetMap().GetTileId(flaggers.team_anchor->position) == kSafeTileId;
+            }
             bool in_safe = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
             float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
-            bool respawned = in_safe && bot_is.in_center && energy_pct == 100.0f;
+            bool respawned = in_safe && in_center && energy_pct == 100.0f;
             
             uint64_t time = ctx.bot->GetTime();
             uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
@@ -36,13 +38,19 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             bool in_lanc = game.GetPlayer().ship == 6; bool in_spid = game.GetPlayer().ship == 2;
             bool anchor = flagging && in_lanc;
             
-            
-                if (bot_is.in_base && enemy_anchor_is.in_diff) {
+            //warp out if enemy anchor is in another base
+            if (flaggers.enemy_anchor != nullptr) {
+
+                bool not_connected = !ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), (MapCoord)flaggers.enemy_anchor->position);
+
+                if (ctx.bot->InHSBase(game.GetPosition()) && ctx.bot->InHSBase(flaggers.enemy_anchor->position) && not_connected) {
                     if (ctx.bot->CheckStatus()) game.Warp();
                     return behavior::ExecuteResult::Success;
                 }
+            }
+
                 //checkstatus turns off stealth and cloak before warping
-                if (!bot_is.in_center && !flagging) {
+                if (!in_center && !flagging) {
                     if (ctx.bot->CheckStatus()) game.Warp();
                     return behavior::ExecuteResult::Success;
                 }
@@ -60,11 +68,14 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                 }
                 //if there is more than one lanc on the team, switch back to original ship
                 if (flagging && flaggers.team_lancs > 1 && in_lanc && no_spam) {
-                    if (team_anchor_is.in_base || !bot_is.in_base) {
-                        int ship = ctx.blackboard.ValueOr<int>("last_ship", 0);
-                        if (ctx.bot->CheckStatus()) game.SetShip(ship);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
-                        return behavior::ExecuteResult::Success;
+                    if (flaggers.team_anchor != nullptr) {
+                        
+                        if (ctx.bot->InHSBase(flaggers.team_anchor->position) || !ctx.bot->InHSBase(game.GetPosition())) {
+                            int ship = ctx.blackboard.ValueOr<int>("last_ship", 0);
+                            if (ctx.bot->CheckStatus()) game.SetShip(ship);
+                            ctx.blackboard.Set("SpamCheck", time + 200);
+                            return behavior::ExecuteResult::Success;
+                        }
                     }
                 }
 
@@ -92,15 +103,22 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
                 //if flagging try to attach
                 if (flagging && !team_anchor_in_safe && !in_lanc && no_spam) {
-                    uint64_t last_target = ctx.blackboard.ValueOr<uint64_t>("LastTarget", 0);
-                    uint64_t target = flaggers.team_anchor.id;
-                    bool same_target = target == last_target;
+                    uint64_t last_target_id = ctx.blackboard.ValueOr<uint64_t>("LastTarget", 0);
+                    if (flaggers.team_anchor != nullptr) {
+                        target_id = flaggers.team_anchor->id;
+                    }
+                    bool same_target = target_id == last_target_id;
                     //all ships will attach after respawning, all but lancs will attach if not in the same base
-                    if (respawned || (!team_anchor_is.connected && (same_target || flaggers.team_lancs < 2))) {
-                        if (ctx.bot->CheckStatus()) game.Attach(flaggers.team_anchor.name);
-                        ctx.blackboard.Set("SpamCheck", time + 200);
-                        ctx.blackboard.Set("LastTarget", target);
-                        return behavior::ExecuteResult::Success;
+                    if (flaggers.team_anchor != nullptr) {
+                        
+                        bool not_connected = !ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), (MapCoord)flaggers.team_anchor->position);
+
+                        if (respawned || (not_connected && (same_target || flaggers.team_lancs < 2))) {
+                            if (ctx.bot->CheckStatus()) game.Attach(flaggers.team_anchor->name);
+                            ctx.blackboard.Set("SpamCheck", time + 200);
+                            ctx.blackboard.Set("LastTarget", target_id);
+                            return behavior::ExecuteResult::Success;
+                        }
                     }
                 }
             
@@ -144,35 +162,36 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             float cost = 0.0f;
             auto& game = ctx.bot->GetGame();
             Flaggers flaggers = ctx.bot->FindFlaggers();
-            const Player& team_anchor = flaggers.team_anchor;
-            std::vector< Player > players = game.GetPlayers();
+      
             const Player* target = nullptr;
             const Player& bot = ctx.bot->GetGame().GetPlayer();
             bool flagging = bot.frequency == 90 || bot.frequency == 91;
             bool anchor = (bot.frequency == 90 || bot.frequency == 91) && bot.ship == 6;
-            Area bot_is = ctx.bot->InArea(bot.position);
+            
             Vector2f position = game.GetPosition();
          
             Vector2f resolution(1920, 1080);
             view_min_ = bot.position - resolution / 2.0f / 16.0f;
             view_max_ = bot.position + resolution / 2.0f / 16.0f;
             //if anchor and not in base switch to patrol mode
-            if (anchor && !bot_is.in_base) {
+            if (anchor && !ctx.bot->InHSBase(game.GetPosition())) {
                 return behavior::ExecuteResult::Failure;
             }
             //this loop checks every player and finds the closest one based on a cost formula
             //if this does not succeed then there is no target, it will go into patrol mode
             for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
-                const Player& player = players[i];
+                const Player& player = game.GetPlayers()[i];
 
                 if (!IsValidTarget(ctx, player)) continue;
                 auto to_target = player.position - position;
                 CastResult in_sight = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
 
                 //make players in line of sight high priority
-                
-                if (flagging && player.position.Distance(team_anchor.position) < 10.0f) {
-                    cost = CalculateCost(game, bot, player) / 100.0f;
+                if (flagging && flaggers.team_anchor != nullptr) {
+                    if (player.position.Distance(flaggers.team_anchor->position) < 10.0f) {
+                        cost = CalculateCost(game, bot, player) / 100.0f;
+                    }
+                    else cost = CalculateCost(game, bot, player);
                 }
                 else if (player.bounty >= 100 && !flagging) {
                     cost = CalculateCost(game, bot, player) / 100.0f;
@@ -279,73 +298,166 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
 
             Vector2f bot = game.GetPosition();
-            Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
+            enemy_ = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-            uint64_t time = ctx.bot->GetTime();
-            uint64_t path_check = ctx.blackboard.ValueOr<uint64_t>("PathCheck", 0);
+            Path path;
 
-            //keep the anchor on the same path until it performs another path check
-            //path probably gets wiped from the blackboard somewhere so use destination to track anchor paths
-            Path path = ctx.blackboard.ValueOr<Path>("Destination", std::vector<Vector2f>());
-            bool path_switch = ctx.blackboard.ValueOr<bool>("PathSwitch", false);
-            float enemy_length = ctx.blackboard.ValueOr<float>("EnemyLength", 0.0f);
-            float bot_length = ctx.blackboard.ValueOr<float>("BotLength", 0.0f);
-
+            //anchors dont engage enemies until they reach a base via the patrol node
             if (anchor) {
-               if (time > path_check) {
-                    float length = PathLength(ctx, bot, enemy);
-                    if (length < 32) {
-                        Area bot_is = ctx.bot->InArea(bot);
-                        std::vector<Vector2f> entrance = { Vector2f(827, 339), Vector2f(811, 530), Vector2f(729, 893),
-                                                        Vector2f(444, 757), Vector2f(127, 848), Vector2f(268, 552), Vector2f(181, 330) };
-                        std::vector<Vector2f> room = { Vector2f(826, 229), Vector2f(834, 540), Vector2f(745, 828),
-                                                            Vector2f(489, 836), Vector2f(292, 812), Vector2f(159, 571), Vector2f(205, 204) };
-                        for (std::size_t i = 0; i < room.size(); i++) {
-                            if (bot_is.in[i]) {
-                                if (path_switch) {
-                                    enemy_length = PathLength(ctx, enemy, room[i]);
-                                    ctx.blackboard.Set("PathSwitch", false);
-                                    ctx.blackboard.Set("EnemyLength", enemy_length);
-                                }
-                                else {
-                                    bot_length = PathLength(ctx, bot, room[i]);
-                                    ctx.blackboard.Set("PathSwitch", true);
-                                    ctx.blackboard.Set("BotLength", bot_length);
-                                }
 
-                                if (enemy_length > bot_length) {
-                                    path = CreatePath(ctx, "path", bot, room[i], game.GetShipSettings().GetRadius());
+                flaggers_ = ctx.bot->FindFlaggers();
+                std::vector<bool> in_number = ctx.bot->InHSBaseNumber(game.GetPosition());
+                
+                for (std::size_t i = 0; i < in_number.size(); i++) {
+                    if (in_number[i]) {
+                        //a set path built once and stored, path begin is entrance and end is flag room
+                        base_path_ = ctx.bot->GetBasePaths(i);
+
+                        //find pre calculated path node for the current base
+                        FindClosestNodes(ctx);
+
+                        if (DistanceToEnemy(ctx) < 50.0f) {
+                            if (IsDefendingAnchor(ctx)) {
+                                if (bot_node + 4 > base_path_.size()) {
+                                    //the anchor will use a path calculated through base to move away from enemy
+                                    path = CreatePath(ctx, "path", bot, base_path_.back(), game.GetShipSettings().GetRadius());
                                 }
-                                else {
-                                    path = CreatePath(ctx, "path", bot, entrance[i], game.GetShipSettings().GetRadius());
+                                else path = CreatePath(ctx, "path", bot, base_path_[bot_node + 3], game.GetShipSettings().GetRadius());
+                            }
+                            else {
+                                if (bot_node < 3) {
+                                    //reading a lower index in the base_path means it will move towards the base entrance
+                                    path = CreatePath(ctx, "path", bot, base_path_[0], game.GetShipSettings().GetRadius());
                                 }
+                                else path = CreatePath(ctx, "path", bot, base_path_[bot_node - 3], game.GetShipSettings().GetRadius());
+                                
                             }
                         }
+                        else {
+                            path = CreatePath(ctx, "path", bot, enemy_, game.GetShipSettings().GetRadius());
+                        }
                     }
-                    else if (length >= 32 && length < 38) {
-                        path.clear();
-                    }
-                    else {
-                        path = CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
-                    }
-                    ctx.blackboard.Set("PathCheck", time + 200);
-               }
+                }
             }
             else if (game.GetPlayer().ship == 2 && flagging) {
-                Flaggers flaggers = ctx.bot->FindFlaggers();
-                const Player& team_anchor = flaggers.team_anchor;
-                Area anchor_is = ctx.bot->InArea(team_anchor.position);
-                if (team_anchor.position.Distance(game.GetPosition()) > 15.0f && anchor_is.connected) {
-                    path = CreatePath(ctx, "path", bot, team_anchor.position, game.GetShipSettings().GetRadius());
+                flaggers_ = ctx.bot->FindFlaggers();
+                if (flaggers_.team_anchor != nullptr) {
+                    bool connected = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), (MapCoord)flaggers_.team_anchor->position);
+                    if (flaggers_.team_anchor->position.Distance(game.GetPosition()) > 15.0f && connected) {
+                        path = CreatePath(ctx, "path", bot, flaggers_.team_anchor->position, game.GetShipSettings().GetRadius());
+                    }
                 }
-                else path = CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
+                else path = CreatePath(ctx, "path", bot, enemy_, game.GetShipSettings().GetRadius());
             }
             else {
-                path = CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
+                path = CreatePath(ctx, "path", bot, enemy_, game.GetShipSettings().GetRadius());
             }
-            ctx.blackboard.Set("Destination", path);
+            
             ctx.blackboard.Set("path", path);
             return behavior::ExecuteResult::Success;
+        }
+
+        void PathToEnemyNode::FindClosestNodes(behavior::ExecuteContext& ctx) {
+            auto& game = ctx.bot->GetGame();
+            if (flaggers_.enemy_anchor == nullptr) return;
+
+            float bot_closest_distance = std::numeric_limits<float>::max();
+            float enemy_anchor_closest_distance = std::numeric_limits<float>::max();
+            float enemy_closest_distance = std::numeric_limits<float>::max();
+
+            //find closest path node
+            for (std::size_t i = 0; i < base_path_.size(); i++) {
+                float bot_distance_to_node = game.GetPosition().Distance(base_path_[i]);
+                float enemy_distance_to_node = enemy_.Distance(base_path_[i]);
+                float enemy_anchor_distance_to_node = flaggers_.enemy_anchor->position.Distance(base_path_[i]);
+                
+                if (bot_closest_distance > bot_distance_to_node) {
+                    bot_node = i;
+                    bot_closest_distance = bot_distance_to_node;
+                }
+                if (enemy_closest_distance > enemy_distance_to_node) {
+                    enemy_node = i;
+                    enemy_closest_distance = enemy_distance_to_node;
+                }
+                if (enemy_anchor_closest_distance > enemy_anchor_distance_to_node) {
+                    enemy_anchor_node = i;
+                    enemy_anchor_closest_distance = enemy_anchor_distance_to_node;
+                }
+            }
+        }
+
+        bool PathToEnemyNode::IsDefendingAnchor(behavior::ExecuteContext& ctx) {
+            auto& game = ctx.bot->GetGame();
+            if (flaggers_.enemy_anchor == nullptr) return true;
+
+            //is defending anchor
+            if (bot_node > enemy_anchor_node) return true;
+            //if they are the same comapare distance to the next node closest to the flag room
+            else if (bot_node == enemy_anchor_node) {
+
+                if (game.GetPosition().Distance(base_path_[bot_node + 1]) < flaggers_.enemy_anchor->position.Distance(base_path_[bot_node + 1])) {
+                    return true;
+                }
+                else return false;
+            }
+
+            //is not defending anchor
+            return false;
+
+        }
+
+        float PathToEnemyNode::DistanceToEnemy(behavior::ExecuteContext& ctx) {
+            auto& game = ctx.bot->GetGame();
+
+            float distance = 0.0f;
+
+            std::size_t start_node = 0;
+            std::size_t end_node = 0;
+
+            if (bot_node == enemy_node) {
+                distance = game.GetPosition().Distance(enemy_);
+                return distance;
+            }
+
+            //find what side of the nearest node the bot is on, add or subtract that distance
+            if (game.GetPosition().Distance(base_path_[bot_node - 1]) < game.GetPosition().Distance(base_path_[bot_node + 1])) {
+                if (bot_node < enemy_node) distance += game.GetPosition().Distance(base_path_[bot_node]);
+                else if (bot_node > enemy_node) distance -= game.GetPosition().Distance(base_path_[bot_node]);
+            }
+            else {
+                if (bot_node < enemy_node) distance -= game.GetPosition().Distance(base_path_[bot_node]);
+                else if (bot_node > enemy_node) distance += game.GetPosition().Distance(base_path_[bot_node]);
+            }
+
+            //find what side of the nearest node the enemy is on and repeat
+            if (enemy_.Distance(base_path_[enemy_node - 1]) < enemy_.Distance(base_path_[enemy_node + 1])) {
+                if (bot_node < enemy_node) distance -= enemy_.Distance(base_path_[enemy_node]);
+                else if (bot_node > enemy_node) distance += enemy_.Distance(base_path_[enemy_node]);
+            }
+            else {
+                if (bot_node < enemy_node) distance += enemy_.Distance(base_path_[enemy_node]);
+                else if (bot_node > enemy_node) distance -= enemy_.Distance(base_path_[enemy_node]);
+            }
+
+            //set lowest node number as the starting point
+
+            //bot is closest to entrance
+            if (bot_node < enemy_node) {
+                start_node = bot_node;
+                end_node = enemy_node;
+
+                
+            }
+            else if (enemy_node < bot_node) {
+                start_node = enemy_node;
+                end_node = bot_node;
+            }
+            //calculate distance between each node point and add them together
+            for (std::size_t i = start_node; i < end_node; i++) {
+                distance += base_path_[i].Distance(base_path_[i + 1]);
+            }
+
+            return distance;
         }
 
 
@@ -373,43 +485,60 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
             Vector2f center_gate_l = Vector2f(388, 396);
             Vector2f center_gate_r = Vector2f(570, 677);
-            Area bot_is = ctx.bot->InArea(from);
+            
 
             if (flagging) {
 
                 Flaggers flaggers = ctx.bot->FindFlaggers();
-                const Player& enemy_anchor = flaggers.enemy_anchor;
-                Area enemy_anchor_is = ctx.bot->InArea(enemy_anchor.position);
+                bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
+               
+                if (in_center) {
+                    if (flaggers.enemy_anchor != nullptr) {
+                        
+                       bool enemy_in_1 = ctx.bot->GetRegions().IsConnected((MapCoord)flaggers.enemy_anchor->position, MapCoord(854, 358));
+                       bool enemy_in_2 = ctx.bot->GetRegions().IsConnected((MapCoord)flaggers.enemy_anchor->position, MapCoord(823, 488));
+                       bool enemy_in_3 = ctx.bot->GetRegions().IsConnected((MapCoord)flaggers.enemy_anchor->position, MapCoord(696, 817));
 
-                if (bot_is.in_center) {
-                    if (!enemy_anchor_is.in_base) {
-                        if (gate == 0 || gate == 1 || gate == 2) {
+                        if (!ctx.bot->InHSBase(flaggers.enemy_anchor->position)) {
+                            if (gate == 0 || gate == 1 || gate == 2) {
+                                path = CreatePath(ctx, "path", from, center_gate_r, game.GetShipSettings().GetRadius());
+                            }
+                            else {
+                                path = CreatePath(ctx, "path", from, center_gate_l, game.GetShipSettings().GetRadius());
+                            }
+                        }
+                        else if (enemy_in_1 || enemy_in_2 || enemy_in_3) {
                             path = CreatePath(ctx, "path", from, center_gate_r, game.GetShipSettings().GetRadius());
                         }
                         else {
                             path = CreatePath(ctx, "path", from, center_gate_l, game.GetShipSettings().GetRadius());
                         }
                     }
-                    if (enemy_anchor_is.in_1 || enemy_anchor_is.in_2 || enemy_anchor_is.in_3) {
-                        path = CreatePath(ctx, "path", from, center_gate_r, game.GetShipSettings().GetRadius());
-                    }
                     else {
                         path = CreatePath(ctx, "path", from, center_gate_l, game.GetShipSettings().GetRadius());
                     }
                 }
-                if (bot_is.in_tunnel) {
-                    for (std::size_t i = 0; i < gates.size(); i++) {
-                        if (enemy_anchor_is.in[i]) path = CreatePath(ctx, "path", from, gates[i], game.GetShipSettings().GetRadius());
+                //if bot is in tunnel
+                if (ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(27, 354))) {
+                    if (flaggers.enemy_anchor != nullptr) {
+                        
+                        if (ctx.bot->InHSBase(flaggers.enemy_anchor->position)) {
+                            std::vector<bool> in_number = ctx.bot->InHSBaseNumber(flaggers.enemy_anchor->position);
+                            for (std::size_t i = 0; i < in_number.size(); i++) {
+                                if (in_number[i]) path = CreatePath(ctx, "path", from, gates[i], game.GetShipSettings().GetRadius());
+                            }
+                        }
+                        else path = CreatePath(ctx, "path", from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
                     }
-                    if (!enemy_anchor_is.in_base) path = CreatePath(ctx, "path", from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
+                    else path = CreatePath(ctx, "path", from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
                 }
-                if (!enemy_anchor_is.in_base) {
+                if (ctx.bot->InHSBase(game.GetPosition())) {
                     //camp is coords for position part way into base for bots to move to when theres no enemy
                     std::vector< Vector2f > camp = { Vector2f(855, 245), Vector2f(801, 621), Vector2f(773, 839),
                                                       Vector2f(554, 825), Vector2f(325, 877), Vector2f(208, 614), Vector2f(151, 253) };
-
-                    for (std::size_t i = 0; i < camp.size(); i++) {
-                        if (bot_is.in[i]) {
+                    std::vector<bool> in_number = ctx.bot->InHSBaseNumber(game.GetPosition());
+                    for (std::size_t i = 0; i < in_number.size(); i++) {
+                        if (in_number[i]) {
                             float dist_to_camp = bot.position.Distance(camp[i]);
                             path = CreatePath(ctx, "path", from, camp[i], game.GetShipSettings().GetRadius());
                             if (dist_to_camp < 10.0f) return behavior::ExecuteResult::Failure;
@@ -596,7 +725,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             }
 
             if (hit) {
-                if (CanShoot(game.GetMap(), bot_player, target)) {
+                if (ctx.bot->CanShootGun(game.GetMap(), bot_player, target)) {
                     return behavior::ExecuteResult::Success;
                 }
             }
@@ -610,7 +739,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
         behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
             const Player& target = *target_player; auto& game = ctx.bot->GetGame();
-            Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPlayer().position);
+           
 
             uint64_t time = ctx.bot->GetTime();
             uint64_t gun_delay = 3;
@@ -744,7 +873,8 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
         behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.bot->GetGame();
 
-            Area bot_is = ctx.bot->InArea(ctx.bot->GetGame().GetPlayer().position);
+            bool in_base = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
+
             Flaggers flaggers = ctx.bot->FindFlaggers();
             float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy);
 
@@ -756,10 +886,14 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
             float hover_distance = 0.0f;
 
-            if (bot_is.in_base) {
+            if (ctx.bot->InHSBase(game.GetPosition())) {
                 if (ship == 2) {
-                    const Player& team_anchor = flaggers.team_anchor;
-                    ctx.bot->Move(team_anchor.position, 0.0f);
+                    if (flaggers.team_anchor != nullptr) {
+                        ctx.bot->Move(flaggers.team_anchor->position, 0.0f);
+                        ctx.bot->GetSteering().Face(target_position);
+                        return behavior::ExecuteResult::Success;
+                    }
+                    else ctx.bot->Move(target_position, 10.0f);
                     ctx.bot->GetSteering().Face(target_position);
                     return behavior::ExecuteResult::Success;
                 }
@@ -843,7 +977,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 #endif
 
 
-            if (energy_pct < 0.25f && !bot_is.in_base) {
+            if (energy_pct < 0.25f && !ctx.bot->InHSBase(game.GetPosition())) {
                 Vector2f dodge;
 
                 if (IsAimingAt(game, shooter, game.GetPlayer(), &dodge)) {

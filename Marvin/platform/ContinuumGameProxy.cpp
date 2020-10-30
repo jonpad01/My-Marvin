@@ -25,7 +25,8 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) {
   else if (path == "zones\\SSCU Extreme Games") path += "\\colpub20v4.lvl";
   else if (path == "zones\\SSCJ Galaxy Sports") path += "\\public.lvl";
   else if (path == "zones\\SSCE HockeyFootball Zone") path += "\\5rink_30.lvl";
-
+  else if (path == "zones\\SSCJ PowerBall") path += "\\combo_pub.lvl";
+  
   map_ = Map::Load(path);
 
   FetchPlayers();
@@ -45,6 +46,7 @@ void ContinuumGameProxy::Update(float dt) {
   SetWindowFocus();
 
   FetchPlayers();
+  FetchBallData();
 
   // Grab the address to the main player structure
   u32 player_addr = *(u32*)(game_addr_ + 0x13070);
@@ -96,35 +98,33 @@ void ContinuumGameProxy::FetchPlayers() {
 
     Player player;
 
-    player.position.x =
-        process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
-    player.position.y =
-        process_.ReadU32(player_addr + kPosOffset + 4) / 1000.0f / 16.0f;
+    player.position.x =  process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
 
-    player.velocity.x =
-        process_.ReadI32(player_addr + kVelocityOffset) / 10.0f / 16.0f;
-    player.velocity.y =
-        process_.ReadI32(player_addr + kVelocityOffset + 4) / 10.0f / 16.0f;
+    player.position.y = process_.ReadU32(player_addr + kPosOffset + 4) / 1000.0f / 16.0f;
 
-    player.id =
-        static_cast<uint16_t>(process_.ReadU32(player_addr + kIdOffset));
-    player.discrete_rotation = static_cast<uint16_t>(
-        process_.ReadU32(player_addr + kRotOffset) / 1000);
+    player.velocity.x = process_.ReadI32(player_addr + kVelocityOffset) / 10.0f / 16.0f;
 
-    player.ship =
-        static_cast<uint8_t>(process_.ReadU32(player_addr + kShipOffset));
-    player.frequency =
-        static_cast<uint16_t>(process_.ReadU32(player_addr + kFreqOffset));
+    player.velocity.y = process_.ReadI32(player_addr + kVelocityOffset + 4) / 10.0f / 16.0f;
 
-    player.status =
-        static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));
+    player.id = static_cast<uint16_t>(process_.ReadU32(player_addr + kIdOffset));
+
+    player.discrete_rotation = static_cast<uint16_t>(process_.ReadU32(player_addr + kRotOffset) / 1000);
+
+    player.ship = static_cast<uint8_t>(process_.ReadU32(player_addr + kShipOffset));
+
+    player.frequency = static_cast<uint16_t>(process_.ReadU32(player_addr + kFreqOffset));
+
+    player.status = static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));
 
     player.name = process_.ReadString(player_addr + kNameOffset, 23);
 
     player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
 
-    //triggers if player is not moving and has no velocity
+    //triggers if player is not moving and has no velocity, not used
     player.dead = process_.ReadU32(player_addr + 0x178) == 0;
+
+    //the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
+    player.attach_id = process_.ReadU32(player_addr + 0x1C);
 
     player.active = *(u32*)(player_addr + 0x4C) == 0 && *(u32*)(player_addr + 0x40) == 0;
 
@@ -153,6 +153,40 @@ void ContinuumGameProxy::FetchPlayers() {
       player_ = &players_.back();
     }
   }
+}
+
+void ContinuumGameProxy::FetchBallData() {
+
+    balldata_;
+    balls_;
+
+    for (size_t i = 0; ; ++i) {
+        u32 ball_ptr = *(u32*)(game_addr_ + 0x2F3C8 + i * 4);
+
+
+        if (ball_ptr == 0) break;
+
+        balldata_.inactive_timer = *(u32*)(ball_ptr + 0x38);
+        balldata_.held = *(u32*)(ball_ptr + 0x34) == 0;
+
+        balldata_.last_holder_id = *(u16*)(ball_ptr + 0x32);
+
+        balldata_.position.x = *(u32*)(ball_ptr + 0x04) / 1000.0f / 16.0f;
+        balldata_.position.y = *(u32*)(ball_ptr + 0x08) / 1000.0f / 16.0f;
+
+        balldata_.velocity.x = *(i32*)(ball_ptr + 0x10) / 10.0f / 16.0f;
+        balldata_.velocity.y = *(i32*)(ball_ptr + 0x14) / 10.0f / 16.0f;
+
+        balldata_.last_activity.x = *(u16*)(ball_ptr + 0x2A) / 1000.0f / 16.0f;
+        balldata_.last_activity.y = *(u16*)(ball_ptr + 0x2C) / 1000.0f / 16.0f;
+
+        //if (data.position.x == 0 && data.position.y == 0) continue;
+        balls_.push_back(balldata_);
+    }
+}
+
+const BallData& ContinuumGameProxy::GetBallData() const {
+    return balldata_;
 }
 
 std::vector<Weapon*> ContinuumGameProxy::GetWeapons() {
@@ -241,6 +275,7 @@ std::string ContinuumGameProxy::Zone() {
     if (path == "zones\\SSCU Extreme Games") result = "extreme games";
     if (path == "zones\\SSCJ Galaxy Sports") result = "galaxy sports";
     if (path == "zones\\SSCE HockeyFootball Zone") result = "hockey";
+    if (path == "zones\\SSCJ PowerBall") result = "powerball";
     return result;
 }
 void ContinuumGameProxy::SetFreq(int freq) {
@@ -440,34 +475,23 @@ const Player& ContinuumGameProxy::GetSelectedPlayer() const {
     return players_[selected_index];
 }
 
- const BallData ContinuumGameProxy::GetBallData() const {
-
-    BallData data;
-
-    for (size_t i = 0; ; ++i) {
-        u32 ball_ptr = *(u32*)(game_addr_ + 0x2F3C8 + i * 4);
-         
-
-        if (ball_ptr == 0) break;
-
-            data.inactive_timer = *(u32*)(ball_ptr + 0x38);
-            data.held = *(u32*)(ball_ptr + 0x34) == 0;
-
-            data.last_holder_id = *(u16*)(ball_ptr + 0x32);
-
-            data.position.x = *(u32*)(ball_ptr + 0x04) / 1000.0f / 16.0f;
-            data.position.y = *(u32*)(ball_ptr + 0x08) / 1000.0f / 16.0f;
-
-            data.velocity.x = *(i32*)(ball_ptr + 0x10) / 10.0f / 16.0f;
-            data.velocity.y = *(i32*)(ball_ptr + 0x14) / 10.0f / 16.0f;
-
-            data.last_activity.x = *(u16*)(ball_ptr + 0x2A) / 1000.0f / 16.0f;
-            data.last_activity.y = *(u16*)(ball_ptr + 0x2C) / 1000.0f / 16.0f;
-
-            if (data.position.x == 0 && data.position.y == 0) continue;
-            else return data;
-    }
-    return data;
+const uint32_t ContinuumGameProxy::GetSelectedPlayerIndex() const {
+    u32 selected_index = *(u32*)(game_addr_ + 0x127EC + 0x1B758);
+    return selected_index;
 }
+
+void ContinuumGameProxy::SetSelectedPlayer(const Player& target) {
+
+    for (std::size_t i = 0; i < players_.size(); ++i) {
+        const Player& player = players_[i];
+
+        if (player.id == target.id) {
+            *(u32*)(game_addr_ + 0x2DED0) = i;
+            return;
+        }
+    }
+}
+
+ 
 
 }  // namespace marvin
