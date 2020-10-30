@@ -63,27 +63,35 @@ void AutoMode() {
         hinjected = NULL;
         hinformation = NULL;
         HWND hlist = NULL;
+        HWND last_window = GetFocus();
 
-        DWORD pid = 0;
-        ProcessResults result = { 0 };
+        DWORD pid;
+        //ProcessResults result = { 0 };
 
-        result = RunMulticont();
+        //result = RunMulticont(hide_window, &pid);
+        if (!RunMulticont(hide_window, &pid)) return 0;
         //if multicont fails return an invalid pid so it can retry later
-        if (result.success == 0) return 0;
+        //if (result.success == 0) return 0;
         
         //return pid to caller
-        pid = result.pid;
+        //pid = result.pid;
 
         //grab path and access to Process
         std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
         auto process = std::make_unique<marvin::Process>(pid);
         HANDLE handle = process->GetHandle();
 
-        //find the menus handle by using the pid
-        while (hmenu == NULL) {
+        //find the menu handle by using the pid, or time out and return
+        for (std::size_t trys = 0; ; trys++) {
             Sleep(100);
             //this function will assign the hwnd using the pid inserted
             EnumWindows(menu::MyEnumWindowsProc, pid);
+            if (hmenu != NULL) break;
+            if (trys > 100) {
+                TerminateProcess(handle, 0);
+                CloseHandle(handle);
+                return 0;
+            }
         }
 
         if (hide_window) ShowWindow(hmenu, 0);
@@ -91,13 +99,19 @@ void AutoMode() {
         //the code to open the profile menu
         PostMessageA(hmenu, WM_COMMAND, 40011, 0);
 
-        //find the profile menu handle
-        while (hprofile == NULL) {
+        //wait for the profile handle
+        for (std::size_t trys = 0; ; trys++) {
             Sleep(100);
             EnumWindows(profile::MyEnumWindowsProc, pid);
+            if (hprofile != NULL) break;
+            if (trys > 100) {
+                TerminateProcess(handle, 0);
+                CloseHandle(handle);
+                return 0;
+            }
         }
 
-        if (hide_window) ShowWindow(hprofile, 0);
+       // if (hide_window) ShowWindow(hprofile, 0);
 
         //grab the handle for the list box
         hlist = FindWindowExA(hprofile, NULL, "ListBox", NULL);
@@ -119,15 +133,24 @@ void AutoMode() {
         PostMessage(hlist, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hlist, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
         
         //Start Game
+        Sleep(500);
         PostMessage(hmenu, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hmenu, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
 
         //wait for the game window to exist and grab the handle
         //if it timed out close informationa and try again
-        while (hgame == NULL) {
-            Sleep(100);
+        for (std::size_t trys = 0; ; trys++) {
+            Sleep(1000);
             EnumWindows(game::MyEnumWindowsProc, pid);
             EnumWindows(information::MyEnumWindowsProc, pid);
             EnumWindows(error::MyEnumWindowsProc, pid);
+
+            if (hgame != NULL) break;
+
+            if (trys > 100) {
+                TerminateProcess(handle, 0);
+                CloseHandle(handle);
+                return 0;
+            }
 
             if (herror != NULL) {
                 PostMessage(herror, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(herror, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
@@ -137,24 +160,29 @@ void AutoMode() {
             }
 
             if (hinformation != NULL) {
+                Sleep(2000);
+                last_window = SetFocus(hinformation);
                 PostMessage(hinformation, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hinformation, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-                Sleep(300);
+                SetFocus(last_window);
+                Sleep(2000);
                 PostMessage(hmenu, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hmenu, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
+                trys = 0;
             }
             hinformation = NULL;   
         } 
 
         //wait for the client to log in by waiting for the chat address to return an enter message
         std::string enter_msg = "";
-        int loops = 0;
 
-        while (enter_msg == "") {
+        for (std::size_t trys = 0; ; trys++) {
             Sleep(100);
-            loops++;
 
             std::size_t module_base = process->GetModuleBase("Continuum.exe");
-   
-            enter_msg = ReadChatEntry(module_base, handle);
+            if (module_base != 0) {
+                enter_msg = ReadChatEntry(module_base, handle);
+            }
+
+            if (enter_msg != "") break;
 
             EnumWindows(error::MyEnumWindowsProc, pid);
             if (herror != NULL) {
@@ -164,8 +192,7 @@ void AutoMode() {
                 return 0;
             }
             //break from this loop if the loading screen hangs
-            if (loops > 200) {
-                //PostMessage(hgame, WM_KEYDOWN, (WPARAM)(VK_ESCAPE), 0); PostMessage(hgame, WM_KEYUP, (WPARAM)(VK_ESCAPE), 0);
+            if (trys > 100) {
                 TerminateProcess(handle, 0);
                 CloseHandle(handle);
                 return 0;
@@ -173,7 +200,7 @@ void AutoMode() {
         }
 
      //need a second after getting chat or game will likely crash when trying to minimize or hide window
-        Sleep(1000);
+        Sleep(1500);
 
         //inject the loader and marvin dll
         if (!process->InjectModule(inject_path)) {
@@ -181,14 +208,15 @@ void AutoMode() {
             CloseHandle(handle);
             return 0;
         }
-        loops = 0;
+        
         //wait for windows title to change before minimizing
-        while (hinjected == NULL) {
+        for (std::size_t trys = 0; ; trys++) {
             Sleep(100);
-            loops++;
             EnumWindows(injected::MyEnumWindowsProc, pid);
 
-            if (loops > 200) {
+            if (hinjected != NULL) break;
+
+            if (trys > 100) {
                 TerminateProcess(handle, 0);
                 CloseHandle(handle);
                 return 0;
@@ -200,6 +228,8 @@ void AutoMode() {
         else ShowWindow(hgame, 6);
     
         CloseHandle(handle);
+        SetFocus(last_window);
+        CloseHandle(last_window);
 
         return pid;
     }
@@ -212,32 +242,18 @@ void MonitorBots(std::vector<DWORD> pids, bool hide_window) {
 
         //cycle through each pid and see if it matches to an existing window
         for (std::size_t i = 0; i < pids.size(); i++) {
-            Sleep(10);
+            Sleep(100);
             EnumWindows(injected::MyEnumWindowsProc, pids[i]);     
-            EnumWindows(game::MyEnumWindowsProc, pids[i]);
             EnumWindows(application::MyEnumWindowsProc, pids[i]);
 
             if (happlication != NULL) {
-                auto process = std::make_unique<marvin::Process>(pids[i]);
-                HANDLE handle = process->GetHandle();
-                TerminateProcess(handle, 0);
-                CloseHandle(handle);
+                PostMessage(happlication, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(happlication, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
             }
             happlication = NULL;
 
             //if the pid didnt return a handle, start a new bot
             if (hinjected == NULL) {
                
-                //if injector failed to inject bot just kill the process
-                
-                if (hgame != NULL) {
-                    auto process = std::make_unique<marvin::Process>(pids[i]);
-                    HANDLE handle = process->GetHandle();
-                    TerminateProcess(handle, 0);
-                    CloseHandle(handle);
-                }
-                hgame = NULL;
-
                 DWORD pid = StartBot(i, hide_window);
 
                 pids[i] = pid;
@@ -358,10 +374,10 @@ namespace injected {
 
 namespace application {
     BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
-        DWORD pid;
-        GetWindowThreadProcessId(hwnd, &pid);
+       // DWORD pid;
+       // GetWindowThreadProcessId(hwnd, &pid);
 
-        if (pid == (DWORD)lParam) {
+        //if (pid == (DWORD)lParam) {
             char title[1024];
             GetWindowTextA(hwnd, title, 1024);
 
@@ -369,7 +385,7 @@ namespace application {
                 happlication = hwnd;
                 return FALSE;
             }
-        }
+        //}
         happlication = NULL;
         return TRUE;
     }

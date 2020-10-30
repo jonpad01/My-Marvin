@@ -76,18 +76,11 @@ typedef struct _OBJECT_TYPE_INFORMATION {
     ULONG NonPagedPoolUsage;
 } OBJECT_TYPE_INFORMATION, * POBJECT_TYPE_INFORMATION;
 
-struct ProcessResults {
-    DWORD pid;
-    HANDLE hProcess;
-    bool success;
-};
-
 
 /* Get the process's HANDLE as return value. pid is set to process id */
-HANDLE GetProcessHandle(LPWSTR exeName, DWORD* pid);
+HANDLE GetProcessHandle(DWORD *pid);
 
 bool RemoveDebugPrivileges(HANDLE token);
-static ProcessResults LaunchContinuumAsUser(HANDLE token);
 
-ProcessResults RunMulticont();
+bool RunMulticont(bool hide_window, DWORD *pid);
 

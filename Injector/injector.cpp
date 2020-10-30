@@ -348,10 +348,10 @@ void InjectExcept(const std::vector<DWORD>& pids, const std::string& exception) 
 int main(int argc, char* argv[]) {
 
     if (!marvin::GetDebugPrivileges()) {
-    std::cerr << "Failed to get debug privileges. Try running as Administrator."
-              << std::endl;
-    return EXIT_FAILURE;
-  }
+        std::cerr << "Failed to get debug privileges. Try running as Administrator."
+            << std::endl;
+        return EXIT_FAILURE;
+    }
 
   auto continuum_pids = marvin::GetProcessIds("Continuum.exe");
 

@@ -9,12 +9,10 @@
 #include "Multicont.h"
 
 #define NT_SUCCESS(x) ((x) >= 0)
-#define MBOXERR(msg) MessageBox(NULL, msg, L"Error", MB_ICONERROR | MB_OK)
 
-const wchar_t* MUTEXNAME = L"mtxsscont";
 
-ProcessResults RunMulticont() {
-  
+bool RunMulticont(bool hide_window, DWORD *pid) {   
+
     _NtQuerySystemInformation NtQuerySystemInformation = (_NtQuerySystemInformation)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQuerySystemInformation");
     _NtDuplicateObject NtDuplicateObject = (_NtDuplicateObject)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtDuplicateObject");
     _NtQueryObject NtQueryObject = (_NtQueryObject)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryObject");
@@ -23,8 +21,7 @@ ProcessResults RunMulticont() {
   
     ULONG handleInfoSize = 0x10000;
     LONG status;
-    HANDLE hMutex, token_cur, token_dup;
-    ProcessResults result;
+    HANDLE hMutex, token_cur, token_dup, hProcess;
 
     /* Get the current process' security token as a starting point, then modify
        a duplicate so that it runs with a fixed integrity level. */
@@ -32,20 +29,38 @@ ProcessResults RunMulticont() {
     if (OpenProcessToken(GetCurrentProcess(), TOKEN_DUPLICATE | TOKEN_ADJUST_DEFAULT | TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY | TOKEN_ASSIGN_PRIMARY, &token_cur)) {
         
         if (DuplicateTokenEx(token_cur, 0, NULL, SecurityImpersonation, TokenPrimary, &token_dup)) {
-           if (RemoveDebugPrivileges(token_dup))
-              result = LaunchContinuumAsUser(token_dup);
-              CloseHandle(token_dup);
+            if (RemoveDebugPrivileges(token_dup)) {
+                
+                PROCESS_INFORMATION pi;
+                STARTUPINFO si;
+
+                ZeroMemory(&si, sizeof(si));
+                si.cb = sizeof(STARTUPINFO);
+                //files paths for windows x86 compatibility
+                if (CreateProcessAsUserW(token_dup, TEXT("C:\\Program Files (x86)\\Continuum\\Continuum.exe"), NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi) ||
+                    CreateProcessAsUserW(token_dup, TEXT("C:\\Program Files\\Continuum\\Continuum.exe"), NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+                    
+                    // Process has been created; work with the process and wait for it to terminate
+                    hProcess = pi.hProcess;
+                    *pid = pi.dwProcessId;
+                    WaitForSingleObject(pi.hProcess, INFINITE);
+                    CloseHandle(pi.hThread);
+                    CloseHandle(pi.hProcess);
+                }   
+            }
+            CloseHandle(token_dup);
         }
         CloseHandle(token_cur);
     }
 
 
-
-    
-
     /* Sleep while waiting for mutex to be created */
-    while (!(hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, MUTEXNAME))) {
-        Sleep(1);
+    for (size_t trys = 0; ; trys++) {
+        Sleep(10);
+        if (hMutex = OpenMutexW(MUTEX_ALL_ACCESS, FALSE, L"mtxsscont")) break;
+        else if (trys > 1000) {
+            return false;
+        }
     }
 
     CloseHandle(hMutex);
@@ -54,26 +69,23 @@ ProcessResults RunMulticont() {
     wchar_t wtext[20];
     mbstowcs_s(NULL, wtext, text, strlen(text) + 1);//Plus null
     LPWSTR ptr = wtext;
+
     /* Get process handle for respawned process */
-    if (!(result.hProcess = GetProcessHandle(ptr, &result.pid))) {
-        MBOXERR(L"Error getting Continuum.exe process handle.");
-        result.success = false;
-        return result;
-    }
+    if (!(hProcess = GetProcessHandle(pid))) 
+        return false;
+    
 
     handleInfo = (PSYSTEM_HANDLE_INFORMATION)malloc(handleInfoSize);
 
     /* Get all of the system's handles */
     while ((status = NtQuerySystemInformation(16, handleInfo, handleInfoSize, NULL)) == 0xC0000004) {
 
-            handleInfo = (PSYSTEM_HANDLE_INFORMATION)realloc(handleInfo, handleInfoSize *= 2);
-         }
-    
-    if (!NT_SUCCESS(status)) {
-        MBOXERR(L"NtQuerySystemInformation() failed.");
-        result.success = false;
-        return result;
+        handleInfo = (PSYSTEM_HANDLE_INFORMATION)realloc(handleInfo, handleInfoSize *= 2);
     }
+    
+    if (!NT_SUCCESS(status)) 
+        return false;
+    
 
     /* Loop through the handles */
     for (ULONG i = 0; i < handleInfo->HandleCount; i++) {
@@ -85,11 +97,11 @@ ProcessResults RunMulticont() {
         ULONG returnLength;
         uintptr_t pHandle = (uintptr_t)handle.Handle;
 
-        if (handle.ProcessId != result.pid)
+        if (handle.ProcessId != *pid)
             continue;
 
         /* Duplicate the handle so we can query it. */
-        if (!NT_SUCCESS(NtDuplicateObject(result.hProcess, (HANDLE)pHandle, GetCurrentProcess(), &dupHandle, 0, 0, 0)))
+        if (!NT_SUCCESS(NtDuplicateObject(hProcess, (HANDLE)pHandle, GetCurrentProcess(), &dupHandle, 0, 0, 0)))
             continue;
 
         /* Query the object type. */
@@ -124,8 +136,8 @@ ProcessResults RunMulticont() {
         
         if (objectName.Length) {
             /* Close the mutex if its name is MUTEXNAME */
-            if (wcsstr(objectName.Buffer, MUTEXNAME) != NULL) {
-                DuplicateHandle(result.hProcess, (HANDLE)pHandle, NULL, NULL, 0, FALSE, 1);
+            if (wcsstr(objectName.Buffer, L"mtxsscont") != NULL) {
+                DuplicateHandle(hProcess, (HANDLE)pHandle, NULL, NULL, 0, FALSE, 1);
             }
         }
 
@@ -135,14 +147,14 @@ ProcessResults RunMulticont() {
     }
 
     free(handleInfo);
-    CloseHandle(result.hProcess);
+    CloseHandle(hProcess);
 
-    //result.hProcess = dup_handle;
-    result.success = true;
-    return result;
+    return true;
 }
 
-HANDLE GetProcessHandle(LPWSTR exeName, DWORD* pid) {
+
+
+HANDLE GetProcessHandle(DWORD *pid) {
     HANDLE pHandle = NULL;
     PROCESSENTRY32 pe32;
     HANDLE hProcSnap;
@@ -161,7 +173,7 @@ HANDLE GetProcessHandle(LPWSTR exeName, DWORD* pid) {
 
     /* Loop through running processes to find continuum */
     do {
-        if (wcscmp(pe32.szExeFile, exeName) == 0)
+        if (wcscmp(pe32.szExeFile, L"Continuum.exe") == 0)
             *pid = pe32.th32ProcessID;
     } while (Process32Next(hProcSnap, &pe32));
 
@@ -187,21 +199,3 @@ bool RemoveDebugPrivileges(HANDLE token) {
     return success;
 }
 
-static ProcessResults LaunchContinuumAsUser(HANDLE token) {
-    PROCESS_INFORMATION pi;
-    STARTUPINFO si;
-    ProcessResults result = { 0 };
-
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    if (CreateProcessAsUser(token, TEXT("C:\\Program Files (x86)\\Continuum\\Continuum.exe"), NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        /* Process has been created; work with the process and wait for it to
-           terminate. */
-        result.hProcess = pi.hProcess;
-        result.pid = pi.dwProcessId;
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
-    }
-    return result;
-}
