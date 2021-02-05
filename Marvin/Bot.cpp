@@ -20,16 +20,6 @@
 
 
 namespace marvin {
-    
-    void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to) {
-        Vector2f center = GetWindowCenter();
-
-        Vector2f diff = to - from;
-        from = (from - screenCenterWorldPosition) * 16.0f;
-        to = from + (diff * 16.0f);
-
-        RenderLine(center + from, center + to, RGB(200, 0, 0));
-    }
 
     void RenderPath(GameProxy& game, behavior::Blackboard& blackboard) {
         std::vector<Vector2f> path = blackboard.ValueOr("path", std::vector<Vector2f>());

@@ -9,6 +9,16 @@ namespace marvin {
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 
+    void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to) {
+        Vector2f center = GetWindowCenter();
+
+        Vector2f diff = to - from;
+        from = (from - screenCenterWorldPosition) * 16.0f;
+        to = from + (diff * 16.0f);
+
+        RenderLine(center + from, center + to, RGB(200, 0, 0));
+    }
+
     void RenderLine(Vector2f from, Vector2f to, COLORREF color) {
         HDC hdc = GetDC(g_hWnd);
 
