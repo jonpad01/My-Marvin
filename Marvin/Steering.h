@@ -5,13 +5,11 @@
 
 namespace marvin {
 
-class Bot;
 struct Player;
-//class GameProxy;
 
 class SteeringBehavior {
  public:
-  SteeringBehavior(std::shared_ptr<GameProxy> game);
+  SteeringBehavior(GameProxy& game);
 
   Vector2f GetSteering();
   float GetRotation();
@@ -28,10 +26,10 @@ class SteeringBehavior {
   //void AvoidWalls();
 
  private:
- // Bot* bot_;
-  std::shared_ptr<GameProxy> game_;
+  //std::shared_ptr<GameProxy> game_;
+  GameProxy& game_;
   Vector2f force_;
-  float rotation_;
+  float rotation_; 
 };
 
 }  // namespace marvin

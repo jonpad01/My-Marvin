@@ -26,23 +26,23 @@ void KeyController::PressArrow(KeyId key, unsigned long long timestamp, unsigned
 void KeyController::Press(KeyId key, unsigned long long timestamp, unsigned long long duration) {
   if (key >= kKeyCount) return;
   //slows down arrow key inputs when switching between right and left
-  if (key == 0x27 && rTrigger_[key] == true) {
-	  if (timestamp - timestamp_[0x25] < duration_[0x25]) { return; }
-  }
-  if (key == 0x25 && rTrigger_[key] == true) {
-	  if (timestamp - timestamp_[0x27] < duration_[0x27]) { return; }
-  }
+ // if (key == 0x27 && rTrigger_[key] == true) {
+//	  if (timestamp - timestamp_[0x25] < duration_[0x25]) { return; }
+ // }
+ // if (key == 0x25 && rTrigger_[key] == true) {
+//	  if (timestamp - timestamp_[0x27] < duration_[0x27]) { return; }
+ // }
 
-  timestamp_[key] = timestamp;
-  duration_[key] = duration;
-  rTrigger_[key] = false;
+ // timestamp_[key] = timestamp;
+ // duration_[key] = duration;
+ // rTrigger_[key] = false;
   keys_[key] = true;
 }
 void KeyController::Press(KeyId key) {
 	if (key >= kKeyCount) return;
 
-	duration_[key] = 0;
-	rTrigger_[key] = false;
+	//duration_[key] = 0;
+	//rTrigger_[key] = false;
 	keys_[key] = true;
 }
 

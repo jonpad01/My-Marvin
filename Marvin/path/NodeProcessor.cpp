@@ -46,11 +46,10 @@ namespace path {
 
                 if (current != nullptr) {
                     if (Mined(mines, point)) {
-                        current->weight = 200.0f;
+                        current->weight = 100.0f;
                     }
                     else if (map_.GetTileId(point.x, point.y) == kSafeTileId) {
                         current->weight = 10.0f;
-                        current->previous_weight = 10.0f;
                     }
                     else if (current->weight != current->previous_weight) {
                         current->weight = current->previous_weight;

@@ -1,13 +1,313 @@
 #include "ExtremeGames.h"
 
+#include <chrono>
+#include <cstring>
+#include <limits>
+
+#include "Debug.h"
+#include "GameProxy.h"
+#include "Map.h"
+#include "RayCaster.h"
+#include "RegionRegistry.h"
+#include "platform/Platform.h"
+#include "platform/ContinuumGameProxy.h"
+
 namespace marvin {
+    //namespace eg {
+
+
+    ExtremeGames::ExtremeGames(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_), common_(*game_), keys_(common_.GetTime()) {
+
+        auto processor = std::make_unique<path::NodeProcessor>(*game_);
+
+        last_ship_change_ = 0;
+        ship_ = game_->GetPlayer().ship;
+
+
+        if (ship_ > 7) {
+            ship_ = 2;
+        }
+
+        pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
+        regions_ = RegionRegistry::Create(game_->GetMap());
+        pathfinder_->CreateMapWeights(game_->GetMap());
+
+        auto freq_warp_attach = std::make_unique<eg::FreqWarpAttachNode>();
+        auto find_enemy = std::make_unique<eg::FindEnemyNode>();
+        auto aim_with_gun = std::make_unique<eg::AimWithGunNode>();
+        auto aim_with_bomb = std::make_unique<eg::AimWithBombNode>();
+        auto target_in_los = std::make_unique<eg::InLineOfSightNode>(
+            [](marvin::behavior::ExecuteContext& ctx) {
+                const Vector2f* result = nullptr;
+
+                const Player* target_player =
+                    ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+
+                if (target_player) {
+                    result = &target_player->position;
+                }
+                return result;
+            });
+
+        auto shoot_gun = std::make_unique<eg::ShootGunNode>();
+        auto shoot_bomb = std::make_unique<eg::ShootBombNode>();
+        auto path_to_enemy = std::make_unique<eg::PathToEnemyNode>();
+        auto move_to_enemy = std::make_unique<eg::MoveToEnemyNode>();
+        auto follow_path = std::make_unique<eg::FollowPathNode>();
+        auto patrol = std::make_unique<eg::PatrolNode>();
+
+
+        auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+        auto gun_sequence = std::make_unique<behavior::SequenceNode>(aim_with_gun.get(), shoot_gun.get());
+        auto bomb_sequence = std::make_unique<behavior::SequenceNode>(aim_with_bomb.get(), shoot_bomb.get());
+        auto bomb_gun_sequence = std::make_unique<behavior::SelectorNode>(gun_sequence.get(), bomb_sequence.get());
+        auto parallel_shoot_enemy = std::make_unique<behavior::ParallelNode>(bomb_gun_sequence.get(), move_method_selector.get());
+        auto los_shoot_conditional = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy.get());
+        auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
+        auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path.get());
+        auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
+        auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
+        auto root_selector = std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
+
+        behavior_nodes_.push_back(std::move(freq_warp_attach));
+        behavior_nodes_.push_back(std::move(find_enemy));
+        behavior_nodes_.push_back(std::move(aim_with_gun));
+        behavior_nodes_.push_back(std::move(aim_with_bomb));
+        behavior_nodes_.push_back(std::move(target_in_los));
+        behavior_nodes_.push_back(std::move(shoot_gun));
+        behavior_nodes_.push_back(std::move(shoot_bomb));
+        behavior_nodes_.push_back(std::move(path_to_enemy));
+        behavior_nodes_.push_back(std::move(move_to_enemy));
+        behavior_nodes_.push_back(std::move(follow_path));
+        behavior_nodes_.push_back(std::move(patrol));
+
+        behavior_nodes_.push_back(std::move(move_method_selector));
+        behavior_nodes_.push_back(std::move(bomb_gun_sequence));
+        behavior_nodes_.push_back(std::move(bomb_sequence));
+        behavior_nodes_.push_back(std::move(gun_sequence));
+        behavior_nodes_.push_back(std::move(parallel_shoot_enemy));
+        behavior_nodes_.push_back(std::move(los_shoot_conditional));
+        behavior_nodes_.push_back(std::move(enemy_path_sequence));
+        behavior_nodes_.push_back(std::move(patrol_path_sequence));
+        behavior_nodes_.push_back(std::move(path_or_shoot_selector));
+        behavior_nodes_.push_back(std::move(handle_enemy));
+        behavior_nodes_.push_back(std::move(root_selector));
+
+        behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
+        ctx_.eg = this;
+        ctx_.com = &common_;
+    }
+
+
+    void ExtremeGames::Update(float dt) {
+        keys_.ReleaseAll();
+        game_->Update(dt);
+
+        uint64_t timestamp = common_.GetTime();
+        uint64_t ship_cooldown = 10000;
+
+        //check chat for disconected message or spec message in eg and terminate continuum
+        std::string name = game_->GetName();
+        std::string disconnected = "WARNING: ";
+        std::string eg_specced = "[ " + name + " ]";
+        std::size_t len = 4 + name.size();
+
+        std::vector<std::string> chat = game_->GetChat(0);
+
+        for (std::size_t i = 0; i < chat.size(); i++) {
+            if (chat[i].compare(0, 9, disconnected) == 0 || chat[i].compare(0, len, eg_specced) == 0) {
+                exit(5);
+            }
+        }
+
+        //then check if specced for lag
+        if (game_->GetPlayer().ship > 7) {
+            uint64_t timestamp = common_.GetTime();
+            if (timestamp - last_ship_change_ > ship_cooldown) {
+                if (game_->SetShip(ship_)) {
+                    last_ship_change_ = timestamp;
+                }
+            }
+            return;
+        }
+
+        steering_.Reset();
+
+
+        ctx_.dt = dt;
+
+        behavior_->Update(ctx_);
+
+#if DEBUG_RENDER
+        // RenderPath(GetGame(), behavior_ctx_.blackboard);
+#endif
+
+        Steer();
+
+    }
+
+    void ExtremeGames::Steer() {
+        Vector2f center = GetWindowCenter();
+        float debug_y = 100.0f;
+        Vector2f force = steering_.GetSteering();
+        float rotation = steering_.GetRotation();
+        RenderText("force" + std::to_string(force.Length()), center - Vector2f(0, debug_y), RGB(100, 100, 100), RenderText_Centered);
+        Vector2f heading = game_->GetPlayer().GetHeading();
+        // Start out by trying to move in the direction that the bot is facing.
+        Vector2f steering_direction = heading;
+
+        bool has_force = force.LengthSq() > 0.0f;
+
+        // If the steering system calculated any movement force, then set the movement
+        // direction to it.
+        if (has_force) {
+            steering_direction = marvin::Normalize(force);
+        }
+
+        // Rotate toward the movement direction.
+        Vector2f rotate_target = steering_direction;
+
+        // If the steering system calculated any rotation then rotate from the heading
+        // to desired orientation.
+        if (rotation != 0.0f) {
+            rotate_target = Rotate(heading, -rotation);
+        }
+
+        if (!has_force) {
+            steering_direction = rotate_target;
+        }
+        Vector2f perp = marvin::Perpendicular(heading);
+        bool behind = force.Dot(heading) < 0;
+        // This is whether or not the steering direction is pointing to the left of
+        // the ship.
+        bool leftside = steering_direction.Dot(perp) < 0;
+
+        // Cap the steering direction so it's pointing toward the rotate target.
+        if (steering_direction.Dot(rotate_target) < 0.75) {
+            // RenderText("adjusting", center - Vector2f(0, debug_y), RGB(100, 100, 100), RenderText_Centered);
+            // debug_y -= 20;
+            float rotation = 0.1f;
+            int sign = leftside ? 1 : -1;
+            if (behind) sign *= -1;
+
+            // Pick the side of the rotate target that is closest to the force
+            // direction.
+            steering_direction = Rotate(rotate_target, rotation * sign);
+
+            leftside = steering_direction.Dot(perp) < 0;
+        }
+
+        bool clockwise = !leftside;
+
+        if (has_force) {
+
+            //allow bot to use afterburners, force returns high numbers in the hypertunnel so cap it
+            bool strong_force = force.Length() > 18.0f && force.Length() < 1000.0f;
+            //dont press shift if the bot is trying to shoot
+            bool shooting = keys_.IsPressed(VK_CONTROL) || keys_.IsPressed(VK_TAB);
+
+            if (behind) { keys_.Press(VK_DOWN, common_.GetTime(), 30); }
+            else { keys_.Press(VK_UP, common_.GetTime(), 30); }
+
+            if (strong_force && !shooting) {
+                keys_.Press(VK_SHIFT);
+            }
+
+        }
+
+
+        if (heading.Dot(steering_direction) < 0.996f) {  //1.0f
+
+            if (clockwise) {
+                keys_.Press(VK_RIGHT);
+            }
+            else {
+                keys_.Press(VK_LEFT);
+            }
+
+
+            //ensure that only one arrow key is pressed at any given time
+            //keys_.Set(VK_RIGHT, clockwise, GetTime());
+            //keys_.Set(VK_LEFT, !clockwise, GetTime());
+        }
+
+#ifdef DEBUG_RENDER
+
+        if (has_force) {
+            Vector2f force_direction = Normalize(force);
+            float force_percent = force.Length() / (GetGame().GetShipSettings().MaximumSpeed / 16.0f / 16.0f);
+            RenderLine(center, center + (force_direction * 100 * force_percent), RGB(255, 255, 0)); //yellow
+        }
+
+        RenderLine(center, center + (heading * 100), RGB(255, 0, 0)); //red
+        RenderLine(center, center + (perp * 100), RGB(100, 0, 100));  //purple
+        RenderLine(center, center + (rotate_target * 85), RGB(0, 0, 255)); //blue
+        RenderLine(center, center + (steering_direction * 75), RGB(0, 255, 0)); //green
+        /*
+        if (rotation == 0.0f) {
+            RenderText("no rotation", center - Vector2f(0, debug_y), RGB(100, 100, 100),
+                RenderText_Centered);
+            debug_y -= 20;
+        }
+        else {
+            std::string text = "rotation: " + std::to_string(rotation);
+            RenderText(text.c_str(), center - Vector2f(0, debug_y), RGB(100, 100, 100),
+                RenderText_Centered);
+            debug_y -= 20;
+        }
+
+        if (behind) {
+            RenderText("behind", center - Vector2f(0, debug_y), RGB(100, 100, 100),
+                RenderText_Centered);
+            debug_y -= 20;
+        }
+
+        if (leftside) {
+            RenderText("leftside", center - Vector2f(0, debug_y), RGB(100, 100, 100),
+                RenderText_Centered);
+            debug_y -= 20;
+        }
+
+        if (rotation != 0.0f) {
+            RenderText("face-locked", center - Vector2f(0, debug_y), RGB(100, 100, 100),
+                RenderText_Centered);
+            debug_y -= 20;
+        }
+        */
+
+#endif
+    }
+
+    void ExtremeGames::Move(const Vector2f& target, float target_distance) {
+        const Player& bot_player = game_->GetPlayer();
+        float distance = bot_player.position.Distance(target);
+        Vector2f heading = game_->GetPlayer().GetHeading();
+
+        Vector2f target_position = ctx_.blackboard.ValueOr("target_position", Vector2f());
+        float dot = heading.Dot(Normalize(target_position - game_->GetPosition()));
+   
+
+
+        if (distance > target_distance) {
+           
+            steering_.Seek(target);
+        }
+
+        else if (distance <= target_distance) {
+
+            Vector2f to_target = target - bot_player.position;
+
+            steering_.Seek(target - Normalize(to_target) * target_distance);
+        }
+    }
+
     namespace eg {
 
         behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
             
-            bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
-            uint64_t time = ctx.bot->GetTime();
+            bool in_center = ctx.eg->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
+            uint64_t time = ctx.com->GetTime();
             uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
             uint64_t f7_check = ctx.blackboard.ValueOr<uint64_t>("F7SpamCheck", 0);
             uint64_t chat_check = ctx.blackboard.ValueOr<uint64_t>("ChatWait", 0);
@@ -23,7 +323,7 @@ namespace marvin {
             //find and store attachable team players
             for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
                 const Player& player = game.GetPlayers()[i];
-                bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
+                bool in_center = ctx.eg->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
                 bool same_team = player.frequency == game.GetPlayer().frequency;
                 bool not_bot = player.id != game.GetPlayer().id;
                 if (!in_center && same_team && not_bot && player.ship < 8) {
@@ -145,13 +445,14 @@ namespace marvin {
 #endif
             return behavior::ExecuteResult::Failure;
         }
+   
 
         bool FreqWarpAttachNode::CheckStatus(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
             float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
             bool result = false;
             if ((game.GetPlayer().status & 2) != 0) {
-                game.Cloak(ctx.bot->GetKeys());
+                game.Cloak(ctx.eg->GetKeys());
                 return false;
             }
             if ((game.GetPlayer().status & 1) != 0) {
@@ -167,10 +468,10 @@ namespace marvin {
             behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
             float closest_cost = std::numeric_limits<float>::max();
             float cost = 0;
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
             std::vector< Player > players = game.GetPlayers();
             const Player* target = nullptr;
-            const Player& bot = ctx.bot->GetGame().GetPlayer();
+            const Player& bot = ctx.eg->GetGame().GetPlayer();
 
             
             Vector2f position = game.GetPosition();
@@ -238,7 +539,7 @@ namespace marvin {
         }
 
         bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
-            const auto& game = ctx.bot->GetGame();
+            const auto& game = ctx.eg->GetGame();
             const Player& bot_player = game.GetPlayer();
 
             if (!target.active) return false;
@@ -258,7 +559,7 @@ namespace marvin {
             MapCoord bot_coord(bot_player.position);
             MapCoord target_coord(target.position);
 
-            if (!ctx.bot->GetRegions().IsConnected(bot_coord, target_coord)) {
+            if (!ctx.eg->GetRegions().IsConnected(bot_coord, target_coord)) {
                 return false;
             }
             //TODO: check if player is cloaking and outside radar range
@@ -282,12 +583,12 @@ namespace marvin {
 
 
         behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-
+            auto& game = ctx.eg->GetGame();
+            std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
             Vector2f bot = game.GetPosition();
             Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-            Path path = ctx.bot->CreatePath(ctx, "path", bot, enemy, game.GetShipSettings().GetRadius());
+             path = ctx.com->CreatePath(ctx.eg->GetPathfinder(), path, bot, enemy, game.GetShipSettings().GetRadius());
 
             ctx.blackboard.Set("path", path);
             return behavior::ExecuteResult::Success;
@@ -297,9 +598,9 @@ namespace marvin {
 
 
         behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
             Vector2f from = game.GetPosition();
-            Path path = ctx.blackboard.ValueOr("path", Path());
+            std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
             std::vector<Vector2f> nodes { Vector2f(570, 540), Vector2f(455, 540), Vector2f(455, 500), Vector2f(570, 500) };
             int index = ctx.blackboard.ValueOr<int>("patrol_index", 0);
             
@@ -311,7 +612,7 @@ namespace marvin {
                 to = nodes.at(index);
             }
 
-            path = ctx.bot->CreatePath(ctx, "path", from, to, game.GetShipSettings().GetRadius());
+            path = ctx.com->CreatePath(ctx.eg->GetPathfinder(), path, from, to, game.GetShipSettings().GetRadius());
             ctx.blackboard.Set("path", path);
 
             return behavior::ExecuteResult::Success;
@@ -324,7 +625,7 @@ namespace marvin {
             auto path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
 
             size_t path_size = path.size();
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
 
 
             if (path.empty()) return behavior::ExecuteResult::Failure;
@@ -356,7 +657,7 @@ namespace marvin {
                 ctx.blackboard.Set("path", path);
             }
 
-            ctx.bot->Move(current, 0.0f);
+            ctx.eg->Move(current, 0.0f);
 
             return behavior::ExecuteResult::Success;
         }
@@ -382,19 +683,58 @@ namespace marvin {
 
 
         behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
+
             behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
-            auto target = selector_(ctx);
 
-            if (target == nullptr) return behavior::ExecuteResult::Failure;
+            const Player* target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+            if (!target_player) { return behavior::ExecuteResult::Failure; }
 
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
 
+            if (game.GetPlayer().ship == 2) { return behavior::ExecuteResult::Failure; }
 
-            auto to_target = *target - game.GetPosition();
-            CastResult ray_cast = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
+            auto to_target = target_player->position - game.GetPosition();
+            Vector2f direction = Normalize(to_target);
+            Vector2f side = Perpendicular(direction);
+            float radius = game.GetShipSettings().GetRadius();
 
-            if (!ray_cast.hit) {
-                result = behavior::ExecuteResult::Success;   
+            CastResult center = RayCast(game.GetMap(), game.GetPosition(), direction, to_target.Length());
+
+            if (!center.hit) {
+
+                CastResult side1 = RayCast(game.GetMap(), game.GetPosition() + side * radius, direction, to_target.Length());
+                CastResult side2 = RayCast(game.GetMap(), game.GetPosition() - side * radius, direction, to_target.Length());
+
+                if (!side1.hit && !side2.hit) {
+                    result = behavior::ExecuteResult::Success;
+                    //if bot is not in center, almost dead, and in line of sight of its target burst
+                    bool in_center = ctx.eg->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
+                    float energy_pct = ctx.eg->GetGame().GetEnergy() / (float)ctx.eg->GetGame().GetShipSettings().MaximumEnergy;
+                    if (energy_pct < 0.10f && !in_center && game.GetPlayer().bursts > 0) {
+                        ctx.eg->GetGame().Burst(ctx.eg->GetKeys());
+                    }
+                }
+            }
+            else {
+                const Player* target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+                if (target_player) {
+                    float target_radius = game.GetSettings().ShipSettings[target_player->ship].GetRadius();
+                    bool shoot = false;
+                    bool bomb_hit = false;
+                    Vector2f wall_pos;
+
+                    if (ctx.com->ShootWall(target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
+                        if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
+                            if (bomb_hit) {
+                                ctx.eg->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 30);
+                            }
+                            else {
+                                ctx.eg->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 30);
+                            }
+                        }
+                    }
+
+                }
             }
 
             return result;
@@ -404,31 +744,108 @@ namespace marvin {
 
 
         behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
+
+            const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+
+            if (!target_player) { return behavior::ExecuteResult::Failure; }
+
+            const Player& target = *target_player;
+            auto& game = ctx.eg->GetGame();
+
+            const Player& bot_player = game.GetPlayer();
+
+            float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
+            float radius = game.GetShipSettings().GetRadius();
+            float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
+
+            Vector2f solution;
+
+
+            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+                ctx.blackboard.Set<Vector2f>("shot_position", solution);
+                ctx.blackboard.Set<bool>("has_shot", false);
+                return behavior::ExecuteResult::Failure;
+            }
+
+            Vector2f totarget = solution - game.GetPosition();
+            RenderLine(GetWindowCenter(), GetWindowCenter() + (Normalize(totarget) * totarget.Length() * 16), RGB(100, 0, 0));
+
+            //Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
+            //Vector2f projectile_direction = Normalize(projectile_trajectory);
+
+            float radius_multiplier = 1.2f;
+
+            //if the target is cloaking and bot doesnt have xradar make the bot shoot wide
+            if (!(game.GetPlayer().status & 4)) {
+                if (target.status & 2) {
+                    radius_multiplier = 3.0f;
+                }
+            }
+
+            float nearby_radius = target_radius * radius_multiplier;
+
+            //Vector2f box_min = target.position - Vector2f(nearby_radius, nearby_radius);
+            Vector2f box_min = solution - Vector2f(nearby_radius, nearby_radius);
+            Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
+            float dist;
+            Vector2f norm;
+            bool rHit = false;
+
+            if ((game.GetShipSettings().DoubleBarrel & 1) != 0) {
+                Vector2f side = Perpendicular(bot_player.GetHeading());
+
+                bool rHit1 = RayBoxIntersect(bot_player.position + side * radius, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
+                bool rHit2 = RayBoxIntersect(bot_player.position - side * radius, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
+                if (rHit1 || rHit2) { rHit = true; }
+
+            }
+            else {
+                rHit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
+            }
+
+            ctx.blackboard.Set<bool>("has_shot", rHit);
+            ctx.blackboard.Set<Vector2f>("shot_position", solution);
+
+            // bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
+
+
+            if (rHit) {
+                if (ctx.com->CanShootGun(game.GetMap(), bot_player, target)) {
+                    return behavior::ExecuteResult::Success;
+                }
+            }
+            return behavior::ExecuteResult::Failure;
+        }
+
+
+        behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) {
             const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
             if (target_player == nullptr) return behavior::ExecuteResult::Failure;
 
             const Player& target = *target_player;
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
             const Player& bot_player = game.GetPlayer();
 
-            if (!ctx.bot->CanShootGun(game.GetMap(), bot_player, target)) {
+            if (!ctx.com->CanShootBomb(game.GetMap(), bot_player, target)) {
                 return behavior::ExecuteResult::Failure;
             }
 
-            float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
+            float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BombSpeed / 10.0f / 16.0f;
 
             Vector2f target_pos = target.position;
 
-            Vector2f seek_position = CalculateShot(game.GetPosition(), target_pos, bot_player.velocity, target.velocity, proj_speed);
+            Vector2f solution;
 
-            Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
 
-            Vector2f projectile_direction = Normalize(projectile_trajectory);
-
+            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+                ctx.blackboard.Set<Vector2f>("shot_position", solution);
+                ctx.blackboard.Set<bool>("has_shot", false);
+                return behavior::ExecuteResult::Failure;
+            }
+            
             float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
 
-            float aggression = ctx.blackboard.ValueOr("aggression", 0.0f);
             float radius_multiplier = 1.0f;
 
             //if the target is cloaking and bot doesnt have xradar make the bot shoot wide
@@ -440,92 +857,16 @@ namespace marvin {
 
             float nearby_radius = target_radius * radius_multiplier;
 
-            Vector2f box_min = target.position - Vector2f(nearby_radius, nearby_radius);
-            Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
-            float dist;
-            Vector2f norm;
-
-            bool hit = RayBoxIntersect(bot_player.position, projectile_direction,
-                box_min, box_extent, &dist, &norm);
-
-            if (!hit) {
-                box_min = seek_position - Vector2f(nearby_radius, nearby_radius);
-                hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(),
-                    box_min, box_extent, &dist, &norm);
-            }
-
-
-            if (seek_position.DistanceSq(target_player->position) < 15 * 15) {
-                ctx.blackboard.Set("target_position", seek_position);
-            }
-            else {
-                ctx.blackboard.Set("target_position", target.position);
-            }
-
-
-            if (hit) {
-                    return behavior::ExecuteResult::Success;
-            }
-
-            return behavior::ExecuteResult::Failure;
-        }
-
-
-        behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) {
-            const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-
-            if (target_player == nullptr) return behavior::ExecuteResult::Failure;
-
-            const Player& target = *target_player;
-            auto& game = ctx.bot->GetGame();
-            const Player& bot_player = game.GetPlayer();
-
-            if (!ctx.bot->CanShootBomb(game.GetMap(), bot_player, target)) {
-                return behavior::ExecuteResult::Failure;
-            }
-
-            float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BombSpeed / 10.0f / 16.0f;
-
-            Vector2f target_pos = target.position;
-
-            Vector2f seek_position = CalculateShot(game.GetPosition(), target_pos, bot_player.velocity, target.velocity, proj_speed);
-
-            Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
-
-            Vector2f projectile_direction = Normalize(projectile_trajectory);
-            
-            float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
-
-            float radius_multiplier = 0.80f;
-
-            //if the target is cloaking and bot doesnt have xradar make the bot shoot wide
-            if (!(game.GetPlayer().status & 4)) {
-                if (target.status & 2) {
-                    radius_multiplier = 3.0f;
-                }
-            }
-
-            float nearby_radius = target_radius * radius_multiplier;
-
-            Vector2f box_min = target.position - Vector2f(nearby_radius, nearby_radius);
+            Vector2f box_min = solution - Vector2f(nearby_radius, nearby_radius);
             Vector2f box_extent(nearby_radius, nearby_radius);
             float dist;
             Vector2f norm;
 
-            bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
+            bool hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
 
-            if (!hit) {
-                box_min = seek_position - Vector2f(nearby_radius, nearby_radius);
-                hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
-            }
-
-
-            if (seek_position.DistanceSq(target_player->position) < 15 * 15) {
-                ctx.blackboard.Set("target_position", seek_position);
-            }
-            else {
-                ctx.blackboard.Set("target_position", target.position);
-            }           
+          
+            ctx.blackboard.Set("shot_position", solution);
+             
 
             if (hit) {
                     return behavior::ExecuteResult::Success;
@@ -537,24 +878,24 @@ namespace marvin {
 
 
         behavior::ExecuteResult ShootGunNode::Execute(behavior::ExecuteContext& ctx) {
-           ctx.bot->GetKeys().Press(VK_CONTROL, ctx.bot->GetTime(), 50);
+           ctx.eg->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 50);
            return behavior::ExecuteResult::Success;
         }
 
 
         behavior::ExecuteResult ShootBombNode::Execute(behavior::ExecuteContext& ctx) {
-            ctx.bot->GetKeys().Press(VK_TAB, ctx.bot->GetTime(), 50);
+            ctx.eg->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 50);
             return behavior::ExecuteResult::Success;
         }
 
 
 
         behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
+            auto& game = ctx.eg->GetGame();
             
             float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy;
             
-            bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
+            bool in_center = ctx.eg->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
             bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
             Vector2f target_position = ctx.blackboard.ValueOr("target_position", Vector2f());
           
@@ -567,7 +908,7 @@ namespace marvin {
                 if (weapon_player->frequency == game.GetPlayer().frequency) continue;
                 if (weapon->GetType() & 0x8000) mine_position = (weapon->GetPosition());
                 if (mine_position.Distance(game.GetPosition()) < 5.0f) {
-                    game.Repel(ctx.bot->GetKeys());
+                    game.Repel(ctx.eg->GetKeys());
                 }
             }
             //#endif
@@ -584,9 +925,9 @@ namespace marvin {
             if (hover_distance < 0.0f) hover_distance = 0.0f;
             const Player& shooter = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
-            ctx.bot->Move(target_position, hover_distance);
+            ctx.eg->Move(target_position, hover_distance);
 
-            ctx.bot->GetSteering().Face(target_position);
+            ctx.eg->GetSteering().Face(target_position);
 
             return behavior::ExecuteResult::Success;
         }

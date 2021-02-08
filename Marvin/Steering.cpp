@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
-#include "Bot.h"
-#include "Devastation.h"
+//#include "Bot.h"
+//#include "Devastation.h"
 #include "Player.h"
 
 namespace marvin {
@@ -24,8 +24,8 @@ namespace marvin {
         return speed;
     }
 
-//SteeringBehavior::SteeringBehavior(Bot* bot) : bot_(bot), rotation_(0.0f) {}
-SteeringBehavior::SteeringBehavior(std::shared_ptr<GameProxy> game) : game_(std::move(game)), rotation_(0.0f) {}
+
+SteeringBehavior::SteeringBehavior(GameProxy& game) : game_(game), rotation_(0.0f) {}
 
 Vector2f SteeringBehavior::GetSteering() { return force_; }
 
@@ -37,34 +37,27 @@ void SteeringBehavior::Reset() {
 }
 
 void SteeringBehavior::Seek(Vector2f target, float multiplier) {
-  //float speed = bot_->GetGame().GetShipSettings().MaximumSpeed / 10.0f / 16.0f; //MaximumSpeed
-  //float speed = GetMaxSpeed(*bot_);
-  float speed = GetMaxSpeed(*game_);
-  //Vector2f desired = Normalize(target - bot_->GetGame().GetPosition()) * speed * multiplier;
-  Vector2f desired = Normalize(target - game_->GetPosition()) * speed * multiplier;
+  float speed = GetMaxSpeed(game_);
+ 
+  Vector2f desired = Normalize(target - game_.GetPosition()) * speed * multiplier;
 
-  //force_ += desired - bot_->GetGame().GetPlayer().velocity;
-  force_ += desired - game_->GetPlayer().velocity;
+  force_ += desired - game_.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Flee(Vector2f target) {
-  //float speed = bot_->GetGame().GetShipSettings().MaximumSpeed / 10.0f / 16.0f; //MaximumSpeed
-  //float speed = GetMaxSpeed(*bot_);
-  float speed = GetMaxSpeed(*game_);
-  //Vector2f desired = Normalize(bot_->GetGame().GetPosition() - target) * speed;
-  Vector2f desired = Normalize(game_->GetPosition() - target) * speed;
 
-  //force_ += desired - bot_->GetGame().GetPlayer().velocity;
-  force_ += desired - game_->GetPlayer().velocity;
+  float speed = GetMaxSpeed(game_);
+
+  Vector2f desired = Normalize(game_.GetPosition() - target) * speed;
+
+  force_ += desired - game_.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Arrive(Vector2f target, float deceleration) {
-  //float max_speed =
-    //  bot_->GetGame().GetShipSettings().MaximumSpeed / 10.0f / 16.0f;  //MaximumSpeed
-    //float max_speed = GetMaxSpeed(*bot_);
-    float max_speed = GetMaxSpeed(*game_);
- // Vector2f to_target = target - bot_->GetGame().GetPosition();
-  Vector2f to_target = target - game_->GetPosition();
+
+    float max_speed = GetMaxSpeed(game_);
+
+  Vector2f to_target = target - game_.GetPosition();
   float distance = to_target.Length();
 
   if (distance > 0) {
@@ -74,36 +67,34 @@ void SteeringBehavior::Arrive(Vector2f target, float deceleration) {
 
     Vector2f desired = to_target * (speed / distance);
 
-    //force_ += desired - bot_->GetGame().GetPlayer().velocity;
-    force_ += desired - game_->GetPlayer().velocity;
+    force_ += desired - game_.GetPlayer().velocity;
   }
 }
 void SteeringBehavior::AnchorSpeed(Vector2f target) {
-    //float speed = GetMaxSpeed(*bot_);
-    float speed = GetMaxSpeed(*game_);
-    //Vector2f desired = Normalize(target - bot_->GetGame().GetPosition()) * 5;
-    Vector2f desired = Normalize(target - game_->GetPosition()) * 5;
-    //force_ += desired - bot_->GetGame().GetPlayer().velocity;
-    force_ += desired - game_->GetPlayer().velocity;
+
+    float speed = GetMaxSpeed(game_);
+
+    Vector2f desired = Normalize(target - game_.GetPosition()) * 5;
+
+    force_ += desired - game_.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Stop(Vector2f target) {
-    //float speed = GetMaxSpeed(*bot_);
-    float speed = GetMaxSpeed(*game_);
-    //Vector2f desired = Normalize(target - bot_->GetGame().GetPosition()) * 5;
-    Vector2f desired = Normalize(target - game_->GetPosition()) * 5;
-    //force_ += desired - bot_->GetGame().GetPlayer().velocity;
-    force_ += desired - game_->GetPlayer().velocity;
+
+    float speed = GetMaxSpeed(game_);
+
+    Vector2f desired = Normalize(target - game_.GetPosition()) * 5;
+
+    force_ += desired - game_.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Pursue(const Player& enemy) {
-  //const Player& player = bot_->GetGame().GetPlayer();
-  const Player& player = game_->GetPlayer();
-  //float max_speed = bot_->GetGame().GetShipSettings().MaximumSpeed / 10.0f / 16.0f; //MaximumSpeed
-  //float max_speed = GetMaxSpeed(*bot_);
-  float max_speed = GetMaxSpeed(*game_);
-  //Vector2f to_enemy = enemy.position - bot_->GetGame().GetPosition();
-  Vector2f to_enemy = enemy.position - game_->GetPosition();
+
+  const Player& player = game_.GetPlayer();
+
+  float max_speed = GetMaxSpeed(game_);
+
+  Vector2f to_enemy = enemy.position - game_.GetPosition();
   float dot = player.GetHeading().Dot(enemy.GetHeading());
 
   if (to_enemy.Dot(player.GetHeading()) > 0 && dot < -0.95f) {
@@ -116,11 +107,10 @@ void SteeringBehavior::Pursue(const Player& enemy) {
 }
 
 void SteeringBehavior::Face(Vector2f target) {
-  //Vector2f to_target = target - bot_->GetGame().GetPosition();
-  Vector2f to_target = target - game_->GetPosition();
 
-  //Vector2f heading = Rotate(bot_->GetGame().GetPlayer().GetHeading(), rotation_);
-  Vector2f heading = Rotate(game_->GetPlayer().GetHeading(), rotation_);
+  Vector2f to_target = target - game_.GetPosition();
+
+  Vector2f heading = Rotate(game_.GetPlayer().GetHeading(), rotation_);
   float rotation =
       std::atan2(heading.y, heading.x) - std::atan2(to_target.y, to_target.x);
 

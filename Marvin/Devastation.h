@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "KeyController.h"
-
 #include "Common.h"
 #include "Steering.h"
 #include "behavior/BehaviorEngine.h"
@@ -23,7 +22,7 @@ namespace marvin {
     class Devastation {
 
     public:
-        Devastation(std::shared_ptr<GameProxy> game, std::shared_ptr<GameProxy> game2, std::shared_ptr<GameProxy> game3);
+        Devastation(std::unique_ptr<GameProxy> game);
 
         void Update(float dt);
 
@@ -37,7 +36,6 @@ namespace marvin {
 
         SteeringBehavior& GetSteering() { return steering_; }
 
-        Path CreatePath(behavior::ExecuteContext& ctx, const std::string& pathname, Vector2f from, Vector2f to, float radius);
 
         void AddBehaviorNode(std::unique_ptr<behavior::BehaviorNode> node) {
             behavior_nodes_.push_back(std::move(node));
@@ -60,19 +58,15 @@ namespace marvin {
 
 
 
-        bool CanShootGun(const Map& map, const Player& bot_player, const Player& target);
-        bool CanShootBomb(const Map& map, const Player& bot_player, const Player& target);
 
         void LookForWallShot(Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time, uint8_t bounces);
-        bool CalculateWallShot(Vector2f target_pos, Vector2f target_vel, Vector2f direction, float proj_speed, int alive_time, uint8_t bounces);
+     
         Vector2f GetWallShot() { return wall_shot; }
         bool HasWallShot() { return has_wall_shot; }
 
 
     private:
         void Steer();
-
-
 
         void CreateBasePaths();
         void SortPlayers();
@@ -105,8 +99,7 @@ namespace marvin {
 
         std::unique_ptr<path::Pathfinder> pathfinder_;
         std::unique_ptr<RegionRegistry> regions_;
-        std::shared_ptr<GameProxy> game_;
-        //std::unique_ptr<Common> common_;
+        std::unique_ptr<GameProxy> game_;
         std::unique_ptr<behavior::BehaviorEngine> behavior_;
         std::vector<std::unique_ptr<behavior::BehaviorNode>> behavior_nodes_;
         behavior::ExecuteContext ctx_;   
@@ -203,12 +196,8 @@ namespace marvin {
 
         class InLineOfSightNode : public behavior::BehaviorNode {
         public:
-            using VectorSelector = std::function<const Vector2f * (marvin::behavior::ExecuteContext&)>;
-            InLineOfSightNode(VectorSelector selector) : selector_(selector) {}
-
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            VectorSelector selector_;
+        private:   
         };
 
 

@@ -7,6 +7,18 @@
 namespace marvin {
 
 
+    //the viewing area the bot could see if it were a player
+    bool InRect(Vector2f pos, Vector2f min_rect, Vector2f max_rect) {
+        return ((pos.x >= min_rect.x && pos.y >= min_rect.y) &&
+            (pos.x <= max_rect.x && pos.y <= max_rect.y));
+    }
+
+    //probably checks if the target is dead
+    bool IsValidPosition(Vector2f position) {
+        return position.x >= 0 && position.x < 1024 && position.y >= 0 && position.y < 1024;
+    }
+
+
     bool Common::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f vShooter, Vector2f vTarget, float sProjectile, Vector2f* Solution) {
         bool hit = true;
         //directional vector poiting to target from shooter
@@ -27,7 +39,7 @@ namespace marvin {
         //if disc or t are below zero it means the target is moving away at a speed faster than the bullet
         //the shot is impossible, t will equal 0 and the solution will be the targets position, but the hit will return false
         //this is called ther square root discriminator
-        if (disc >= 0.0f) {
+        if (disc >= 0.0f && a != 0.0f) {
 
             float t1 = (-b - std::sqrt(disc)) / (2.0f * a);
             float t2 = (-b + std::sqrt(disc)) / (2.0f * a);
@@ -60,10 +72,10 @@ namespace marvin {
     }
 
 
-    bool Common::ShootWall(Vector2f target_pos, Vector2f target_vel, float target_radius, Vector2f direction, bool* bomb_hit) {
+    bool Common::ShootWall(Vector2f target_pos, Vector2f target_vel, float target_radius, Vector2f direction, bool* bomb_hit, Vector2f* wall_pos) {
 
-        Vector2f position = game_->GetPosition();
-        float radius = game_->GetShipSettings().GetRadius();
+        Vector2f position = game_.GetPosition();
+        float radius = game_.GetShipSettings().GetRadius();
         
 
         Vector2f center = GetWindowCenter();
@@ -71,20 +83,18 @@ namespace marvin {
   
         uint8_t bounces = 10;
 
-        float proj_speed = game_->GetSettings().ShipSettings[game_->GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
-        float alive_time = (float)game_->GetSettings().BulletAliveTime;
-
-        float speed_adjust = (game_->GetPlayer().velocity * game_->GetPlayer().GetHeading());
+        float proj_speed = game_.GetSettings().ShipSettings[game_.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
+        float alive_time = (float)game_.GetSettings().BulletAliveTime;
 
         std::vector<Vector2f> pos_adjust;
 
         //if ship has double barrel make 2 calculations with offset positions
-        if ((game_->GetShipSettings().DoubleBarrel & 1) != 0) {
-            Vector2f side = Perpendicular(game_->GetPlayer().GetHeading());
+        if ((game_.GetShipSettings().DoubleBarrel & 1) != 0) {
+            Vector2f side = Perpendicular(game_.GetPlayer().GetHeading());
             //Vector2f side = game_->GetPlayer().GetHeading();
 
-            pos_adjust.push_back(side * radius);
-            pos_adjust.push_back(side * -radius);
+            pos_adjust.push_back(side * radius * 0.8f);
+            pos_adjust.push_back(side * -radius * 0.8f);
         }
         //if not make one calculation from center
         else {
@@ -100,77 +110,77 @@ namespace marvin {
         for (std::size_t i = 0; i < pos_adjust.size(); i++) {
 
             float traveled_dist = 0.0f;
-            position = game_->GetPosition() + pos_adjust[i];
+            position = game_.GetPosition() + pos_adjust[i];
             
             //when the last shot is reached change to bomb settings, if bomb bounce is 0 this is skipped
             if (i == (pos_adjust.size() - 1)) {
-                bounces = game_->GetSettings().ShipSettings[game_->GetPlayer().ship].BombBounceCount;
-                proj_speed = game_->GetSettings().ShipSettings[game_->GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
-                alive_time = (float)game_->GetSettings().BombAliveTime;
+                bounces = game_.GetSettings().ShipSettings[game_.GetPlayer().ship].BombBounceCount;
+                proj_speed = game_.GetSettings().ShipSettings[game_.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
+                alive_time = (float)game_.GetSettings().BombAliveTime;
             }
+   
 
-            float travel = (proj_speed + speed_adjust) * (alive_time / 100.0f);
-            Vector2f sDirection = Normalize((direction * proj_speed) + game_->GetPlayer().velocity);
-            Vector2f velocity = game_->GetPlayer().velocity;
+            float travel = (proj_speed + game_.GetPlayer().velocity.Length()) * (alive_time / 100.0f);
+            Vector2f sDirection = Normalize((direction * proj_speed) + game_.GetPlayer().velocity);
+            Vector2f velocity = game_.GetPlayer().velocity;
 
-            for (int j = 0; j < bounces; ++j) {
+            for (int j = 0; j < bounces + 1; ++j) {
 
-                if (j > 0) {
+                bool hit = true;
 
-                    bool hit = true;
+                //how long a bullet at normal speed would take to travel the total distance to the target
+                float travel_time = (traveled_dist + target_pos.Distance(position)) / proj_speed;
+                //calculate a new speed using time and the position the shot will be calulated at
+                float traveled_speed = target_pos.Distance(position) / travel_time;
 
-                    //how long a bullet at normal speed would take to travel the total distance to the target
-                    float travel_time = (traveled_dist + target_pos.Distance(position)) / proj_speed;
-                    //calculate a new speed using time and the position the shot will be calulated at
-                    float traveled_speed = target_pos.Distance(position) / travel_time;
+                Vector2f solution;
 
-                    Vector2f solution;
+                //the shot solution, calculated at the wall, travel time is included by reducing the bullet speed
+                if (!CalculateShot(position, target_pos, velocity, target_vel, traveled_speed, &solution)) {
+                    hit = false;
+                }
 
-                    //the shot solution, calculated at the wall, travel time is included by reducing the bullet speed
-                    if (!CalculateShot(position, target_pos, velocity, target_vel, traveled_speed, &solution)) {
-                        hit = false;
-                    }
+                Vector2f t2shot = solution - target_pos;
+                CastResult t2shot_line = RayCast(game_.GetMap(), target_pos, Normalize(t2shot), t2shot.Length());
 
-                    Vector2f to_target = target_pos - position;
-                    CastResult to_target_line = RayCast(game_->GetMap(), position, Normalize(to_target), to_target.Length());
+                Vector2f tosPosition = solution - position;
+                CastResult tosPosition_line = RayCast(game_.GetMap(), position, Normalize(tosPosition), tosPosition.Length());
 
-                    Vector2f tosPosition = solution - position;
-                    CastResult tosPosition_line = RayCast(game_->GetMap(), position, Normalize(tosPosition), tosPosition.Length());
+                if (!tosPosition_line.hit && !t2shot_line.hit) {
 
+                    float test_radius = target_radius * 2.0f;
+                    Vector2f box_min = solution - Vector2f(test_radius, test_radius);
+                    Vector2f box_extent(test_radius * 1.2f, test_radius * 1.2f);
+                    float dist;
+                    Vector2f norm;
 
+                    //the calculate shot function can return correct shots but at long or short distances depending on player velocity
+                    if (RayBoxIntersect(position, sDirection, box_min, box_extent, &dist, &norm)) {
+                        if (position.Distance(solution) <= travel && hit == true) {
+                            //RenderWorldLine(game_->GetPosition(), position, position + tosPosition * position.Distance(solution));
+                            RenderWorldLine(game_.GetPosition(), position, solution, RGB(100, 0, 0));
 
-                    if (!tosPosition_line.hit) {
-
-
-                        float test_radius = target_radius * 3.0f;
-                        Vector2f box_min = solution - Vector2f(test_radius, test_radius);
-                        Vector2f box_extent(test_radius * 1.2f, test_radius * 1.2f);
-                        float dist;
-                        Vector2f norm;
-
-                        //the calculate shot function can return correct shots but at long or short distances depending on player velocity
-                        if (RayBoxIntersect(position, sDirection, box_min, box_extent, &dist, &norm)) {
-                            if (position.Distance(solution) <= travel && hit == true) {
-                                RenderWorldLine(game_->GetPosition(), position, position + tosPosition * position.Distance(solution));
-                                RenderWorldLine(game_->GetPosition(), position, solution);
-
-                                RenderText("hit", center - Vector2f(wall_debug_y, 200), RGB(100, 100, 100), RenderText_Centered);
-                                if (i == (pos_adjust.size() - 1)) {
-                                    if (bomb_hit) {
-                                        *bomb_hit = true;
-                                    }
+                            RenderText("HIT", center - Vector2f(wall_debug_y, 40), RGB(100, 100, 100), RenderText_Centered);
+                            if (i == (pos_adjust.size() - 1)) {
+                                if (bomb_hit) {
+                                    *bomb_hit = true;
                                 }
-                                return true;
                             }
+                            if (j == 0 && wall_pos) {
+                                    *wall_pos = solution;
+                            }
+                            return true;
                         }
                     }
                 }
 
-                CastResult wall_line = RayCast(game_->GetMap(), position, sDirection, travel);
+
+                CastResult wall_line = RayCast(game_.GetMap(), position, sDirection, travel);
+                
 
                 if (wall_line.hit) {
 
-                    RenderWorldLine(game_->GetPosition(), position, wall_line.position);
+                    RenderWorldLine(game_.GetPosition(), position, wall_line.position, RGB(0, 100, 100));
 
                     sDirection = sDirection - (wall_line.normal * (2.0f * sDirection.Dot(wall_line.normal)));
                     velocity = velocity - (wall_line.normal * (2.0f * velocity.Dot(wall_line.normal)));
@@ -179,9 +189,14 @@ namespace marvin {
 
                     travel -= wall_line.distance;
                     traveled_dist += wall_line.distance;
+
+                    if (j == 0 && wall_pos) {
+                        *wall_pos = position;
+                    }
                 }
                 else {
-                    RenderWorldLine(game_->GetPosition(), position, position + sDirection * travel);
+                    RenderWorldLine(game_.GetPosition(), position, position + sDirection * travel, RGB(0, 100, 100));
+                    RenderWorldLine(game_.GetPosition(), position, solution, RGB(100, 0, 0));
                     break;
                 }
             }
@@ -189,39 +204,9 @@ namespace marvin {
         return false;
     }
 
-    void Common::RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to) {
-        Vector2f center = GetWindowCenter();
-
-        Vector2f diff = to - from;
-        from = (from - screenCenterWorldPosition) * 16.0f;
-        to = from + (diff * 16.0f);
-
-        RenderLine(center + from, center + to, RGB(200, 0, 0));
-    }
-
-    void Common::RenderPath(GameProxy& game, behavior::Blackboard& blackboard) {
-        std::vector<Vector2f> path = blackboard.ValueOr("path", std::vector<Vector2f>());
-        const Player& player = game.GetPlayer();
-
-        if (path.empty()) return;
-
-        for (std::size_t i = 0; i < path.size() - 1; ++i) {
-            Vector2f current = path[i];
-            Vector2f next = path[i + 1];
-
-            if (i == 0) {
-                RenderWorldLine(player.position, player.position, current);
-            }
-
-            RenderWorldLine(player.position, current, next);
-        }
-    }
-
-
     uint64_t Common::GetTime() {
         return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
     }
-
 
 
     std::size_t Common::FindOpenFreq(std::vector<uint16_t> list, std::size_t start_pos) {
@@ -245,8 +230,8 @@ namespace marvin {
 
         for (std::size_t i = 0; i < path.size(); i++) {
 
-            Vector2f to_target = game_->GetPosition() - path[i];
-            CastResult result = RayCast(game_->GetMap(), game_->GetPosition(), Normalize(to_target), to_target.Length());
+            Vector2f to_target = game_.GetPosition() - path[i];
+            CastResult result = RayCast(game_.GetMap(), game_.GetPosition(), Normalize(to_target), to_target.Length());
 
             if (result.hit) { continue; }
 
@@ -284,8 +269,75 @@ namespace marvin {
         return distance;
     }
 
+    bool Common::CanShootGun(const Map& map, const Player& bot_player, const Player& target) {
+
+        float bullet_speed = game_.GetSettings().ShipSettings[game_.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
+        float speed_adjust = (game_.GetPlayer().velocity * game_.GetPlayer().GetHeading());
+
+        float bullet_travel = ((bullet_speed + speed_adjust) / 100.0f) * game_.GetSettings().BulletAliveTime;
+
+        if (bot_player.position.Distance(target.position) > bullet_travel) return false;
+        if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
+
+        return true;
+    }
+
+    bool Common::CanShootBomb(const Map& map, const Player& bot_player, const Player& target) {
+
+        float bomb_speed = game_.GetSettings().ShipSettings[game_.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
+        float speed_adjust = (game_.GetPlayer().velocity * game_.GetPlayer().GetHeading());
+
+        float bomb_travel = ((bomb_speed + speed_adjust) / 100.0f) * game_.GetSettings().BombAliveTime;
+
+        if (bot_player.position.Distance(target.position) > bomb_travel) return false;
+        if (map.GetTileId(bot_player.position) == marvin::kSafeTileId) return false;
+
+        return true;
+    }
 
 
+
+    std::vector<Vector2f> Common::CreatePath(path::Pathfinder& pathfinder, std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius) {
+        bool build = true;
+
+        if (!path.empty()) {
+            // Check if the current destination is the same as the requested one.
+            if (path.back().DistanceSq(to) < 3 * 3) {
+                Vector2f pos = game_.GetPosition();
+                Vector2f next = path.front();
+                Vector2f direction = Normalize(next - pos);
+                Vector2f side = Perpendicular(direction);
+                float radius = game_.GetShipSettings().GetRadius();
+
+                float distance = next.Distance(pos);
+
+                // Rebuild the path if the bot isn't in line of sight of its next node.
+                CastResult center = RayCast(game_.GetMap(), pos, direction, distance);
+                CastResult side1 = RayCast(game_.GetMap(), pos + side * radius, direction, distance);
+                CastResult side2 = RayCast(game_.GetMap(), pos - side * radius, direction, distance);
+
+                if (!center.hit && !side1.hit && !side2.hit) {
+                    build = false;
+                }
+            }
+        }
+
+        if (build) {
+            std::vector<Vector2f> mines;
+            //#if 0
+            for (Weapon* weapon : game_.GetWeapons()) {
+                const Player* weapon_player = game_.GetPlayerById(weapon->GetPlayerId());
+                if (weapon_player == nullptr) continue;
+                if (weapon_player->frequency == game_.GetPlayer().frequency) continue;
+                if (weapon->GetType() & 0x8000) mines.push_back(weapon->GetPosition());
+            }
+            //#endif
+            path = pathfinder.FindPath(game_.GetMap(), mines, from, to, radius);
+            path = pathfinder.SmoothPath(path, game_.GetMap(), radius);
+        }
+
+        return path;
+    }
 
 
 

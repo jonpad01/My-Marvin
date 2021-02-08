@@ -29,11 +29,11 @@ namespace marvin {
             Devastation* deva;
             ExtremeGames* eg;
             GalaxySports* gs;
-            Hockey* hockey;
+            Hockey* hz;
             Hyperspace* hs;
             PowerBall* pb;
             float dt;
-            ExecuteContext() : com(nullptr), bot(nullptr), deva(nullptr), eg(nullptr), gs(nullptr), hockey(nullptr), hs(nullptr), pb(nullptr), dt(0) {}
+            ExecuteContext() : com(nullptr), bot(nullptr), deva(nullptr), eg(nullptr), gs(nullptr), hz(nullptr), hs(nullptr), pb(nullptr), dt(0) {}
         };
 
         class BehaviorNode {

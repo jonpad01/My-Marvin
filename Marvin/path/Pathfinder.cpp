@@ -303,8 +303,8 @@ namespace marvin {
                     if (distance == 0) distance = 1;
 
                     if (distance < close_distance) {
-                        node->weight = 100.0f / distance;
-                        node->previous_weight = 100.0f / distance;
+                        node->weight = 12.0f / distance;
+                        node->previous_weight = 12.0f / distance;
                     }
                 }
             }

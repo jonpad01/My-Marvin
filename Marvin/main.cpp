@@ -5,8 +5,13 @@
 #include <fstream>
 #include <iostream>
 
-#include "Bot.h"
 #include "Devastation.h"
+#include "ExtremeGames.h"
+#include "GalaxySports.h"
+#include "Hockey.h"
+#include "Hyperspace.h"
+#include "PowerBall.h"
+#include "Bot.h"
 
 #include "Debug.h"
 #include "Map.h"
@@ -23,9 +28,17 @@ using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
 
-std::unique_ptr<marvin::Bot> bot_;
-std::shared_ptr<marvin::ContinuumGameProxy> game_;
-std::unique_ptr<marvin::Devastation> devastation_;
+std::unique_ptr<marvin::ContinuumGameProxy> game;
+
+std::unique_ptr<marvin::Devastation> deva;
+std::unique_ptr<marvin::ExtremeGames> eg;
+std::unique_ptr<marvin::GalaxySports> gs;
+std::unique_ptr<marvin::Hockey> hockey;
+std::unique_ptr<marvin::Hyperspace> hs;
+std::unique_ptr<marvin::PowerBall> pb;
+
+std::unique_ptr<marvin::Bot> bot;
+
 
 static bool g_Enabled = true;
 //static HWND g_hWnd;
@@ -44,24 +57,21 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
     if (!g_Enabled) {
 #endif
 
-        if (GetFocus() == g_hWnd) {
+        if (GetForegroundWindow() == g_hWnd) {
             return RealGetAsyncKeyState(vKey);
         }
 
         return 0;
     }
-  if (bot_) {
-      if (bot_->GetKeys().IsPressed(vKey)) {
-          return (SHORT)0x8000;
-      }
-  }
-  if (devastation_) {
-      if (devastation_->GetKeys().IsPressed(vKey)) {
-          return (SHORT)0x8000;
-      }
-  }
-  return 0;
+    else if (deva && deva->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
+    else if (eg && eg->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
+    else if (gs && gs->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
+    else if (hockey && hockey->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
+    else if (hs && hs->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
+    else if (pb && pb->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
+    else if (bot && bot->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
 
+    return 0;
 }
 
 // This is used to hook into the main update loop in Continuum so the bot can be
@@ -69,45 +79,57 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
 
 
-  // Check for key presses to enable/disable the bot.
-    //GetForegroundWindow()
-    //GetActiveWindow()
-  if (GetFocus() == g_hWnd) {
-    if (RealGetAsyncKeyState(VK_F10)) {
-      g_Enabled = false;
-      SetWindowText(g_hWnd, kDisabledText);
-    } else if (RealGetAsyncKeyState(VK_F9)) {
-      g_Enabled = true;
-      SetWindowText(g_hWnd, kEnabledText);
+    // Check for key presses to enable/disable the bot.
+      //GetForegroundWindow()
+      //GetActiveWindow()
+      //GetFocus()
+    if (GetForegroundWindow() == g_hWnd) {
+        if (RealGetAsyncKeyState(VK_F10)) {
+            g_Enabled = false;
+            SetWindowText(g_hWnd, kDisabledText);
+        }
+        else if (RealGetAsyncKeyState(VK_F9)) {
+            g_Enabled = true;
+            SetWindowText(g_hWnd, kEnabledText);
+        }
     }
-  }
 
 
-  time_point now = time_clock::now();
-  seconds dt = now - g_LastUpdateTime;
+    time_point now = time_clock::now();
+    seconds dt = now - g_LastUpdateTime;
 
-  if (g_Enabled) {
+    if (g_Enabled) {
 #if DEBUG_RENDER
-      if (dt.count() > (float)(1.0f / 60.0f)) {
-          if (devastation_) { devastation_->Update(dt.count()); }
-          if (bot_) { bot_->Update(dt.count()); }
-          g_LastUpdateTime = now;
-          marvin::WaitForSync();
-      }
+        if (dt.count() > (float)(1.0f / 60.0f)) {
+            if (deva) { deva->Update(dt.count()); }
+            if (eg) { eg->Update(dt.count()); }
+            if (gs) { gs->Update(dt.count()); }
+            if (hockey) { hockey->Update(dt.count()); }
+            if (hs) { hs->Update(dt.count()); }
+            if (pb) { pb->Update(dt.count()); }
+            if (bot) { bot->Update(dt.count()); }
+            g_LastUpdateTime = now;
+            marvin::WaitForSync();
+        }
 #else
-      if (devastation_) { devastation_->Update(dt.count()); }
-      if (bot_) { bot_->Update(dt.count()); }
+        if (deva) { deva->Update(dt.count()); }
+        if (eg) { eg->Update(dt.count()); }
+        if (gs) { gs->Update(dt.count()); }
+        if (hockey) { hockey->Update(dt.count()); }
+        if (hs) { hs->Update(dt.count()); }
+        if (pb) { pb->Update(dt.count()); }
+        if (bot) { bot->Update(dt.count()); }
 #endif 
-  }
+    }
 
-  
+
 
 #if DEBUG_RENDER
-  //marvin::WaitForSync();
+    //marvin::WaitForSync();
 #endif
 
 
-  return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 }
 
 BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
@@ -131,22 +153,33 @@ HWND GetMainWindow() {
     return g_hWnd;
 }
 
-//marvin::Bot& CreateBot() {
+
 void CreateBot() {
     //create pointer to game and pass the window handle
-    game_ = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
-
-    std::shared_ptr<marvin::ContinuumGameProxy> game2(game_);
-    
-    //find the zone and create a pointer to that zones behavior tree, passing the copied bot pointer
-    if (game_->GetServerFolder() == "zones\\SSCJ Devastation") {
-        std::shared_ptr<marvin::ContinuumGameProxy> game3(game_);
-        devastation_ = std::make_unique<marvin::Devastation>(std::move(game_), std::move(game2), std::move(game3));
+    game = std::make_unique<marvin::ContinuumGameProxy>(g_hWnd);
+   
+    //find the zone and create a pointer to that zones behavior tree
+    if (game->GetServerFolder() == "zones\\SSCJ Devastation") {
+        deva = std::make_unique<marvin::Devastation>(std::move(game));
+    }
+    else if (game->GetServerFolder() == "zones\\SSCU Extreme Games") {
+        eg = std::make_unique<marvin::ExtremeGames>(std::move(game));
+    }
+    else if (game->GetServerFolder() == "zones\\SSCJ Galaxy Sports") {
+        gs = std::make_unique<marvin::GalaxySports>(std::move(game));
+    }
+    else if (game->GetServerFolder() == "zones\\SSCE HockeyFootball Zone") {
+        hockey = std::make_unique<marvin::Hockey>(std::move(game));
+    }
+    else if (game->GetServerFolder() == "zones\\SSCE Hyperspace") {
+        hs = std::make_unique<marvin::Hyperspace>(std::move(game));
+    }
+    else if (game->GetServerFolder() == "zones\\SSCJ PowerBall") {
+        pb = std::make_unique<marvin::PowerBall>(std::move(game));
     }
     else {
-        bot_ = std::make_unique<marvin::Bot>(std::move(game_), std::move(game2));
+        bot = std::make_unique<marvin::Bot>(std::move(game));
     }
-    //return *g_Bot;
 }
 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
@@ -167,7 +200,6 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 #endif
   CreateBot();
   
-
   DetourRestoreAfterWith();
 
   DetourTransactionBegin();
@@ -195,7 +227,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 
   marvin::debug_log << "Shutting down Marvin." << std::endl;
 
-  bot_ = nullptr;
+  bot = nullptr;
 
   marvin::debug_log.close();
 }
