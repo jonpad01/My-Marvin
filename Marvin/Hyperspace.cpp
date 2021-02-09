@@ -12,6 +12,7 @@
 #include "RegionRegistry.h"
 #include "platform/Platform.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Shooter.h"
 
 namespace marvin {
 
@@ -724,21 +725,21 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                             if (IsDefendingAnchor(ctx)) {
                                 if (bot_node + 4 > base_path_.size()) {
                                     //the anchor will use a path calculated through base to move away from enemy
-                                    path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, base_path_.back(), game.GetShipSettings().GetRadius());
+                                    path = ctx.hs->GetPathfinder().CreatePath(path, bot, base_path_.back(), game.GetShipSettings().GetRadius());
                                 }
-                                else path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, base_path_[bot_node + 3], game.GetShipSettings().GetRadius());
+                                else path = ctx.hs->GetPathfinder().CreatePath(path, bot, base_path_[bot_node + 3], game.GetShipSettings().GetRadius());
                             }
                             else {
                                 if (bot_node < 3) {
                                     //reading a lower index in the base_path means it will move towards the base entrance
-                                    path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, base_path_[0], game.GetShipSettings().GetRadius());
+                                    path = ctx.hs->GetPathfinder().CreatePath(path, bot, base_path_[0], game.GetShipSettings().GetRadius());
                                 }
-                                else path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, base_path_[bot_node - 3], game.GetShipSettings().GetRadius());
+                                else path = ctx.hs->GetPathfinder().CreatePath(path, bot, base_path_[bot_node - 3], game.GetShipSettings().GetRadius());
                                 
                             }
                         }
                         else {
-                            path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, enemy_, game.GetShipSettings().GetRadius());
+                            path = ctx.hs->GetPathfinder().CreatePath(path, bot, enemy_, game.GetShipSettings().GetRadius());
                         }
                     }
                 }
@@ -748,13 +749,13 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                 if (flaggers_.team_anchor != nullptr) {
                     bool connected = ctx.hs->GetRegions().IsConnected((MapCoord)game.GetPosition(), (MapCoord)flaggers_.team_anchor->position);
                     if (flaggers_.team_anchor->position.Distance(game.GetPosition()) > 15.0f && connected) {
-                        path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, flaggers_.team_anchor->position, game.GetShipSettings().GetRadius());
+                        path = ctx.hs->GetPathfinder().CreatePath(path, bot, flaggers_.team_anchor->position, game.GetShipSettings().GetRadius());
                     }
                 }
-                else path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, enemy_, game.GetShipSettings().GetRadius());
+                else path = ctx.hs->GetPathfinder().CreatePath(path, bot, enemy_, game.GetShipSettings().GetRadius());
             }
             else {
-                path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, bot, enemy_, game.GetShipSettings().GetRadius());
+                path = ctx.hs->GetPathfinder().CreatePath(path, bot, enemy_, game.GetShipSettings().GetRadius());
             }
             
             ctx.blackboard.Set("path", path);
@@ -905,21 +906,21 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
                         if (!ctx.hs->InHSBase(flaggers.enemy_anchor->position)) {
                             if (gate == 0 || gate == 1 || gate == 2) {
-                                path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, center_gate_r, game.GetShipSettings().GetRadius());
+                                path = ctx.hs->GetPathfinder().CreatePath(path, from, center_gate_r, game.GetShipSettings().GetRadius());
                             }
                             else {
-                                path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, center_gate_l, game.GetShipSettings().GetRadius());
+                                path = ctx.hs->GetPathfinder().CreatePath(path, from, center_gate_l, game.GetShipSettings().GetRadius());
                             }
                         }
                         else if (enemy_in_1 || enemy_in_2 || enemy_in_3) {
-                            path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, center_gate_r, game.GetShipSettings().GetRadius());
+                            path = ctx.hs->GetPathfinder().CreatePath(path, from, center_gate_r, game.GetShipSettings().GetRadius());
                         }
                         else {
-                            path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, center_gate_l, game.GetShipSettings().GetRadius());
+                            path = ctx.hs->GetPathfinder().CreatePath(path, from, center_gate_l, game.GetShipSettings().GetRadius());
                         }
                     }
                     else {
-                        path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, center_gate_l, game.GetShipSettings().GetRadius());
+                        path = ctx.hs->GetPathfinder().CreatePath(path, from, center_gate_l, game.GetShipSettings().GetRadius());
                     }
                 }
                 //if bot is in tunnel
@@ -929,12 +930,12 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                         if (ctx.hs->InHSBase(flaggers.enemy_anchor->position)) {
                             std::vector<bool> in_number = ctx.hs->InHSBaseNumber(flaggers.enemy_anchor->position);
                             for (std::size_t i = 0; i < in_number.size(); i++) {
-                                if (in_number[i]) path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, gates[i], game.GetShipSettings().GetRadius());
+                                if (in_number[i]) path = ctx.hs->GetPathfinder().CreatePath(path, from, gates[i], game.GetShipSettings().GetRadius());
                             }
                         }
-                        else path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
+                        else path = ctx.hs->GetPathfinder().CreatePath(path, from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
                     }
-                    else path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
+                    else path = ctx.hs->GetPathfinder().CreatePath(path, from, Vector2f(gates[gate]), game.GetShipSettings().GetRadius());
                 }
                 if (ctx.hs->InHSBase(game.GetPosition())) {
                     //camp is coords for position part way into base for bots to move to when theres no enemy
@@ -944,7 +945,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                     for (std::size_t i = 0; i < in_number.size(); i++) {
                         if (in_number[i]) {
                             float dist_to_camp = bot.position.Distance(camp[i]);
-                            path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, camp[i], game.GetShipSettings().GetRadius());
+                            path = ctx.hs->GetPathfinder().CreatePath(path, from, camp[i], game.GetShipSettings().GetRadius());
                             if (dist_to_camp < 10.0f) return behavior::ExecuteResult::Failure;
                         }
                     }
@@ -965,7 +966,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                     to = nodes.at(index);
                 }
 
-                path = ctx.com->CreatePath(ctx.hs->GetPathfinder(), path, from, to, game.GetShipSettings().GetRadius());
+                path = ctx.hs->GetPathfinder().CreatePath(path, from, to, game.GetShipSettings().GetRadius());
 
             }
 
@@ -1075,7 +1076,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                     bool bomb_hit = false;
                     Vector2f wall_pos;
 
-                    if (ctx.com->ShootWall(target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
+                    if (BounceShot(game, target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
                         if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
                             if (bomb_hit) {
                                 ctx.hs->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 30);
@@ -1112,7 +1113,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             Vector2f solution;
 
 
-            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+            if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
                 ctx.blackboard.Set<Vector2f>("shot_position", solution);
                 ctx.blackboard.Set<bool>("has_shot", false);
                 return behavior::ExecuteResult::Failure;
@@ -1161,7 +1162,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
 
             if (rHit) {
-                if (ctx.com->CanShootGun(game.GetMap(), bot_player, target)) {
+                if (CanShootGun(game, game.GetMap(), game.GetPosition(), solution)) {
                     return behavior::ExecuteResult::Success;
                 }
             }

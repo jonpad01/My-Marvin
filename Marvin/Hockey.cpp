@@ -11,6 +11,8 @@
 #include "RegionRegistry.h"
 #include "platform/Platform.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Shooter.h"
+
 
 namespace marvin {
 
@@ -395,7 +397,7 @@ namespace marvin {
             Vector2f bot = game.GetPosition();
             Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-            path = ctx.com->CreatePath(ctx.hz->GetPathfinder(), path, bot, enemy, game.GetShipSettings().GetRadius());
+            path = ctx.hz->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
 
             ctx.blackboard.Set("path", path);
             return behavior::ExecuteResult::Success;
@@ -431,14 +433,14 @@ namespace marvin {
                     else path = CreatePath(ctx, "path", from, goal_0, game.GetShipSettings().GetRadius());
                 }
 #endif
-                path = ctx.com->CreatePath(ctx.hz->GetPathfinder(), path, from, goal_0, game.GetShipSettings().GetRadius());
+                path = ctx.hz->GetPathfinder().CreatePath(path, from, goal_0, game.GetShipSettings().GetRadius());
 
                 if (game.GetPosition().DistanceSq(goal_1) < 25.0f * 25.0f || game.GetPosition().DistanceSq(goal_0) < 25.0f * 25.0f) {
                     ctx.hz->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 50);
                 }
 
             }
-            else path = ctx.com->CreatePath(ctx.hz->GetPathfinder(), path, from, ball.position, game.GetShipSettings().GetRadius());
+            else path = ctx.hz->GetPathfinder().CreatePath(path, from, ball.position, game.GetShipSettings().GetRadius());
             
             
             
@@ -563,7 +565,7 @@ namespace marvin {
             Vector2f solution;
 
 
-            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+            if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
                 ctx.blackboard.Set<Vector2f>("shot_position", solution);
                 ctx.blackboard.Set<bool>("has_shot", false);
                 return behavior::ExecuteResult::Failure;
@@ -612,7 +614,7 @@ namespace marvin {
 
 
             if (rHit) {
-                if (ctx.com->CanShootGun(game.GetMap(), bot_player, target)) {
+                if (CanShootGun(game, game.GetMap(), game.GetPosition(), solution)) {
                     return behavior::ExecuteResult::Success;
                 }
             }

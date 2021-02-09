@@ -8,6 +8,7 @@
 
 #define DEBUG_RENDER 0
 #define DEBUG_USER_CONTROL 0
+#define DEBUG_NO_BEHAVIOR 0
 #define DEBUG_NO_ARROWS 0
 
 extern HWND g_hWnd;

@@ -44,7 +44,7 @@ namespace path {
                 NodePoint point(world_x, world_y);
                 Node* current = GetNode(point);
 
-                if (current != nullptr) {
+                if (current) {
                     if (Mined(mines, point)) {
                         current->weight = 100.0f;
                     }

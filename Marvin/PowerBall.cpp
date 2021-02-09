@@ -11,6 +11,7 @@
 #include "RegionRegistry.h"
 #include "platform/Platform.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Shooter.h"
 
 namespace marvin {
 
@@ -569,7 +570,7 @@ namespace marvin {
 
             if (ball.held && ball.last_holder_id == game.GetPlayer().id) {
 
-                path = ctx.com->CreatePath(ctx.pb->GetPathfinder(), path, bot, ctx.pb->GetPowerBallGoalPath(), game.GetShipSettings().GetRadius());
+                path = ctx.pb->GetPathfinder().CreatePath(path, bot, ctx.pb->GetPowerBallGoalPath(), game.GetShipSettings().GetRadius());
 
                 ctx.blackboard.Set("path", path);
                 return behavior::ExecuteResult::Success;
@@ -582,7 +583,7 @@ namespace marvin {
                 return behavior::ExecuteResult::Failure;
             }
 
-            path = ctx.com->CreatePath(ctx.pb->GetPathfinder(), path, bot, enemy->position, game.GetShipSettings().GetRadius());
+            path = ctx.pb->GetPathfinder().CreatePath(path, bot, enemy->position, game.GetShipSettings().GetRadius());
 
             ctx.blackboard.Set("path", path);
             return behavior::ExecuteResult::Success;
@@ -598,7 +599,7 @@ namespace marvin {
      
             BallData ball = game.GetBallData();
             
-            path = ctx.com->CreatePath(ctx.pb->GetPathfinder(), path, from, ball.position, game.GetShipSettings().GetRadius());
+            path = ctx.pb->GetPathfinder().CreatePath(path, from, ball.position, game.GetShipSettings().GetRadius());
 
             ctx.blackboard.Set("path", path);
 
@@ -716,7 +717,7 @@ namespace marvin {
             auto& game = ctx.pb->GetGame();
             const Player& bot_player = game.GetPlayer();
 
-            if (!ctx.com->CanShootGun(game.GetMap(), bot_player, target)) {
+            if (!CanShootGun(game, game.GetMap(), game.GetPosition(), target.position)) {
                 return behavior::ExecuteResult::Failure;
             }
 
@@ -784,7 +785,7 @@ namespace marvin {
             auto& game = ctx.pb->GetGame();
             const Player& bot_player = game.GetPlayer();
 
-            if (!ctx.com->CanShootBomb(game.GetMap(), bot_player, target)) {
+            if (!CanShootBomb(game, game.GetMap(), game.GetPosition(), target.position)) {
                 return behavior::ExecuteResult::Failure;
             }
 

@@ -149,6 +149,8 @@ void ContinuumGameProxy::FetchPlayers() {
         player.energy = static_cast<uint16_t>(first + second);
     }
 
+    //u32 test = *(u32*)(player_addr + 0x2AC);
+
     player.repels = *(u32*)(player_addr + 0x2B0) + *(u32*)(player_addr + 0x2B4);
     player.bursts = *(u32*)(player_addr + 0x2B8) + *(u32*)(player_addr + 0x2BC);
     player.decoys = *(u32*)(player_addr + 0x2D8) + *(u32*)(player_addr + 0x2DC);
@@ -160,6 +162,8 @@ void ContinuumGameProxy::FetchPlayers() {
     players_.emplace_back(player);
 
     if (player.id == player_id_) {
+        //RenderText("status  " + std::to_string((player.status)), GetWindowCenter() - Vector2f(0.0f, 60.0f), RGB(100, 100, 100), RenderText_Centered);
+        //RenderText("test  " + std::to_string(test), GetWindowCenter() - Vector2f(0.0f, 40.0f), RGB(100, 100, 100), RenderText_Centered);
       player_ = &players_.back();
       player_addr_ = player_addr;
     }

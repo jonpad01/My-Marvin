@@ -12,12 +12,11 @@
 
 
 namespace marvin {
-    //namespace deva {
 
         using Path = std::vector<Vector2f>;
 
-        class GameProxy;
-        struct Player;
+        //class GameProxy;
+        //struct Player;
 
     class Devastation {
 
@@ -139,7 +138,7 @@ namespace marvin {
 
        
 
-        
+   
 
         class FreqWarpAttachNode : public behavior::BehaviorNode {
         public:

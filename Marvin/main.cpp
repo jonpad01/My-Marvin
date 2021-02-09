@@ -33,7 +33,7 @@ std::unique_ptr<marvin::ContinuumGameProxy> game;
 std::unique_ptr<marvin::Devastation> deva;
 std::unique_ptr<marvin::ExtremeGames> eg;
 std::unique_ptr<marvin::GalaxySports> gs;
-std::unique_ptr<marvin::Hockey> hockey;
+std::unique_ptr<marvin::Hockey> hz;
 std::unique_ptr<marvin::Hyperspace> hs;
 std::unique_ptr<marvin::PowerBall> pb;
 
@@ -66,7 +66,7 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
     else if (deva && deva->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (eg && eg->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (gs && gs->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
-    else if (hockey && hockey->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
+    else if (hz && hz->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (hs && hs->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (pb && pb->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (bot && bot->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
@@ -83,7 +83,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       //GetForegroundWindow()
       //GetActiveWindow()
       //GetFocus()
-    if (GetForegroundWindow() == g_hWnd) {
+    if (GetActiveWindow() == g_hWnd) {
         if (RealGetAsyncKeyState(VK_F10)) {
             g_Enabled = false;
             SetWindowText(g_hWnd, kDisabledText);
@@ -104,7 +104,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
             if (deva) { deva->Update(dt.count()); }
             if (eg) { eg->Update(dt.count()); }
             if (gs) { gs->Update(dt.count()); }
-            if (hockey) { hockey->Update(dt.count()); }
+            if (hz) { hz->Update(dt.count()); }
             if (hs) { hs->Update(dt.count()); }
             if (pb) { pb->Update(dt.count()); }
             if (bot) { bot->Update(dt.count()); }
@@ -115,7 +115,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         if (deva) { deva->Update(dt.count()); }
         if (eg) { eg->Update(dt.count()); }
         if (gs) { gs->Update(dt.count()); }
-        if (hockey) { hockey->Update(dt.count()); }
+        if (hz) { hz->Update(dt.count()); }
         if (hs) { hs->Update(dt.count()); }
         if (pb) { pb->Update(dt.count()); }
         if (bot) { bot->Update(dt.count()); }
@@ -169,7 +169,7 @@ void CreateBot() {
         gs = std::make_unique<marvin::GalaxySports>(std::move(game));
     }
     else if (game->GetServerFolder() == "zones\\SSCE HockeyFootball Zone") {
-        hockey = std::make_unique<marvin::Hockey>(std::move(game));
+        hz = std::make_unique<marvin::Hockey>(std::move(game));
     }
     else if (game->GetServerFolder() == "zones\\SSCE Hyperspace") {
         hs = std::make_unique<marvin::Hyperspace>(std::move(game));

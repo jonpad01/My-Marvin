@@ -10,11 +10,11 @@
 #include "RegionRegistry.h"
 #include "platform/Platform.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Shooter.h"
 
 
 
 namespace marvin {
-    //namespace deva {
 
     Devastation::Devastation(std::unique_ptr<GameProxy> game) : game_(std::move(game)), steering_(*game_), common_(*game_), keys_(common_.GetTime()) {
         auto processor = std::make_unique<path::NodeProcessor>(*game_);
@@ -118,8 +118,9 @@ namespace marvin {
         steering_.Reset();
 
         ctx_.dt = dt;
+#if !DEBUG_NO_BEHAVIOR
         behavior_->Update(ctx_);
-
+#endif
 #if DEBUG_RENDER
          //common_.RenderPath(GetGame(), ctx_.blackboard);
 #endif
@@ -184,28 +185,16 @@ namespace marvin {
         bool clockwise = !leftside;
 
         if (has_force) {
-            if (behind) { keys_.Press(VK_DOWN, common_.GetTime(), 30); }
-            else { keys_.Press(VK_UP, common_.GetTime(), 30); }
+            if (behind) { keys_.Press(VK_DOWN); }
+            else { keys_.Press(VK_UP); }
         }
 
         //above 0.996 and bot is constantly correcting creating a wobble
         if (heading.Dot(steering_direction) < 0.996f) {  //1.0f
 
-            if (clockwise) {
-              //  if (!keys_.IsPressed(VK_LEFT)) {
-                    keys_.Press(VK_RIGHT, common_.GetTime(), 30);
-               // }
-            }
-            else {
-              //  if (!keys_.IsPressed(VK_RIGHT)) {
-                    keys_.Press(VK_LEFT, common_.GetTime(), 30);
-              //  }
-            }
-
-
             //ensure that only one arrow key is pressed at any given time
-            //keys_.Set(VK_RIGHT, clockwise, GetTime());
-            //keys_.Set(VK_LEFT, !clockwise, GetTime());
+            keys_.Set(VK_RIGHT, clockwise);
+            keys_.Set(VK_LEFT, !clockwise);
         }
 #if 0
 #ifdef DEBUG_RENDER
@@ -361,7 +350,7 @@ namespace marvin {
             Vector2f safe_1 = marvin::deva::team0_safes[i];
             Vector2f safe_2 = marvin::deva::team1_safes[i];
 
-            float radius = 0.875f; // wont fit through 3 tile holes
+            float radius = 0.8f; // wont fit through 3 tile holes
 
             Path base_path = GetPathfinder().FindPath(game_->GetMap(), mines, safe_1, safe_2, radius);
             base_path = GetPathfinder().SmoothPath(base_path, game_->GetMap(), radius);
@@ -369,14 +358,6 @@ namespace marvin {
             base_paths.push_back(base_path);
         }
     }
-
-    
-
- 
-
- 
-
-    
 
     void Devastation::LookForWallShot(Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time, uint8_t bounces) {
 
@@ -605,9 +586,14 @@ namespace deva {
                 const Player& player = ctx.deva->GetDevaDuelers()[i];
                 bool player_in_center = ctx.deva->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
                 if (!player_in_center && IsValidPosition(player.position) && player.ship < 8) {
+
+                   
                     
-                    float distance_to_team = ctx.com->PathLength(path, ctx.com->FindPathNode(path, player.position), ctx.com->FindPathNode(path, ctx.deva->GetTeamSafe()));
-                    float distance_to_enemy = ctx.com->PathLength(path, ctx.com->FindPathNode(path, player.position), ctx.com->FindPathNode(path, ctx.deva->GetEnemySafe()));
+                    float distance_to_team = 0.0f; 
+                    float distance_to_enemy = 0.0f; 
+
+                    if (!PathLength(path, player.position, ctx.deva->GetTeamSafe(), &distance_to_team)) { return; }
+                    if (!PathLength(path, player.position, ctx.deva->GetEnemySafe(), &distance_to_enemy)) { return; }
 
                     if (player.frequency == game.GetPlayer().frequency) {
                         //float distance_to_team = ctx.deva->PathLength(player.position, ctx.deva->GetTeamSafe());
@@ -665,7 +651,9 @@ namespace deva {
 
                    // float distance_to_enemy_position = ctx.deva->PathLength(player.position, closest_enemy_to_team);
 
-                    float distance_to_enemy_position = ctx.com->PathLength(path, ctx.com->FindPathNode(path, player.position), ctx.com->FindPathNode(path, closest_enemy_to_team));
+                    float distance_to_enemy_position = 0.0f;
+
+                    if (!PathLength(path, player.position, closest_enemy_to_team, &distance_to_enemy_position)) { return; }
 
                     //get the closest player
                     if (distance_to_enemy_position < closest_distance) {
@@ -851,19 +839,20 @@ namespace deva {
 #endif
             if (!ctx.deva->InCenter()) {
                 if (game.GetPlayer().ship == 2) {
-                    float pathlength = ctx.com->PathLength(ctx.deva->GetBasePath(), ctx.com->FindPathNode(path, bot), ctx.com->FindPathNode(path, enemy));
+                    float pathlength = 0.0f;
+                    if (!PathLength(ctx.deva->GetBasePath(), bot, enemy, &pathlength)) { return behavior::ExecuteResult::Success; }
                     if (pathlength < 45.0f || ctx.deva->LastBotStanding()) {
                     //if (ctx.deva->PathLength(bot, enemy) < 45.0f || ctx.deva->LastBotStanding()) {
-                        path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, bot, ctx.deva->GetTeamSafe(), radius);
+                        path = ctx.deva->GetPathfinder().CreatePath(path, bot, ctx.deva->GetTeamSafe(), radius);
                     }
-                    else path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, bot, enemy, radius);
+                    else path = ctx.deva->GetPathfinder().CreatePath(path, bot, enemy, radius);
                 }
                 else if (ctx.deva->LastBotStanding()) {
-                    path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, bot, ctx.deva->GetTeamSafe(), radius);
+                    path = ctx.deva->GetPathfinder().CreatePath(path, bot, ctx.deva->GetTeamSafe(), radius);
                 }
-                else path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, bot, enemy, radius);
+                else path = ctx.deva->GetPathfinder().CreatePath(path, bot, enemy, radius);
             }
-            else path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, bot, enemy, radius);
+            else path = ctx.deva->GetPathfinder().CreatePath(path, bot, enemy, radius);
 
             ctx.blackboard.Set<Path>("path", path);
             return behavior::ExecuteResult::Success;
@@ -891,12 +880,12 @@ namespace deva {
             }
             else {
                 if (ctx.deva->LastBotStanding()) {
-                    path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, from, ctx.deva->GetTeamSafe(), radius);
+                    path = ctx.deva->GetPathfinder().CreatePath(path, from, ctx.deva->GetTeamSafe(), radius);
                     ctx.blackboard.Set("path", path);
                     return behavior::ExecuteResult::Success;
                 }
                 else {
-                    path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, from, ctx.deva->GetEnemySafe(), radius);
+                    path = ctx.deva->GetPathfinder().CreatePath(path, from, ctx.deva->GetEnemySafe(), radius);
                     ctx.blackboard.Set("path", path);
                     return behavior::ExecuteResult::Success;
                 }
@@ -924,7 +913,7 @@ namespace deva {
                 to = nodes.at(index);
             }
 
-            path = ctx.com->CreatePath(ctx.deva->GetPathfinder(), path, from, to, radius);
+            path = ctx.deva->GetPathfinder().CreatePath(path, from, to, radius);
             ctx.blackboard.Set("path", path);
 
             return behavior::ExecuteResult::Success;
@@ -999,8 +988,6 @@ namespace deva {
 
             auto& game = ctx.deva->GetGame();
 
-            if (game.GetPlayer().ship == 2) { return behavior::ExecuteResult::Failure; }
-
             auto to_target = target_player->position - game.GetPosition();
             Vector2f direction = Normalize(to_target);
             Vector2f side = Perpendicular(direction);
@@ -1024,14 +1011,14 @@ namespace deva {
                 }
             }
             else {
-                const Player* target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-                if (target_player) {
+         
+                
                     float target_radius = game.GetSettings().ShipSettings[target_player->ship].GetRadius();
                     bool shoot = false;
                     bool bomb_hit = false;
                     Vector2f wall_pos;
                       
-                        if (ctx.com->ShootWall(target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
+                        if (BounceShot(game, target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
                             if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
                                 if (bomb_hit) {
                                     ctx.deva->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 30);
@@ -1042,7 +1029,7 @@ namespace deva {
                             }
                         }
                    
-                }
+                
             }
 
             return result;
@@ -1069,14 +1056,11 @@ namespace deva {
             Vector2f solution;
         
 
-            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+            if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
                 ctx.blackboard.Set<Vector2f>("shot_position", solution);
                 ctx.blackboard.Set<bool>("has_shot", false);
                 return behavior::ExecuteResult::Failure;
             }
-
-            Vector2f totarget = solution - game.GetPosition();
-            RenderLine(GetWindowCenter(), GetWindowCenter() + (Normalize(totarget) * totarget.Length() * 16), RGB(100, 0, 0));
 
             //Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
             //Vector2f projectile_direction = Normalize(projectile_trajectory);
@@ -1118,7 +1102,7 @@ namespace deva {
 
 
             if (rHit) {
-                if (ctx.com->CanShootGun(game.GetMap(), bot_player, target)) {
+                if (CanShootGun(game, game.GetMap(), game.GetPosition(), solution)) {
                     return behavior::ExecuteResult::Success;
                 }
             }
@@ -1129,9 +1113,8 @@ namespace deva {
 
 
         behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            int ship = ctx.deva->GetGame().GetPlayer().ship;
-            if (ship == 3 || ship == 6 || ship == 2) ctx.deva->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 30);
-            else ctx.deva->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 30);
+      
+            ctx.deva->GetKeys().Press(VK_CONTROL);
 
             return behavior::ExecuteResult::Success;
         }
@@ -1145,9 +1128,7 @@ namespace deva {
             float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
 
             const Player* target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-            if (!target_player) {
-                return behavior::ExecuteResult::Failure;
-            }
+            if (!target_player) { return behavior::ExecuteResult::Failure; }
 
             float player_energy_pct = target_player->energy / (float)game.GetShipSettings().MaximumEnergy;
             

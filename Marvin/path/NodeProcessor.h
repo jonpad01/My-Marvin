@@ -26,6 +26,8 @@ class NodeProcessor {
       nodes_.resize(kMaxNodes);
   }
 
+  GameProxy& GetGame() { return game_; }
+
   void ResetNodes();
 
   bool Mined(std::vector<Vector2f> mines, NodePoint point);

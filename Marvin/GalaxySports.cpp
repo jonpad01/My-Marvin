@@ -11,7 +11,7 @@
 #include "RegionRegistry.h"
 #include "platform/Platform.h"
 #include "platform/ContinuumGameProxy.h"
-
+#include "Shooter.h"
 
 
 namespace marvin {
@@ -494,7 +494,7 @@ namespace marvin {
             Vector2f bot = game.GetPosition();
             Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-             path = ctx.com->CreatePath(ctx.gs->GetPathfinder(), path, bot, enemy, game.GetShipSettings().GetRadius());
+             path = ctx.gs->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
 
             ctx.blackboard.Set("path", path);
             return behavior::ExecuteResult::Success;
@@ -531,7 +531,7 @@ namespace marvin {
                 to = nodes.at(index);
             }
 
-            path = ctx.com->CreatePath(ctx.gs->GetPathfinder(), path, from, to, game.GetShipSettings().GetRadius());
+            path = ctx.gs->GetPathfinder().CreatePath(path, from, to, game.GetShipSettings().GetRadius());
             ctx.blackboard.Set("path", path);
 
             return behavior::ExecuteResult::Success;
@@ -640,7 +640,7 @@ namespace marvin {
             Vector2f solution;
 
 
-            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+            if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
                 ctx.blackboard.Set<Vector2f>("shot_position", solution);
                 ctx.blackboard.Set<bool>("has_shot", false);
                 return behavior::ExecuteResult::Failure;
@@ -689,7 +689,7 @@ namespace marvin {
 
 
             if (rHit) {
-                if (ctx.com->CanShootGun(game.GetMap(), bot_player, target)) {
+                if (CanShootGun(game, game.GetMap(), game.GetPosition(), solution)) {
                     return behavior::ExecuteResult::Success;
                 }
             }

@@ -11,9 +11,10 @@
 #include "RegionRegistry.h"
 #include "platform/Platform.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Shooter.h"
 
 namespace marvin {
-    //namespace eg {
+
 
 
     ExtremeGames::ExtremeGames(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_), common_(*game_), keys_(common_.GetTime()) {
@@ -36,19 +37,7 @@ namespace marvin {
         auto find_enemy = std::make_unique<eg::FindEnemyNode>();
         auto aim_with_gun = std::make_unique<eg::AimWithGunNode>();
         auto aim_with_bomb = std::make_unique<eg::AimWithBombNode>();
-        auto target_in_los = std::make_unique<eg::InLineOfSightNode>(
-            [](marvin::behavior::ExecuteContext& ctx) {
-                const Vector2f* result = nullptr;
-
-                const Player* target_player =
-                    ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-
-                if (target_player) {
-                    result = &target_player->position;
-                }
-                return result;
-            });
-
+        auto target_in_los = std::make_unique<eg::InLineOfSightNode>();
         auto shoot_gun = std::make_unique<eg::ShootGunNode>();
         auto shoot_bomb = std::make_unique<eg::ShootBombNode>();
         auto path_to_enemy = std::make_unique<eg::PathToEnemyNode>();
@@ -132,10 +121,7 @@ namespace marvin {
         }
 
         steering_.Reset();
-
-
         ctx_.dt = dt;
-
         behavior_->Update(ctx_);
 
 #if DEBUG_RENDER
@@ -143,7 +129,6 @@ namespace marvin {
 #endif
 
         Steer();
-
     }
 
     void ExtremeGames::Steer() {
@@ -151,7 +136,7 @@ namespace marvin {
         float debug_y = 100.0f;
         Vector2f force = steering_.GetSteering();
         float rotation = steering_.GetRotation();
-        RenderText("force" + std::to_string(force.Length()), center - Vector2f(0, debug_y), RGB(100, 100, 100), RenderText_Centered);
+       // RenderText("force" + std::to_string(force.Length()), center - Vector2f(0, debug_y), RGB(100, 100, 100), RenderText_Centered);
         Vector2f heading = game_->GetPlayer().GetHeading();
         // Start out by trying to move in the direction that the bot is facing.
         Vector2f steering_direction = heading;
@@ -218,76 +203,17 @@ namespace marvin {
 
         if (heading.Dot(steering_direction) < 0.996f) {  //1.0f
 
-            if (clockwise) {
-                keys_.Press(VK_RIGHT);
-            }
-            else {
-                keys_.Press(VK_LEFT);
-            }
-
-
             //ensure that only one arrow key is pressed at any given time
-            //keys_.Set(VK_RIGHT, clockwise, GetTime());
-            //keys_.Set(VK_LEFT, !clockwise, GetTime());
+            keys_.Set(VK_RIGHT, clockwise);
+            keys_.Set(VK_LEFT, !clockwise);
         }
 
-#ifdef DEBUG_RENDER
-
-        if (has_force) {
-            Vector2f force_direction = Normalize(force);
-            float force_percent = force.Length() / (GetGame().GetShipSettings().MaximumSpeed / 16.0f / 16.0f);
-            RenderLine(center, center + (force_direction * 100 * force_percent), RGB(255, 255, 0)); //yellow
-        }
-
-        RenderLine(center, center + (heading * 100), RGB(255, 0, 0)); //red
-        RenderLine(center, center + (perp * 100), RGB(100, 0, 100));  //purple
-        RenderLine(center, center + (rotate_target * 85), RGB(0, 0, 255)); //blue
-        RenderLine(center, center + (steering_direction * 75), RGB(0, 255, 0)); //green
-        /*
-        if (rotation == 0.0f) {
-            RenderText("no rotation", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-                RenderText_Centered);
-            debug_y -= 20;
-        }
-        else {
-            std::string text = "rotation: " + std::to_string(rotation);
-            RenderText(text.c_str(), center - Vector2f(0, debug_y), RGB(100, 100, 100),
-                RenderText_Centered);
-            debug_y -= 20;
-        }
-
-        if (behind) {
-            RenderText("behind", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-                RenderText_Centered);
-            debug_y -= 20;
-        }
-
-        if (leftside) {
-            RenderText("leftside", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-                RenderText_Centered);
-            debug_y -= 20;
-        }
-
-        if (rotation != 0.0f) {
-            RenderText("face-locked", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-                RenderText_Centered);
-            debug_y -= 20;
-        }
-        */
-
-#endif
     }
 
     void ExtremeGames::Move(const Vector2f& target, float target_distance) {
         const Player& bot_player = game_->GetPlayer();
         float distance = bot_player.position.Distance(target);
-        Vector2f heading = game_->GetPlayer().GetHeading();
-
-        Vector2f target_position = ctx_.blackboard.ValueOr("target_position", Vector2f());
-        float dot = heading.Dot(Normalize(target_position - game_->GetPosition()));
-   
-
-
+       
         if (distance > target_distance) {
            
             steering_.Seek(target);
@@ -584,11 +510,13 @@ namespace marvin {
 
         behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.eg->GetGame();
+
             std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
+
             Vector2f bot = game.GetPosition();
             Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-             path = ctx.com->CreatePath(ctx.eg->GetPathfinder(), path, bot, enemy, game.GetShipSettings().GetRadius());
+             path = ctx.eg->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
 
             ctx.blackboard.Set("path", path);
             return behavior::ExecuteResult::Success;
@@ -600,7 +528,9 @@ namespace marvin {
         behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.eg->GetGame();
             Vector2f from = game.GetPosition();
+
             std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
+
             std::vector<Vector2f> nodes { Vector2f(570, 540), Vector2f(455, 540), Vector2f(455, 500), Vector2f(570, 500) };
             int index = ctx.blackboard.ValueOr<int>("patrol_index", 0);
             
@@ -612,7 +542,7 @@ namespace marvin {
                 to = nodes.at(index);
             }
 
-            path = ctx.com->CreatePath(ctx.eg->GetPathfinder(), path, from, to, game.GetShipSettings().GetRadius());
+            path = ctx.eg->GetPathfinder().CreatePath(path, from, to, game.GetShipSettings().GetRadius());
             ctx.blackboard.Set("path", path);
 
             return behavior::ExecuteResult::Success;
@@ -622,6 +552,7 @@ namespace marvin {
 
 
         behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
+
             auto path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
 
             size_t path_size = path.size();
@@ -691,8 +622,6 @@ namespace marvin {
 
             auto& game = ctx.eg->GetGame();
 
-            if (game.GetPlayer().ship == 2) { return behavior::ExecuteResult::Failure; }
-
             auto to_target = target_player->position - game.GetPosition();
             Vector2f direction = Normalize(to_target);
             Vector2f side = Perpendicular(direction);
@@ -716,14 +645,14 @@ namespace marvin {
                 }
             }
             else {
-                const Player* target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-                if (target_player) {
+             
+               
                     float target_radius = game.GetSettings().ShipSettings[target_player->ship].GetRadius();
                     bool shoot = false;
                     bool bomb_hit = false;
                     Vector2f wall_pos;
 
-                    if (ctx.com->ShootWall(target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
+                    if (BounceShot(game, target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
                         if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
                             if (bomb_hit) {
                                 ctx.eg->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 30);
@@ -734,7 +663,7 @@ namespace marvin {
                         }
                     }
 
-                }
+                
             }
 
             return result;
@@ -761,17 +690,14 @@ namespace marvin {
             Vector2f solution;
 
 
-            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+            if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
                 ctx.blackboard.Set<Vector2f>("shot_position", solution);
-                ctx.blackboard.Set<bool>("has_shot", false);
+                ctx.blackboard.Set<bool>("bullet_shot", false);
                 return behavior::ExecuteResult::Failure;
             }
+            RenderWorldLine(game.GetPosition(), game.GetPosition(), solution, RGB(100, 0, 0));
+            RenderText("gun speed  " + std::to_string(proj_speed), GetWindowCenter() - Vector2f(0, 40), RGB(100, 100, 100), RenderText_Centered);
 
-            Vector2f totarget = solution - game.GetPosition();
-            RenderLine(GetWindowCenter(), GetWindowCenter() + (Normalize(totarget) * totarget.Length() * 16), RGB(100, 0, 0));
-
-            //Vector2f projectile_trajectory = (bot_player.GetHeading() * proj_speed) + bot_player.velocity;
-            //Vector2f projectile_direction = Normalize(projectile_trajectory);
 
             float radius_multiplier = 1.2f;
 
@@ -803,46 +729,44 @@ namespace marvin {
                 rHit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
             }
 
-            ctx.blackboard.Set<bool>("has_shot", rHit);
+            
             ctx.blackboard.Set<Vector2f>("shot_position", solution);
 
-            // bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
-
-
             if (rHit) {
-                if (ctx.com->CanShootGun(game.GetMap(), bot_player, target)) {
+                if (CanShootGun(game, game.GetMap(), game.GetPosition(), solution)) {
+                    ctx.blackboard.Set<bool>("bullet_shot", true);
                     return behavior::ExecuteResult::Success;
                 }
             }
+
+            ctx.blackboard.Set<bool>("bullet_shot", false);
             return behavior::ExecuteResult::Failure;
         }
 
 
         behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) {
+       
             const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
-            if (target_player == nullptr) return behavior::ExecuteResult::Failure;
+            if (!target_player) return behavior::ExecuteResult::Failure;
 
             const Player& target = *target_player;
             auto& game = ctx.eg->GetGame();
             const Player& bot_player = game.GetPlayer();
 
-            if (!ctx.com->CanShootBomb(game.GetMap(), bot_player, target)) {
-                return behavior::ExecuteResult::Failure;
-            }
-
             float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BombSpeed / 10.0f / 16.0f;
-
-            Vector2f target_pos = target.position;
+            bool has_shot = false;
 
             Vector2f solution;
 
-
-            if (!ctx.com->CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
+            if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed, &solution)) {
                 ctx.blackboard.Set<Vector2f>("shot_position", solution);
-                ctx.blackboard.Set<bool>("has_shot", false);
+                ctx.blackboard.Set<bool>("bomb_shot", false);
                 return behavior::ExecuteResult::Failure;
             }
+
+            RenderWorldLine(game.GetPosition(), game.GetPosition(), solution, RGB(100, 0, 100));
+            RenderText("bomb speed  " + std::to_string(proj_speed), GetWindowCenter() - Vector2f(0, 60), RGB(100, 100, 100), RenderText_Centered);
             
             float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
 
@@ -858,20 +782,24 @@ namespace marvin {
             float nearby_radius = target_radius * radius_multiplier;
 
             Vector2f box_min = solution - Vector2f(nearby_radius, nearby_radius);
-            Vector2f box_extent(nearby_radius, nearby_radius);
+            Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
             float dist;
             Vector2f norm;
 
             bool hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
 
           
-            ctx.blackboard.Set("shot_position", solution);
+            ctx.blackboard.Set<Vector2f>("shot_position", solution);
              
 
             if (hit) {
+                if (CanShootBomb(game, game.GetMap(), game.GetPosition(), solution)) {
+                    ctx.blackboard.Set<bool>("bomb_shot", true);
                     return behavior::ExecuteResult::Success;
+                }
             }
 
+            ctx.blackboard.Set<bool>("bomb_shot", false);
             return behavior::ExecuteResult::Failure;
         }
 
@@ -893,11 +821,12 @@ namespace marvin {
         behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.eg->GetGame();
             
-            float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy;
+            float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
             
             bool in_center = ctx.eg->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
             bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
-            Vector2f target_position = ctx.blackboard.ValueOr("target_position", Vector2f());
+            Vector2f target_position = ctx.blackboard.ValueOr<Vector2f>("shot_position", Vector2f());
+
           
             int ship = game.GetPlayer().ship;
             //#if 0
@@ -917,13 +846,12 @@ namespace marvin {
 
             if (in_safe) hover_distance = 0.0f;
             else if (in_center) {
-                hover_distance = 12.0f / energy_pct;  
+                hover_distance = 45.0f - (energy_pct / 4.0f);  
             }
             else {
-                hover_distance = 3.0f;
+                hover_distance = 10.0f;
             }
             if (hover_distance < 0.0f) hover_distance = 0.0f;
-            const Player& shooter = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
             ctx.eg->Move(target_position, hover_distance);
 

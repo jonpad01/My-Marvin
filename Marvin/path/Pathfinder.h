@@ -8,8 +8,15 @@
 #include "NodeProcessor.h"
 #include "Path.h"
 
-namespace marvin {
+namespace marvin { 
+
+    bool PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2, float* distance);
+    bool FindPathIndex(std::vector<Vector2f> path, Vector2f position, std::size_t* index, float* distance);
+
 namespace path {
+
+    
+
 
 template <typename T, typename Compare, typename Container = std::vector<T>>
 
@@ -52,6 +59,8 @@ struct Pathfinder {
   std::vector<Vector2f> FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to, float radius);
 
   std::vector<Vector2f> SmoothPath(const std::vector<Vector2f>& path, const Map& map, float ship_radius);
+
+  std::vector<Vector2f> CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius);
 
   void CreateMapWeights(const Map& map);
 

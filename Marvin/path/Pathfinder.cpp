@@ -8,7 +8,52 @@
 #include "../Debug.h"
 
 namespace marvin {
+
+    bool PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2, float* distance) {
+
+        std::size_t index1 = 0;
+        std::size_t index2 = 0;
+        float distance1;
+        float distance2;
+        
+        if (path.empty()) { return false; }
+
+        if (!FindPathIndex(path, pos1, &index1, &distance1)) { return false; }
+        if (!FindPathIndex(path, pos2, &index2, &distance2)) { return false; }
+
+        float path_distance = distance1 + distance2;      
+
+        for (std::size_t i = std::min(index1, index2); i < std::max(index1, index2); i++) {
+            path_distance += path[i].Distance(path[i + 1]);
+        }
+        if (distance) *distance = path_distance;
+        return true;
+    }
+
+    bool FindPathIndex(std::vector<Vector2f> path, Vector2f position, std::size_t* index, float* distance) {
+
+        std::size_t path_index = 0;
+        float closest_distance = std::numeric_limits<float>::max();
+
+        if (path.empty()) { return false; }
+
+        for (std::size_t i = 0; i < path.size(); i++) {
+
+            float distance = position.Distance(path[i]);
+
+            if (closest_distance > distance) {
+                path_index = i;
+                closest_distance = distance;
+            }
+        }
+        if (index) *index = path_index;
+        if (distance) *distance = closest_distance;
+        return true;
+    }
+
     namespace path {
+
+        
 
         Vector2f ClosestWall(const Map& map, Vector2f pos, int search) {
             float closest_dist = std::numeric_limits<float>::max();
@@ -288,6 +333,51 @@ namespace marvin {
 
             return std::sqrt(closest_sq);
         }
+
+
+        std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius) {
+            bool build = true;
+
+            if (!path.empty()) {
+                // Check if the current destination is the same as the requested one.
+                if (path.back().DistanceSq(to) < 3 * 3) {
+                    Vector2f pos = processor_->GetGame().GetPosition();
+                    Vector2f next = path.front();
+                    Vector2f direction = Normalize(next - pos);
+                    Vector2f side = Perpendicular(direction);
+                    float radius = processor_->GetGame().GetShipSettings().GetRadius();
+
+                    float distance = next.Distance(pos);
+
+                    // Rebuild the path if the bot isn't in line of sight of its next node.
+                    CastResult center = RayCast(processor_->GetGame().GetMap(), pos, direction, distance);
+                    CastResult side1 = RayCast(processor_->GetGame().GetMap(), pos + side * radius, direction, distance);
+                    CastResult side2 = RayCast(processor_->GetGame().GetMap(), pos - side * radius, direction, distance);
+
+                    if (!center.hit && !side1.hit && !side2.hit) {
+                        build = false;
+                    }
+                }
+            }
+
+            if (build) {
+                std::vector<Vector2f> mines;
+                //#if 0
+                for (Weapon* weapon : processor_->GetGame().GetWeapons()) {
+                    const Player* weapon_player = processor_->GetGame().GetPlayerById(weapon->GetPlayerId());
+                    if (weapon_player == nullptr) continue;
+                    if (weapon_player->frequency == processor_->GetGame().GetPlayer().frequency) continue;
+                    if (weapon->GetType() & 0x8000) mines.push_back(weapon->GetPosition());
+                }
+                //#endif
+                path = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);
+                path = SmoothPath(path, processor_->GetGame().GetMap(), radius);
+            }
+
+            return path;
+        }
+
+
 
         void Pathfinder::CreateMapWeights(const Map& map) {
             for (u16 y = 0; y < 1024; ++y) {
