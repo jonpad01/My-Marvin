@@ -23,7 +23,7 @@ namespace marvin {
 
         float path_distance = distance1 + distance2;      
 
-        for (std::size_t i = std::min(index1, index2); i < std::max(index1, index2); i++) {
+        for (std::size_t i = std::min(index1, index2); i < (std::max(index1, index2) - 1); i++) {
             path_distance += path[i].Distance(path[i + 1]);
         }
         if (distance) *distance = path_distance;
