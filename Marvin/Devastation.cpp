@@ -319,7 +319,7 @@ namespace marvin {
             ctx.blackboard.SetChatCount(chat.count);
         }
 
-        bool mod = chat.player == "tm_master" || chat.player == "Baked Cake" || chat.player == "X-Demo" || chat.player == "Lyra." || chat.player == "Profile" || chat.player == "Monkey";
+        bool mod = chat.player == "tm_master" || chat.player == "Baked Cake" || chat.player == "X-Demo" || chat.player == "Lyra." || chat.player == "Profile" || chat.player == "Monkey" || chat.player == "Neostar";
         
         bool mArena = chat.type == 0;
         bool mPublic = chat.type == 2;

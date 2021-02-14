@@ -75,7 +75,7 @@ class ContinuumGameProxy : public GameProxy {
   const Player& GetSelectedPlayer() const override;
   const uint32_t GetSelectedPlayerIndex() const override;
   const Player* GetPlayerById(u16 id) const override;
-  const BallData& GetBallData() const override;
+  const std::vector<BallData>& GetBalls() const override;
 
   std::vector<Weapon*> GetWeapons() override;
   
@@ -112,7 +112,6 @@ class ContinuumGameProxy : public GameProxy {
   void FetchBallData();
   void SendKey(int vKey);
 
-  BallData balldata_;
   std::vector<BallData> balls_;
   ExeProcess process_;
   HWND hwnd_;

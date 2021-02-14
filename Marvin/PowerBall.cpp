@@ -34,23 +34,11 @@ namespace marvin {
         FindPowerBallGoal();
         powerball_arena_ = game_->GetMapFile();
 
-        auto freq_warp_attach = std::make_unique<pb::FreqWarpAttachNode>();
+        
         auto find_enemy = std::make_unique<pb::FindEnemyNode>();
         auto aim_with_gun = std::make_unique<pb::AimWithGunNode>();
         auto aim_with_bomb = std::make_unique<pb::AimWithBombNode>();
-        auto target_in_los = std::make_unique<pb::InLineOfSightNode>(
-            [](marvin::behavior::ExecuteContext& ctx) {
-                const Vector2f* result = nullptr;
-
-                const Player* target_player =
-                    ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-
-                if (target_player) {
-                    result = &target_player->position;
-                }
-                return result;
-            });
-
+        auto target_in_los = std::make_unique<pb::InLineOfSightNode>();
         auto shoot_gun = std::make_unique<pb::ShootGunNode>();
         auto shoot_bomb = std::make_unique<pb::ShootBombNode>();
         auto path_to_enemy = std::make_unique<pb::PathToEnemyNode>();
@@ -69,9 +57,15 @@ namespace marvin {
         auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path.get());
         auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
         auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
-        auto root_selector = std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
 
-        behavior_nodes_.push_back(std::move(freq_warp_attach));
+        auto root_selector = std::make_unique<behavior::SelectorNode>(handle_enemy.get(), patrol_path_sequence.get());
+
+        auto freq_warp_attach = std::make_unique<pb::FreqWarpAttachNode>();
+        auto ball_selector = std::make_unique<pb::BallSelectorNode>();
+
+        auto root_sequence = std::make_unique<behavior::SequenceNode>(ball_selector.get(), root_selector.get());
+
+        
         behavior_nodes_.push_back(std::move(find_enemy));
         behavior_nodes_.push_back(std::move(aim_with_gun));
         behavior_nodes_.push_back(std::move(aim_with_bomb));
@@ -93,7 +87,13 @@ namespace marvin {
         behavior_nodes_.push_back(std::move(patrol_path_sequence));
         behavior_nodes_.push_back(std::move(path_or_shoot_selector));
         behavior_nodes_.push_back(std::move(handle_enemy));
+
         behavior_nodes_.push_back(std::move(root_selector));
+
+        behavior_nodes_.push_back(std::move(freq_warp_attach));
+        behavior_nodes_.push_back(std::move(ball_selector));
+   
+        behavior_nodes_.push_back(std::move(root_sequence));
 
         behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
         ctx_.pb = this;
@@ -394,6 +394,33 @@ namespace marvin {
 
     namespace pb {
 
+
+        behavior::ExecuteResult BallSelectorNode::Execute(behavior::ExecuteContext& ctx) {
+            auto& game = ctx.pb->GetGame();
+
+            Vector2f position = game.GetPosition();
+            float closest_distance = std::numeric_limits<float>::max();
+            const BallData* target_ball = nullptr;
+
+            for (std::size_t i = 0; i < game.GetBalls().size(); i++) {
+                const BallData& ball = game.GetBalls()[i];
+
+                if (!ctx.pb->GetRegions().IsConnected(position, ball.position)) { continue; }
+
+                float distance = position.Distance(ball.position);
+
+                if (distance < closest_distance) {
+                    closest_distance = distance;
+                    target_ball = &game.GetBalls()[i];
+                }
+            }
+
+            ctx.blackboard.Set<const BallData*>("TargetBall", target_ball);
+
+            return behavior::ExecuteResult::Success;
+        }
+
+
         behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.pb->GetGame();
             uint64_t time = ctx.pb->GetTime().GetTime();
@@ -411,10 +438,10 @@ namespace marvin {
 
             int64_t timer = hold_time;
 
-            const BallData& ball = game.GetBallData();
+            const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
 
             //make this node pass even if the target is a nullptr
-            if (ball.held && ball.last_holder_id == game.GetPlayer().id) {
+            if (ball && ball->held && ball->last_holder_id == game.GetPlayer().id) {
                 if (set_timer) {
                     ctx.blackboard.Set("BallCoolDown", time + hold_time);
                     ctx.blackboard.Set("SetTimer", false);
@@ -438,19 +465,20 @@ namespace marvin {
             const Player* target = nullptr;
             const Player& bot = ctx.pb->GetGame().GetPlayer();
 
-           const BallData& ball = game.GetBallData();   
-  
+           const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
 
-            //make this node pass even if the target is a nullptr
-            if (ball.held && ball.last_holder_id == game.GetPlayer().id) {
-                result = behavior::ExecuteResult::Success;
-            }
-            //if able to grab the ball patrol to ball
-            if (!ball.held) {
-                if (ball.inactive_timer > 1200 || ball.last_holder_id != game.GetPlayer().id) {
-                    return behavior::ExecuteResult::Failure;
-                }
-            }
+           if (ball) {
+               //make this node pass even if the target is a nullptr
+               if (ball->held && ball->last_holder_id == game.GetPlayer().id) {
+                   result = behavior::ExecuteResult::Success;
+               }
+               //if able to grab the ball patrol to ball
+               if (!ball->held) {
+                   if (ball->inactive_timer > 1200 || ball->last_holder_id != game.GetPlayer().id) {
+                       return behavior::ExecuteResult::Failure;
+                   }
+               }
+           }
             
             Vector2f position = game.GetPosition();
 
@@ -461,7 +489,7 @@ namespace marvin {
 
                 if (!IsValidTarget(ctx, player)) continue;
 
-                if (ball.held && ball.last_holder_id == player.id) {
+                if (ball && ball->held && ball->last_holder_id == player.id) {
                     target = &game.GetPlayers()[i];
                     ctx.blackboard.Set("target_player", target);
                     return behavior::ExecuteResult::Success;
@@ -525,13 +553,13 @@ namespace marvin {
         bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
             const auto& game = ctx.pb->GetGame();
             const Player& bot_player = game.GetPlayer();
-            const BallData& ball = game.GetBallData();
+            const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
 
             if (!target.active) return false;
             if (target.id == game.GetPlayer().id) return false;
             if (target.ship > 7) return false;
 
-            if (ball.held && ball.last_holder_id == game.GetPlayer().id) {
+            if (ball && ball->held && ball->last_holder_id == game.GetPlayer().id) {
                 if (target.frequency != game.GetPlayer().frequency) return false;
             }
             else {
@@ -565,9 +593,9 @@ namespace marvin {
             std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
             Vector2f bot = game.GetPosition();
 
-            const BallData& ball = game.GetBallData();
+            const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
 
-            if (ball.held && ball.last_holder_id == game.GetPlayer().id) {
+            if (ball && ball->held && ball->last_holder_id == game.GetPlayer().id) {
 
                 path = ctx.pb->GetPathfinder().CreatePath(path, bot, ctx.pb->GetPowerBallGoalPath(), game.GetShipSettings().GetRadius());
 
@@ -596,9 +624,13 @@ namespace marvin {
             Vector2f from = game.GetPosition();
             std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
      
-            BallData ball = game.GetBallData();
+            const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
+
+            if (!ball) {
+                return behavior::ExecuteResult::Failure;
+            }
             
-            path = ctx.pb->GetPathfinder().CreatePath(path, from, ball.position, game.GetShipSettings().GetRadius());
+            path = ctx.pb->GetPathfinder().CreatePath(path, from, ball->position, game.GetShipSettings().GetRadius());
 
             ctx.blackboard.Set("path", path);
 
@@ -671,13 +703,13 @@ namespace marvin {
 
         behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
             behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
-            auto target = selector_(ctx);
+            const auto target = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
             auto& game = ctx.pb->GetGame();
 
             float ball_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].SoccerBallSpeed / 10.0f / 16.0f;
 
-            const BallData& ball = game.GetBallData();
+          //  const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
 
             int64_t ball_timer = ctx.blackboard.ValueOr<int64_t>("BallTimer", 7750);
 
@@ -688,7 +720,7 @@ namespace marvin {
 
             if (!target) return behavior::ExecuteResult::Failure;
 
-            auto to_target = *target - game.GetPosition();
+            auto to_target = target->position - game.GetPosition();
             CastResult ray_cast = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
 
             if (!ray_cast.hit) {

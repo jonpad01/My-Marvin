@@ -172,36 +172,36 @@ void ContinuumGameProxy::FetchPlayers() {
 
 void ContinuumGameProxy::FetchBallData() {
 
-    balldata_;
-    balls_;
+    balls_.clear();
 
     for (size_t i = 0; ; ++i) {
         u32 ball_ptr = *(u32*)(game_addr_ + 0x2F3C8 + i * 4);
 
-
         if (ball_ptr == 0) break;
 
-        balldata_.inactive_timer = *(u32*)(ball_ptr + 0x38);
-        balldata_.held = *(u32*)(ball_ptr + 0x34) == 0;
+        BallData balldata;
 
-        balldata_.last_holder_id = *(u16*)(ball_ptr + 0x32);
+        balldata.inactive_timer = *(u32*)(ball_ptr + 0x38);
+        balldata.held = *(u32*)(ball_ptr + 0x34) == 0;
 
-        balldata_.position.x = *(u32*)(ball_ptr + 0x04) / 1000.0f / 16.0f;
-        balldata_.position.y = *(u32*)(ball_ptr + 0x08) / 1000.0f / 16.0f;
+        balldata.last_holder_id = *(u16*)(ball_ptr + 0x32);
 
-        balldata_.velocity.x = *(i32*)(ball_ptr + 0x10) / 10.0f / 16.0f;
-        balldata_.velocity.y = *(i32*)(ball_ptr + 0x14) / 10.0f / 16.0f;
+        balldata.position.x = *(u32*)(ball_ptr + 0x04) / 1000.0f / 16.0f;
+        balldata.position.y = *(u32*)(ball_ptr + 0x08) / 1000.0f / 16.0f;
 
-        balldata_.last_activity.x = *(u16*)(ball_ptr + 0x2A) / 1000.0f / 16.0f;
-        balldata_.last_activity.y = *(u16*)(ball_ptr + 0x2C) / 1000.0f / 16.0f;
+        balldata.velocity.x = *(i32*)(ball_ptr + 0x10) / 10.0f / 16.0f;
+        balldata.velocity.y = *(i32*)(ball_ptr + 0x14) / 10.0f / 16.0f;
+
+        balldata.last_activity.x = *(u16*)(ball_ptr + 0x2A) / 1000.0f / 16.0f;
+        balldata.last_activity.y = *(u16*)(ball_ptr + 0x2C) / 1000.0f / 16.0f;
 
         //if (data.position.x == 0 && data.position.y == 0) continue;
-        balls_.push_back(balldata_);
+        balls_.emplace_back(balldata);
     }
 }
 
-const BallData& ContinuumGameProxy::GetBallData() const {
-    return balldata_;
+const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
+    return balls_;
 }
 
 std::vector<Weapon*> ContinuumGameProxy::GetWeapons() {

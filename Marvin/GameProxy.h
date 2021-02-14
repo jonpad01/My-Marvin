@@ -54,7 +54,7 @@ class GameProxy {
   virtual const uint32_t GetSelectedPlayerIndex() const = 0;
   virtual const Player* GetPlayerById(u16 id) const = 0;
   virtual std::vector<Weapon*> GetWeapons() = 0;
-  virtual const BallData& GetBallData() const = 0;
+  virtual const std::vector<BallData>& GetBalls() const = 0;
   virtual void SetWindowFocus() = 0;
   
 

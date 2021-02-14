@@ -77,12 +77,21 @@ namespace marvin {
 
 
         namespace pb {
+
+            class BallSelectorNode : public behavior::BehaviorNode {
+            public:
+                behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+            private:
+       
+            };
+
         class FreqWarpAttachNode : public behavior::BehaviorNode {
         public:
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
         private:
             bool CheckStatus(behavior::ExecuteContext& ctx);
         };
+
 
         class FindEnemyNode : public behavior::BehaviorNode {//: public PathingNode {
         public:
@@ -120,12 +129,10 @@ namespace marvin {
 
         class InLineOfSightNode : public behavior::BehaviorNode {
         public:
-            using VectorSelector = std::function<const Vector2f* (marvin::behavior::ExecuteContext&)>;
-            InLineOfSightNode(VectorSelector selector) : selector_(selector) {}
-
+ 
             behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
         private:
-            VectorSelector selector_;
+
         };
 
 
