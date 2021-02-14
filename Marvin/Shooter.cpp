@@ -65,9 +65,9 @@ namespace marvin {
         Vector2f center = GetWindowCenter();
         float wall_debug_y = 0.0f;
 
-        uint8_t bounces = 10;
+        int bounces = 10;
 
-        float proj_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
+        float proj_speed = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
         float alive_time = (float)game.GetSettings().BulletAliveTime;
 
         std::vector<Vector2f> pos_adjust;
@@ -98,14 +98,18 @@ namespace marvin {
 
             //when the last shot is reached change to bomb settings, if bomb bounce is 0 this is skipped
             if (i == (pos_adjust.size() - 1)) {
-                bounces = game.GetSettings().ShipSettings[game.GetPlayer().ship].BombBounceCount;
-                proj_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
+                bounces = (int)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombBounceCount;
+                proj_speed = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
                 alive_time = (float)game.GetSettings().BombAliveTime;
             }
 
+            //dont divide by 0, probably doesnt happen
+            if (proj_speed == 0.0f) { return false; }
+            
 
             float travel = (proj_speed + (game.GetPlayer().velocity * game.GetPlayer().GetHeading())) * (alive_time / 100.0f);
             Vector2f sDirection = Normalize((direction * proj_speed) + game.GetPlayer().velocity);
+            //Vector2f sDirection = direction;
             Vector2f velocity = game.GetPlayer().velocity;
 
             for (int j = 0; j < bounces + 1; ++j) {

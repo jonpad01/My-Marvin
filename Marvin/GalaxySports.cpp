@@ -16,7 +16,7 @@
 
 namespace marvin {
 
-    GalaxySports::GalaxySports(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_), common_(*game_), keys_(common_.GetTime()) {
+    GalaxySports::GalaxySports(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), keys_(time_.GetTime()), steering_(*game_, keys_) {
 
         auto processor = std::make_unique<path::NodeProcessor>(*game_);
 
@@ -87,32 +87,30 @@ namespace marvin {
 
         behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
         ctx_.gs = this;
-        ctx_.com = &common_;
-
     }
 
     void GalaxySports::Update(float dt) {
         keys_.ReleaseAll();
         game_->Update(dt);
 
-        uint64_t timestamp = common_.GetTime();
+        uint64_t timestamp = time_.GetTime();
         uint64_t ship_cooldown = 10000;
 
         //check chat for disconected message and terminate continuum
         std::string name = game_->GetName();
         std::string disconnected = "WARNING: ";
 
-        std::vector<std::string> chat = game_->GetChat(0);
+        Chat chat = game_->GetChat();
 
-        for (std::size_t i = 0; i < chat.size(); i++) {
-            if (chat[i].compare(0, 9, disconnected) == 0) {
+        if (chat.type == 0) {
+            if (chat.message.compare(0, 9, disconnected) == 0) {
                 exit(5);
             }
         }
 
         //then check if specced for lag
         if (game_->GetPlayer().ship > 7) {
-            uint64_t timestamp = common_.GetTime();
+            uint64_t timestamp = time_.GetTime();
             if (timestamp - last_ship_change_ > ship_cooldown) {
                 if (game_->SetShip(ship_)) {
                     last_ship_change_ = timestamp;
@@ -196,8 +194,8 @@ namespace marvin {
             //dont press shift if the bot is trying to shoot
             bool shooting = keys_.IsPressed(VK_CONTROL) || keys_.IsPressed(VK_TAB);
 
-            if (behind) { keys_.Press(VK_DOWN, common_.GetTime(), 30); }
-            else { keys_.Press(VK_UP, common_.GetTime(), 30); }
+            if (behind) { keys_.Press(VK_DOWN); }
+            else { keys_.Press(VK_UP); }
 
             if (strong_force && !shooting) {
                 keys_.Press(VK_SHIFT);
@@ -296,7 +294,7 @@ namespace marvin {
         behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
             auto& game = ctx.gs->GetGame();
             
-            uint64_t time = ctx.com->GetTime();
+            uint64_t time = ctx.gs->GetTime().GetTime();
 
             bool in_warp = ctx.gs->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(7, 7));
             
@@ -708,9 +706,9 @@ namespace marvin {
 
         behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
-            const Player& target_player = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+        
 
-            ctx.gs->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 50);
+            ctx.gs->GetKeys().Press(VK_CONTROL);
 
             return behavior::ExecuteResult::Success;
         }

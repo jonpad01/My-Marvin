@@ -21,6 +21,14 @@ public:
     virtual u16 GetType() const = 0;
 };
 
+struct Chat {
+    Chat() : message(""), player(""), type(0), count(0) {}
+    std::string message;
+    std::string player;
+    int type;
+    std::size_t count;
+};
+
 
 class GameProxy {
  public:
@@ -29,7 +37,7 @@ class GameProxy {
   virtual void Update(float dt) = 0;
 
   virtual std::string GetName() const = 0;
-  virtual std::vector<std::string> GetChat(int type) const = 0;
+  virtual Chat GetChat() const = 0;
   virtual int GetEnergy() const = 0;
   virtual Vector2f GetPosition() const = 0;
   virtual const std::vector<Player>& GetPlayers() const = 0;
@@ -71,7 +79,7 @@ class GameProxy {
   virtual void Burst(KeyController& keys) = 0;
   virtual void Repel(KeyController& keys) = 0;
   virtual void F7() = 0;
-  virtual void SetSelectedPlayer(const Player& target) = 0;
+  virtual void SetSelectedPlayer(uint16_t id) = 0;
   
 };
 

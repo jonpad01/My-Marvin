@@ -169,6 +169,7 @@
     <ClCompile Include="RegionRegistry.cpp" />
     <ClCompile Include="Shooter.cpp" />
     <ClCompile Include="Steering.cpp" />
+    <ClCompile Include="Time.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="behavior\BehaviorEngine.h" />
@@ -200,6 +201,7 @@
     <ClInclude Include="RegionRegistry.h" />
     <ClInclude Include="Shooter.h" />
     <ClInclude Include="Steering.h" />
+    <ClInclude Include="Time.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="Vector2f.h" />
   </ItemGroup>

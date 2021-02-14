@@ -9,6 +9,7 @@
 #include "behavior/BehaviorEngine.h"
 #include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Time.h"
 
 
 namespace marvin {
@@ -24,15 +25,13 @@ namespace marvin {
         Devastation(std::unique_ptr<GameProxy> game);
 
         void Update(float dt);
+        void Move(const Vector2f& target, float target_distance);
 
         KeyController& GetKeys() { return keys_; }
         GameProxy& GetGame() { return *game_; }
-
-        void Move(const Vector2f& target, float target_distance);
+        Time& GetTime() { return time_; }  
         path::Pathfinder& GetPathfinder() { return *pathfinder_; }
-
         const RegionRegistry& GetRegions() const { return *regions_; }
-
         SteeringBehavior& GetSteering() { return steering_; }
 
 
@@ -44,49 +43,42 @@ namespace marvin {
             behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior);
         }
 
-       
+        Vector2f GetTeamSafe() { return team_safe; }
+        Vector2f GetEnemySafe() { return enemy_safe; }
+        std::vector<Vector2f> GetBasePath() { return base_paths[base_index_]; }
         std::vector<uint16_t> GetFreqList() { return freq_list; }
         std::vector<Player>& GetDevaTeam() { return team; }
         std::vector<Player>& GetDevaEnemyTeam() { return enemy_team; }
         std::vector<Player>& GetDevaDuelers() { return duelers; }
+
+        bool EnemyInBase() { return enemy_in_base_; }
+        bool TeamInBase() { return team_in_base_; }
         bool LastBotStanding() { return last_bot_standing; }
         bool InCenter() { return in_center_; }
-        Vector2f GetTeamSafe() { return team_safe; }
-        Vector2f GetEnemySafe() { return enemy_safe; }
-        std::vector<Vector2f> GetBasePath() { return base_paths[base_index_]; }
-
-
-
+        
+        uint64_t GetUniqueTimer();
 
         void LookForWallShot(Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time, uint8_t bounces);
-     
-        Vector2f GetWallShot() { return wall_shot; }
-        bool HasWallShot() { return has_wall_shot; }
-
 
     private:
-        void Steer();
 
         void CreateBasePaths();
         void SortPlayers();
         void SetRegion();
 
-        int ship_;
-        uint64_t last_ship_change_;
-
         bool in_center_;
         std::size_t base_index_;
-        Vector2f current_base_;
 
         std::vector<uint16_t> freq_list;
-        Vector2f wall_shot;
-        bool has_wall_shot;
+
         Vector2f enemy_node;
         Vector2f bot_node;
      
         Vector2f team_safe;
         Vector2f enemy_safe;
         bool last_bot_standing;
+        bool team_in_base_;
+        bool enemy_in_base_;
    
         //these must be cleared before use as they are never deconstructed
         std::vector<Player> team;
@@ -103,10 +95,9 @@ namespace marvin {
         std::vector<std::unique_ptr<behavior::BehaviorNode>> behavior_nodes_;
         behavior::ExecuteContext ctx_;   
 
-        Common common_;
         KeyController keys_;
         SteeringBehavior steering_;
-        
+        Time time_;       
     };
 
 
@@ -135,23 +126,54 @@ namespace marvin {
                                                   Vector2f(775, 983), Vector2f(948, 983), Vector2f(1012, 494) };
                                                   
         
-
+       const std::vector<std::string> bot_names{ "LilMarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1", "Marv2", "Marv3", "Marv4", "Marv5", "Marv6", "Marv7", "Marv8" };
        
 
+
+
+       class CommandNode : public behavior::BehaviorNode {
+       public:
+           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+       private:
+
+       };
+
+       class SetShipNode : public behavior::BehaviorNode {
+       public:
+           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+       private:
+
+       };
+
+       class SetFreqNode : public behavior::BehaviorNode {
+       public:
+           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+       private:
    
+       };
 
-        class FreqWarpAttachNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        private:
-            bool CheckStatus(behavior::ExecuteContext& ctx);
-            void SetAttachTarget(behavior::ExecuteContext& ctx);
-            bool TeamInBase(behavior::ExecuteContext& ctx);
-            bool EnemyInBase(behavior::ExecuteContext& ctx);
+       class WarpNode : public behavior::BehaviorNode {
+       public:
+           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+       private:
 
-            const Player* lag_attach_target;
-            const Player* attach_target;
-        };
+       };
+
+       class AttachNode : public behavior::BehaviorNode {
+       public:
+           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+       private:
+           void SetAttachTarget(behavior::ExecuteContext& ctx);
+           const Player* lag_attach_target;
+           const Player* attach_target;
+       };
+
+       class ToggleStatusNode : public behavior::BehaviorNode {
+       public:
+           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+       private:
+
+       };
 
         class FindEnemyNode : public behavior::BehaviorNode {//: public PathingNode {
         public:

@@ -1,11 +1,12 @@
 #include "Steering.h"
 
+#include "platform/platform.h"
+
 #include <algorithm>
 #include <cmath>
 
-//#include "Bot.h"
-//#include "Devastation.h"
 #include "Player.h"
+
 
 namespace marvin {
 
@@ -25,7 +26,7 @@ namespace marvin {
     }
 
 
-SteeringBehavior::SteeringBehavior(GameProxy& game) : game_(game), rotation_(0.0f) {}
+SteeringBehavior::SteeringBehavior(GameProxy& game, KeyController& keys) : game_(game), keys_(keys), rotation_(0.0f) {}
 
 Vector2f SteeringBehavior::GetSteering() { return force_; }
 
@@ -115,6 +116,73 @@ void SteeringBehavior::Face(Vector2f target) {
       std::atan2(heading.y, heading.x) - std::atan2(to_target.y, to_target.x);
 
   rotation_ += WrapToPi(rotation);
+}
+
+
+void SteeringBehavior::Steer() {
+
+    Vector2f force = GetSteering();
+    float rotation = GetRotation();
+    //bool afterburners = GetAfterburnerState();
+
+    Vector2f heading = game_.GetPlayer().GetHeading();
+    // Start out by trying to move in the direction that the bot is facing.
+    Vector2f steering_direction = heading;
+
+    bool has_force = force.LengthSq() > 0.0f;
+
+    // If the steering system calculated any movement force, then set the movement
+    // direction to it.
+    if (has_force) {
+        steering_direction = marvin::Normalize(force);
+    }
+
+    // Rotate toward the movement direction.
+    Vector2f rotate_target = steering_direction;
+
+    // If the steering system calculated any rotation then rotate from the heading
+    // to desired orientation.
+    if (rotation != 0.0f) {
+        rotate_target = Rotate(heading, -rotation);
+    }
+
+    if (!has_force) {
+        steering_direction = rotate_target;
+    }
+    Vector2f perp = marvin::Perpendicular(heading);
+    bool behind = force.Dot(heading) < 0;
+    // This is whether or not the steering direction is pointing to the left of
+    // the ship.
+    bool leftside = steering_direction.Dot(perp) < 0;
+
+    // Cap the steering direction so it's pointing toward the rotate target.
+    if (steering_direction.Dot(rotate_target) < 0.75) {
+
+        float rotation = 0.1f;
+        int sign = leftside ? 1 : -1;
+        if (behind) sign *= -1;
+
+        // Pick the side of the rotate target that is closest to the force
+        // direction.
+        steering_direction = Rotate(rotate_target, rotation * sign);
+
+        leftside = steering_direction.Dot(perp) < 0;
+    }
+
+    bool clockwise = !leftside;
+
+    if (has_force) {
+        if (behind) { keys_.Press(VK_DOWN); }
+        else { keys_.Press(VK_UP); }
+    }
+
+    //above 0.996 and bot is constantly correcting creating a wobble
+    if (heading.Dot(steering_direction) < 0.996f) {  //1.0f
+
+        //ensure that only one arrow key is pressed at any given time
+        keys_.Set(VK_RIGHT, clockwise);
+        keys_.Set(VK_LEFT, !clockwise);
+    }
 }
 
 //void SteeringBehavior::AvoidWalls() { auto& game = bot_->GetGame(); }

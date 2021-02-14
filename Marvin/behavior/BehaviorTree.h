@@ -9,7 +9,6 @@
 
 namespace marvin {
 
-    class Common;
     class Bot;
     class Devastation;
     class ExtremeGames;
@@ -24,7 +23,7 @@ namespace marvin {
 
         struct ExecuteContext {
             Blackboard blackboard;
-            Common* com;
+ 
             Bot* bot;
             Devastation* deva;
             ExtremeGames* eg;
@@ -33,7 +32,7 @@ namespace marvin {
             Hyperspace* hs;
             PowerBall* pb;
             float dt;
-            ExecuteContext() : com(nullptr), bot(nullptr), deva(nullptr), eg(nullptr), gs(nullptr), hz(nullptr), hs(nullptr), pb(nullptr), dt(0) {}
+            ExecuteContext() : bot(nullptr), deva(nullptr), eg(nullptr), gs(nullptr), hz(nullptr), hs(nullptr), pb(nullptr), dt(0) {}
         };
 
         class BehaviorNode {

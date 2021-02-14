@@ -13,6 +13,8 @@ namespace marvin {
 
         std::size_t index1 = 0;
         std::size_t index2 = 0;
+        std::size_t start = 0;
+        std::size_t end = 0;
         float distance1;
         float distance2;
         
@@ -21,9 +23,21 @@ namespace marvin {
         if (!FindPathIndex(path, pos1, &index1, &distance1)) { return false; }
         if (!FindPathIndex(path, pos2, &index2, &distance2)) { return false; }
 
-        float path_distance = distance1 + distance2;      
+        float path_distance = distance1 + distance2;    
 
-        for (std::size_t i = std::min(index1, index2); i < (std::max(index1, index2) - 1); i++) {
+        if (index1 == index2) {
+            if (distance) *distance = path_distance;
+        }
+        else if (index1 < index2) {
+            start = index1;
+            end = index2;
+        }
+        else {
+            start = index2;
+            end = index1;
+        }
+
+        for (std::size_t i = start; i < end; i++) {
             path_distance += path[i].Distance(path[i + 1]);
         }
         if (distance) *distance = path_distance;

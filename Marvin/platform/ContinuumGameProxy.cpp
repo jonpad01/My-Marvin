@@ -342,7 +342,12 @@ bool ContinuumGameProxy::SetShip(int ship) {
   if (!menu_open) {
     SendKey(VK_ESCAPE);
   } else {
-    SendMessageW(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
+      if (ship == 8) {
+          SendMessageW(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
+      }
+      else {
+          SendMessageW(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
+      }
   }
 
   return menu_open;
@@ -459,28 +464,47 @@ void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
     input[0] = 0;
 }
 
-std::vector<std::string> ContinuumGameProxy::GetChat(int type) const {
+Chat ContinuumGameProxy::GetChat() const {
 
+    struct ChatEntry {
+        char message[256];
+        char player[24];
+        char unknown[8];
+        unsigned char type;
+        char unknown2[3];
+    };
+    //std::vector<std::string> lines;
     u32 chat_base_addr = game_addr_ + 0x2DD08;
 
     ChatEntry* chat_ptr = *(ChatEntry**)(chat_base_addr);
     u32 entry_count = *(u32*)(chat_base_addr + 8);
 
-    //read the last 6 lines, starting with the most recent, if any match the type return that line
-    std::vector<std::string> lines;
-    for (std::size_t i = 1; i < 2; i++) {
-        ChatEntry* current = chat_ptr + (entry_count - i);
-        if (current->type == type) {
-            lines.push_back(current->message);
-        }
-    }
+   // RenderText("entry count  " + std::to_string(entry_count), GetWindowCenter() - Vector2f(0, 20), RGB(100, 100, 100), RenderText_Centered);
+
+    Chat chat;
+
+    if (entry_count == 0) { return chat; }
+
+    ChatEntry entry = *(chat_ptr + (entry_count - 1));
+
+    chat.message = entry.message;
+    chat.player = entry.player;
+    chat.type = entry.type;
+    chat.count = entry_count;
+    
+   // for (std::size_t i = 1; i < 2; i++) {
+       
+      //  if (current->type == type) {
+       //     lines.push_back(current->message);
+     //   }
+   // }
     /*  Arena = 0,
         Public = 2,
         Private = 5,
         Channel = 9 */
     //if no lines match just return the most recent
     //ChatEntry* current = chat_ptr + (entry_count - 1);
-    return lines;
+    return chat;
 }
 
 int64_t ContinuumGameProxy::TickerPosition() {
@@ -503,12 +527,12 @@ const uint32_t ContinuumGameProxy::GetSelectedPlayerIndex() const {
     return selected_index;
 }
 
-void ContinuumGameProxy::SetSelectedPlayer(const Player& target) {
+void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
 
     for (std::size_t i = 0; i < players_.size(); ++i) {
         const Player& player = players_[i];
 
-        if (player.id == target.id) {
+        if (player.id == id) {
             *(u32*)(game_addr_ + 0x2DED0) = i;
             return;
         }

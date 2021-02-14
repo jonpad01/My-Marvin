@@ -9,6 +9,7 @@
 #include "behavior/BehaviorEngine.h"
 #include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Time.h"
 
 namespace marvin {
    
@@ -26,6 +27,7 @@ namespace marvin {
 
         KeyController& GetKeys() { return keys_; }
         GameProxy& GetGame() { return *game_; }
+        Time& GetTime() { return time_; }
 
         void Move(const Vector2f& target, float target_distance);
 
@@ -85,10 +87,9 @@ namespace marvin {
         std::vector<std::unique_ptr<behavior::BehaviorNode>> behavior_nodes_;
         behavior::ExecuteContext ctx_;
 
-        Common common_;
         KeyController keys_;
         SteeringBehavior steering_;
-
+        Time time_;
 
     };
 

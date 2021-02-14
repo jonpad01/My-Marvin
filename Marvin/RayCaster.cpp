@@ -26,6 +26,9 @@ bool LineBoxIntersect(Vector2f point, Vector2f direction, Vector2f box_pos, Vect
 
 bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist, Vector2f* norm) {
 
+    if (direction.x == 0.0f) { direction.x = 0.00001f; }
+    if (direction.y == 0.0f) { direction.y = 0.00001f;  }
+
   Vector2f recip(1.0f / direction.x, 1.0f / direction.y);
   Vector2f lb = box_pos + Vector2f(0, box_extent.y);
   Vector2f rt = box_pos + Vector2f(box_extent.x, 0);
@@ -76,9 +79,13 @@ bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vect
 
 CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_length) {
 
+    CastResult result;
+
+    if (isinf(max_length) || isnan(max_length)) { return result; }
+
   static const Vector2f kDirections[] = { Vector2f(0, 0), Vector2f(1, 0), Vector2f(-1, 0), Vector2f(0, 1), Vector2f(0, -1), Vector2f(-1, -1), Vector2f(-1, 1), Vector2f(1, -1), Vector2f(1, 1) };
 
-  CastResult result = { 0 };
+  
   float closest_distance = std::numeric_limits<float>::max();
   Vector2f closest_normal;
 
@@ -99,7 +106,7 @@ CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_
 
       //wall tiles are checked and returns distance + norm
       if (RayBoxIntersect(from, direction, check, Vector2f(1, 1), &dist, &normal)) {
-        if (dist < closest_distance && dist >= 0) {
+        if (dist < closest_distance && dist >= 0.0f) {
           closest_distance = dist;
           closest_normal = normal;
         }

@@ -11,6 +11,7 @@
 #include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
 #include "common.h"
+#include "Time.h"
 
 
 
@@ -32,6 +33,7 @@ public:
 
   KeyController& GetKeys() { return keys_; }
   GameProxy& GetGame() { return *game_; }
+  Time& GetTime() { return time_; }
 
   void Move(const Vector2f& target, float target_distance);
 
@@ -67,7 +69,8 @@ public:
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;
-  Common common_;
+  Time time_;
+
 };
 
 

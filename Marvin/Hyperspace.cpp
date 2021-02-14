@@ -17,7 +17,7 @@
 namespace marvin {
 
 
-    Hyperspace::Hyperspace(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_), common_(*game_), keys_(common_.GetTime()) {
+    Hyperspace::Hyperspace(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), keys_(time_.GetTime()), steering_(*game_, keys_) {
 
         auto processor = std::make_unique<path::NodeProcessor>(*game_);
 
@@ -108,31 +108,30 @@ namespace marvin {
 
         behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
         ctx_.hs = this;
-        ctx_.com = &common_;
     }
 
     void Hyperspace::Update(float dt) {
         keys_.ReleaseAll();
         game_->Update(dt);
 
-        uint64_t timestamp = common_.GetTime();
+        uint64_t timestamp = time_.GetTime();
         uint64_t ship_cooldown = 10000;
 
         //check chat for disconected message and terminate continuum
         std::string name = game_->GetName();
         std::string disconnected = "WARNING: ";
 
-        std::vector<std::string> chat = game_->GetChat(0);
+        Chat chat = game_->GetChat();
 
-        for (std::size_t i = 0; i < chat.size(); i++) {
-            if (chat[i].compare(0, 9, disconnected) == 0) {
+        if (chat.type == 0) {
+            if (chat.message.compare(0, 9, disconnected) == 0) {
                 exit(5);
             }
         }
 
         //then check if specced for lag
         if (game_->GetPlayer().ship > 7) {
-            uint64_t timestamp = common_.GetTime();
+            uint64_t timestamp = time_.GetTime();
             if (timestamp - last_ship_change_ > ship_cooldown) {
                 if (game_->SetShip(ship_)) {
                     last_ship_change_ = timestamp;
@@ -216,8 +215,8 @@ namespace marvin {
             //dont press shift if the bot is trying to shoot
             bool shooting = keys_.IsPressed(VK_CONTROL) || keys_.IsPressed(VK_TAB);
 
-            if (behind) { keys_.Press(VK_DOWN, common_.GetTime(), 30); }
-            else { keys_.Press(VK_UP, common_.GetTime(), 30); }
+            if (behind) { keys_.Press(VK_DOWN); }
+            else { keys_.Press(VK_UP); }
 
             if (strong_force && !shooting) {
                 keys_.Press(VK_SHIFT);
@@ -300,7 +299,7 @@ namespace marvin {
     }
 
     int Hyperspace::BaseSelector() {
-        uint64_t timestamp = common_.GetTime();
+        uint64_t timestamp = time_.GetTime();
         bool base_cooldown = timestamp - last_base_change_ > 200000;
         int base = ctx_.blackboard.ValueOr<int>("base", 5);
         if (base_cooldown) {
@@ -433,7 +432,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
             bool respawned = in_safe && in_center && energy_pct == 100.0f;
             
-            uint64_t time = ctx.com->GetTime();
+            uint64_t time = ctx.hs->GetTime().GetTime();
             uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
             uint64_t flash_check = ctx.blackboard.ValueOr<uint64_t>("FlashCoolDown", 0);
             bool no_spam = time > spam_check;
@@ -501,7 +500,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 
                 //leave a flag team by spectating, will reenter ship on the next update
                 if (flaggers.flaggers > 16 && flagging && !in_lanc && respawned && no_spam) {
-                    int freq = ctx.com->FindOpenFreq(ctx.hs->GetFreqList(), 0);
+                    std::size_t freq = FindOpenFreq(ctx.hs->GetFreqList(), 0);
                     if (ctx.hs->CheckStatus()) game.SetFreq(freq);// game.Spec();
                     ctx.blackboard.Set("SpamCheck", time + 200);
                 }
@@ -1079,10 +1078,10 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                     if (BounceShot(game, target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
                         if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
                             if (bomb_hit) {
-                                ctx.hs->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 30);
+                                ctx.hs->GetKeys().Press(VK_TAB);
                             }
                             else {
-                                ctx.hs->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 30);
+                                ctx.hs->GetKeys().Press(VK_CONTROL);
                             }
                         }
                     }
@@ -1177,7 +1176,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             const Player& target = *target_player; auto& game = ctx.hs->GetGame();
            
 
-            uint64_t time = ctx.com->GetTime();
+            uint64_t time = ctx.hs->GetTime().GetTime();
             uint64_t gun_delay = 3;
             uint64_t gun_expire = ctx.blackboard.ValueOr<uint64_t>("GunExpire", 0);
             bool gun_trigger = ctx.blackboard.ValueOr<int>("GunTrigger", 0);
@@ -1212,7 +1211,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             }
 
             if (time > bomb_expire && distance > fire_distance) {
-                ctx.hs->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 50);
+                ctx.hs->GetKeys().Press(VK_TAB);
                 //int chat_ = ctx.bot->GetGame().GetSelected();
                 //std::string chat = std::to_string(chat_);
                 //std::string chat = ctx.bot->GetGame().TickName();
@@ -1220,7 +1219,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
                 ctx.blackboard.Set("BombCooldownExpire", time + bomb_delay);
             }
             else {
-                ctx.hs->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 50);
+                ctx.hs->GetKeys().Press(VK_CONTROL);
                 ctx.blackboard.Set("GunExpire", time + gun_delay);
             }
 
@@ -1236,7 +1235,7 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             const uint64_t duration = 1500;
 
             uint64_t bundle_expire = ctx.blackboard.ValueOr<uint64_t>("BundleCooldownExpire", 0);
-            uint64_t current_time = ctx.com->GetTime();
+            uint64_t current_time = ctx.hs->GetTime().GetTime();
 
             if (current_time < bundle_expire) return behavior::ExecuteResult::Failure;
 
@@ -1269,8 +1268,8 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
             ctx.hs->Move(target.position, 0.0f);
             ctx.hs->GetSteering().Face(target.position);
 
-            ctx.hs->GetKeys().Press(VK_UP, ctx.com->GetTime(), 50);
-            ctx.hs->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 50);
+            ctx.hs->GetKeys().Press(VK_UP);
+            ctx.hs->GetKeys().Press(VK_CONTROL);
 
             return behavior::ExecuteResult::Running;
         }

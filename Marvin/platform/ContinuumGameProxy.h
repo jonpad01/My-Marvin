@@ -50,13 +50,7 @@ namespace marvin {
         WeaponData* weapon_;
     };
 
-    struct ChatEntry {
-        char message[256];
-        char player[24];
-        char unknown[8];
-        unsigned char type;
-        char unknown2[3];
-    };
+
     
 class ContinuumGameProxy : public GameProxy {
  public:
@@ -66,7 +60,7 @@ class ContinuumGameProxy : public GameProxy {
   void Update(float dt) override;
 
   std::string GetName() const override;
-  std::vector<std::string> GetChat(int type) const override;
+  Chat GetChat() const override;
   int GetEnergy() const override;
   Vector2f GetPosition() const override;
   const std::vector<Player>& GetPlayers() const override;
@@ -105,7 +99,7 @@ class ContinuumGameProxy : public GameProxy {
   void Repel(KeyController& keys) override;
   void F7() override;
   void SendChatMessage(const std::string& mesg) const override;
-  void SetSelectedPlayer(const Player& target) override;
+  void SetSelectedPlayer(uint16_t id) override;
  
   
 

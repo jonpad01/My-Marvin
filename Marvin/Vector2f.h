@@ -7,6 +7,7 @@
 
 namespace marvin {
 
+
 class Vector2f {
  public:
   union {
@@ -174,6 +175,17 @@ inline float WrapMinMax(float x, float min, float max) {
 
 inline float WrapToPi(float rads) {
     return WrapMinMax(rads, -3.14159f, 3.14159f);
+}
+
+//the viewing area the bot could see if it were a player
+inline bool InRect(Vector2f pos, Vector2f min_rect, Vector2f max_rect) {
+    return ((pos.x >= min_rect.x && pos.y >= min_rect.y) &&
+        (pos.x <= max_rect.x && pos.y <= max_rect.y));
+}
+
+//probably checks if the target is dead
+inline bool IsValidPosition(Vector2f position) {
+    return position.x >= 0 && position.x < 1024 && position.y >= 0 && position.y < 1024;
 }
 
 }  // namespace marvin

@@ -9,7 +9,7 @@ struct Player;
 
 class SteeringBehavior {
  public:
-  SteeringBehavior(GameProxy& game);
+  SteeringBehavior(GameProxy& game, KeyController& keys);
 
   Vector2f GetSteering();
   float GetRotation();
@@ -23,11 +23,16 @@ class SteeringBehavior {
   void Stop(Vector2f target);
   void Pursue(const Player& enemy);
   void Face(Vector2f target);
+
+  void Steer();
+
   //void AvoidWalls();
 
  private:
-  //std::shared_ptr<GameProxy> game_;
+
   GameProxy& game_;
+  KeyController& keys_;
+
   Vector2f force_;
   float rotation_; 
 };

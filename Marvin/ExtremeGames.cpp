@@ -17,7 +17,7 @@ namespace marvin {
 
 
 
-    ExtremeGames::ExtremeGames(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_), common_(*game_), keys_(common_.GetTime()) {
+    ExtremeGames::ExtremeGames(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), keys_(time_.GetTime()), steering_(*game_, keys_) {
 
         auto processor = std::make_unique<path::NodeProcessor>(*game_);
 
@@ -84,7 +84,6 @@ namespace marvin {
 
         behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
         ctx_.eg = this;
-        ctx_.com = &common_;
     }
 
 
@@ -92,7 +91,7 @@ namespace marvin {
         keys_.ReleaseAll();
         game_->Update(dt);
 
-        uint64_t timestamp = common_.GetTime();
+        uint64_t timestamp = time_.GetTime();
         uint64_t ship_cooldown = 10000;
 
         //check chat for disconected message or spec message in eg and terminate continuum
@@ -101,17 +100,18 @@ namespace marvin {
         std::string eg_specced = "[ " + name + " ]";
         std::size_t len = 4 + name.size();
 
-        std::vector<std::string> chat = game_->GetChat(0);
+        Chat chat = game_->GetChat();
 
-        for (std::size_t i = 0; i < chat.size(); i++) {
-            if (chat[i].compare(0, 9, disconnected) == 0 || chat[i].compare(0, len, eg_specced) == 0) {
+        if (chat.type == 0) {
+            if (chat.message.compare(0, 9, disconnected) == 0 || chat.message.compare(0, len, eg_specced) == 0) {
                 exit(5);
             }
         }
 
+
         //then check if specced for lag
         if (game_->GetPlayer().ship > 7) {
-            uint64_t timestamp = common_.GetTime();
+            uint64_t timestamp = time_.GetTime();
             if (timestamp - last_ship_change_ > ship_cooldown) {
                 if (game_->SetShip(ship_)) {
                     last_ship_change_ = timestamp;
@@ -191,8 +191,8 @@ namespace marvin {
             //dont press shift if the bot is trying to shoot
             bool shooting = keys_.IsPressed(VK_CONTROL) || keys_.IsPressed(VK_TAB);
 
-            if (behind) { keys_.Press(VK_DOWN, common_.GetTime(), 30); }
-            else { keys_.Press(VK_UP, common_.GetTime(), 30); }
+            if (behind) { keys_.Press(VK_DOWN); }
+            else { keys_.Press(VK_UP); }
 
             if (strong_force && !shooting) {
                 keys_.Press(VK_SHIFT);
@@ -233,7 +233,7 @@ namespace marvin {
             auto& game = ctx.eg->GetGame();
             
             bool in_center = ctx.eg->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
-            uint64_t time = ctx.com->GetTime();
+            uint64_t time = ctx.eg->GetTime().GetTime();
             uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
             uint64_t f7_check = ctx.blackboard.ValueOr<uint64_t>("F7SpamCheck", 0);
             uint64_t chat_check = ctx.blackboard.ValueOr<uint64_t>("ChatWait", 0);
@@ -259,28 +259,28 @@ namespace marvin {
             }
 
             //read private messages for !p and send the same message to join a duel team
-            std::vector<std::string> chat = game.GetChat(5);
-
-                for (std::size_t i = 0; i < chat.size(); i++) {
-                    if (chat[i] == "!p" && no_p) {
+            //std::vector<std::string> chat = game.GetChat(5);
+            Chat chat = game.GetChat();
+ 
+                    if (chat.message == "!p" && no_p) {
                         game.P();
                         ctx.blackboard.Set("!PCheck", time + 3000);
                         ctx.blackboard.Set("ChatWait", time + 200);
                         return behavior::ExecuteResult::Success;
                     }
-                    else if (chat[i] == "!l" && no_p) {
+                    else if (chat.message == "!l" && no_p) {
                         game.L();
                         ctx.blackboard.Set("!PCheck", time + 3000);
                         ctx.blackboard.Set("ChatWait", time + 200);
                         return behavior::ExecuteResult::Success;
                     }
-                    else if (chat[i] == "!r" && no_p) {
+                    else if (chat.message == "!r" && no_p) {
                         game.R();
                         ctx.blackboard.Set("!PCheck", time + 3000);
                         ctx.blackboard.Set("ChatWait", time + 200);
                         return behavior::ExecuteResult::Success;
                     }
-                }
+                
                 //bot needs to halt so eg can process chat input, i guess
                 if (!chat_wait) {
                     return behavior::ExecuteResult::Success;
@@ -655,10 +655,10 @@ namespace marvin {
                     if (BounceShot(game, target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
                         if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
                             if (bomb_hit) {
-                                ctx.eg->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 30);
+                                ctx.eg->GetKeys().Press(VK_TAB);
                             }
                             else {
-                                ctx.eg->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 30);
+                                ctx.eg->GetKeys().Press(VK_CONTROL);
                             }
                         }
                     }
@@ -806,13 +806,13 @@ namespace marvin {
 
 
         behavior::ExecuteResult ShootGunNode::Execute(behavior::ExecuteContext& ctx) {
-           ctx.eg->GetKeys().Press(VK_CONTROL, ctx.com->GetTime(), 50);
+           ctx.eg->GetKeys().Press(VK_CONTROL);
            return behavior::ExecuteResult::Success;
         }
 
 
         behavior::ExecuteResult ShootBombNode::Execute(behavior::ExecuteContext& ctx) {
-            ctx.eg->GetKeys().Press(VK_TAB, ctx.com->GetTime(), 50);
+            ctx.eg->GetKeys().Press(VK_TAB);
             return behavior::ExecuteResult::Success;
         }
 

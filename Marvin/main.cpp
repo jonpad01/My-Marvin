@@ -57,7 +57,7 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
     if (!g_Enabled) {
 #endif
 
-        if (GetForegroundWindow() == g_hWnd) {
+        if (GetFocus() == g_hWnd) {
             return RealGetAsyncKeyState(vKey);
         }
 
@@ -83,7 +83,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       //GetForegroundWindow()
       //GetActiveWindow()
       //GetFocus()
-    if (GetActiveWindow() == g_hWnd) {
+    if (GetFocus() == g_hWnd) {
         if (RealGetAsyncKeyState(VK_F10)) {
             g_Enabled = false;
             SetWindowText(g_hWnd, kDisabledText);
@@ -119,6 +119,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         if (hs) { hs->Update(dt.count()); }
         if (pb) { pb->Update(dt.count()); }
         if (bot) { bot->Update(dt.count()); }
+        g_LastUpdateTime = now;
 #endif 
     }
 
