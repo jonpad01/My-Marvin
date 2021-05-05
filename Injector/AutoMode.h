@@ -40,11 +40,13 @@ namespace marvin {
     };
 
     BOOL __stdcall FindMenu(HWND hwnd, LPARAM lParam);
+    BOOL __stdcall FindExtraMenu(HWND hwnd, LPARAM lParam);
     BOOL __stdcall FindProfile(HWND hwnd, LPARAM lParam);
     BOOL __stdcall FindInformation(HWND hwnd, LPARAM lParam);
     BOOL __stdcall FindGame(HWND hwnd, LPARAM lParam);
     BOOL __stdcall FindInjectedTitle(HWND hwnd, LPARAM lParam);
     BOOL __stdcall FindError(HWND hwnd, LPARAM lParam);
+    BOOL __stdcall FindContinuumApplication(HWND hwnd, LPARAM lParam);
     BOOL __stdcall FindApplication(HWND hwnd, LPARAM lParam);
     BOOL __stdcall FindRunTimeError(HWND hwnd, LPARAM lParam);
 

@@ -223,13 +223,25 @@
                         PostMessage(hwnd::happlication, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hwnd::happlication, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
                     }
 
+                    if (!EnumWindows(FindContinuumApplication, NULL)) {
+                        PostMessage(hwnd::happlication, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hwnd::happlication, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
+                    }
+
                     if (!EnumWindows(FindRunTimeError, NULL)) {
                         PostMessage(hwnd::hruntime, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0); PostMessage(hwnd::hruntime, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
+                    }
+
+                    if (!EnumWindows(FindExtraMenu, NULL)) {
+                        PostMessage(hwnd::hmenu, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
                     }
 
                     //if the pid didnt return a handle, start a new bot
                     if (EnumWindows(FindInjectedTitle, pids_[i])) {
                         Sleep(1000);
+                        if (!EnumWindows(FindMenu, pids_[i])) {
+                            PostMessage(hwnd::hmenu, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
+                        }
+
                         pids_[i] = StartBot(i);
                     }
                 }
@@ -248,6 +260,19 @@
                     return FALSE;
                 }
             }
+            return TRUE;
+        }
+
+        BOOL __stdcall FindExtraMenu(HWND hwnd, LPARAM lParam) {
+
+            char title[1024];
+            GetWindowTextA(hwnd, title, 1024);
+
+            if (strcmp(title, "Continuum 0.40") == 0) {
+                hwnd::hmenu = hwnd;
+                return FALSE;
+            }
+
             return TRUE;
         }
 
@@ -331,12 +356,24 @@
             return TRUE;
         }
 
-        BOOL __stdcall FindApplication(HWND hwnd, LPARAM lParam) {
+        BOOL __stdcall FindContinuumApplication(HWND hwnd, LPARAM lParam) {
 
             char title[1024];
             GetWindowTextA(hwnd, title, 1024);
 
             if (strcmp(title, "Continuum (enabled): Windows - Application Error") == 0) {
+                hwnd::happlication = hwnd;
+                return FALSE;
+            }
+            return TRUE;
+        }
+
+        BOOL __stdcall FindApplication(HWND hwnd, LPARAM lParam) {
+
+            char title[1024];
+            GetWindowTextA(hwnd, title, 1024);
+
+            if (strcmp(title, "Windows - Application Error") == 0) {
                 hwnd::happlication = hwnd;
                 return FALSE;
             }
