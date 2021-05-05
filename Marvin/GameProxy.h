@@ -39,14 +39,19 @@ class GameProxy {
   virtual std::string GetName() const = 0;
   virtual Chat GetChat() const = 0;
   virtual int GetEnergy() const = 0;
+  virtual const float GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
   virtual const std::vector<Player>& GetPlayers() const = 0;
   virtual const ClientSettings& GetSettings() const = 0;
   virtual const ShipSettings& GetShipSettings() const = 0;
   virtual const ShipSettings& GetShipSettings(int ship) const = 0;
-  virtual std::string GetServerFolder() const = 0;
-  virtual std::string GetMapFile() const = 0;
+  virtual const float GetMaxEnergy() = 0;
+  virtual const float GetRotation() = 0;
+  virtual const float GetMaxSpeed() = 0;
+  virtual const std::string GetZone() = 0;
+  virtual const std::string GetMapFile() const = 0;
   virtual const Map& GetMap() const = 0;
+  virtual void SetTileId(Vector2f position, u8 id) = 0;
   virtual const Player& GetPlayer() const = 0;
   virtual void SendChatMessage(const std::string& mesg) const = 0;
   virtual int64_t TickerPosition() = 0;
@@ -60,8 +65,8 @@ class GameProxy {
 
   // May need to be called more than once to transition the game menu
   // Returns true if it attempts to set the ship this call.
-  virtual void SetEnergy(float percent, uint16_t max_energy) = 0;
-  virtual bool SetShip(int ship) = 0;
+  virtual void SetEnergy(float percent) = 0;
+  virtual bool SetShip(uint16_t ship) = 0;
   virtual void SetFreq(int freq) = 0;
   virtual void Warp() = 0;
   virtual void Stealth() = 0;

@@ -16,7 +16,7 @@
 
 namespace marvin {
 
-    GalaxySports::GalaxySports(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), keys_(time_.GetTime()), steering_(*game_, keys_) {
+    GalaxySports::GalaxySports(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
 
         auto processor = std::make_unique<path::NodeProcessor>(*game_);
 
@@ -139,7 +139,7 @@ namespace marvin {
         float debug_y = 100.0f;
         Vector2f force = steering_.GetSteering();
         float rotation = steering_.GetRotation();
-        RenderText("force" + std::to_string(force.Length()), center - Vector2f(0, debug_y), RGB(100, 100, 100), RenderText_Centered);
+        //RenderText("force" + std::to_string(force.Length()), center - Vector2f(0, debug_y), TextColor::White, RenderText_Centered);
         Vector2f heading = game_->GetPlayer().GetHeading();
         // Start out by trying to move in the direction that the bot is facing.
         Vector2f steering_direction = heading;

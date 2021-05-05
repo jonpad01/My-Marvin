@@ -150,6 +150,7 @@
     <ClCompile Include="behavior\BehaviorEngine.cpp" />
     <ClCompile Include="behavior\BehaviorTree.cpp" />
     <ClCompile Include="Bot.cpp" />
+    <ClCompile Include="Commands.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="Devastation.cpp" />
@@ -157,11 +158,13 @@
     <ClCompile Include="GalaxySports.cpp" />
     <ClCompile Include="Hockey.cpp" />
     <ClCompile Include="Hyperspace.cpp" />
+    <ClCompile Include="InfluenceMap.cpp" />
     <ClCompile Include="KeyController.cpp" />
     <ClCompile Include="Map.cpp" />
     <ClCompile Include="path\NodeProcessor.cpp" />
     <ClCompile Include="path\Pathfinder.cpp" />
     <ClCompile Include="platform\ContinuumGameProxy.cpp" />
+    <ClCompile Include="platform\Communicator.cpp" />
     <ClCompile Include="platform\ExeProcess.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PowerBall.cpp" />
@@ -177,6 +180,7 @@
     <ClInclude Include="behavior\Blackboard.h" />
     <ClInclude Include="Bot.h" />
     <ClInclude Include="ClientSettings.h" />
+    <ClInclude Include="Commands.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="Devastation.h" />
@@ -185,6 +189,7 @@
     <ClInclude Include="Hash.h" />
     <ClInclude Include="Hockey.h" />
     <ClInclude Include="Hyperspace.h" />
+    <ClInclude Include="InfluenceMap.h" />
     <ClInclude Include="KeyController.h" />
     <ClInclude Include="Map.h" />
     <ClInclude Include="path\Node.h" />
@@ -192,6 +197,7 @@
     <ClInclude Include="path\Path.h" />
     <ClInclude Include="path\Pathfinder.h" />
     <ClInclude Include="platform\ContinuumGameProxy.h" />
+    <ClInclude Include="platform\Communicator.h" />
     <ClInclude Include="platform\ExeProcess.h" />
     <ClInclude Include="GameProxy.h" />
     <ClInclude Include="platform\Platform.h" />

@@ -16,7 +16,7 @@ namespace marvin {
 
     class GalaxySports {
     public:
-        GalaxySports(std::unique_ptr<GameProxy> game);
+        GalaxySports(std::shared_ptr<GameProxy> game);
 
         void Update(float dt);
 
@@ -50,7 +50,7 @@ namespace marvin {
 
         std::unique_ptr<path::Pathfinder> pathfinder_;
         std::unique_ptr<RegionRegistry> regions_;
-        std::unique_ptr<GameProxy> game_;
+        std::shared_ptr<GameProxy> game_;
         std::unique_ptr<behavior::BehaviorEngine> behavior_;
         std::vector<std::unique_ptr<behavior::BehaviorNode>> behavior_nodes_;
         behavior::ExecuteContext ctx_;

@@ -27,6 +27,8 @@ class Map {
   TileId GetTileId(const Vector2f& position) const;
 
   bool CanOccupy(const Vector2f& position, float radius) const;
+  void SetTileId(u16 x, u16 y, TileId id);
+  void SetTileId(const Vector2f& position, TileId id);
 
   static std::unique_ptr<Map> Load(const char* filename);
   static std::unique_ptr<Map> Load(const std::string& filename);

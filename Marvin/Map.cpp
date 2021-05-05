@@ -17,6 +17,18 @@ bool Map::IsSolid(u16 x, u16 y) const {
   return IsSolid(GetTileId(x, y));
 }
 
+void Map::SetTileId(u16 x, u16 y, TileId id) {
+    if (x >= 1024 || y >= 1024) return;
+    tile_data_[y * kMapExtent + x] = id;
+}
+
+void Map::SetTileId(const Vector2f& position, TileId id) {
+    u16 x = static_cast<u16>(position.x);
+    u16 y = static_cast<u16>(position.y);
+
+    SetTileId(x, y, id);
+}
+
 bool Map::IsSolid(TileId id) const {
   if (id == 0) return false;
   if (id >= 162 && id <= 169) return false;  // treat doors as non-solid
@@ -43,53 +55,9 @@ TileId Map::GetTileId(const Vector2f& position) const {
 
 bool Map::CanOccupy(const Vector2f& position, float radius) const {
 
-    //MapCoord map_position((uint16_t)std::floor(position.x), (uint16_t)std::floor(position.y));
-    //int radius_check = 0;
     int radius_check = (int)(radius + 0.5f);
-    //float  radius_check = 16.0f * radius;
-#if 0
-    uint16_t radius_check = (uint16_t)std::ceil(radius);
-    
-    MapCoord check_directions[]{ MapCoord(0, radius_check), MapCoord(0, -radius_check), MapCoord(radius_check, 0), MapCoord(-radius_check, 0) };
-                               //MapCoord(radius_check, radius_check), MapCoord(radius_check, -radius_check), MapCoord(-radius_check, radius_check), MapCoord(-radius_check, -radius_check) };
-    //check vertical
-    if (!IsSolid(map_position.x, map_position.y + radius_check) && !IsSolid(map_position.x, map_position.y - radius_check)) {
-        if (!IsSolid(map_position.x + radius_check, map_position.y) && !IsSolid(map_position.x - radius_check, map_position.y)) {
-            return true;
-        }
-    }
-
-//#if 0 
-    for (MapCoord check_tile : check_directions) {
-
-        MapCoord current(check_tile.x + map_position.x, check_tile.y + map_position.y);
 
 
-        if (IsSolid((uint16_t)current.x, (uint16_t)current.y)) {
-            continue;
-        }
-        
-        if (!IsSolid((uint16_t)current.x, (uint16_t)current.y)) {
-            return true;
-        }
-        
-            if (!IsSolid((uint16_t)current.x, (uint16_t)current.y)) {
-                if (current.x == map_position.x) {
-                    if (!IsSolid(current.x, current.y + radius_check) && !IsSolid(current.x, current.y - radius_check)) {
-                        return true;
-                    }
-                }
-                else if (current.y == map_position.y) {
-                    if (!IsSolid(current.x + radius_check, current.y) && !IsSolid(current.x - radius_check, current.y)) {
-                        return true;
-                    }
-                }
-            }
-        
-    }
-
-#endif
-//#if 0  
     for (int y = -radius_check; y <= radius_check; ++y) {
         for (int x = -radius_check; x <= radius_check; ++x) {
             uint16_t world_x = (uint16_t)(position.x + x);
@@ -100,8 +68,7 @@ bool Map::CanOccupy(const Vector2f& position, float radius) const {
             }
         }
     }
-//#endif
-   // return false;
+
     return true;
 }
 

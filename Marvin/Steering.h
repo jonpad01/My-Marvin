@@ -24,9 +24,9 @@ class SteeringBehavior {
   void Pursue(const Player& enemy);
   void Face(Vector2f target);
 
-  void Steer();
+  void Steer(bool backwards);
 
-  //void AvoidWalls();
+  void AvoidWalls(float max_look_ahead);
 
  private:
 

@@ -16,7 +16,7 @@
 
 namespace marvin {
 
-    Hockey::Hockey(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), keys_(time_.GetTime()), steering_(*game_, keys_) {
+    Hockey::Hockey(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
 
         auto processor = std::make_unique<path::NodeProcessor>(*game_);
 
@@ -125,7 +125,7 @@ namespace marvin {
         // RenderPath(GetGame(), behavior_ctx_.blackboard);
 #endif
 
-        steering_.Steer();
+        steering_.Steer(false);
 
     }
 

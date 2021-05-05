@@ -4,22 +4,22 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <ddraw.h>
 
-#include "Devastation.h"
+#include "platform/ContinuumGameProxy.h"
+#include "GameProxy.h"
 #include "ExtremeGames.h"
 #include "GalaxySports.h"
 #include "Hockey.h"
-#include "Hyperspace.h"
 #include "PowerBall.h"
 #include "Bot.h"
 
 #include "Debug.h"
 #include "Map.h"
 #include "path/Pathfinder.h"
-#include "platform/ContinuumGameProxy.h"
-#include "platform/ExeProcess.h"
 #include "KeyController.h"
 #include "behavior/BehaviorEngine.h"
+
 
 const char* kEnabledText = "Continuum (enabled)";
 const char* kDisabledText = "Continuum (disabled)";
@@ -28,28 +28,74 @@ using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
 
-std::unique_ptr<marvin::ContinuumGameProxy> game;
+std::shared_ptr<marvin::ContinuumGameProxy> game;
 
-std::unique_ptr<marvin::Devastation> deva;
 std::unique_ptr<marvin::ExtremeGames> eg;
 std::unique_ptr<marvin::GalaxySports> gs;
 std::unique_ptr<marvin::Hockey> hz;
-std::unique_ptr<marvin::Hyperspace> hs;
 std::unique_ptr<marvin::PowerBall> pb;
 
 std::unique_ptr<marvin::Bot> bot;
 
 
 static bool g_Enabled = true;
-//static HWND g_hWnd;
+static bool g_Reload = false;
 HWND g_hWnd = 0;
 static time_point g_LastUpdateTime = time_clock::now();
+
+HWND GetMainWindow();
+marvin::Bot& CreateBot();
+
+
+
 
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
 
 static BOOL(WINAPI* RealPeekMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) = PeekMessageA;
+static BOOL(WINAPI* RealGetMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) = GetMessageA;
+
+static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
+
+HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface, LPRECT src_rect, DWORD flags,
+    LPDDBLTFX fx) {
+
+    u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
+    LPDIRECTDRAWSURFACE primary_surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x40);
+    LPDIRECTDRAWSURFACE back_surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
+
+    // Check if flipping. I guess there's a full screen blit instead of flip when running without vsync?
+    if (surface == primary_surface && next_surface == back_surface && fx == 0) {
+        marvin::g_RenderState.Render();
+    }
+
+    return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
+}
+
+
+BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
+    DWORD pid;
+
+    GetWindowThreadProcessId(hwnd, &pid);
+
+    if (pid == lParam) {
+        g_hWnd = hwnd;
+        return FALSE;
+}
+
+    return TRUE;
+}
+
+HWND GetMainWindow() {
+    DWORD pid = GetCurrentProcessId();
+
+    EnumWindows(MyEnumWindowsProc, pid);
+
+    return g_hWnd;
+}
+
 
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
+
 #if DEBUG_USER_CONTROL
     if (1) {
 
@@ -63,16 +109,36 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 
         return 0;
     }
-    else if (deva && deva->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (eg && eg->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (gs && gs->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (hz && hz->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
-    else if (hs && hs->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (pb && pb->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
     else if (bot && bot->GetKeys().IsPressed(vKey)) { return (SHORT)0x8000; }
 
     return 0;
 }
+
+
+bool GameLoaded() {
+    u32 game_addr = *(u32*)0x4C1AFC;
+
+    if (game_addr != 0) {
+        // Wait for map to load
+        return *(u32*)(game_addr + 0x127ec + 0x6C4) != 0;
+    }
+
+    return false;
+}
+
+
+BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) {
+    if (!GameLoaded()) {
+        g_Reload = true;
+    }
+
+    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+}
+
 
 // This is used to hook into the main update loop in Continuum so the bot can be
 // updated.
@@ -80,9 +146,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
 
     // Check for key presses to enable/disable the bot.
-      //GetForegroundWindow()
-      //GetActiveWindow()
-      //GetFocus()
     if (GetFocus() == g_hWnd) {
         if (RealGetAsyncKeyState(VK_F10)) {
             g_Enabled = false;
@@ -95,28 +158,63 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     }
 
 
+    if (g_Reload) {
+        g_Enabled = false;
+
+        if (GameLoaded()) {
+            CreateBot();
+            g_Enabled = true;
+            g_Reload = false;
+            g_hWnd = GetMainWindow();
+            SetWindowText(g_hWnd, kEnabledText);
+        }
+    }
+
+
+
     time_point now = time_clock::now();
     seconds dt = now - g_LastUpdateTime;
 
     if (g_Enabled) {
-#if DEBUG_RENDER
+
+
+
+        marvin::Chat chat = game->GetChat();
+        std::string name = game->GetPlayer().name;
+
+        std::string eg_msg = "[ " + name + " ]";
+
+        if (chat.type == 0) {
+            if (chat.message.compare(0, 9, "WARNING: ") == 0 || (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == "Extreme Games")) {
+
+                PostQuitMessage(0);
+            }
+        }
+
+
+
+
+//#if DEBUG_RENDER
         if (dt.count() > (float)(1.0f / 60.0f)) {
-            if (deva) { deva->Update(dt.count()); }
+
+#if DEBUG_RENDER
+            marvin::g_RenderState.renderable_texts.clear();
+            marvin::g_RenderState.renderable_lines.clear();
+#endif
+
             if (eg) { eg->Update(dt.count()); }
             if (gs) { gs->Update(dt.count()); }
             if (hz) { hz->Update(dt.count()); }
-            if (hs) { hs->Update(dt.count()); }
             if (pb) { pb->Update(dt.count()); }
             if (bot) { bot->Update(dt.count()); }
             g_LastUpdateTime = now;
-            marvin::WaitForSync();
+
         }
-#else
-        if (deva) { deva->Update(dt.count()); }
+#if 0
+
         if (eg) { eg->Update(dt.count()); }
         if (gs) { gs->Update(dt.count()); }
         if (hz) { hz->Update(dt.count()); }
-        if (hs) { hs->Update(dt.count()); }
         if (pb) { pb->Update(dt.count()); }
         if (bot) { bot->Update(dt.count()); }
         g_LastUpdateTime = now;
@@ -133,59 +231,42 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 }
 
-BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
-    DWORD pid;
-
-    GetWindowThreadProcessId(hwnd, &pid);
-
-    if (pid == lParam) {
-        g_hWnd = hwnd;
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-HWND GetMainWindow() {
-    DWORD pid = GetCurrentProcessId();
-
-    EnumWindows(MyEnumWindowsProc, pid);
-
-    return g_hWnd;
-}
 
 
-void CreateBot() {
+
+marvin::Bot& CreateBot() {
     //create pointer to game and pass the window handle
-    game = std::make_unique<marvin::ContinuumGameProxy>(g_hWnd);
-   
-    //find the zone and create a pointer to that zones behavior tree
-    if (game->GetServerFolder() == "zones\\SSCJ Devastation") {
-        deva = std::make_unique<marvin::Devastation>(std::move(game));
+    game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
+    auto  game2(game);
+
+     if (game->GetZone() == "Extreme Games") {
+        eg = std::make_unique<marvin::ExtremeGames>(std::move(game2));
     }
-    else if (game->GetServerFolder() == "zones\\SSCU Extreme Games") {
-        eg = std::make_unique<marvin::ExtremeGames>(std::move(game));
+    else if (game->GetZone() == "Galaxy Sports") {
+        gs = std::make_unique<marvin::GalaxySports>(std::move(game2));
     }
-    else if (game->GetServerFolder() == "zones\\SSCJ Galaxy Sports") {
-        gs = std::make_unique<marvin::GalaxySports>(std::move(game));
+    else if (game->GetZone() == "Hockey") {
+        hz = std::make_unique<marvin::Hockey>(std::move(game2));
     }
-    else if (game->GetServerFolder() == "zones\\SSCE HockeyFootball Zone") {
-        hz = std::make_unique<marvin::Hockey>(std::move(game));
-    }
-    else if (game->GetServerFolder() == "zones\\SSCE Hyperspace") {
-        hs = std::make_unique<marvin::Hyperspace>(std::move(game));
-    }
-    else if (game->GetServerFolder() == "zones\\SSCJ PowerBall") {
-        pb = std::make_unique<marvin::PowerBall>(std::move(game));
+    else if (game->GetZone() == "PowerBall") {
+        pb = std::make_unique<marvin::PowerBall>(std::move(game2));
     }
     else {
-        bot = std::make_unique<marvin::Bot>(std::move(game));
+        bot = std::make_unique<marvin::Bot>(std::move(game2));
     }
+
+     return *bot;
 }
 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
+
     //prevent windows from throwing error messages and let the game crash out
-    SetErrorMode(SEM_NOGPFAULTERRORBOX);
+    if (IsWindows7OrGreater() && !IsWindows8OrGreater()) {
+        SetThreadErrorMode(SEM_NOGPFAULTERRORBOX, NULL);
+    }
+    else if (IsWindows8OrGreater()) {
+        SetErrorMode(SEM_NOGPFAULTERRORBOX);
+    }
 
   g_hWnd = GetMainWindow();
 
@@ -200,6 +281,11 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   }
 #endif
   CreateBot();
+
+  u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
+  LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
+  void** vtable = (*(void***)surface);
+  RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX))vtable[5];
   
   DetourRestoreAfterWith();
 
@@ -207,6 +293,10 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourUpdateThread(GetCurrentThread());
   DetourAttach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
   DetourAttach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
+  DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
+#if DEBUG_RENDER
+  DetourAttach(&(PVOID&)RealBlt, OverrideBlt);
+#endif
   DetourTransactionCommit();
 
   
@@ -222,9 +312,13 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourUpdateThread(GetCurrentThread());
   DetourDetach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
   DetourDetach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
+  DetourDetach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
+#if DEBUG_RENDER
+  DetourDetach(&(PVOID&)RealBlt, OverrideBlt);
+#endif
   DetourTransactionCommit();
 
-  //SetWindowText(g_hWnd, "Continuum");
+  SetWindowText(g_hWnd, "Continuum");
 
   marvin::debug_log << "Shutting down Marvin." << std::endl;
 

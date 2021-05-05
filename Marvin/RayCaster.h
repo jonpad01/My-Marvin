@@ -20,5 +20,7 @@ namespace marvin {
 
 	CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_length);
 
+	bool RadiusRayCastHit(const Map& map, Vector2f from, Vector2f to, float radius);
+
 
 } // namespace marvin

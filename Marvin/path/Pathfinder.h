@@ -10,8 +10,9 @@
 
 namespace marvin { 
 
-    bool PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2, float* distance);
-    bool FindPathIndex(std::vector<Vector2f> path, Vector2f position, std::size_t* index, float* distance);
+    float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2);
+    std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position);
+    Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius);
 
 namespace path {
 

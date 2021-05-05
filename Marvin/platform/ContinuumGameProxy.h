@@ -62,14 +62,19 @@ class ContinuumGameProxy : public GameProxy {
   std::string GetName() const override;
   Chat GetChat() const override;
   int GetEnergy() const override;
+  const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
   const std::vector<Player>& GetPlayers() const override;
   const ClientSettings& GetSettings() const override;
   const ShipSettings& GetShipSettings() const override;
   const ShipSettings& GetShipSettings(int ship) const override;
-  std::string GetServerFolder() const override;
-  std::string GetMapFile() const override;
+  const float GetMaxEnergy() override;
+  const float GetRotation() override;
+  const float GetMaxSpeed() override;
+  const std::string GetZone() override;
+  const std::string GetMapFile() const override;
   const Map& GetMap() const override;
+  void SetTileId(Vector2f position, u8 id) override;
   const Player& GetPlayer() const override;
   int64_t TickerPosition() override;
   const Player& GetSelectedPlayer() const override;
@@ -79,9 +84,9 @@ class ContinuumGameProxy : public GameProxy {
 
   std::vector<Weapon*> GetWeapons() override;
   
-  void SetEnergy(float percent, uint16_t max_energy) override;
+  void SetEnergy(float percent) override;
   void SetFreq(int freq) override;
-  bool SetShip(int ship) override;
+  bool SetShip(uint16_t ship) override;
   void Warp() override;
   void Stealth() override;
   void Cloak(KeyController& keys) override;
@@ -108,11 +113,15 @@ class ContinuumGameProxy : public GameProxy {
   ExeProcess& GetProcess();
 
  private:
+  std::string GetServerFolder();
+  void SetZone();
+  void FetchChat();
   void FetchPlayers();
   void FetchBallData();
   void SendKey(int vKey);
 
   std::vector<BallData> balls_;
+  Chat chat_;
   ExeProcess process_;
   HWND hwnd_;
   std::size_t module_base_continuum_;
@@ -126,6 +135,7 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Player> players_;
   std::vector<ContinuumWeapon> weapons_;
   std::string path_;
+  std::string zone_;
 };
 
 }  // namespace marvin

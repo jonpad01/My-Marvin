@@ -6,6 +6,8 @@
 #include <cmath>
 
 #include "Player.h"
+#include "RayCaster.h"
+#include "Debug.h"
 
 
 namespace marvin {
@@ -38,7 +40,7 @@ void SteeringBehavior::Reset() {
 }
 
 void SteeringBehavior::Seek(Vector2f target, float multiplier) {
-  float speed = GetMaxSpeed(game_);
+  float speed = (game_.GetMaxSpeed() + 5.0f);
  
   Vector2f desired = Normalize(target - game_.GetPosition()) * speed * multiplier;
 
@@ -112,20 +114,24 @@ void SteeringBehavior::Face(Vector2f target) {
   Vector2f to_target = target - game_.GetPosition();
 
   Vector2f heading = Rotate(game_.GetPlayer().GetHeading(), rotation_);
-  float rotation =
-      std::atan2(heading.y, heading.x) - std::atan2(to_target.y, to_target.x);
+
+  float rotation = std::atan2(heading.y, heading.x) - std::atan2(to_target.y, to_target.x);
 
   rotation_ += WrapToPi(rotation);
 }
 
 
-void SteeringBehavior::Steer() {
+void SteeringBehavior::Steer(bool backwards) {
 
     Vector2f force = GetSteering();
     float rotation = GetRotation();
     //bool afterburners = GetAfterburnerState();
 
     Vector2f heading = game_.GetPlayer().GetHeading();
+    if (backwards) {
+        heading = Reverse(heading);
+    }
+    
     // Start out by trying to move in the direction that the bot is facing.
     Vector2f steering_direction = heading;
 
@@ -137,6 +143,8 @@ void SteeringBehavior::Steer() {
         steering_direction = marvin::Normalize(force);
     }
 
+
+    
     // Rotate toward the movement direction.
     Vector2f rotate_target = steering_direction;
 
@@ -155,6 +163,7 @@ void SteeringBehavior::Steer() {
     // the ship.
     bool leftside = steering_direction.Dot(perp) < 0;
 
+
     // Cap the steering direction so it's pointing toward the rotate target.
     if (steering_direction.Dot(rotate_target) < 0.75) {
 
@@ -169,8 +178,14 @@ void SteeringBehavior::Steer() {
         leftside = steering_direction.Dot(perp) < 0;
     }
 
+
     bool clockwise = !leftside;
 
+    if (backwards) {
+        if (behind) { behind = false; }
+        else { behind = true; }
+    }
+    
     if (has_force) {
         if (behind) { keys_.Press(VK_DOWN); }
         else { keys_.Press(VK_UP); }
@@ -183,9 +198,73 @@ void SteeringBehavior::Steer() {
         keys_.Set(VK_RIGHT, clockwise);
         keys_.Set(VK_LEFT, !clockwise);
     }
+
+#if 0
+
+    Vector2f center = GetWindowCenter();
+
+    if (has_force) {
+        Vector2f force_direction = Normalize(force);
+        float force_percent = force.Length() / 22.0f;
+        RenderLine(center, center + (force_direction * 100 * force_percent), RGB(255, 255, 0)); //yellow
+    }
+    
+    RenderLine(center, center + (heading * 100), RGB(255, 0, 0)); //red
+    RenderLine(center, center + (perp * 100), RGB(100, 0, 100));  //purple
+    RenderLine(center, center + (rotate_target * 85), RGB(0, 0, 255)); //blue
+    RenderLine(center, center + (steering_direction * 75), RGB(0, 255, 0)); //green
+#endif
 }
 
-//void SteeringBehavior::AvoidWalls() { auto& game = bot_->GetGame(); }
-//void SteeringBehavior::AvoidWalls() { auto& game = bot_->GetGame(); }
+void SteeringBehavior::AvoidWalls(float max_look_ahead) {
+    constexpr float kDegToRad = 3.14159f / 180.0f;
+    constexpr size_t kFeelerCount = 29;
+
+    static_assert(kFeelerCount & 1, "Feeler count must be odd");
+
+    Vector2f feelers[kFeelerCount];
+
+    feelers[0] = Normalize(game_.GetPlayer().velocity);
+
+    for (size_t i = 1; i < kFeelerCount; i += 2) {
+        feelers[i] = Rotate(feelers[0], kDegToRad * (90.0f / kFeelerCount) * i);
+        feelers[i + 1] = Rotate(feelers[0], -kDegToRad * (90.0f / kFeelerCount) * i);
+    }
+
+    float speed = game_.GetPlayer().velocity.Length();
+    float max_speed = game_.GetMaxSpeed();
+    float look_ahead = max_look_ahead * (speed / max_speed);
+
+    size_t force_count = 0;
+    Vector2f force;
+
+    for (size_t i = 0; i < kFeelerCount; ++i) {
+        float intensity = feelers[i].Dot(Normalize(game_.GetPlayer().velocity));
+        float check_distance = look_ahead * intensity;
+        Vector2f check = feelers[i] * intensity;
+        CastResult result = RayCast(game_.GetMap(), game_.GetPlayer().position, Normalize(feelers[i]), check_distance);
+        COLORREF color = RGB(100, 0, 0);
+
+        if (result.hit) {
+            float multiplier = ((check_distance - result.distance) / check_distance) * 1.5f;
+
+            force += Normalize(feelers[i]) * -Normalize(feelers[i]).Dot(feelers[0]) * multiplier * max_speed;
+
+            ++force_count;
+        }
+        else {
+            result.distance = check_distance;
+            color = RGB(0, 100, 0);
+        }
+#if 0
+        RenderWorldLine(game_.GetPosition(), game_.GetPosition(),
+            game_.GetPosition() + Normalize(feelers[i]) * result.distance, color);
+#endif
+    }
+
+    if (force_count > 0) {
+        force_ += force * (1.0f / force_count);
+    }
+}
 
 }  // namespace marvin

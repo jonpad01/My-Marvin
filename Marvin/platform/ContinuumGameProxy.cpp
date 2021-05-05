@@ -24,6 +24,7 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) {
   map_ = Map::Load(path_);
     
   FetchPlayers();
+  SetZone();
 
 
   for (auto& player : players_) {
@@ -39,12 +40,16 @@ void ContinuumGameProxy::Update(float dt) {
   // to make it think it always has focus.
   SetWindowFocus();
 
+  bool reload = false;
+
   FetchPlayers();
   FetchBallData();
+  FetchChat();
 
   if (path_ != GetServerFolder() + "\\" + GetMapFile()) {
       path_ = GetServerFolder() + "\\" + GetMapFile();
       map_->Load(path_);
+      reload = true;
   }
 
   //RenderText("index: " + std::to_string(index), GetWindowCenter() - Vector2f(0, -200), RGB(100, 100, 100), RenderText_Centered);
@@ -75,6 +80,8 @@ void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kIdOffset = 0x18;
   const std::size_t kBountyOffset1 = 0x20;
   const std::size_t kBountyOffset2 = 0x24;
+  const std::size_t kFlagOffset1 = 0x30;
+  const std::size_t kFlagOffset2 = 0x34;
   const std::size_t kRotOffset = 0x3C;
   const std::size_t kShipOffset = 0x5C;
   const std::size_t kFreqOffset = 0x58;
@@ -82,6 +89,9 @@ void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kNameOffset = 0x6D;
   const std::size_t kEnergyOffset1 = 0x208;
   const std::size_t kEnergyOffset2 = 0x20C;
+  const std::size_t kMultiFireCapableOffset = 0x2EC;
+  const std::size_t kMultiFireStatusOffset = 0x32C;
+  
   
 
 
@@ -112,22 +122,28 @@ void ContinuumGameProxy::FetchPlayers() {
 
     player.discrete_rotation = static_cast<uint16_t>(process_.ReadU32(player_addr + kRotOffset) / 1000);
 
-    player.ship = static_cast<uint8_t>(process_.ReadU32(player_addr + kShipOffset));
+    player.ship = static_cast<uint16_t>(process_.ReadU32(player_addr + kShipOffset));
 
     player.frequency = static_cast<uint16_t>(process_.ReadU32(player_addr + kFreqOffset));
 
     player.status = static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));
 
+    player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
+
+    player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
+
     player.name = process_.ReadString(player_addr + kNameOffset, 23);
 
     player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
+
+    player.flags = *(u32*)(player_addr + kFlagOffset1) + *(u32*)(player_addr + kFlagOffset2);
 
     //triggers if player is not moving and has no velocity, not used
     player.dead = process_.ReadU32(player_addr + 0x178) == 0;
 
     //the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
     player.attach_id = process_.ReadU32(player_addr + 0x1C);
-
+    //might not work on bot but works well on other players
     player.active = *(u32*)(player_addr + 0x4C) == 0 && *(u32*)(player_addr + 0x40) == 0;
 
     // Energy calculation @4485FA
@@ -200,6 +216,80 @@ void ContinuumGameProxy::FetchBallData() {
     }
 }
 
+
+void ContinuumGameProxy::FetchChat() {
+
+    //the entry count is an index to each chat line, this only updates the most recent entry 
+    //but the entire chat history could be retrieved
+    struct ChatEntry {
+        char message[256];
+        char player[24];
+        char unknown[8];
+        unsigned char type;
+        char unknown2[3];
+    };
+
+    u32 chat_base_addr = game_addr_ + 0x2DD08;
+
+    ChatEntry* chat_ptr = *(ChatEntry**)(chat_base_addr);
+    u32 entry_count = *(u32*)(chat_base_addr + 8);
+
+    Chat chat;
+    //the entry count is only 0 if there is no chat history at all
+    //if its 0 then the pointer will point to stuff that isnt chat
+    if (entry_count == 0) { 
+        chat_ = chat;
+        return;
+    }
+
+    ChatEntry entry = *(chat_ptr + (entry_count - 1));
+
+    chat.message = entry.message;
+    chat.player = entry.player;
+    chat.type = entry.type;
+    chat.count = entry_count;
+
+     /*  Arena = 0,
+         Public = 2,
+         Private = 5,
+         Channel = 9 */
+
+    chat_ = chat;
+}
+
+void ContinuumGameProxy::SetZone() {
+    zone_ = "";
+
+    if (GetServerFolder() == "zones\\SSCJ Devastation") {
+        zone_ = "Devastation";
+    }
+    else if (GetServerFolder() == "zones\\SSCU Extreme Games") {
+        zone_ = "Extreme Games";
+    }
+    else if (GetServerFolder() == "zones\\SSCJ Galaxy Sports") {
+        zone_ = "Galaxy Sports";
+    }
+    else if (GetServerFolder() == "zones\\SSCE HockeyFootball Zone") {
+        zone_ = "Hockey";
+    }
+    else if (GetServerFolder() == "zones\\SSCE Hyperspace") {
+        zone_ = "Hyperspace";
+    }
+    else if (GetServerFolder() == "zones\\SSCJ PowerBall") {
+        zone_ = "PowerBall";
+    }
+}
+
+
+
+const std::string ContinuumGameProxy::GetZone() {
+    return zone_;
+}
+
+Chat ContinuumGameProxy::GetChat() const {
+    return chat_;
+}
+
 const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
     return balls_;
 }
@@ -260,6 +350,10 @@ const std::vector<Player>& ContinuumGameProxy::GetPlayers() const {
   return players_;
 }
 
+void ContinuumGameProxy::SetTileId(Vector2f position, u8 id) {
+    map_->SetTileId(position, id);
+}
+
 const Map& ContinuumGameProxy::GetMap() const { return *map_; }
 const Player& ContinuumGameProxy::GetPlayer() const { return *player_; }
 
@@ -273,26 +367,78 @@ const Player* ContinuumGameProxy::GetPlayerById(u16 id) const {
     return nullptr;
 }
 
+const float ContinuumGameProxy::GetEnergyPercent() {
+    return ((float)GetEnergy() / GetMaxEnergy()) * 100.0f;
+}
+
+
+const float ContinuumGameProxy::GetMaxEnergy() {
+    //zones like eg use initial energy but can be prized to increase max energy
+    //hs probably hacks the initial energy for each player when they enter
+    //deva needs to use max and it never changes
+    float energy = (float)GetShipSettings().InitialEnergy;
+
+    if (zone_ == "Devastation") {
+        energy = (float)GetShipSettings().MaximumEnergy;
+    }
+    if (zone_ == "Extreme Games") {
+        while (player_->energy > energy) {
+            energy += (float)GetShipSettings().UpgradeEnergy;
+        }
+    }
+    return energy;
+}
+
+const float ContinuumGameProxy::GetMaxSpeed() {
+
+    float speed = (float)GetShipSettings().InitialSpeed / 10.0f / 16.0f;
+
+    if (zone_ == "Devastation") {
+        speed = (float)GetShipSettings().MaximumSpeed / 10.0f / 16.0f;
+    }
+
+    if (player_->velocity.Length() > speed) {
+        speed = std::abs(speed + GetShipSettings().GravityTopSpeed);
+    }
+    return speed;
+}
+
+const float ContinuumGameProxy::GetRotation() {
+
+    float rotation = (float)GetShipSettings().InitialRotation / 200.0f;
+
+    if (zone_ == "Devastation") {
+        rotation = (float)GetShipSettings().MaximumRotation / 200.0f;
+    }
+    return rotation;
+}
+
+
+
+
+
 // TODO: Find level data or level name in memory
-std::string ContinuumGameProxy::GetServerFolder() const {
+std::string ContinuumGameProxy::GetServerFolder() {
   std::size_t folder_addr = *(uint32_t*)(game_addr_ + 0x127ec + 0x5a3c) + 0x10D;
   std::string server_folder = process_.ReadString(folder_addr, 256);
 
   return server_folder;
 }
 
-std::string ContinuumGameProxy::GetMapFile() const {
+const std::string ContinuumGameProxy::GetMapFile() const {
 
     std::string file = process_.ReadString((*(u32*)(game_addr_ + 0x127ec + 0x6C4)) + 0x01, 16);
 
     return file;
 }
 
-void ContinuumGameProxy::SetEnergy(float percent, uint16_t max_energy) {
+void ContinuumGameProxy::SetEnergy(float percent) {
 
     const uint64_t overflow = 4294967296;
 
-    u64 desired = u64((double)max_energy * (percent / 100));
+    double max_energy = (double)GetMaxEnergy();
+
+    u64 desired = u64(max_energy * (percent / 100));
 
     u64 mem_energy = (desired * 1000) + overflow;
 
@@ -302,6 +448,10 @@ void ContinuumGameProxy::SetEnergy(float percent, uint16_t max_energy) {
 }
 
 void ContinuumGameProxy::SetFreq(int freq) {
+
+    //process_.WriteU32(player_addr_ + 0x58, (uint32_t)freq);
+
+#if 1
     std::string freq_ = std::to_string(freq);
     SendMessage(hwnd_, WM_CHAR, (WPARAM)('='), 0);
     for (std::size_t i = 0; i < freq_.size(); i++) {
@@ -309,6 +459,7 @@ void ContinuumGameProxy::SetFreq(int freq) {
         SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
     }
     SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+#endif
 }
 
 void ContinuumGameProxy::PageUp() {
@@ -333,7 +484,7 @@ void ContinuumGameProxy::F7() {
     SendKey(VK_F7);
 }
 
-bool ContinuumGameProxy::SetShip(int ship) {
+bool ContinuumGameProxy::SetShip(uint16_t ship) {
 
   int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
 
@@ -370,6 +521,8 @@ void ContinuumGameProxy::MultiFire() { SendKey(VK_DELETE); }
 
 void ContinuumGameProxy::Flag() {
 
+    SendChatMessage("?flag");
+#if 0
     std::string message = "?flag";
 
     for (std::size_t i = 0; i < message.size(); i++) {
@@ -378,6 +531,7 @@ void ContinuumGameProxy::Flag() {
     }
 
     SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+#endif
 }
 
 void ContinuumGameProxy::P() {
@@ -462,49 +616,6 @@ void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
 
     // Clear the text buffer after sending the message
     input[0] = 0;
-}
-
-Chat ContinuumGameProxy::GetChat() const {
-
-    struct ChatEntry {
-        char message[256];
-        char player[24];
-        char unknown[8];
-        unsigned char type;
-        char unknown2[3];
-    };
-    //std::vector<std::string> lines;
-    u32 chat_base_addr = game_addr_ + 0x2DD08;
-
-    ChatEntry* chat_ptr = *(ChatEntry**)(chat_base_addr);
-    u32 entry_count = *(u32*)(chat_base_addr + 8);
-
-   // RenderText("entry count  " + std::to_string(entry_count), GetWindowCenter() - Vector2f(0, 20), RGB(100, 100, 100), RenderText_Centered);
-
-    Chat chat;
-
-    if (entry_count == 0) { return chat; }
-
-    ChatEntry entry = *(chat_ptr + (entry_count - 1));
-
-    chat.message = entry.message;
-    chat.player = entry.player;
-    chat.type = entry.type;
-    chat.count = entry_count;
-    
-   // for (std::size_t i = 1; i < 2; i++) {
-       
-      //  if (current->type == type) {
-       //     lines.push_back(current->message);
-     //   }
-   // }
-    /*  Arena = 0,
-        Public = 2,
-        Private = 5,
-        Channel = 9 */
-    //if no lines match just return the most recent
-    //ChatEntry* current = chat_ptr + (entry_count - 1);
-    return chat;
 }
 
 int64_t ContinuumGameProxy::TickerPosition() {

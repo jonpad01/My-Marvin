@@ -49,7 +49,9 @@ namespace marvin {
             uint16_t padding : 5;
         };
         // Angle spread between multi-fire bullets and standard forward
-        // firing bullets(111 = 1 degree, 1000 = 1 ship - rotation - point)
+        // firing bullets(0 = 0 degrees, 111.111111 = 1 degree, 222.22222 = 2 degrees, etc, 1000 = 1 ship - rotation - point)
+        // conversion to degrees would be 40000 / 360
+        //range is a number between 0 and 39999
         uint16_t MultiFireAngle;
         // Amount of energy required to have 'Cloak' activated (thousanths per tick)
         uint16_t CloakEnergy;

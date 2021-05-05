@@ -9,60 +9,86 @@
 
 namespace marvin {
 
-    bool PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2, float* distance) {
 
-        std::size_t index1 = 0;
-        std::size_t index2 = 0;
-        std::size_t start = 0;
-        std::size_t end = 0;
-        float distance1;
-        float distance2;
-        
-        if (path.empty()) { return false; }
 
-        if (!FindPathIndex(path, pos1, &index1, &distance1)) { return false; }
-        if (!FindPathIndex(path, pos2, &index2, &distance2)) { return false; }
+    Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius) {
 
-        float path_distance = distance1 + distance2;    
+        Vector2f position;
 
-        if (index1 == index2) {
-            if (distance) *distance = path_distance;
-        }
-        else if (index1 < index2) {
-            start = index1;
-            end = index2;
+        if (path.empty()) { return position; }
+
+        if (count_down) {
+            //position = path.back();
+
+            for (std::size_t i = index; i > 0; i--) {
+
+                Vector2f current = path[i];
+
+                if (!RadiusRayCastHit(map, path[index], current, radius)) {
+                    position = current;
+                }
+                else { break; }
+            }
         }
         else {
-            start = index2;
-            end = index1;
+          //  position = path.front();
+
+            for (std::size_t i = index; i < path.size(); i++) {
+
+                Vector2f current = path[i];
+
+                if (!RadiusRayCastHit(map, path[index], current, radius)) {
+                    position = current;
+                }
+                else { break; }
+            }
+
         }
+        return position;
+    }
+
+
+
+    float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2) {
+      
+        float path_distance = 0.0f;
+        
+        if (path.empty()) { return path_distance; }
+
+        std::size_t index1 = FindPathIndex(path, pos1);
+        std::size_t index2 = FindPathIndex(path, pos2);
+
+        if (index1 == index2) {
+            return pos1.Distance(pos2);
+        }
+        std::size_t start = std::min(index1, index2);
+        std::size_t end = std::max(index1, index2);
 
         for (std::size_t i = start; i < end; i++) {
             path_distance += path[i].Distance(path[i + 1]);
         }
-        if (distance) *distance = path_distance;
-        return true;
+
+        return path_distance;
     }
 
-    bool FindPathIndex(std::vector<Vector2f> path, Vector2f position, std::size_t* index, float* distance) {
+    std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position) {
 
         std::size_t path_index = 0;
         float closest_distance = std::numeric_limits<float>::max();
 
-        if (path.empty()) { return false; }
+        if (path.empty()) { return path_index; }
 
         for (std::size_t i = 0; i < path.size(); i++) {
 
-            float distance = position.Distance(path[i]);
+            float distance = position.DistanceSq(path[i]);
 
             if (closest_distance > distance) {
                 path_index = i;
                 closest_distance = distance;
             }
         }
-        if (index) *index = path_index;
-        if (distance) *distance = closest_distance;
-        return true;
+
+        return path_index;
     }
 
     namespace path {
@@ -349,14 +375,17 @@ namespace marvin {
         }
 
 
+
         std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius) {
             bool build = true;
 
-            if (!path.empty()) {
+            std::vector<Vector2f> new_path = path;
+
+            if (!new_path.empty()) {
                 // Check if the current destination is the same as the requested one.
-                if (path.back().DistanceSq(to) < 3 * 3) {
+                if (new_path.back().DistanceSq(to) < 3 * 3) {
                     Vector2f pos = processor_->GetGame().GetPosition();
-                    Vector2f next = path.front();
+                    Vector2f next = new_path.front();
                     Vector2f direction = Normalize(next - pos);
                     Vector2f side = Perpendicular(direction);
                     float radius = processor_->GetGame().GetShipSettings().GetRadius();
@@ -376,6 +405,7 @@ namespace marvin {
 
             if (build) {
                 std::vector<Vector2f> mines;
+                new_path.clear();
                 //#if 0
                 for (Weapon* weapon : processor_->GetGame().GetWeapons()) {
                     const Player* weapon_player = processor_->GetGame().GetPlayerById(weapon->GetPlayerId());
@@ -384,11 +414,11 @@ namespace marvin {
                     if (weapon->GetType() & 0x8000) mines.push_back(weapon->GetPosition());
                 }
                 //#endif
-                path = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);
-                path = SmoothPath(path, processor_->GetGame().GetMap(), radius);
+                new_path = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);
+                new_path = SmoothPath(new_path, processor_->GetGame().GetMap(), radius);
             }
 
-            return path;
+            return new_path;
         }
 
 

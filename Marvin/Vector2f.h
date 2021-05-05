@@ -148,6 +148,8 @@ inline Vector2f Normalize(const Vector2f& v) {
 
 inline Vector2f Perpendicular(const Vector2f& v) { return Vector2f(-v.y, v.x); }
 
+inline Vector2f Reverse(const Vector2f& v) { return v * -1.0f; }
+
 inline Vector2f Rotate(const Vector2f& v, float rads) {
   float cosA = std::cos(rads);
   float sinA = std::sin(rads);

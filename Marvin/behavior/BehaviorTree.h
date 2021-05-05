@@ -10,11 +10,11 @@
 namespace marvin {
 
     class Bot;
-    class Devastation;
+
     class ExtremeGames;
     class GalaxySports;
     class Hockey;
-    class Hyperspace;
+
     class PowerBall;
 
     namespace behavior {
@@ -25,14 +25,13 @@ namespace marvin {
             Blackboard blackboard;
  
             Bot* bot;
-            Devastation* deva;
+       
             ExtremeGames* eg;
             GalaxySports* gs;
             Hockey* hz;
-            Hyperspace* hs;
             PowerBall* pb;
             float dt;
-            ExecuteContext() : bot(nullptr), deva(nullptr), eg(nullptr), gs(nullptr), hz(nullptr), hs(nullptr), pb(nullptr), dt(0) {}
+            ExecuteContext() : bot(nullptr), eg(nullptr), gs(nullptr), hz(nullptr), pb(nullptr), dt(0) {}
         };
 
         class BehaviorNode {

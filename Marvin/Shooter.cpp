@@ -1,5 +1,5 @@
 #include "Shooter.h"
-
+#include "Bot.h"
 #include "RayCaster.h"
 #include "Debug.h"
 
@@ -46,11 +46,18 @@ namespace marvin {
         else { hit = false; }
 
         //the solution is basically the directional vector from the shooter to this position
-        Vector2f solution = pTarget + (v * t);
+        Vector2f dSolution = pTarget + (v * t);
         //this is the intersected position
-        Vector2f position = pTarget + (vTarget * t);
+        Vector2f pSolution = pTarget + (vTarget * t);
         //return a position with the direcrtional solution and the magnitude solution
-        if (Solution) *Solution = pShooter + Normalize(solution - pShooter) * pShooter.Distance(position);
+        Vector2f solution = pShooter + Normalize(dSolution - pShooter) * pShooter.Distance(pSolution);
+        //check if shot is within map boundries, i think this happens with bouncing shots
+        if (!IsValidPosition(solution)) { 
+            solution = pTarget; 
+            hit = false;
+        }
+
+        if (Solution) *Solution = solution;
         //this solution is used for bouncing shots, determining hover distance, and bullet travel time to target
         return hit;
     }
@@ -75,7 +82,6 @@ namespace marvin {
         //if ship has double barrel make 2 calculations with offset positions
         if ((game.GetShipSettings().DoubleBarrel & 1) != 0) {
             Vector2f side = Perpendicular(game.GetPlayer().GetHeading());
-            //Vector2f side = game_->GetPlayer().GetHeading();
 
             pos_adjust.push_back(side * radius * 0.8f);
             pos_adjust.push_back(side * -radius * 0.8f);
@@ -83,6 +89,11 @@ namespace marvin {
         //if not make one calculation from center
         else {
             pos_adjust.push_back(Vector2f(0, 0));
+        }
+
+        if (game.GetPlayer().multifire_status) {
+             pos_adjust.push_back(Vector2f(0, 0));
+             pos_adjust.push_back(Vector2f(0, 0));
         }
         //push back one more position for bomb calculation
         pos_adjust.push_back(Vector2f(0, 0));
@@ -98,6 +109,7 @@ namespace marvin {
 
             //when the last shot is reached change to bomb settings, if bomb bounce is 0 this is skipped
             if (i == (pos_adjust.size() - 1)) {
+                direction = game.GetPlayer().GetHeading();
                 bounces = (int)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombBounceCount;
                 proj_speed = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
                 alive_time = (float)game.GetSettings().BombAliveTime;
@@ -108,56 +120,70 @@ namespace marvin {
             
 
             float travel = (proj_speed + (game.GetPlayer().velocity * game.GetPlayer().GetHeading())) * (alive_time / 100.0f);
-            Vector2f sDirection = Normalize((direction * proj_speed) + game.GetPlayer().velocity);
-            //Vector2f sDirection = direction;
+            
+
+            if (game.GetPlayer().multifire_status) {
+                if (i == (pos_adjust.size() - 2)) {
+                    direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, true);
+                }
+                else if (i == (pos_adjust.size() - 3)) {
+                    direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, false);
+                }
+            }
+
+            Vector2f sDirection = Normalize(direction * proj_speed + game.GetPlayer().velocity);
+
             Vector2f velocity = game.GetPlayer().velocity;
 
             for (int j = 0; j < bounces + 1; ++j) {
 
-                bool hit = true;
+                
 
                 //how long a bullet at normal speed would take to travel the total distance to the target
                 float travel_time = (traveled_dist + target_pos.Distance(position)) / proj_speed;
+                if (travel_time == 0.0f) { travel_time = 0.1f; }
                 //calculate a new speed using time and the position the shot will be calulated at
                 float traveled_speed = target_pos.Distance(position) / travel_time;
 
                 Vector2f solution;
 
                 //the shot solution, calculated at the wall, travel time is included by reducing the bullet speed
-                if (!CalculateShot(position, target_pos, velocity, target_vel, traveled_speed, &solution)) {
-                    hit = false;
-                }
+                if (CalculateShot(position, target_pos, velocity, target_vel, traveled_speed, &solution)) {
 
-                Vector2f t2shot = solution - target_pos;
-                CastResult t2shot_line = RayCast(game.GetMap(), target_pos, Normalize(t2shot), t2shot.Length());
+                    Vector2f tosPosition = solution - position;
+                    CastResult tosPosition_line = RayCast(game.GetMap(), position, Normalize(tosPosition), tosPosition.Length());
 
-                Vector2f tosPosition = solution - position;
-                CastResult tosPosition_line = RayCast(game.GetMap(), position, Normalize(tosPosition), tosPosition.Length());
+                    if (!tosPosition_line.hit) {
 
-                if (!tosPosition_line.hit && !t2shot_line.hit) {
+                        Vector2f t2shot = solution - target_pos;
+                        CastResult t2shot_line = RayCast(game.GetMap(), target_pos, Normalize(t2shot), t2shot.Length());
 
-                    float test_radius = target_radius * 2.0f;
-                    Vector2f box_min = solution - Vector2f(test_radius, test_radius);
-                    Vector2f box_extent(test_radius * 1.2f, test_radius * 1.2f);
-                    float dist;
-                    Vector2f norm;
+                        if (!t2shot_line.hit) {
 
-                    //the calculate shot function can return correct shots but at long or short distances depending on player velocity
-                    if (RayBoxIntersect(position, sDirection, box_min, box_extent, &dist, &norm)) {
-                        if (position.Distance(solution) <= travel && hit == true) {
-                            //RenderWorldLine(game_->GetPosition(), position, position + tosPosition * position.Distance(solution));
-                           // RenderWorldLine(game_.GetPosition(), position, solution, RGB(100, 0, 0));
+                            float test_radius = target_radius * 2.0f;
+                            Vector2f box_min = solution - Vector2f(test_radius, test_radius);
+                            Vector2f box_extent(test_radius * 1.2f, test_radius * 1.2f);
+                            float dist;
+                            Vector2f norm;
 
-                           // RenderText("HIT", center - Vector2f(wall_debug_y, 40), RGB(100, 100, 100), RenderText_Centered);
-                            if (i == (pos_adjust.size() - 1)) {
-                                if (bomb_hit) {
-                                    *bomb_hit = true;
+                            //the calculate shot function can return correct shots but at long or short distances depending on player velocity
+                            if (RayBoxIntersect(position, sDirection, box_min, box_extent, &dist, &norm)) {
+                                if (position.Distance(solution) <= travel) {
+                                    //RenderWorldLine(game.GetPosition(), position, position + tosPosition * position.Distance(solution));
+                                    //RenderWorldLine(game.GetPosition(), position, solution, RGB(100, 0, 0));
+
+                                   // RenderText("HIT", center - Vector2f(wall_debug_y, 40), RGB(100, 100, 100), RenderText_Centered);
+                                    if (i == (pos_adjust.size() - 1)) {
+                                        if (bomb_hit) {
+                                            *bomb_hit = true;
+                                        }
+                                    }
+                                    if (j == 0 && wall_pos) {
+                                        *wall_pos = solution;
+                                    }
+                                    return true;
                                 }
                             }
-                            if (j == 0 && wall_pos) {
-                                *wall_pos = solution;
-                            }
-                            return true;
                         }
                     }
                 }
@@ -168,7 +194,7 @@ namespace marvin {
 
                 if (wall_line.hit) {
 
-                    // RenderWorldLine(game_.GetPosition(), position, wall_line.position, RGB(0, 100, 100));
+                     //RenderWorldLine(game.GetPosition(), position, wall_line.position, RGB(0, 100, 100));
 
                     sDirection = sDirection - (wall_line.normal * (2.0f * sDirection.Dot(wall_line.normal)));
                     velocity = velocity - (wall_line.normal * (2.0f * velocity.Dot(wall_line.normal)));
@@ -183,13 +209,50 @@ namespace marvin {
                     }
                 }
                 else {
-                    //  RenderWorldLine(game_.GetPosition(), position, position + sDirection * travel, RGB(0, 100, 100));
+                      //RenderWorldLine(game.GetPosition(), position, position + sDirection * travel, RGB(0, 100, 100));
                      // RenderWorldLine(game_.GetPosition(), position, solution, RGB(100, 0, 0));
                     break;
                 }
             }
         }
         return false;
+    }
+
+
+    void LookForWallShot(GameProxy & game, Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time, uint8_t bounces) {
+
+
+        for (std::size_t i = 0; i < 1; i++) {
+
+            int left_rotation = game.GetPlayer().discrete_rotation - i;
+            int right_rotation = game.GetPlayer().discrete_rotation + i;
+
+            if (left_rotation < 0) {
+                left_rotation += 40;
+            }
+            if (right_rotation > 39) {
+                right_rotation -= 40;
+            }
+
+            Vector2f left_trajectory = (game.GetPlayer().ConvertToHeading(left_rotation) * proj_speed) + game.GetPlayer().velocity;
+            Vector2f right_trajectory = (game.GetPlayer().ConvertToHeading(right_rotation) * proj_speed) + game.GetPlayer().velocity;
+
+            Vector2f left_direction = Normalize(left_trajectory);
+            Vector2f right_direction = Normalize(right_trajectory);
+
+
+        }
+
+    }
+
+    bool CanShoot(GameProxy& game, Vector2f player_pos, Vector2f solution, float proj_speed, float alive_time) {
+
+        float bullet_travel = (proj_speed + game.GetPlayer().velocity * game.GetPlayer().GetHeading()) * alive_time;
+
+        if (player_pos.Distance(solution) > bullet_travel) return false;
+        if (game.GetMap().GetTileId(player_pos) == marvin::kSafeTileId) return false;
+
+        return true;
     }
 
 
@@ -219,7 +282,52 @@ namespace marvin {
 
 
 
+    bool IsValidTarget(Bot& bot, const Player& target) {
 
+        auto& game = bot.GetGame();
+
+        const Player& bot_player = game.GetPlayer();
+
+        if (!target.active) return false;
+        if (target.id == game.GetPlayer().id) return false;
+        if (target.ship > 7) return false;
+        if (target.frequency == game.GetPlayer().frequency) return false;
+        if (target.name[0] == '<') return false;
+
+        if (game.GetMap().GetTileId(target.position) == marvin::kSafeTileId) {
+            return false;
+        }
+
+        if (!IsValidPosition(target.position)) {
+            return false;
+        }
+
+        MapCoord bot_coord(bot_player.position);
+        MapCoord target_coord(target.position);
+
+        if (!bot.GetRegions().IsConnected(bot_coord, target_coord)) {
+            return false;
+        }
+        //TODO: check if player is cloaking and outside radar range
+        //1 = stealth, 2= cloak, 3 = both, 4 = xradar 
+        bool stealthing = (target.status & 1) != 0;
+        bool cloaking = (target.status & 2) != 0;
+
+        Vector2f resolution(1920, 1080);
+        Vector2f view_min_ = game.GetPosition() - resolution / 2.0f / 16.0f;
+        Vector2f view_max_ = game.GetPosition() + resolution / 2.0f / 16.0f;
+
+        //if the bot doesnt have xradar
+        if (!(bot.GetGame().GetPlayer().status & 4)) {
+            if (stealthing && cloaking) return false;
+
+            bool visible = InRect(target.position, view_min_, view_max_);
+
+            if (stealthing && !visible) return false;
+        }
+
+        return true;
+    }
 
 
 } //namespace marvin

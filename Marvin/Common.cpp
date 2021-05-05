@@ -1,10 +1,19 @@
 #include <chrono>
-
+#include <algorithm>
 #include "Common.h"
-
 #include "Debug.h"
 
 namespace marvin {
+
+    std::string Lowercase(const std::string& str) {
+        std::string result;
+
+        result.resize(str.size());
+
+        std::transform(str.begin(), str.end(), result.begin(), ::tolower);
+
+        return result;
+    }
 
 
     bool CheckStatus(GameProxy& game, KeyController& keys, bool use_max) {
@@ -19,7 +28,7 @@ namespace marvin {
         }
 
 
-        float energy_pct = (game.GetEnergy() / max_energy) * 100.0f;
+        float energy_pct = ((float)game.GetEnergy() / max_energy) * 100.0f;
         bool result = false;
 
         if ((game.GetPlayer().status & 2) != 0) {

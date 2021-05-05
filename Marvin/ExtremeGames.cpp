@@ -17,7 +17,7 @@ namespace marvin {
 
 
 
-    ExtremeGames::ExtremeGames(std::unique_ptr<marvin::GameProxy> game) : game_(std::move(game)), keys_(time_.GetTime()), steering_(*game_, keys_) {
+    ExtremeGames::ExtremeGames(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
 
         auto processor = std::make_unique<path::NodeProcessor>(*game_);
 
@@ -107,7 +107,8 @@ namespace marvin {
                 exit(5);
             }
         }
-
+       // RenderText("initial  " + std::to_string(game_->GetShipSettings().InitialEnergy), GetWindowCenter() - Vector2f(0, 40), RGB(100, 100, 100), RenderText_Centered);
+      //  RenderText("maximum   " + std::to_string(game_->GetShipSettings().MaximumEnergy), GetWindowCenter() - Vector2f(0, 20), RGB(100, 100, 100), RenderText_Centered);
 
         //then check if specced for lag
         if (game_->GetPlayer().ship > 7) {
@@ -695,8 +696,8 @@ namespace marvin {
                 ctx.blackboard.Set<bool>("bullet_shot", false);
                 return behavior::ExecuteResult::Failure;
             }
-            RenderWorldLine(game.GetPosition(), game.GetPosition(), solution, RGB(100, 0, 0));
-            RenderText("gun speed  " + std::to_string(proj_speed), GetWindowCenter() - Vector2f(0, 40), RGB(100, 100, 100), RenderText_Centered);
+           // RenderWorldLine(game.GetPosition(), game.GetPosition(), solution, RGB(100, 0, 0));
+           // RenderText("gun speed  " + std::to_string(proj_speed), GetWindowCenter() - Vector2f(0, 40), RGB(100, 100, 100), RenderText_Centered);
 
 
             float radius_multiplier = 1.2f;
@@ -765,8 +766,8 @@ namespace marvin {
                 return behavior::ExecuteResult::Failure;
             }
 
-            RenderWorldLine(game.GetPosition(), game.GetPosition(), solution, RGB(100, 0, 100));
-            RenderText("bomb speed  " + std::to_string(proj_speed), GetWindowCenter() - Vector2f(0, 60), RGB(100, 100, 100), RenderText_Centered);
+          //  RenderWorldLine(game.GetPosition(), game.GetPosition(), solution, RGB(100, 0, 100));
+          //  RenderText("bomb speed  " + std::to_string(proj_speed), GetWindowCenter() - Vector2f(0, 60), RGB(100, 100, 100), RenderText_Centered);
             
             float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
 
