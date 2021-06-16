@@ -6,15 +6,15 @@
 
 #include "Commands.h"
 #include "Debug.h"
-#include "Devastation.h"
 #include "GameProxy.h"
-#include "Hyperspace.h"
 #include "Map.h"
 #include "RayCaster.h"
 #include "RegionRegistry.h"
 #include "Shooter.h"
 #include "platform/ContinuumGameProxy.h"
 #include "platform/Platform.h"
+#include "zones/Devastation.h"
+#include "zones/Hyperspace.h"
 
 namespace marvin {
 
@@ -24,6 +24,7 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), stee
 
 void Bot::LoadBotConstuctor() {
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
+
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
   regions_ = RegionRegistry::Create(game_->GetMap());
   pathfinder_->CreateMapWeights(game_->GetMap());

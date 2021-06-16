@@ -26,6 +26,7 @@ struct Player;
 class Bot {
  public:
   Bot(std::shared_ptr<GameProxy> game);
+
   void LoadBotConstuctor();
 
   void Update(float dt);
@@ -50,8 +51,6 @@ class Bot {
     return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
   }
 
-  const std::vector<std::string>& GetBotNames() { return bot_names; }
-
   bool MaxEnergyCheck();
 
   void CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::vector<Vector2f>& end_vector,
@@ -59,9 +58,6 @@ class Bot {
 
  private:
   void SetZoneVariables();
-
-  std::vector<std::string> bot_names{"LilMarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1", "Marv2",
-                                     "Marv3",   "Marv4",   "Marv5",      "Marv6",      "Marv7", "Marv8"};
 
   std::vector<std::vector<Vector2f>> base_paths_;
   std::vector<std::vector<Vector2f>> base_holes_;
