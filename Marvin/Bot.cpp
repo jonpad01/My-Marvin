@@ -21,6 +21,12 @@ namespace marvin {
 
     Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
 
+        LoadBotConstuctor();
+
+    }
+
+    void Bot::LoadBotConstuctor() {
+
         auto processor = std::make_unique<path::NodeProcessor>(*game_);       
         pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
         regions_ = RegionRegistry::Create(game_->GetMap());
@@ -271,7 +277,11 @@ namespace marvin {
 
     void Bot::Update(float dt) {
         keys_.ReleaseAll();
-        game_->Update(dt);
+
+        if (!game_->Update(dt)) {
+            LoadBotConstuctor();
+            return;
+        }
 
         steering_.Reset();
 #if 0
@@ -540,201 +550,197 @@ namespace marvin {
             "swarmoff", "so", "multi", "m", "multioff", "mo", "repel", "r", "repeloff", "ro", "setship", "ss", "setfreq", "sf" };
 
             std::vector<std::string> queue;
-
-            std::string test = "";
+            std::string current = "";
 
             for (std::size_t i = 0; i < msg.size(); i++) {
+                              
+                if (msg[i] == ';') {
 
-                if (i != 0 && msg[i] != ';') {
-                    break;
-                }
+                    queue.push_back(current);
+                    current = "";
 
-                for (std::size_t j = 0; j < commands.size(); j++) {
-
-                    if (msg.compare(i, commands[j].size(), commands[j]) == 0) {
-
-                        i += commands[j].size() - 1;
-
-                        queue.push_back(commands[j]);
-                        test += commands[j] + " ";
-                        break;
-                    }
-                }
-            }
-
-            game.SendChatMessage(":" + chat.player + ":" + test);
-
-            if ((msg == "lockmarv" || msg == "lm") && mod) {
-                if (bb.ValueOr<bool>("CmdLock", false) == true) {
-                    game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
-                }
-                else { 
-                    game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
-                }
-                bb.Set<bool>("CmdLock", true);            
-            }
-
-            if ((msg == "unlockmarv" || msg == "um") && mod) {
-                if (bb.ValueOr<bool>("CmdLock", false) == false) {
-                    game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
                 }
                 else {
-                    game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
-                }
-                bb.Set<bool>("CmdLock", false);
+                    current += msg[i];
+                }              
             }
 
-            
+            for (std::size_t i = 0; i < queue.size(); i++) {
 
-            if ((msg == "lockfreq" || msg == "lf") && (mod || !locked)) {
-                if (bb.ValueOr<bool>("FreqLock", false) == true) {
-                    game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
-                }
-                bb.Set<bool>("FreqLock", true);
-            }
+                msg = current[i];
 
-            if ((msg == "unlockfreq" || msg == "uf") && (mod || !locked)) {
-                if (bb.ValueOr<bool>("FreqLock", false) == false) {
-                    game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
-                }
-                bb.Set<bool>("FreqLock", false);
-            }
-
-            if ((msg == "anchor" || msg == "a") && (mod || !locked) && mPrivate) {
-                if (bb.ValueOr<bool>("IsAnchor", false) == true) {
-                    game.SendChatMessage(":" + chat.player + ":Marv was already anchoring.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Switching to anchor mode.");
-                }
-                bb.Set<bool>("IsAnchor", true);
-            }
-
-            if ((msg == "rush" || msg == "r") && (mod || !locked) && mPrivate) {
-                if (bb.ValueOr<bool>("IsAnchor", false) == false) {
-                    game.SendChatMessage(":" + chat.player + ":Marv was already rushing.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Switching to rush mode.");
-                }
-                bb.Set<bool>("IsAnchor", false);
-            }
-
-            if ((msg == "swarm" || msg == "s") && (mod)) {
-                if (bb.ValueOr<bool>("Swarm", false) == true) {
-                    game.SendChatMessage(":" + chat.player + ":Marv was already swarming.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Switching swarm mode on.");
-                }
-                bb.Set<bool>("Swarm", true);
-            }
-
-            if ((msg == "swarmoff" || msg == "so") && (mod || !locked)) {
-                if (bb.ValueOr<bool>("Swarm", false) == false) {
-                    game.SendChatMessage(":" + chat.player + ":Swarm mode was already off.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Switching swarm mode off.");
-                }
-                bb.Set<bool>("Swarm", false);
-            }
-
-            if ((msg == "multi" || msg == "m") && (mod || !locked) && mPrivate) {
-                if (bb.ValueOr<bool>("UseMultiFire", false) == true) {
-                    game.SendChatMessage(":" + chat.player + ":Multifire is already on.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Turning on multifire.");
-                }
-                bb.Set<bool>("UseMultiFire", true);
-            }
-
-            if ((msg == "multioff" || msg == "mo") && (mod || !locked) && mPrivate) {
-                if (bb.ValueOr<bool>("UseMultiFire", false) == false) {
-                    game.SendChatMessage(":" + chat.player + ":Multifire is already off.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Turning off multifire.");
-                }
-                bb.Set<bool>("UseMultiFire", false);
-            }
-
-            if ((msg == "repel" || msg == "rep") && (mod || !locked)) {
-                if (bb.ValueOr<bool>("UseRepel", false) == true) {
-                    game.SendChatMessage(":" + chat.player + ":Already using repels.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Turning repels on.");
-                }
-                bb.Set<bool>("UseRepel", true);
-            }
-
-            if ((msg == "repeloff" || msg == "ro") && (mod || !locked)) {
-                if (bb.ValueOr<bool>("UseRepel", false) == false) {
-                    game.SendChatMessage(":" + chat.player + ":Repels were already off.");
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Turning repels off.");
-                }
-                bb.Set<bool>("UseRepel", false);
-            }
-
-            if ((msg.compare(0, 8, "setship ") == 0 || msg.compare(0, 3, "ss ") == 0) && (mod || !locked)) {
-                uint16_t number = 12;
-                if (std::isdigit(msg[msg.size() - 1])) {
-                    number = (std::stoi(std::string(1, msg[msg.size() - 1])) - 1);
-                }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Invalid selection.");
-                }
-                if (number >= 0 && number < 9) {
-                    bb.Set<uint16_t>("Ship", number);
-                    if (number == 8) { 
-                        bb.Set<bool>("FreqLock", false);
-                        bb.Set<bool>("IsAnchor", false);
-                        bb.Set<bool>("Swarm", false);
-                        bb.Set<bool>("UseMultiFire", false);
-                        bb.Set<bool>("UseRepel", false);
-                        game.SendChatMessage(":" + chat.player + ":My behaviors are also reset when sent to spec");
+                if ((msg == "lockmarv" || msg == "lm") && mod) {
+                    if (bb.ValueOr<bool>("CmdLock", false) == true) {
+                        game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
                     }
                     else {
-                        game.SendChatMessage(":" + chat.player + ":Ship selection recieved.");
+                        game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
                     }
+                    bb.Set<bool>("CmdLock", true);
                 }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Invalid selection.");
-                }
-            }
 
-            if ((msg.compare(0, 8, "setfreq ") == 0 || msg.compare(0, 3, "sf ") == 0) && (mod || !locked)) {
-                uint16_t number = 111;
-                std::string freq;
-                if (std::isdigit(msg[msg.size() - 1])) {
-                    if (std::isdigit(msg[msg.size() - 2])) {
-                        freq = { msg[msg.size() - 2], msg[msg.size() - 1] };
+                if ((msg == "unlockmarv" || msg == "um") && mod) {
+                    if (bb.ValueOr<bool>("CmdLock", false) == false) {
+                        game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
                     }
                     else {
-                        freq = { msg[msg.size() - 1] };
+                        game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
                     }
+                    bb.Set<bool>("CmdLock", false);
+                }
 
-                    number = std::stoi(freq);
+
+
+                if ((msg == "lockfreq" || msg == "lf") && (mod || !locked)) {
+                    if (bb.ValueOr<bool>("FreqLock", false) == true) {
+                        game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
+                    }
+                    bb.Set<bool>("FreqLock", true);
                 }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+
+                if ((msg == "unlockfreq" || msg == "uf") && (mod || !locked)) {
+                    if (bb.ValueOr<bool>("FreqLock", false) == false) {
+                        game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
+                    }
+                    bb.Set<bool>("FreqLock", false);
                 }
-                if (number >= 0 && number < 100) {
-                    bb.Set<uint16_t>("Freq", number);
-                    game.SendChatMessage(":" + chat.player + ":Frequency selection recieved.");
+
+                if ((msg == "anchor" || msg == "a") && (mod || !locked) && mPrivate) {
+                    if (bb.ValueOr<bool>("IsAnchor", false) == true) {
+                        game.SendChatMessage(":" + chat.player + ":Marv was already anchoring.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Switching to anchor mode.");
+                    }
+                    bb.Set<bool>("IsAnchor", true);
                 }
-                else {
-                    game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+
+                if ((msg == "rush" || msg == "r") && (mod || !locked) && mPrivate) {
+                    if (bb.ValueOr<bool>("IsAnchor", false) == false) {
+                        game.SendChatMessage(":" + chat.player + ":Marv was already rushing.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Switching to rush mode.");
+                    }
+                    bb.Set<bool>("IsAnchor", false);
+                }
+
+                if ((msg == "swarm" || msg == "s") && (mod)) {
+                    if (bb.ValueOr<bool>("Swarm", false) == true) {
+                        game.SendChatMessage(":" + chat.player + ":Marv was already swarming.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Switching swarm mode on.");
+                    }
+                    bb.Set<bool>("Swarm", true);
+                }
+
+                if ((msg == "swarmoff" || msg == "so") && (mod || !locked)) {
+                    if (bb.ValueOr<bool>("Swarm", false) == false) {
+                        game.SendChatMessage(":" + chat.player + ":Swarm mode was already off.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Switching swarm mode off.");
+                    }
+                    bb.Set<bool>("Swarm", false);
+                }
+
+                if ((msg == "multi" || msg == "m") && (mod || !locked) && mPrivate) {
+                    if (bb.ValueOr<bool>("UseMultiFire", false) == true) {
+                        game.SendChatMessage(":" + chat.player + ":Multifire is already on.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Turning on multifire.");
+                    }
+                    bb.Set<bool>("UseMultiFire", true);
+                }
+
+                if ((msg == "multioff" || msg == "mo") && (mod || !locked) && mPrivate) {
+                    if (bb.ValueOr<bool>("UseMultiFire", false) == false) {
+                        game.SendChatMessage(":" + chat.player + ":Multifire is already off.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Turning off multifire.");
+                    }
+                    bb.Set<bool>("UseMultiFire", false);
+                }
+
+                if ((msg == "repel" || msg == "rep") && (mod || !locked)) {
+                    if (bb.ValueOr<bool>("UseRepel", false) == true) {
+                        game.SendChatMessage(":" + chat.player + ":Already using repels.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Turning repels on.");
+                    }
+                    bb.Set<bool>("UseRepel", true);
+                }
+
+                if ((msg == "repeloff" || msg == "ro") && (mod || !locked)) {
+                    if (bb.ValueOr<bool>("UseRepel", false) == false) {
+                        game.SendChatMessage(":" + chat.player + ":Repels were already off.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Turning repels off.");
+                    }
+                    bb.Set<bool>("UseRepel", false);
+                }
+
+                if ((msg.compare(0, 8, "setship ") == 0 || msg.compare(0, 3, "ss ") == 0) && (mod || !locked)) {
+                    uint16_t number = 12;
+                    if (std::isdigit(msg[msg.size() - 1])) {
+                        number = (std::stoi(std::string(1, msg[msg.size() - 1])) - 1);
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+                    }
+                    if (number >= 0 && number < 9) {
+                        bb.Set<uint16_t>("Ship", number);
+                        if (number == 8) {
+                            bb.Set<bool>("FreqLock", false);
+                            bb.Set<bool>("IsAnchor", false);
+                            bb.Set<bool>("Swarm", false);
+                            bb.Set<bool>("UseMultiFire", false);
+                            bb.Set<bool>("UseRepel", false);
+                            game.SendChatMessage(":" + chat.player + ":My behaviors are also reset when sent to spec");
+                        }
+                        else {
+                            game.SendChatMessage(":" + chat.player + ":Ship selection recieved.");
+                        }
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+                    }
+                }
+
+                if ((msg.compare(0, 8, "setfreq ") == 0 || msg.compare(0, 3, "sf ") == 0) && (mod || !locked)) {
+                    uint16_t number = 111;
+                    std::string freq;
+                    if (std::isdigit(msg[msg.size() - 1])) {
+                        if (std::isdigit(msg[msg.size() - 2])) {
+                            freq = { msg[msg.size() - 2], msg[msg.size() - 1] };
+                        }
+                        else {
+                            freq = { msg[msg.size() - 1] };
+                        }
+
+                        number = std::stoi(freq);
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+                    }
+                    if (number >= 0 && number < 100) {
+                        bb.Set<uint16_t>("Freq", number);
+                        game.SendChatMessage(":" + chat.player + ":Frequency selection recieved.");
+                    }
+                    else {
+                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+                    }
                 }
             }
 

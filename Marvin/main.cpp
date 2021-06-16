@@ -1,4 +1,5 @@
 #include "platform/Platform.h"
+//
 #include <detours.h>
 
 #include <chrono>
@@ -7,7 +8,7 @@
 #include <ddraw.h>
 
 #include "platform/ContinuumGameProxy.h"
-#include "GameProxy.h"
+//#include "GameProxy.h"
 #include "ExtremeGames.h"
 #include "GalaxySports.h"
 #include "Hockey.h"
@@ -15,10 +16,10 @@
 #include "Bot.h"
 
 #include "Debug.h"
-#include "Map.h"
-#include "path/Pathfinder.h"
+//#include "Map.h"
+//#include "path/Pathfinder.h"
 #include "KeyController.h"
-#include "behavior/BehaviorEngine.h"
+//#include "behavior/BehaviorEngine.h"
 
 
 const char* kEnabledText = "Continuum (enabled)";
@@ -41,10 +42,10 @@ std::unique_ptr<marvin::Bot> bot;
 static bool g_Enabled = true;
 static bool g_Reload = false;
 HWND g_hWnd = 0;
-static time_point g_LastUpdateTime = time_clock::now();
+static time_point g_LastUpdateTime;
 
 HWND GetMainWindow();
-marvin::Bot& CreateBot();
+void CreateBot();
 
 
 
@@ -56,8 +57,7 @@ static BOOL(WINAPI* RealGetMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
 
 static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
 
-HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface, LPRECT src_rect, DWORD flags,
-    LPDDBLTFX fx) {
+HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface, LPRECT src_rect, DWORD flags, LPDDBLTFX fx) {
 
     u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
     LPDIRECTDRAWSURFACE primary_surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x40);
@@ -78,9 +78,15 @@ BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
     GetWindowThreadProcessId(hwnd, &pid);
 
     if (pid == lParam) {
-        g_hWnd = hwnd;
-        return FALSE;
-}
+        char title[1024];
+        GetWindowText(hwnd, title, 1024);
+
+        if (strcmp(title, "Continuum") == 0) {
+            //return hwnd;
+            g_hWnd = hwnd;
+            return FALSE;
+        }
+    }
 
     return TRUE;
 }
@@ -171,12 +177,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     }
 
 
-
     time_point now = time_clock::now();
     seconds dt = now - g_LastUpdateTime;
 
     if (g_Enabled) {
-
 
 
         marvin::Chat chat = game->GetChat();
@@ -188,13 +192,11 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
             if (chat.message.compare(0, 9, "WARNING: ") == 0 || (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == "Extreme Games")) {
 
                 PostQuitMessage(0);
+                return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
             }
         }
 
 
-
-
-//#if DEBUG_RENDER
         if (dt.count() > (float)(1.0f / 60.0f)) {
 
 #if DEBUG_RENDER
@@ -210,31 +212,14 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
             g_LastUpdateTime = now;
 
         }
-#if 0
-
-        if (eg) { eg->Update(dt.count()); }
-        if (gs) { gs->Update(dt.count()); }
-        if (hz) { hz->Update(dt.count()); }
-        if (pb) { pb->Update(dt.count()); }
-        if (bot) { bot->Update(dt.count()); }
-        g_LastUpdateTime = now;
-#endif 
     }
-
-
-
-#if DEBUG_RENDER
-    //marvin::WaitForSync();
-#endif
-
-
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 }
 
 
 
 
-marvin::Bot& CreateBot() {
+void CreateBot() {
     //create pointer to game and pass the window handle
     game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
     auto  game2(game);
@@ -254,12 +239,10 @@ marvin::Bot& CreateBot() {
     else {
         bot = std::make_unique<marvin::Bot>(std::move(game2));
     }
-
-     return *bot;
 }
 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
-
+//#if 0
     //prevent windows from throwing error messages and let the game crash out
     if (IsWindows7OrGreater() && !IsWindows8OrGreater()) {
         SetThreadErrorMode(SEM_NOGPFAULTERRORBOX, NULL);
@@ -273,13 +256,13 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   marvin::debug_log.open("marvin.log", std::ios::out | std::ios::app);
 
   marvin::debug_log << "Starting Marvin.\n";
-#if 0
+
   try {
     CreateBot();
   } catch (std::exception& e) {
     MessageBox(NULL, e.what(), "A", MB_OK);
   }
-#endif
+//#endif
   CreateBot();
 
   u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
@@ -294,15 +277,17 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
   DetourAttach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
+
 #if DEBUG_RENDER
   DetourAttach(&(PVOID&)RealBlt, OverrideBlt);
 #endif
   DetourTransactionCommit();
 
-  
+
   char buf[1024];
   GetWindowText(g_hWnd, buf, 1024);
   if (strcmp(buf, "Continuum") == 0) SetWindowText(g_hWnd, kEnabledText);
+//#endif
   
   marvin::debug_log << "Marvin started successfully." << std::endl;
 }

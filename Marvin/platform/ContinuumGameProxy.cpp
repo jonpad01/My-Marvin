@@ -9,182 +9,172 @@
 
 namespace marvin {
 
-ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) {
-  module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
-  module_base_menu_ = process_.GetModuleBase("menu040.dll");
-  player_id_ = 0xFFFF;
-  hwnd_ = hwnd;
+    ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
 
-  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
-
-  position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
-  
-  path_ = GetServerFolder() + "\\" + GetMapFile();
- 
-  map_ = Map::Load(path_);
-    
-  FetchPlayers();
-  SetZone();
-
-
-  for (auto& player : players_) {
-    if (player.name == GetName()) {
-      player_id_ = player.id;
-      player_ = &player;
-    }
-  }
-}
-
-void ContinuumGameProxy::Update(float dt) {
-  // Continuum stops processing input when it loses focus, so update the memory
-  // to make it think it always has focus.
-  SetWindowFocus();
-
-  bool reload = false;
-
-  FetchPlayers();
-  FetchBallData();
-  FetchChat();
-
-  if (path_ != GetServerFolder() + "\\" + GetMapFile()) {
-      path_ = GetServerFolder() + "\\" + GetMapFile();
-      map_->Load(path_);
-      reload = true;
-  }
-
-  //RenderText("index: " + std::to_string(index), GetWindowCenter() - Vector2f(0, -200), RGB(100, 100, 100), RenderText_Centered);
-  //RenderText("bitwise index: " + std::to_string(bitwise_index), GetWindowCenter() - Vector2f(0, -160), RGB(100, 100, 100), RenderText_Centered);
-
-  // Grab the address to the main player structure
-  u32 player_addr = *(u32*)(game_addr_ + 0x13070);
-
-  // Follow a pointer that leads to weapon data
-  u32 ptr = *(u32*)(player_addr + 0x0C);
-  u32 weapon_count = *(u32*)(ptr + 0x1DD0) + *(u32*)(ptr + 0x1DD4);
-  u32 weapon_ptrs = (ptr + 0x21F4);
-
-  weapons_.clear();
-
-  for (size_t i = 0; i < weapon_count; ++i) {
-      u32 weapon_data = *(u32*)(weapon_ptrs + i * 4);
-
-      WeaponData* data = (WeaponData*)(weapon_data);
-
-      weapons_.emplace_back(data);
-  }
-}
-
-void ContinuumGameProxy::FetchPlayers() {
-  const std::size_t kPosOffset = 0x04;
-  const std::size_t kVelocityOffset = 0x10;
-  const std::size_t kIdOffset = 0x18;
-  const std::size_t kBountyOffset1 = 0x20;
-  const std::size_t kBountyOffset2 = 0x24;
-  const std::size_t kFlagOffset1 = 0x30;
-  const std::size_t kFlagOffset2 = 0x34;
-  const std::size_t kRotOffset = 0x3C;
-  const std::size_t kShipOffset = 0x5C;
-  const std::size_t kFreqOffset = 0x58;
-  const std::size_t kStatusOffset = 0x60;
-  const std::size_t kNameOffset = 0x6D;
-  const std::size_t kEnergyOffset1 = 0x208;
-  const std::size_t kEnergyOffset2 = 0x20C;
-  const std::size_t kMultiFireCapableOffset = 0x2EC;
-  const std::size_t kMultiFireStatusOffset = 0x32C;
-  
-  
-
-
-  std::size_t base_addr = game_addr_ + 0x127EC;
-  std::size_t players_addr = base_addr + 0x884;
-  std::size_t count_addr = base_addr + 0x1884;
-
-  std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
-
-  players_.clear();
-
-  for (std::size_t i = 0; i < count; ++i) {
-    std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
-
-    if (!player_addr) continue;
-
-    Player player;
-
-    player.position.x =  process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
-
-    player.position.y = process_.ReadU32(player_addr + kPosOffset + 4) / 1000.0f / 16.0f;
-
-    player.velocity.x = process_.ReadI32(player_addr + kVelocityOffset) / 10.0f / 16.0f;
-
-    player.velocity.y = process_.ReadI32(player_addr + kVelocityOffset + 4) / 10.0f / 16.0f;
-
-    player.id = static_cast<uint16_t>(process_.ReadU32(player_addr + kIdOffset));
-
-    player.discrete_rotation = static_cast<uint16_t>(process_.ReadU32(player_addr + kRotOffset) / 1000);
-
-    player.ship = static_cast<uint16_t>(process_.ReadU32(player_addr + kShipOffset));
-
-    player.frequency = static_cast<uint16_t>(process_.ReadU32(player_addr + kFreqOffset));
-
-    player.status = static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));
-
-    player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
-
-    player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
-
-    player.name = process_.ReadString(player_addr + kNameOffset, 23);
-
-    player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
-
-    player.flags = *(u32*)(player_addr + kFlagOffset1) + *(u32*)(player_addr + kFlagOffset2);
-
-    //triggers if player is not moving and has no velocity, not used
-    player.dead = process_.ReadU32(player_addr + 0x178) == 0;
-
-    //the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
-    player.attach_id = process_.ReadU32(player_addr + 0x1C);
-    //might not work on bot but works well on other players
-    player.active = *(u32*)(player_addr + 0x4C) == 0 && *(u32*)(player_addr + 0x40) == 0;
-
-    // Energy calculation @4485FA
-    if (player.id == player_id_) {
-    u32 energy1 = process_.ReadU32(player_addr + kEnergyOffset1); 
-    u32 energy2 = process_.ReadU32(player_addr + kEnergyOffset2); 
-
-    //energy1 and energy2 are larger than a uint32_t can store so it rolls over
-    u32 combined = energy1 + energy2;
-    //this then takes the result and basically divides it by 1000
-    u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;
-
-    player.energy = static_cast<uint16_t>(energy);
-    }
-    else {
-        u32 first = *(u32*)(player_addr + 0x150);
-        u32 second = *(u32*)(player_addr + 0x154);
-
-        player.energy = static_cast<uint16_t>(first + second);
+        LoadGame();
     }
 
-    //u32 test = *(u32*)(player_addr + 0x2AC);
+    void ContinuumGameProxy::LoadGame() {
 
-    player.repels = *(u32*)(player_addr + 0x2B0) + *(u32*)(player_addr + 0x2B4);
-    player.bursts = *(u32*)(player_addr + 0x2B8) + *(u32*)(player_addr + 0x2BC);
-    player.decoys = *(u32*)(player_addr + 0x2D8) + *(u32*)(player_addr + 0x2DC);
-    player.thors = *(u32*)(player_addr + 0x2D0) + *(u32*)(player_addr + 0x2D4);
-    player.bricks = *(u32*)(player_addr + 0x2C0) + *(u32*)(player_addr + 0x2C4);
-    player.rockets = *(u32*)(player_addr + 0x2C8) + *(u32*)(player_addr + 0x2CC);
-    player.portals = *(u32*)(player_addr + 0x2E0) + *(u32*)(player_addr + 0x2E4);
+        module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
+        module_base_menu_ = process_.GetModuleBase("menu040.dll");
+        player_id_ = 0xFFFF;
 
-    players_.emplace_back(player);
+        game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
 
-    if (player.id == player_id_) {
-        //RenderText("status  " + std::to_string((player.status)), GetWindowCenter() - Vector2f(0.0f, 60.0f), RGB(100, 100, 100), RenderText_Centered);
-        //RenderText("test  " + std::to_string(test), GetWindowCenter() - Vector2f(0.0f, 40.0f), RGB(100, 100, 100), RenderText_Centered);
-      player_ = &players_.back();
-      player_addr_ = player_addr;
+        position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+
+        mapfile_path_ = GetServerFolder() + "\\" + GetMapFile();
+
+        map_ = Map::Load(mapfile_path_);
+
+        FetchPlayers();
+        SetZone();
+
+
+        for (auto& player : players_) {
+            if (player.name == GetName()) {
+                player_id_ = player.id;
+                player_ = &player;
+            }
+        }
     }
-  }
-}
+
+
+    bool ContinuumGameProxy::Update(float dt) {
+        // Continuum stops processing input when it loses focus, so update the memory
+        // to make it think it always has focus.
+        SetWindowFocus();
+
+        if (mapfile_path_ != GetServerFolder() + "\\" + GetMapFile()) {
+            LoadGame();
+            return false;
+        }
+
+        try {
+            FetchPlayers();
+            FetchBallData();
+            FetchChat();
+            FetchWeapons();
+        }
+        catch (...) {
+            return false;
+        }
+
+        return true;
+    }
+
+    void ContinuumGameProxy::FetchPlayers() {
+        const std::size_t kPosOffset = 0x04;
+        const std::size_t kVelocityOffset = 0x10;
+        const std::size_t kIdOffset = 0x18;
+        const std::size_t kBountyOffset1 = 0x20;
+        const std::size_t kBountyOffset2 = 0x24;
+        const std::size_t kFlagOffset1 = 0x30;
+        const std::size_t kFlagOffset2 = 0x34;
+        const std::size_t kRotOffset = 0x3C;
+        const std::size_t kShipOffset = 0x5C;
+        const std::size_t kFreqOffset = 0x58;
+        const std::size_t kStatusOffset = 0x60;
+        const std::size_t kNameOffset = 0x6D;
+        const std::size_t kEnergyOffset1 = 0x208;
+        const std::size_t kEnergyOffset2 = 0x20C;
+        const std::size_t kMultiFireCapableOffset = 0x2EC;
+        const std::size_t kMultiFireStatusOffset = 0x32C;
+
+
+
+
+        std::size_t base_addr = game_addr_ + 0x127EC;
+        std::size_t players_addr = base_addr + 0x884;
+        std::size_t count_addr = base_addr + 0x1884;
+
+        std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
+
+        players_.clear();
+
+        for (std::size_t i = 0; i < count; ++i) {
+            std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
+
+            if (!player_addr) continue;
+
+            Player player;
+
+            player.position.x = process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
+
+            player.position.y = process_.ReadU32(player_addr + kPosOffset + 4) / 1000.0f / 16.0f;
+
+            player.velocity.x = process_.ReadI32(player_addr + kVelocityOffset) / 10.0f / 16.0f;
+
+            player.velocity.y = process_.ReadI32(player_addr + kVelocityOffset + 4) / 10.0f / 16.0f;
+
+            player.id = static_cast<uint16_t>(process_.ReadU32(player_addr + kIdOffset));
+
+            player.discrete_rotation = static_cast<uint16_t>(process_.ReadU32(player_addr + kRotOffset) / 1000);
+
+            player.ship = static_cast<uint16_t>(process_.ReadU32(player_addr + kShipOffset));
+
+            player.frequency = static_cast<uint16_t>(process_.ReadU32(player_addr + kFreqOffset));
+
+            player.status = static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));
+
+            player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
+
+            player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
+
+            player.name = process_.ReadString(player_addr + kNameOffset, 23);
+
+            player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
+
+            player.flags = *(u32*)(player_addr + kFlagOffset1) + *(u32*)(player_addr + kFlagOffset2);
+
+            //triggers if player is not moving and has no velocity, not used
+            player.dead = process_.ReadU32(player_addr + 0x178) == 0;
+
+            //the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
+            player.attach_id = process_.ReadU32(player_addr + 0x1C);
+            //might not work on bot but works well on other players
+            player.active = *(u32*)(player_addr + 0x4C) == 0 && *(u32*)(player_addr + 0x40) == 0;
+
+            // Energy calculation @4485FA
+            if (player.id == player_id_) {
+                u32 energy1 = process_.ReadU32(player_addr + kEnergyOffset1);
+                u32 energy2 = process_.ReadU32(player_addr + kEnergyOffset2);
+
+                //energy1 and energy2 are larger than a uint32_t can store so it rolls over
+                u32 combined = energy1 + energy2;
+                //this then takes the result and basically divides it by 1000
+                u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;
+
+                player.energy = static_cast<uint16_t>(energy);
+            }
+            else {
+                u32 first = *(u32*)(player_addr + 0x150);
+                u32 second = *(u32*)(player_addr + 0x154);
+
+                player.energy = static_cast<uint16_t>(first + second);
+            }
+
+            //u32 test = *(u32*)(player_addr + 0x2AC);
+
+            player.repels = *(u32*)(player_addr + 0x2B0) + *(u32*)(player_addr + 0x2B4);
+            player.bursts = *(u32*)(player_addr + 0x2B8) + *(u32*)(player_addr + 0x2BC);
+            player.decoys = *(u32*)(player_addr + 0x2D8) + *(u32*)(player_addr + 0x2DC);
+            player.thors = *(u32*)(player_addr + 0x2D0) + *(u32*)(player_addr + 0x2D4);
+            player.bricks = *(u32*)(player_addr + 0x2C0) + *(u32*)(player_addr + 0x2C4);
+            player.rockets = *(u32*)(player_addr + 0x2C8) + *(u32*)(player_addr + 0x2CC);
+            player.portals = *(u32*)(player_addr + 0x2E0) + *(u32*)(player_addr + 0x2E4);
+
+            players_.emplace_back(player);
+
+            if (player.id == player_id_) {
+                //RenderText("status  " + std::to_string((player.status)), GetWindowCenter() - Vector2f(0.0f, 60.0f), RGB(100, 100, 100), RenderText_Centered);
+                //RenderText("test  " + std::to_string(test), GetWindowCenter() - Vector2f(0.0f, 40.0f), RGB(100, 100, 100), RenderText_Centered);
+                player_ = &players_.back();
+                player_addr_ = player_addr;
+            }
+        }
+    }
 
 void ContinuumGameProxy::FetchBallData() {
 
@@ -256,6 +246,29 @@ void ContinuumGameProxy::FetchChat() {
 
     chat_ = chat;
 }
+
+
+void ContinuumGameProxy::FetchWeapons() {
+
+    // Grab the address to the main player structure
+    u32 player_addr = *(u32*)(game_addr_ + 0x13070);
+
+    // Follow a pointer that leads to weapon data
+    u32 ptr = *(u32*)(player_addr + 0x0C);
+    u32 weapon_count = *(u32*)(ptr + 0x1DD0) + *(u32*)(ptr + 0x1DD4);
+    u32 weapon_ptrs = (ptr + 0x21F4);
+
+    weapons_.clear();
+
+    for (size_t i = 0; i < weapon_count; ++i) {
+        u32 weapon_data = *(u32*)(weapon_ptrs + i * 4);
+
+        WeaponData* data = (WeaponData*)(weapon_data);
+
+        weapons_.emplace_back(data);
+    }
+}
+
 
 void ContinuumGameProxy::SetZone() {
     zone_ = "";

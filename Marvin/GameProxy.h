@@ -34,7 +34,7 @@ class GameProxy {
  public:
   virtual ~GameProxy() {}
 
-  virtual void Update(float dt) = 0;
+  virtual bool Update(float dt) = 0;
 
   virtual std::string GetName() const = 0;
   virtual Chat GetChat() const = 0;

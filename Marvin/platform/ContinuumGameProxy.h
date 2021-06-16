@@ -56,8 +56,9 @@ class ContinuumGameProxy : public GameProxy {
  public:
      
   ContinuumGameProxy(HWND hwnd);
+  void LoadGame();
 
-  void Update(float dt) override;
+  bool Update(float dt) override;
 
   std::string GetName() const override;
   Chat GetChat() const override;
@@ -118,6 +119,7 @@ class ContinuumGameProxy : public GameProxy {
   void FetchChat();
   void FetchPlayers();
   void FetchBallData();
+  void FetchWeapons();
   void SendKey(int vKey);
 
   std::vector<BallData> balls_;
@@ -134,7 +136,7 @@ class ContinuumGameProxy : public GameProxy {
   Player* player_;
   std::vector<Player> players_;
   std::vector<ContinuumWeapon> weapons_;
-  std::string path_;
+  std::string mapfile_path_;
   std::string zone_;
 };
 

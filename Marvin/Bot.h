@@ -29,6 +29,7 @@ namespace marvin {
     public:
 
         Bot(std::shared_ptr<GameProxy> game);
+        void LoadBotConstuctor();
 
         void Update(float dt);
 
