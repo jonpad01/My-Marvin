@@ -8,16 +8,13 @@
 #include "NodeProcessor.h"
 #include "Path.h"
 
-namespace marvin { 
+namespace marvin {
 
-    float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2);
-    std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position);
-    Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius);
+float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2);
+std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position);
+Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius);
 
 namespace path {
-
-    
-
 
 template <typename T, typename Compare, typename Container = std::vector<T>>
 
@@ -40,10 +37,8 @@ class PriorityQueue {
     return item;
   }
 
-  //sort from highest at beginning to lowest at end
-  void Update() {
-    std::make_heap(container_.begin(), container_.end(), comparator_);
-  }
+  // sort from highest at beginning to lowest at end
+  void Update() { std::make_heap(container_.begin(), container_.end(), comparator_); }
 
   void Clear() { container_.clear(); }
   std::size_t Size() const { return container_.size(); }
@@ -56,8 +51,9 @@ class PriorityQueue {
 
 struct Pathfinder {
  public:
-     Pathfinder(std::unique_ptr<NodeProcessor> processor);
-  std::vector<Vector2f> FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to, float radius);
+  Pathfinder(std::unique_ptr<NodeProcessor> processor);
+  std::vector<Vector2f> FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to,
+                                 float radius);
 
   std::vector<Vector2f> SmoothPath(const std::vector<Vector2f>& path, const Map& map, float ship_radius);
 
@@ -68,8 +64,8 @@ struct Pathfinder {
  private:
   struct NodeCompare {
     bool operator()(const Node* lhs, const Node* rhs) const {
-        if (lhs->f == rhs->f) return lhs->rotations > rhs->rotations;
-        return lhs->f > rhs->f;
+      if (lhs->f == rhs->f) return lhs->rotations > rhs->rotations;
+      return lhs->f > rhs->f;
     }
   };
 

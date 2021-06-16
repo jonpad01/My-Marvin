@@ -17,16 +17,15 @@
 //#include <stdio.h>
 //#include <TlHelp32.h>
 
-
 namespace marvin {
-	namespace memory {
+namespace memory {
 
-		uint32_t ReadU32(HANDLE handle, std::size_t address);
-		bool WriteU32(HANDLE handle, std::size_t address, uint32_t value);
+uint32_t ReadU32(HANDLE handle, std::size_t address);
+bool WriteU32(HANDLE handle, std::size_t address, uint32_t value);
 
-		std::string ReadString(HANDLE handle, std::size_t address, std::size_t len);
+std::string ReadString(HANDLE handle, std::size_t address, std::size_t len);
 
-		std::string ReadChatEntry(std::size_t module_base, HANDLE handle);
+std::string ReadChatEntry(std::size_t module_base, HANDLE handle);
 
-	} //namespace memory
-} //namespace marvin
+}  // namespace memory
+}  // namespace marvin

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Vector2f.h"
 #include "GameProxy.h"
+#include "Vector2f.h"
 
 namespace marvin {
 
@@ -29,12 +29,11 @@ class SteeringBehavior {
   void AvoidWalls(float max_look_ahead);
 
  private:
-
   GameProxy& game_;
   KeyController& keys_;
 
   Vector2f force_;
-  float rotation_; 
+  float rotation_;
 };
 
 }  // namespace marvin

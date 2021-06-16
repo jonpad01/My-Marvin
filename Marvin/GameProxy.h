@@ -2,33 +2,32 @@
 
 #include <string>
 #include <vector>
-#include "KeyController.h"
-#include "ClientSettings.h"
-#include "Player.h"
-#include "types.h"
-#include "Vector2f.h"
 
+#include "ClientSettings.h"
+#include "KeyController.h"
+#include "Player.h"
+#include "Vector2f.h"
+#include "types.h"
 
 namespace marvin {
 
 class Map;
 
 class Weapon {
-public:
-    virtual u16 GetPlayerId() const = 0;
-    virtual Vector2f GetPosition() const = 0;
-    virtual Vector2f GetVelocity() const = 0;
-    virtual u16 GetType() const = 0;
+ public:
+  virtual u16 GetPlayerId() const = 0;
+  virtual Vector2f GetPosition() const = 0;
+  virtual Vector2f GetVelocity() const = 0;
+  virtual u16 GetType() const = 0;
 };
 
 struct Chat {
-    Chat() : message(""), player(""), type(0), count(0) {}
-    std::string message;
-    std::string player;
-    int type;
-    std::size_t count;
+  Chat() : message(""), player(""), type(0), count(0) {}
+  std::string message;
+  std::string player;
+  int type;
+  std::size_t count;
 };
-
 
 class GameProxy {
  public:
@@ -61,7 +60,6 @@ class GameProxy {
   virtual std::vector<Weapon*> GetWeapons() = 0;
   virtual const std::vector<BallData>& GetBalls() const = 0;
   virtual void SetWindowFocus() = 0;
-  
 
   // May need to be called more than once to transition the game menu
   // Returns true if it attempts to set the ship this call.
@@ -85,7 +83,6 @@ class GameProxy {
   virtual void Repel(KeyController& keys) = 0;
   virtual void F7() = 0;
   virtual void SetSelectedPlayer(uint16_t id) = 0;
-  
 };
 
 }  // namespace marvin

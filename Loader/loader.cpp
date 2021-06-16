@@ -3,17 +3,17 @@
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+//
 #include <TlHelp32.h>
 #include <psapi.h>
 
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <thread>
-#include <chrono>
 
-
-typedef void(*InitFunc)();
-typedef void(*CleanupFunc)();
+typedef void (*InitFunc)();
+typedef void (*CleanupFunc)();
 
 #define DEV_SWAP
 
@@ -56,34 +56,34 @@ bool GetLastWriteTime(const char* filename, FILETIME* ft) {
 }
 
 bool WaitForUnload() {
-    DWORD pid = GetCurrentProcessId();
-    HANDLE hProcess = GetCurrentProcess();
-    HMODULE hMods[1024];
-    DWORD cbNeeded;
+  DWORD pid = GetCurrentProcessId();
+  HANDLE hProcess = GetCurrentProcess();
+  HMODULE hMods[1024];
+  DWORD cbNeeded;
 
-    bool loaded = true;
+  bool loaded = true;
 
-    int loops = 0;
+  int loops = 0;
 
-    while (loaded) {
-        loaded = false;
+  while (loaded) {
+    loaded = false;
 
-        ++loops;
+    ++loops;
 
-        if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded)) {
-            for (std::size_t i = 0; i < (cbNeeded / sizeof(HMODULE)); ++i) {
-                std::string module;
+    if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded)) {
+      for (std::size_t i = 0; i < (cbNeeded / sizeof(HMODULE)); ++i) {
+        std::string module;
 
-                module.resize(MAX_PATH);
+        module.resize(MAX_PATH);
 
-                if (GetModuleFileNameEx(hProcess, hMods[i], &module[0], MAX_PATH)) {
-                    if (module.find(g_MarvinLoadedPath) != std::string::npos) {
-                        loaded = true;
-                    }
-                }
-            }
+        if (GetModuleFileNameEx(hProcess, hMods[i], &module[0], MAX_PATH)) {
+          if (module.find(g_MarvinLoadedPath) != std::string::npos) {
+            loaded = true;
+          }
         }
+      }
     }
+  }
 
 #if 0
     if (loops > 1) {
@@ -93,7 +93,7 @@ bool WaitForUnload() {
     }
 #endif
 
-    return true;
+  return true;
 }
 
 void PerformReload() {
@@ -110,7 +110,6 @@ void PerformReload() {
 
   hModule = NULL;
 
-  
   for (int tries = 0; tries < 20; ++tries) {
     if (CopyFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str(), FALSE) != 0) {
       break;

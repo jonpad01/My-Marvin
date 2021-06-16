@@ -3,87 +3,81 @@
 #include <fstream>
 #include <memory>
 
-#include "KeyController.h"
 #include "Common.h"
+#include "KeyController.h"
 #include "Steering.h"
+#include "Time.h"
 #include "behavior/BehaviorEngine.h"
 #include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
-#include "Time.h"
-
 
 namespace marvin {
 
-        using Path = std::vector<Vector2f>;
+using Path = std::vector<Vector2f>;
 
-    namespace deva {
-        //base 8 was reversed in the ini file (vector 7)
-        
-                                                  
-        
-        
-       
+namespace deva {
+// base 8 was reversed in the ini file (vector 7)
 
-       class DevaSetRegionNode : public behavior::BehaviorNode {
-       public:
-           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-       private:
+class DevaSetRegionNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
-       };
+ private:
+};
 
-       class DevaFreqMan : public behavior::BehaviorNode {
-       public:
-           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-       private:
-   
-       };
+class DevaFreqMan : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
-       class DevaWarpNode : public behavior::BehaviorNode {
-       public:
-           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-       private:
+ private:
+};
 
-       };
+class DevaWarpNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
-       class DevaAttachNode : public behavior::BehaviorNode {
-       public:
-           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-       private:
-           void SetAttachTarget(behavior::ExecuteContext& ctx);
-       };
+ private:
+};
 
-       class DevaToggleStatusNode : public behavior::BehaviorNode {
-       public:
-           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-       private:
+class DevaAttachNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
-       };
+ private:
+  void SetAttachTarget(behavior::ExecuteContext& ctx);
+};
 
-       class DevaPatrolBaseNode : public behavior::BehaviorNode {
-       public:
-           behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-       private:
+class DevaToggleStatusNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
-       };
+ private:
+};
 
-        class DevaRepelEnemyNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        };
+class DevaPatrolBaseNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
-        class DevaBurstEnemyNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-        };
+ private:
+};
 
-        class DevaMoveToEnemyNode : public behavior::BehaviorNode {
-        public:
-            behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-            
-        private:
-            bool IsAimingAt(GameProxy& game, const Player& shooter, const Player& target, Vector2f* dodge);
-        };
+class DevaRepelEnemyNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
 
-        
-    } // namespace deva
+class DevaBurstEnemyNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class DevaMoveToEnemyNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+  bool IsAimingAt(GameProxy& game, const Player& shooter, const Player& target, Vector2f* dodge);
+};
+
+}  // namespace deva
 }  // namespace marvin

@@ -6,12 +6,12 @@ namespace marvin {
 namespace behavior {
 
 class BehaviorEngine {
-public:
+ public:
   BehaviorEngine(BehaviorNode* behavior_tree);
 
   void Update(ExecuteContext& ctx);
 
-private:
+ private:
   BehaviorNode* behavior_tree_;
 };
 

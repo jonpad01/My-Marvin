@@ -1,7 +1,8 @@
 #include "Map.h"
-#include "RegionRegistry.h"
 
 #include <fstream>
+
+#include "RegionRegistry.h"
 
 namespace marvin {
 
@@ -18,15 +19,15 @@ bool Map::IsSolid(u16 x, u16 y) const {
 }
 
 void Map::SetTileId(u16 x, u16 y, TileId id) {
-    if (x >= 1024 || y >= 1024) return;
-    tile_data_[y * kMapExtent + x] = id;
+  if (x >= 1024 || y >= 1024) return;
+  tile_data_[y * kMapExtent + x] = id;
 }
 
 void Map::SetTileId(const Vector2f& position, TileId id) {
-    u16 x = static_cast<u16>(position.x);
-    u16 y = static_cast<u16>(position.y);
+  u16 x = static_cast<u16>(position.x);
+  u16 y = static_cast<u16>(position.y);
 
-    SetTileId(x, y, id);
+  SetTileId(x, y, id);
 }
 
 bool Map::IsSolid(TileId id) const {
@@ -54,22 +55,20 @@ TileId Map::GetTileId(const Vector2f& position) const {
 }
 
 bool Map::CanOccupy(const Vector2f& position, float radius) const {
+  int radius_check = (int)(radius + 0.5f);
 
-    int radius_check = (int)(radius + 0.5f);
+  for (int y = -radius_check; y <= radius_check; ++y) {
+    for (int x = -radius_check; x <= radius_check; ++x) {
+      uint16_t world_x = (uint16_t)(position.x + x);
+      uint16_t world_y = (uint16_t)(position.y + y);
 
-
-    for (int y = -radius_check; y <= radius_check; ++y) {
-        for (int x = -radius_check; x <= radius_check; ++x) {
-            uint16_t world_x = (uint16_t)(position.x + x);
-            uint16_t world_y = (uint16_t)(position.y + y);
-
-            if (IsSolid(world_x, world_y)) {
-                return false;
-            }
-        }
+      if (IsSolid(world_x, world_y)) {
+        return false;
+      }
     }
+  }
 
-    return true;
+  return true;
 }
 
 struct Tile {

@@ -14,7 +14,6 @@ class KeyController {
   void Release(KeyId key);
   void ReleaseAll();
 
-
   bool IsPressed(KeyId key);
 
  private:

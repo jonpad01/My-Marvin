@@ -4,286 +4,289 @@
 #include <cstring>
 #include <limits>
 
-#include "Devastation.h"
-#include "Hyperspace.h"
 #include "Commands.h"
-#include "Shooter.h"
 #include "Debug.h"
+#include "Devastation.h"
 #include "GameProxy.h"
+#include "Hyperspace.h"
 #include "Map.h"
 #include "RayCaster.h"
 #include "RegionRegistry.h"
-#include "platform/Platform.h"
+#include "Shooter.h"
 #include "platform/ContinuumGameProxy.h"
+#include "platform/Platform.h"
 
 namespace marvin {
 
+Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
+  LoadBotConstuctor();
+}
 
-    Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
+void Bot::LoadBotConstuctor() {
+  auto processor = std::make_unique<path::NodeProcessor>(*game_);
+  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
+  regions_ = RegionRegistry::Create(game_->GetMap());
+  pathfinder_->CreateMapWeights(game_->GetMap());
 
-        LoadBotConstuctor();
+  SetZoneVariables();
 
-    }
+  std::string zone = game_->GetZone();
 
-    void Bot::LoadBotConstuctor() {
+  auto follow_path = std::make_unique<bot::FollowPathNode>();
 
-        auto processor = std::make_unique<path::NodeProcessor>(*game_);       
-        pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
-        regions_ = RegionRegistry::Create(game_->GetMap());
-        pathfinder_->CreateMapWeights(game_->GetMap());
+  auto shoot_enemy = std::make_unique<bot::ShootEnemyNode>();
 
-        SetZoneVariables();
+  auto mine_sweeper = std::make_unique<bot::MineSweeperNode>();
 
-        std::string zone = game_->GetZone();
+  auto target_in_los = std::make_unique<bot::InLineOfSightNode>();
 
+  auto path_to_enemy = std::make_unique<bot::PathToEnemyNode>();
+  auto find_enemy_in_center = std::make_unique<bot::FindEnemyInCenterNode>();
 
+  auto set_freq = std::make_unique<bot::SetFreqNode>();
+  auto set_ship = std::make_unique<bot::SetShipNode>();
+  auto commands = std::make_unique<bot::CommandNode>();
 
-              
-        auto follow_path = std::make_unique<bot::FollowPathNode>();
+  auto ship_check = std::make_unique<bot::ShipCheckNode>();
+  auto respawn_check = std::make_unique<bot::RespawnCheckNode>();
+  auto disconnect = std::make_unique<bot::DisconnectNode>();
 
-        auto shoot_enemy = std::make_unique<bot::ShootEnemyNode>();
+  if (zone == "Devastation") {
+    CreateBasePaths();
 
-        auto mine_sweeper = std::make_unique<bot::MineSweeperNode>();
-        
-        auto target_in_los = std::make_unique<bot::InLineOfSightNode>();  
-        
-        auto path_to_enemy = std::make_unique<bot::PathToEnemyNode>();
-        auto find_enemy_in_center = std::make_unique<bot::FindEnemyInCenterNode>();
+    auto is_anchor = std::make_unique<bot::IsAnchorNode>();
+    auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
+    auto DEVA_repel_enemy = std::make_unique<deva::DevaRepelEnemyNode>();
+    auto DEVA_burst_enemy = std::make_unique<deva::DevaBurstEnemyNode>();
+    auto patrol_base = std::make_unique<deva::DevaPatrolBaseNode>();
+    auto patrol_center = std::make_unique<bot::PatrolNode>();
+    auto DEVA_move_to_enemy = std::make_unique<deva::DevaMoveToEnemyNode>();
+    auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
 
-        auto set_freq = std::make_unique<bot::SetFreqNode>();
-        auto set_ship = std::make_unique<bot::SetShipNode>();
-        auto commands = std::make_unique<bot::CommandNode>();
+    auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
 
-        
-        auto ship_check = std::make_unique<bot::ShipCheckNode>();
-        auto respawn_check = std::make_unique<bot::RespawnCheckNode>();
-        auto disconnect = std::make_unique<bot::DisconnectNode>();
-        
-        
-        if (zone == "Devastation") {
-            CreateBasePaths();
+    auto DEVA_toggle_status = std::make_unique<deva::DevaToggleStatusNode>();
+    auto DEVA_attach = std::make_unique<deva::DevaAttachNode>();
+    auto DEVA_warp = std::make_unique<deva::DevaWarpNode>();
+    auto DEVA_freqman = std::make_unique<deva::DevaFreqMan>();
+    auto team_sort = std::make_unique<bot::SortBaseTeams>();
+    auto DEVA_set_region = std::make_unique<deva::DevaSetRegionNode>();
 
-            auto is_anchor = std::make_unique<bot::IsAnchorNode>();
-            auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
-            auto DEVA_repel_enemy = std::make_unique<deva::DevaRepelEnemyNode>();
-            auto DEVA_burst_enemy = std::make_unique<deva::DevaBurstEnemyNode>();
-            auto patrol_base = std::make_unique<deva::DevaPatrolBaseNode>();
-            auto patrol_center = std::make_unique<bot::PatrolNode>();
-            auto DEVA_move_to_enemy = std::make_unique<deva::DevaMoveToEnemyNode>();
-            auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
-            
-            auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
+    move_method_selector_ = std::make_unique<behavior::SelectorNode>(DEVA_move_to_enemy.get());
+    los_weapon_selector_ =
+        std::make_unique<behavior::SelectorNode>(DEVA_burst_enemy.get(), DEVA_repel_enemy.get(), shoot_enemy.get());
+    parallel_shoot_enemy_ =
+        std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
 
+    path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
+    TvsT_base_path_sequence_ = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path.get());
+    enemy_path_logic_selector_ = std::make_unique<behavior::SelectorNode>(
+        mine_sweeper.get(), TvsT_base_path_sequence_.get(), path_to_enemy_sequence_.get());
 
-            auto DEVA_toggle_status = std::make_unique<deva::DevaToggleStatusNode>();
-            auto DEVA_attach = std::make_unique<deva::DevaAttachNode>();
-            auto DEVA_warp = std::make_unique<deva::DevaWarpNode>();
-            auto DEVA_freqman = std::make_unique<deva::DevaFreqMan>();
-            auto team_sort = std::make_unique<bot::SortBaseTeams>();
-            auto DEVA_set_region = std::make_unique<deva::DevaSetRegionNode>();
+    anchor_los_parallel_ =
+        std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), TvsT_base_path_sequence_.get());
+    anchor_los_sequence_ = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel_.get());
+    anchor_los_selector_ =
+        std::make_unique<behavior::SelectorNode>(anchor_los_sequence_.get(), parallel_shoot_enemy_.get());
 
+    los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), anchor_los_selector_.get());
+    bounce_path_parallel_ =
+        std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector_.get());
+    path_or_shoot_selector_ = std::make_unique<behavior::SelectorNode>(
+        DEVA_repel_enemy.get(), los_shoot_conditional_.get(), bounce_path_parallel_.get());
 
+    find_enemy_in_base_sequence_ =
+        std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector_.get());
+    find_enemy_in_center_sequence_ =
+        std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
+    find_enemy_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get(),
+                                                                    find_enemy_in_base_sequence_.get());
 
-            move_method_selector_ = std::make_unique<behavior::SelectorNode>(DEVA_move_to_enemy.get());
-            los_weapon_selector_ = std::make_unique<behavior::SelectorNode>(DEVA_burst_enemy.get(), DEVA_repel_enemy.get(), shoot_enemy.get());
-            parallel_shoot_enemy_ = std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
+    patrol_base_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path.get());
+    patrol_center_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path.get());
+    patrol_selector_ =
+        std::make_unique<behavior::SelectorNode>(patrol_center_sequence_.get(), patrol_base_sequence_.get());
 
-            path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
-            TvsT_base_path_sequence_ = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path.get());
-            enemy_path_logic_selector_ = std::make_unique<behavior::SelectorNode>(mine_sweeper.get(), TvsT_base_path_sequence_.get(), path_to_enemy_sequence_.get());
+    action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_selector_.get(), patrol_selector_.get());
+    root_sequence_ = std::make_unique<behavior::SequenceNode>(
+        disconnect.get(), commands.get(), set_ship.get(), set_freq.get(), ship_check.get(), team_sort.get(),
+        DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check.get(),
+        DEVA_toggle_status.get(), action_selector_.get());
 
-            anchor_los_parallel_ = std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), TvsT_base_path_sequence_.get());
-            anchor_los_sequence_ = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel_.get());
-            anchor_los_selector_ = std::make_unique<behavior::SelectorNode>(anchor_los_sequence_.get(), parallel_shoot_enemy_.get());
+    behavior_nodes_.push_back(std::move(DEVA_move_to_enemy));
+    behavior_nodes_.push_back(std::move(DEVA_repel_enemy));
+    behavior_nodes_.push_back(std::move(DEVA_burst_enemy));
+    behavior_nodes_.push_back(std::move(is_anchor));
+    behavior_nodes_.push_back(std::move(anchor_los_parallel_));
+    behavior_nodes_.push_back(std::move(anchor_los_sequence_));
+    behavior_nodes_.push_back(std::move(anchor_los_selector_));
+    behavior_nodes_.push_back(std::move(bouncing_shot));
+    behavior_nodes_.push_back(std::move(bounce_path_parallel_));
+    behavior_nodes_.push_back(std::move(TvsT_base_path));
+    behavior_nodes_.push_back(std::move(TvsT_base_path_sequence_));
+    behavior_nodes_.push_back(std::move(enemy_path_logic_selector_));
+    behavior_nodes_.push_back(std::move(find_enemy_in_base));
+    behavior_nodes_.push_back(std::move(find_enemy_in_base_sequence_));
+    behavior_nodes_.push_back(std::move(find_enemy_selector_));
+    behavior_nodes_.push_back(std::move(patrol_base));
+    behavior_nodes_.push_back(std::move(patrol_center));
+    behavior_nodes_.push_back(std::move(patrol_base_sequence_));
+    behavior_nodes_.push_back(std::move(patrol_center_sequence_));
+    behavior_nodes_.push_back(std::move(patrol_selector_));
+    behavior_nodes_.push_back(std::move(DEVA_toggle_status));
+    behavior_nodes_.push_back(std::move(DEVA_attach));
+    behavior_nodes_.push_back(std::move(DEVA_warp));
+    behavior_nodes_.push_back(std::move(DEVA_freqman));
+    behavior_nodes_.push_back(std::move(team_sort));
+    behavior_nodes_.push_back(std::move(DEVA_set_region));
+  } else if (zone == "Hyperspace") {
+    CreateBasePaths();
+    ctx_.blackboard.Set<bool>("Ship", 0);
 
-            los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), anchor_los_selector_.get());
-            bounce_path_parallel_ = std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector_.get());
-            path_or_shoot_selector_ = std::make_unique<behavior::SelectorNode>(DEVA_repel_enemy.get(), los_shoot_conditional_.get(), bounce_path_parallel_.get());
-            
-            find_enemy_in_base_sequence_ = std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector_.get());
-            find_enemy_in_center_sequence_ = std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
-            find_enemy_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get(), find_enemy_in_base_sequence_.get());
+    auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
+    auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
+    auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
 
-            patrol_base_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path.get());
-            patrol_center_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path.get());
-            patrol_selector_ = std::make_unique<behavior::SelectorNode>(patrol_center_sequence_.get(), patrol_base_sequence_.get());
+    auto is_anchor = std::make_unique<bot::IsAnchorNode>();
+    auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
+    auto patrol_base = std::make_unique<hs::HSPatrolBaseNode>();
+    auto patrol_center = std::make_unique<bot::PatrolNode>();
+    auto HS_toggle = std::make_unique<hs::HSToggleNode>();
+    auto HS_attach = std::make_unique<hs::HSAttachNode>();
+    auto HS_warp = std::make_unique<hs::HSWarpToCenter>();
+    auto HS_shipman = std::make_unique<hs::HSShipMan>();
+    auto HS_freqman = std::make_unique<hs::HSFreqMan>();
+    auto HS_defense_position = std::make_unique<hs::HSDefensePositionNode>();
+    auto flagger_sort = std::make_unique<hs::HSFlaggerSort>();
+    auto HS_set_region = std::make_unique<hs::HSSetRegionNode>();
 
-            action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_selector_.get(), patrol_selector_.get());
-            root_sequence_ = std::make_unique<behavior::SequenceNode>(disconnect.get(), commands.get(), set_ship.get(), set_freq.get(), ship_check.get(), team_sort.get(), DEVA_set_region.get(),
-                DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check.get(), DEVA_toggle_status.get() , action_selector_.get());
+    move_method_selector_ = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+    los_weapon_selector_ = std::make_unique<behavior::SelectorNode>(shoot_enemy.get());
+    parallel_shoot_enemy_ =
+        std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
 
-            behavior_nodes_.push_back(std::move(DEVA_move_to_enemy));
-            behavior_nodes_.push_back(std::move(DEVA_repel_enemy));
-            behavior_nodes_.push_back(std::move(DEVA_burst_enemy));
-            behavior_nodes_.push_back(std::move(is_anchor));
-            behavior_nodes_.push_back(std::move(anchor_los_parallel_));
-            behavior_nodes_.push_back(std::move(anchor_los_sequence_));
-            behavior_nodes_.push_back(std::move(anchor_los_selector_));
-            behavior_nodes_.push_back(std::move(bouncing_shot));
-            behavior_nodes_.push_back(std::move(bounce_path_parallel_));
-            behavior_nodes_.push_back(std::move(TvsT_base_path));
-            behavior_nodes_.push_back(std::move(TvsT_base_path_sequence_));
-            behavior_nodes_.push_back(std::move(enemy_path_logic_selector_));
-            behavior_nodes_.push_back(std::move(find_enemy_in_base));
-            behavior_nodes_.push_back(std::move(find_enemy_in_base_sequence_));
-            behavior_nodes_.push_back(std::move(find_enemy_selector_));
-            behavior_nodes_.push_back(std::move(patrol_base));
-            behavior_nodes_.push_back(std::move(patrol_center));
-            behavior_nodes_.push_back(std::move(patrol_base_sequence_));
-            behavior_nodes_.push_back(std::move(patrol_center_sequence_));
-            behavior_nodes_.push_back(std::move(patrol_selector_));
-            behavior_nodes_.push_back(std::move(DEVA_toggle_status));
-            behavior_nodes_.push_back(std::move(DEVA_attach));
-            behavior_nodes_.push_back(std::move(DEVA_warp));
-            behavior_nodes_.push_back(std::move(DEVA_freqman));
-            behavior_nodes_.push_back(std::move(team_sort));
-            behavior_nodes_.push_back(std::move(DEVA_set_region));
-        }
-        else if (zone == "Hyperspace") {
+    path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
+    TvsT_base_path_sequence_ = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path.get());
+    enemy_path_logic_selector_ = std::make_unique<behavior::SelectorNode>(
+        mine_sweeper.get(), TvsT_base_path_sequence_.get(), path_to_enemy_sequence_.get());
 
-            CreateBasePaths();
-            ctx_.blackboard.Set<bool>("Ship", 0);
+    anchor_los_parallel_ = std::make_unique<behavior::ParallelNode>(TvsT_base_path_sequence_.get());
+    anchor_los_sequence_ = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel_.get());
+    anchor_los_selector_ =
+        std::make_unique<behavior::SelectorNode>(anchor_los_sequence_.get(), parallel_shoot_enemy_.get());
 
+    los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), anchor_los_selector_.get());
+    bounce_path_parallel_ =
+        std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector_.get());
+    path_or_shoot_selector_ =
+        std::make_unique<behavior::SelectorNode>(los_shoot_conditional_.get(), bounce_path_parallel_.get());
 
-            auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
-            auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
-            auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
+    find_enemy_in_base_sequence_ =
+        std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector_.get());
+    find_enemy_in_center_sequence_ =
+        std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
+    find_enemy_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get(),
+                                                                    find_enemy_in_base_sequence_.get());
 
-            auto is_anchor = std::make_unique<bot::IsAnchorNode>();
-            auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
-            auto patrol_base = std::make_unique<hs::HSPatrolBaseNode>();
-            auto patrol_center = std::make_unique<bot::PatrolNode>();
-            auto HS_toggle = std::make_unique<hs::HSToggleNode>();
-            auto HS_attach = std::make_unique<hs::HSAttachNode>();
-            auto HS_warp = std::make_unique<hs::HSWarpToCenter>();
-            auto HS_shipman = std::make_unique<hs::HSShipMan>();
-            auto HS_freqman = std::make_unique<hs::HSFreqMan>();
-            auto HS_defense_position = std::make_unique<hs::HSDefensePositionNode>();
-            auto flagger_sort = std::make_unique<hs::HSFlaggerSort>();
-            auto HS_set_region = std::make_unique<hs::HSSetRegionNode>();
+    patrol_base_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path.get());
+    patrol_center_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path.get());
+    patrol_selector_ =
+        std::make_unique<behavior::SelectorNode>(patrol_center_sequence_.get(), patrol_base_sequence_.get());
 
+    action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_selector_.get(), patrol_selector_.get());
+    root_sequence_ = std::make_unique<behavior::SequenceNode>(
+        disconnect.get(), commands.get(), set_ship.get(), set_freq.get(), ship_check.get(), flagger_sort.get(),
+        HS_set_region.get(), HS_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(),
+        HS_attach.get(), respawn_check.get(), HS_toggle.get(), action_selector_.get());
 
-            
-            move_method_selector_ = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
-            los_weapon_selector_ = std::make_unique<behavior::SelectorNode>(shoot_enemy.get());
-            parallel_shoot_enemy_ = std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
+    behavior_nodes_.push_back(std::move(move_to_enemy));
+    behavior_nodes_.push_back(std::move(TvsT_base_path));
+    behavior_nodes_.push_back(std::move(is_anchor));
+    behavior_nodes_.push_back(std::move(anchor_los_parallel_));
+    behavior_nodes_.push_back(std::move(anchor_los_sequence_));
+    behavior_nodes_.push_back(std::move(anchor_los_selector_));
+    behavior_nodes_.push_back(std::move(bouncing_shot));
+    behavior_nodes_.push_back(std::move(bounce_path_parallel_));
+    behavior_nodes_.push_back(std::move(TvsT_base_path_sequence_));
+    behavior_nodes_.push_back(std::move(enemy_path_logic_selector_));
+    behavior_nodes_.push_back(std::move(find_enemy_in_base));
+    behavior_nodes_.push_back(std::move(find_enemy_in_base_sequence_));
+    behavior_nodes_.push_back(std::move(find_enemy_selector_));
+    behavior_nodes_.push_back(std::move(patrol_base));
+    behavior_nodes_.push_back(std::move(patrol_center));
+    behavior_nodes_.push_back(std::move(patrol_base_sequence_));
+    behavior_nodes_.push_back(std::move(patrol_center_sequence_));
+    behavior_nodes_.push_back(std::move(patrol_selector_));
+    behavior_nodes_.push_back(std::move(HS_toggle));
+    behavior_nodes_.push_back(std::move(HS_attach));
+    behavior_nodes_.push_back(std::move(HS_warp));
+    behavior_nodes_.push_back(std::move(HS_shipman));
+    behavior_nodes_.push_back(std::move(HS_freqman));
+    behavior_nodes_.push_back(std::move(HS_defense_position));
+    behavior_nodes_.push_back(std::move(flagger_sort));
+    behavior_nodes_.push_back(std::move(HS_set_region));
 
-            path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
-            TvsT_base_path_sequence_ = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path.get());
-            enemy_path_logic_selector_ = std::make_unique<behavior::SelectorNode>(mine_sweeper.get(), TvsT_base_path_sequence_.get(), path_to_enemy_sequence_.get());
+  } else {
+    auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
 
-            anchor_los_parallel_ = std::make_unique<behavior::ParallelNode>(TvsT_base_path_sequence_.get());
-            anchor_los_sequence_ = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel_.get());
-            anchor_los_selector_ = std::make_unique<behavior::SelectorNode>(anchor_los_sequence_.get(), parallel_shoot_enemy_.get());
+    move_method_selector_ = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+    los_weapon_selector_ = std::make_unique<behavior::SelectorNode>(shoot_enemy.get());
+    parallel_shoot_enemy_ =
+        std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
+    path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
+    los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy_.get());
+    path_or_shoot_selector_ =
+        std::make_unique<behavior::SelectorNode>(los_shoot_conditional_.get(), path_to_enemy_sequence_.get());
+    find_enemy_in_center_sequence_ =
+        std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
+    action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get());
+    root_sequence_ =
+        std::make_unique<behavior::SequenceNode>(disconnect.get(), respawn_check.get(), commands.get(), set_ship.get(),
+                                                 set_freq.get(), ship_check.get(), action_selector_.get());
 
-            los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), anchor_los_selector_.get());
-            bounce_path_parallel_ = std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector_.get());
-            path_or_shoot_selector_ = std::make_unique<behavior::SelectorNode>(los_shoot_conditional_.get(), bounce_path_parallel_.get());
+    behavior_nodes_.push_back(std::move(move_to_enemy));
+  }
 
-            find_enemy_in_base_sequence_ = std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector_.get());
-            find_enemy_in_center_sequence_ = std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
-            find_enemy_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get(), find_enemy_in_base_sequence_.get());
+  behavior_nodes_.push_back(std::move(find_enemy_in_center));
 
-            patrol_base_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path.get());
-            patrol_center_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path.get());
-            patrol_selector_ = std::make_unique<behavior::SelectorNode>(patrol_center_sequence_.get(), patrol_base_sequence_.get());
+  behavior_nodes_.push_back(std::move(target_in_los));
+  behavior_nodes_.push_back(std::move(shoot_enemy));
 
-            action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_selector_.get(), patrol_selector_.get());
-            root_sequence_ = std::make_unique<behavior::SequenceNode>(disconnect.get(), commands.get(), set_ship.get(), set_freq.get(), ship_check.get(), flagger_sort.get(), HS_set_region.get(),
-                HS_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(), HS_attach.get(), respawn_check.get(), HS_toggle.get(), action_selector_.get());
+  behavior_nodes_.push_back(std::move(follow_path));
+  behavior_nodes_.push_back(std::move(path_to_enemy));
+  behavior_nodes_.push_back(std::move(mine_sweeper));
 
+  behavior_nodes_.push_back(std::move(move_method_selector_));
+  behavior_nodes_.push_back(std::move(los_weapon_selector_));
+  behavior_nodes_.push_back(std::move(parallel_shoot_enemy_));
+  behavior_nodes_.push_back(std::move(los_shoot_conditional_));
+  behavior_nodes_.push_back(std::move(path_to_enemy_sequence_));
+  behavior_nodes_.push_back(std::move(path_or_shoot_selector_));
+  behavior_nodes_.push_back(std::move(find_enemy_in_center_sequence_));
+  behavior_nodes_.push_back(std::move(action_selector_));
 
-            behavior_nodes_.push_back(std::move(move_to_enemy));
-            behavior_nodes_.push_back(std::move(TvsT_base_path));
-            behavior_nodes_.push_back(std::move(is_anchor));
-            behavior_nodes_.push_back(std::move(anchor_los_parallel_));
-            behavior_nodes_.push_back(std::move(anchor_los_sequence_));
-            behavior_nodes_.push_back(std::move(anchor_los_selector_));
-            behavior_nodes_.push_back(std::move(bouncing_shot));
-            behavior_nodes_.push_back(std::move(bounce_path_parallel_));
-            behavior_nodes_.push_back(std::move(TvsT_base_path_sequence_));
-            behavior_nodes_.push_back(std::move(enemy_path_logic_selector_));
-            behavior_nodes_.push_back(std::move(find_enemy_in_base));
-            behavior_nodes_.push_back(std::move(find_enemy_in_base_sequence_));
-            behavior_nodes_.push_back(std::move(find_enemy_selector_));
-            behavior_nodes_.push_back(std::move(patrol_base));
-            behavior_nodes_.push_back(std::move(patrol_center));
-            behavior_nodes_.push_back(std::move(patrol_base_sequence_));
-            behavior_nodes_.push_back(std::move(patrol_center_sequence_));
-            behavior_nodes_.push_back(std::move(patrol_selector_));
-            behavior_nodes_.push_back(std::move(HS_toggle));
-            behavior_nodes_.push_back(std::move(HS_attach));
-            behavior_nodes_.push_back(std::move(HS_warp));
-            behavior_nodes_.push_back(std::move(HS_shipman));
-            behavior_nodes_.push_back(std::move(HS_freqman));
-            behavior_nodes_.push_back(std::move(HS_defense_position));
-            behavior_nodes_.push_back(std::move(flagger_sort));
-            behavior_nodes_.push_back(std::move(HS_set_region));
+  behavior_nodes_.push_back(std::move(ship_check));
+  behavior_nodes_.push_back(std::move(set_freq));
+  behavior_nodes_.push_back(std::move(set_ship));
+  behavior_nodes_.push_back(std::move(commands));
+  behavior_nodes_.push_back(std::move(respawn_check));
+  behavior_nodes_.push_back(std::move(disconnect));
 
-        }
-        else {
-            auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
-            
+  behavior_nodes_.push_back(std::move(root_sequence_));
 
+  behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
+  ctx_.bot = this;
+}
 
-            move_method_selector_ = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
-            los_weapon_selector_ = std::make_unique<behavior::SelectorNode>(shoot_enemy.get());
-            parallel_shoot_enemy_ = std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
-            path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
-            los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy_.get());
-            path_or_shoot_selector_ = std::make_unique<behavior::SelectorNode>(los_shoot_conditional_.get(), path_to_enemy_sequence_.get());
-            find_enemy_in_center_sequence_ = std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
-            action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get());
-            root_sequence_ = std::make_unique<behavior::SequenceNode>(disconnect.get(), respawn_check.get(), commands.get(), set_ship.get(), set_freq.get(), ship_check.get(), action_selector_.get());
+void Bot::Update(float dt) {
+  keys_.ReleaseAll();
 
-            behavior_nodes_.push_back(std::move(move_to_enemy));
-            
-        }
-        
+  if (!game_->Update(dt)) {
+    LoadBotConstuctor();
+    return;
+  }
 
-        behavior_nodes_.push_back(std::move(find_enemy_in_center));
-     
-        behavior_nodes_.push_back(std::move(target_in_los));
-        behavior_nodes_.push_back(std::move(shoot_enemy));
-        
-        
-        behavior_nodes_.push_back(std::move(follow_path));
-        behavior_nodes_.push_back(std::move(path_to_enemy));
-        behavior_nodes_.push_back(std::move(mine_sweeper));
-
-        behavior_nodes_.push_back(std::move(move_method_selector_));
-        behavior_nodes_.push_back(std::move(los_weapon_selector_));
-        behavior_nodes_.push_back(std::move(parallel_shoot_enemy_));
-        behavior_nodes_.push_back(std::move(los_shoot_conditional_));
-        behavior_nodes_.push_back(std::move(path_to_enemy_sequence_));
-        behavior_nodes_.push_back(std::move(path_or_shoot_selector_));
-        behavior_nodes_.push_back(std::move(find_enemy_in_center_sequence_));
-        behavior_nodes_.push_back(std::move(action_selector_));
-       
-        behavior_nodes_.push_back(std::move(ship_check));
-        behavior_nodes_.push_back(std::move(set_freq));
-        behavior_nodes_.push_back(std::move(set_ship));
-        behavior_nodes_.push_back(std::move(commands));
-        behavior_nodes_.push_back(std::move(respawn_check));
-        behavior_nodes_.push_back(std::move(disconnect));
-
-
-        behavior_nodes_.push_back(std::move(root_sequence_));
-
-        behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
-        ctx_.bot = this;
-    }
-
-
-    void Bot::Update(float dt) {
-        keys_.ReleaseAll();
-
-        if (!game_->Update(dt)) {
-            LoadBotConstuctor();
-            return;
-        }
-
-        steering_.Reset();
+  steering_.Reset();
 #if 0
         Vector2f sDirection = game_->GetPlayer().MultiFireDirection(game_->GetShipSettings().MultiFireAngle, true);
         CastResult line = RayCast(game_->GetMap(), game_->GetPosition(), sDirection, 1000.0f);
@@ -292,82 +295,76 @@ namespace marvin {
        // CastResult nextline = RayCast(game_->GetMap(), line.position, sDirection, 1000.0f);
        // RenderWorldLine(game_->GetPosition(), line.position, nextline.position, RGB(100, 0, 0));
 #endif
-        //RenderPath(game_->GetPosition(), GetBasePath());
-       // RenderText(std::to_string((game_->GetPlayer().multifire_capable)), GetWindowCenter() - Vector2f(0, 40), TextColor::White, RenderText_Centered);
-       // RenderText(std::to_string((game_->GetPlayer().multifire_status)), GetWindowCenter() - Vector2f(0, 60), TextColor::White, RenderText_Centered);
-        ctx_.dt = dt;
+  // RenderPath(game_->GetPosition(), GetBasePath());
+  // RenderText(std::to_string((game_->GetPlayer().multifire_capable)), GetWindowCenter() - Vector2f(0, 40),
+  // TextColor::White, RenderText_Centered); RenderText(std::to_string((game_->GetPlayer().multifire_status)),
+  // GetWindowCenter() - Vector2f(0, 60), TextColor::White, RenderText_Centered);
+  ctx_.dt = dt;
 
-        if (game_->GetZone() == "Devastation") {
-            influence_map_.Decay(dt);
-            influence_map_.Update(*game_, ctx_.blackboard.ValueOr<std::vector<Player>>("EnemyList", std::vector<Player>()));
-        }
+  if (game_->GetZone() == "Devastation") {
+    influence_map_.Decay(dt);
+    influence_map_.Update(*game_, ctx_.blackboard.ValueOr<std::vector<Player>>("EnemyList", std::vector<Player>()));
+  }
 
 #if !DEBUG_NO_BEHAVIOR
-        behavior_->Update(ctx_);
+  behavior_->Update(ctx_);
 #endif
-//#if 0 // Test wall avoidance. This should be moved somewhere in the behavior tree
-        std::vector<Vector2f> path = ctx_.blackboard.ValueOr<std::vector<Vector2f>>("Path", std::vector<Vector2f>());
-        constexpr float kNearbyTurn = 20.0f;
-        constexpr float kMaxAvoidDistance = 35.0f;
+  //#if 0 // Test wall avoidance. This should be moved somewhere in the behavior tree
+  std::vector<Vector2f> path = ctx_.blackboard.ValueOr<std::vector<Vector2f>>("Path", std::vector<Vector2f>());
+  constexpr float kNearbyTurn = 20.0f;
+  constexpr float kMaxAvoidDistance = 35.0f;
 
-        if (!path.empty() && path[0].DistanceSq(game_->GetPosition()) < kNearbyTurn * kNearbyTurn) {
-            steering_.AvoidWalls(kMaxAvoidDistance);
-        }
-//#endif
-        steering_.Steer(ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
-        ctx_.blackboard.Set<bool>("SteerBackwards", false);
+  if (!path.empty() && path[0].DistanceSq(game_->GetPosition()) < kNearbyTurn * kNearbyTurn) {
+    steering_.AvoidWalls(kMaxAvoidDistance);
+  }
+  //#endif
+  steering_.Steer(ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
+  ctx_.blackboard.Set<bool>("SteerBackwards", false);
 
-   
 #if DEBUG_RENDER
-        // RenderPath(game_->GetPosition(), base_paths_[ctx_.blackboard.GetRegionIndex()]);
+  // RenderPath(game_->GetPosition(), base_paths_[ctx_.blackboard.GetRegionIndex()]);
 #endif
-    }
+}
 
-    void Bot::Move(const Vector2f& target, float target_distance) {
-        const Player& bot_player = game_->GetPlayer();
-        float distance = bot_player.position.Distance(target);
-       
-        if (distance > target_distance) {
-           
-            steering_.Seek(target);
-        }
+void Bot::Move(const Vector2f& target, float target_distance) {
+  const Player& bot_player = game_->GetPlayer();
+  float distance = bot_player.position.Distance(target);
 
-        else if (distance <= target_distance) {
+  if (distance > target_distance) {
+    steering_.Seek(target);
+  }
 
-            Vector2f to_target = target - bot_player.position;
+  else if (distance <= target_distance) {
+    Vector2f to_target = target - bot_player.position;
 
-            steering_.Seek(target - Normalize(to_target) * target_distance);
-        }
-    }
+    steering_.Seek(target - Normalize(to_target) * target_distance);
+  }
+}
 
-    void Bot::CreateBasePaths() {
+void Bot::CreateBasePaths() {
+  std::vector<Vector2f> start_vector;
+  std::vector<Vector2f> end_vector;
+  float radius = 0.0f;
 
-        std::vector<Vector2f> start_vector;
-        std::vector <Vector2f> end_vector;
-        float radius = 0.0f;
+  if (game_->GetZone() == "Devastation") {
+    radius = game_->GetSettings().ShipSettings[1].GetRadius() + 0.5f;
+    start_vector = deva0_safes;
+    end_vector = deva1_safes;
+  } else if (game_->GetZone() == "Hyperspace") {
+    radius = game_->GetSettings().ShipSettings[6].GetRadius();
+    start_vector = HS_entrances;
+    end_vector = HS_flagrooms;
+  }
 
-        if (game_->GetZone() == "Devastation") {
-            radius = game_->GetSettings().ShipSettings[1].GetRadius() + 0.5f;
-            start_vector = deva0_safes;
-            end_vector = deva1_safes;
-        }
-        else if (game_->GetZone() == "Hyperspace") {
-            radius = game_->GetSettings().ShipSettings[6].GetRadius();
-            start_vector = HS_entrances;
-            end_vector = HS_flagrooms;
-        }
+  for (std::size_t i = 0; i < start_vector.size(); i++) {
+    Vector2f position_1 = start_vector[i];
+    Vector2f position_2 = end_vector[i];
 
+    float nRadius = 0.8f;  // still fits through 3 tile holes, the pathfinder cant do 4 tile holes, it jumps to 5
+    float hRadius = 0.3f;  // fits through single tile holes
 
-        for (std::size_t i = 0; i < start_vector.size(); i++) {
-
-            Vector2f position_1 = start_vector[i];
-            Vector2f position_2 = end_vector[i];
-
-            float nRadius = 0.8f; // still fits through 3 tile holes, the pathfinder cant do 4 tile holes, it jumps to 5
-            float hRadius = 0.3f; //fits through single tile holes
-
-            std::vector<Vector2f> holes;
-            std::vector<u8> previousId;
+    std::vector<Vector2f> holes;
+    std::vector<u8> previousId;
 #if 0
             for (std::size_t i = 0; i < 2; i++) {
             //while (true) {
@@ -397,882 +394,798 @@ namespace marvin {
             base_holes_.push_back(holes);
 #endif
 
-            Path base_path = GetPathfinder().FindPath(game_->GetMap(), std::vector<Vector2f>(), position_1, position_2, radius);
-            base_path = GetPathfinder().SmoothPath(base_path, game_->GetMap(), radius);
+    Path base_path = GetPathfinder().FindPath(game_->GetMap(), std::vector<Vector2f>(), position_1, position_2, radius);
+    base_path = GetPathfinder().SmoothPath(base_path, game_->GetMap(), radius);
 
-            std::vector<Vector2f> reduced_path;
+    std::vector<Vector2f> reduced_path;
 
-            Vector2f current = base_path[0];
-            reduced_path.push_back(current);
+    Vector2f current = base_path[0];
+    reduced_path.push_back(current);
 
-            for (std::size_t i = 2; i < base_path.size(); i++) {
-
-                if (RadiusRayCastHit(game_->GetMap(), current, base_path[i], radius)) {
-                    current = base_path[i];
-                    reduced_path.push_back(base_path[i - 1]);
-                }
-                else if (i % 3 == 0  || i == base_path.size() - 1) {
-                    current = base_path[i];
-                    reduced_path.push_back(base_path[i]);
-                }
-            }
-
-            base_paths_.push_back(reduced_path);
-        }
+    for (std::size_t i = 2; i < base_path.size(); i++) {
+      if (RadiusRayCastHit(game_->GetMap(), current, base_path[i], radius)) {
+        current = base_path[i];
+        reduced_path.push_back(base_path[i - 1]);
+      } else if (i % 3 == 0 || i == base_path.size() - 1) {
+        current = base_path[i];
+        reduced_path.push_back(base_path[i]);
+      }
     }
 
+    base_paths_.push_back(reduced_path);
+  }
+}
 
-    bool Bot::MaxEnergyCheck() {
+bool Bot::MaxEnergyCheck() {
+  float max_energy = game_->GetMaxEnergy();
 
-        float max_energy = game_->GetMaxEnergy();
+  float energy_pct = ((float)game_->GetEnergy() / max_energy) * 100.0f;
+  bool result = false;
 
-        float energy_pct = ((float)game_->GetEnergy() / max_energy) * 100.0f;
-        bool result = false;
+  if ((game_->GetPlayer().status & 2) != 0) {
+    game_->Cloak(keys_);
+  }
+  // will cause eg to return true when prized and energy is above initial
+  else if (energy_pct >= 100.0f) {
+    result = true;
+  }
+  if (!game_->GetPlayer().active) {
+    result = false;
+  }
+  return result;
+}
 
-        if ((game_->GetPlayer().status & 2) != 0) {
-            game_->Cloak(keys_);
-        }
-        //will cause eg to return true when prized and energy is above initial
-        else if (energy_pct >= 100.0f) { result = true; }
-        if (!game_->GetPlayer().active) { result = false; }
-        return result;
+void Bot::SetZoneVariables() {
+  uint16_t pubteam0 = 00;
+  uint16_t pubteam1 = 01;
+
+  Vector2f spawn(512, 512);
+
+  uint16_t ship = game_->GetPlayer().ship;
+  bool specced = game_->GetPlayer().ship == 8;
+
+  if (game_->GetZone() == "Devastation") {
+    std::string name = Lowercase(game_->GetPlayer().name);
+    if (name == "lilmarv" && specced) {
+      ship = 1;
     }
 
-    void Bot::SetZoneVariables() {
+    std::vector<Vector2f> nodes = {Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454),
+                                   Vector2f(568, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568),
+                                   Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454)};
 
-        uint16_t pubteam0 = 00;
-        uint16_t pubteam1 = 01;
+    ctx_.blackboard.Set<std::vector<Vector2f>>("PatrolNodes", nodes);
+  }
 
-        Vector2f spawn(512, 512);
-      
-        uint16_t ship = game_->GetPlayer().ship;
-        bool specced = game_->GetPlayer().ship == 8;
+  if (game_->GetZone() == "Extreme Games") {
+    if (specced) {
+      ship = 2;
+    }
+  }
 
-        if (game_->GetZone() == "Devastation") {
-            std::string name = Lowercase(game_->GetPlayer().name);
-            if (name == "lilmarv" && specced) {
-                ship = 1;
-            }
+  if (game_->GetZone() == "Hyperspace") {
+    pubteam0 = 90;
+    pubteam1 = 91;
 
-            std::vector<Vector2f> nodes = { Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(568, 568),
-                Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454) };
+    ctx_.blackboard.Set<std::vector<Vector2f>>("PatrolNodes",
+                                               std::vector<Vector2f>({Vector2f(585, 540), Vector2f(400, 570)}));
+  }
 
-            ctx_.blackboard.Set<std::vector<Vector2f>>("PatrolNodes", nodes);
+  ctx_.blackboard.Set<uint16_t>("Freq", 999);
+  ctx_.blackboard.Set<uint16_t>("PubTeam0", pubteam0);
+  ctx_.blackboard.Set<uint16_t>("PubTeam1", pubteam1);
+  ctx_.blackboard.Set<uint16_t>("Ship", ship);
+  ctx_.blackboard.Set<Vector2f>("Spawn", spawn);
+}
 
-            
+namespace bot {
 
-        }
+behavior::ExecuteResult DisconnectNode::Execute(behavior::ExecuteContext& ctx) {
+  // check chat for disconected message and terminate continuum
+  auto& game = ctx.bot->GetGame();
 
-        if (game_->GetZone() == "Extreme Games") {
-            if (specced) { ship = 2; }
-        }
+  Chat chat = game.GetChat();
 
-        if (game_->GetZone() == "Hyperspace") {
-            pubteam0 = 90;
-            pubteam1 = 91;
+  if (chat.type == 0) {
+    if (chat.message.compare(0, 9, "WARNING: ") == 0) {
+      // exit(5);
+    }
+    if (game.GetZone() == "Extreme Games") {
+      std::string name = game.GetPlayer().name;
 
-            ctx_.blackboard.Set< std::vector<Vector2f>>("PatrolNodes", std::vector<Vector2f>({ Vector2f(585, 540), Vector2f(400, 570) }));
-        }
+      if (chat.message.compare(0, 4 + name.size(), "[ " + name + " ]") == 0) {
+        //  exit(5);
+      }
+    }
+  }
+  return behavior::ExecuteResult::Success;
+}
 
-        ctx_.blackboard.Set<uint16_t>("Freq", 999);
-        ctx_.blackboard.Set<uint16_t>("PubTeam0", pubteam0);
-        ctx_.blackboard.Set<uint16_t>("PubTeam1", pubteam1);
-        ctx_.blackboard.Set<uint16_t>("Ship", ship);
-        ctx_.blackboard.Set<Vector2f>("Spawn", spawn);
+behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  Chat chat = game.GetChat();
+  std::string msg = PrefixCheck(chat.message);
+
+  if (bb.ValueOr<std::size_t>("ChatCount", 0) == chat.count) {
+    return behavior::ExecuteResult::Success;
+  } else {
+    bb.Set<std::size_t>("ChatCount", chat.count);
+  }
+
+  bool mod = HasAccess(chat.player);
+  bool locked = bb.ValueOr<bool>("CmdLock", false);
+
+  bool mArena = chat.type == 0;
+  bool mPublic = chat.type == 2;
+  bool mPrivate = chat.type == 5;
+  bool mChannel = chat.type == 9;
+
+  if ((msg == "help" || msg == "h") && mPrivate) {
+    SendHelpMenu(game, chat.player);
+    return behavior::ExecuteResult::Failure;
+  }
+  if ((msg == "commands" || msg == "c") && mPrivate) {
+    SendCommandsMenu(game, chat.player);
+    return behavior::ExecuteResult::Failure;
+  }
+  if ((msg == "modlist" || msg == "ml") && mPrivate) {
+    SendModList(game, chat.player);
+    return behavior::ExecuteResult::Failure;
+  }
+
+  std::vector<std::string> commands = {"lockmarv", "lm", "unlockmarv", "um", "lockfreq", "lf", "unlockfreq", "uf",
+                                       "anchor",   "a",  "rush",       "r",  "swarm",    "s",  "swarmoff",   "so",
+                                       "multi",    "m",  "multioff",   "mo", "repel",    "r",  "repeloff",   "ro",
+                                       "setship",  "ss", "setfreq",    "sf"};
+
+  std::vector<std::string> queue;
+  std::string current = "";
+
+  for (std::size_t i = 0; i < msg.size(); i++) {
+    if (msg[i] == ';') {
+      queue.push_back(current);
+      current = "";
+
+    } else {
+      current += msg[i];
+    }
+  }
+
+  for (std::size_t i = 0; i < queue.size(); i++) {
+    msg = current[i];
+
+    if ((msg == "lockmarv" || msg == "lm") && mod) {
+      if (bb.ValueOr<bool>("CmdLock", false) == true) {
+        game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
+      }
+      bb.Set<bool>("CmdLock", true);
     }
 
+    if ((msg == "unlockmarv" || msg == "um") && mod) {
+      if (bb.ValueOr<bool>("CmdLock", false) == false) {
+        game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
+      }
+      bb.Set<bool>("CmdLock", false);
+    }
 
+    if ((msg == "lockfreq" || msg == "lf") && (mod || !locked)) {
+      if (bb.ValueOr<bool>("FreqLock", false) == true) {
+        game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
+      }
+      bb.Set<bool>("FreqLock", true);
+    }
 
-    namespace bot {
+    if ((msg == "unlockfreq" || msg == "uf") && (mod || !locked)) {
+      if (bb.ValueOr<bool>("FreqLock", false) == false) {
+        game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
+      }
+      bb.Set<bool>("FreqLock", false);
+    }
 
+    if ((msg == "anchor" || msg == "a") && (mod || !locked) && mPrivate) {
+      if (bb.ValueOr<bool>("IsAnchor", false) == true) {
+        game.SendChatMessage(":" + chat.player + ":Marv was already anchoring.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching to anchor mode.");
+      }
+      bb.Set<bool>("IsAnchor", true);
+    }
 
-        behavior::ExecuteResult DisconnectNode::Execute(behavior::ExecuteContext& ctx) {
-            //check chat for disconected message and terminate continuum
-            auto& game = ctx.bot->GetGame();
+    if ((msg == "rush" || msg == "r") && (mod || !locked) && mPrivate) {
+      if (bb.ValueOr<bool>("IsAnchor", false) == false) {
+        game.SendChatMessage(":" + chat.player + ":Marv was already rushing.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching to rush mode.");
+      }
+      bb.Set<bool>("IsAnchor", false);
+    }
 
-            Chat chat = game.GetChat();
+    if ((msg == "swarm" || msg == "s") && (mod)) {
+      if (bb.ValueOr<bool>("Swarm", false) == true) {
+        game.SendChatMessage(":" + chat.player + ":Marv was already swarming.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching swarm mode on.");
+      }
+      bb.Set<bool>("Swarm", true);
+    }
 
-            if (chat.type == 0) {
-                if (chat.message.compare(0, 9, "WARNING: ") == 0) {
-                   // exit(5);
-                }
-                if (game.GetZone() == "Extreme Games") {
-                    std::string name = game.GetPlayer().name;
+    if ((msg == "swarmoff" || msg == "so") && (mod || !locked)) {
+      if (bb.ValueOr<bool>("Swarm", false) == false) {
+        game.SendChatMessage(":" + chat.player + ":Swarm mode was already off.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Switching swarm mode off.");
+      }
+      bb.Set<bool>("Swarm", false);
+    }
 
-                    if (chat.message.compare(0, 4 + name.size(), "[ " + name + " ]") == 0) {
-                      //  exit(5);
-                    }
-                }
-            }
-            return behavior::ExecuteResult::Success;
+    if ((msg == "multi" || msg == "m") && (mod || !locked) && mPrivate) {
+      if (bb.ValueOr<bool>("UseMultiFire", false) == true) {
+        game.SendChatMessage(":" + chat.player + ":Multifire is already on.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Turning on multifire.");
+      }
+      bb.Set<bool>("UseMultiFire", true);
+    }
+
+    if ((msg == "multioff" || msg == "mo") && (mod || !locked) && mPrivate) {
+      if (bb.ValueOr<bool>("UseMultiFire", false) == false) {
+        game.SendChatMessage(":" + chat.player + ":Multifire is already off.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Turning off multifire.");
+      }
+      bb.Set<bool>("UseMultiFire", false);
+    }
+
+    if ((msg == "repel" || msg == "rep") && (mod || !locked)) {
+      if (bb.ValueOr<bool>("UseRepel", false) == true) {
+        game.SendChatMessage(":" + chat.player + ":Already using repels.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Turning repels on.");
+      }
+      bb.Set<bool>("UseRepel", true);
+    }
+
+    if ((msg == "repeloff" || msg == "ro") && (mod || !locked)) {
+      if (bb.ValueOr<bool>("UseRepel", false) == false) {
+        game.SendChatMessage(":" + chat.player + ":Repels were already off.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Turning repels off.");
+      }
+      bb.Set<bool>("UseRepel", false);
+    }
+
+    if ((msg.compare(0, 8, "setship ") == 0 || msg.compare(0, 3, "ss ") == 0) && (mod || !locked)) {
+      uint16_t number = 12;
+      if (std::isdigit(msg[msg.size() - 1])) {
+        number = (std::stoi(std::string(1, msg[msg.size() - 1])) - 1);
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+      }
+      if (number >= 0 && number < 9) {
+        bb.Set<uint16_t>("Ship", number);
+        if (number == 8) {
+          bb.Set<bool>("FreqLock", false);
+          bb.Set<bool>("IsAnchor", false);
+          bb.Set<bool>("Swarm", false);
+          bb.Set<bool>("UseMultiFire", false);
+          bb.Set<bool>("UseRepel", false);
+          game.SendChatMessage(":" + chat.player + ":My behaviors are also reset when sent to spec");
+        } else {
+          game.SendChatMessage(":" + chat.player + ":Ship selection recieved.");
+        }
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+      }
+    }
+
+    if ((msg.compare(0, 8, "setfreq ") == 0 || msg.compare(0, 3, "sf ") == 0) && (mod || !locked)) {
+      uint16_t number = 111;
+      std::string freq;
+      if (std::isdigit(msg[msg.size() - 1])) {
+        if (std::isdigit(msg[msg.size() - 2])) {
+          freq = {msg[msg.size() - 2], msg[msg.size() - 1]};
+        } else {
+          freq = {msg[msg.size() - 1]};
         }
 
+        number = std::stoi(freq);
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+      }
+      if (number >= 0 && number < 100) {
+        bb.Set<uint16_t>("Freq", number);
+        game.SendChatMessage(":" + chat.player + ":Frequency selection recieved.");
+      } else {
+        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
+      }
+    }
+  }
 
+  return behavior::ExecuteResult::Success;
+}
 
+behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
 
-        behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
+  uint16_t cShip = game.GetPlayer().ship;
+  uint16_t dShip = bb.ValueOr<uint16_t>("Ship", 0);
 
-            Chat chat = game.GetChat();
-            std::string msg = PrefixCheck(chat.message);
+  uint64_t ship_cooldown = 200;
+  if (cShip == 8) {
+    ship_cooldown = 1000;
+  }
 
-            if (bb.ValueOr<std::size_t>("ChatCount", 0) == chat.count) {
-                return behavior::ExecuteResult::Success;
-            }
-            else {
-                bb.Set<std::size_t>("ChatCount", chat.count);
-            }
+  if (cShip != dShip) {
+    if (ctx.bot->GetTime().TimedActionDelay("shipchange", ship_cooldown)) {
+      game.SetEnergy(100.0f);
+      if (!game.SetShip(dShip)) {
+        ctx.bot->GetTime().TimedActionDelay("shipchange", 0);
+      }
+    }
+    return behavior::ExecuteResult::Failure;
+  }
+  return behavior::ExecuteResult::Success;
+}
 
-            bool mod = HasAccess(chat.player);
-            bool locked = bb.ValueOr<bool>("CmdLock", false);
+behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
 
-            bool mArena = chat.type == 0;
-            bool mPublic = chat.type == 2;
-            bool mPrivate = chat.type == 5;
-            bool mChannel = chat.type == 9;
+  const char* balancer_msg = "Changing to that team would disrupt the balance between it and your current team.";
 
+  uint16_t freq = bb.ValueOr<uint16_t>("Freq", 999);
 
-            if ((msg == "help" || msg == "h") && mPrivate) {
-                SendHelpMenu(game, chat.player);
-                return behavior::ExecuteResult::Failure;
-            }
-            if ((msg == "commands" || msg == "c") && mPrivate) {
-                SendCommandsMenu(game, chat.player);
-                return behavior::ExecuteResult::Failure;
-            }
-            if ((msg == "modlist" || msg == "ml") && mPrivate) {
-                SendModList(game, chat.player);
-                return behavior::ExecuteResult::Failure;
-            }
+  if (freq != 999) {
+    if (ctx.bot->GetTime().TimedActionDelay("setfreq", 200)) {
+      game.SetEnergy(100.0f);
+      game.SetFreq(freq);
+    }
+    if (game.GetChat().message == balancer_msg && game.GetChat().type == 0) {
+      game.SendChatMessage("The zone balancer has prevented me from joining that team.");
+      bb.Set<uint16_t>("Freq", 999);
+    }
+    if (freq == int(game.GetPlayer().frequency)) {
+      bb.Set<uint16_t>("Freq", 999);
+    }
+    return behavior::ExecuteResult::Failure;
+  }
+  return behavior::ExecuteResult::Success;
+}
 
-            std::vector<std::string> commands = { "lockmarv", "lm", "unlockmarv", "um", "lockfreq", "lf", "unlockfreq", "uf", "anchor", "a", "rush", "r", "swarm", "s",
-            "swarmoff", "so", "multi", "m", "multioff", "mo", "repel", "r", "repeloff", "ro", "setship", "ss", "setfreq", "sf" };
+behavior::ExecuteResult ShipCheckNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
 
-            std::vector<std::string> queue;
-            std::string current = "";
+  if (game.GetPlayer().ship == 8) {
+    return behavior::ExecuteResult::Failure;
+  }
+  return behavior::ExecuteResult::Success;
+}
 
-            for (std::size_t i = 0; i < msg.size(); i++) {
-                              
-                if (msg[i] == ';') {
+behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
 
-                    queue.push_back(current);
-                    current = "";
+  const Player& bot = game.GetPlayer();
 
-                }
-                else {
-                    current += msg[i];
-                }              
-            }
+  std::vector<Player> team_list;
+  std::vector<Player> enemy_list;
+  std::vector<Player> combined_list;
 
-            for (std::size_t i = 0; i < queue.size(); i++) {
+  std::vector<uint16_t> fList(100, 0);
 
-                msg = current[i];
+  bool team_in_base = false;
+  bool enemy_in_base = false;
+  bool last_in_base = true;
 
-                if ((msg == "lockmarv" || msg == "lm") && mod) {
-                    if (bb.ValueOr<bool>("CmdLock", false) == true) {
-                        game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
-                    }
-                    bb.Set<bool>("CmdLock", true);
-                }
+  uint16_t pFreq0 = bb.ValueOr<uint16_t>("PubTeam0", 00);
+  uint16_t pFreq1 = bb.ValueOr<uint16_t>("PubTeam1", 01);
 
-                if ((msg == "unlockmarv" || msg == "um") && mod) {
-                    if (bb.ValueOr<bool>("CmdLock", false) == false) {
-                        game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
-                    }
-                    bb.Set<bool>("CmdLock", false);
-                }
+  // Vector2f current_base = ctx.blackboard.GetBase[ctx.blackboard.GetRegionIndex()];
 
+  // find team sizes and push team mates into a vector
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
 
+    bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, (MapCoord)Vector2f(512, 512));
 
-                if ((msg == "lockfreq" || msg == "lf") && (mod || !locked)) {
-                    if (bb.ValueOr<bool>("FreqLock", false) == true) {
-                        game.SendChatMessage(":" + chat.player + ":Marv was already locked.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching from unlocked to locked.");
-                    }
-                    bb.Set<bool>("FreqLock", true);
-                }
+    if (player.frequency < 100) fList[player.frequency]++;
 
-                if ((msg == "unlockfreq" || msg == "uf") && (mod || !locked)) {
-                    if (bb.ValueOr<bool>("FreqLock", false) == false) {
-                        game.SendChatMessage(":" + chat.player + ":Marv was already unlocked.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching from locked to unlocked.");
-                    }
-                    bb.Set<bool>("FreqLock", false);
-                }
+    if ((player.frequency == pFreq0 || player.frequency == pFreq1) && (player.id != bot.id)) {
+      combined_list.push_back(game.GetPlayers()[i]);
 
-                if ((msg == "anchor" || msg == "a") && (mod || !locked) && mPrivate) {
-                    if (bb.ValueOr<bool>("IsAnchor", false) == true) {
-                        game.SendChatMessage(":" + chat.player + ":Marv was already anchoring.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching to anchor mode.");
-                    }
-                    bb.Set<bool>("IsAnchor", true);
-                }
+      if (player.frequency == bot.frequency) {
+        team_list.push_back(game.GetPlayers()[i]);
 
-                if ((msg == "rush" || msg == "r") && (mod || !locked) && mPrivate) {
-                    if (bb.ValueOr<bool>("IsAnchor", false) == false) {
-                        game.SendChatMessage(":" + chat.player + ":Marv was already rushing.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching to rush mode.");
-                    }
-                    bb.Set<bool>("IsAnchor", false);
-                }
-
-                if ((msg == "swarm" || msg == "s") && (mod)) {
-                    if (bb.ValueOr<bool>("Swarm", false) == true) {
-                        game.SendChatMessage(":" + chat.player + ":Marv was already swarming.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching swarm mode on.");
-                    }
-                    bb.Set<bool>("Swarm", true);
-                }
-
-                if ((msg == "swarmoff" || msg == "so") && (mod || !locked)) {
-                    if (bb.ValueOr<bool>("Swarm", false) == false) {
-                        game.SendChatMessage(":" + chat.player + ":Swarm mode was already off.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Switching swarm mode off.");
-                    }
-                    bb.Set<bool>("Swarm", false);
-                }
-
-                if ((msg == "multi" || msg == "m") && (mod || !locked) && mPrivate) {
-                    if (bb.ValueOr<bool>("UseMultiFire", false) == true) {
-                        game.SendChatMessage(":" + chat.player + ":Multifire is already on.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Turning on multifire.");
-                    }
-                    bb.Set<bool>("UseMultiFire", true);
-                }
-
-                if ((msg == "multioff" || msg == "mo") && (mod || !locked) && mPrivate) {
-                    if (bb.ValueOr<bool>("UseMultiFire", false) == false) {
-                        game.SendChatMessage(":" + chat.player + ":Multifire is already off.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Turning off multifire.");
-                    }
-                    bb.Set<bool>("UseMultiFire", false);
-                }
-
-                if ((msg == "repel" || msg == "rep") && (mod || !locked)) {
-                    if (bb.ValueOr<bool>("UseRepel", false) == true) {
-                        game.SendChatMessage(":" + chat.player + ":Already using repels.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Turning repels on.");
-                    }
-                    bb.Set<bool>("UseRepel", true);
-                }
-
-                if ((msg == "repeloff" || msg == "ro") && (mod || !locked)) {
-                    if (bb.ValueOr<bool>("UseRepel", false) == false) {
-                        game.SendChatMessage(":" + chat.player + ":Repels were already off.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Turning repels off.");
-                    }
-                    bb.Set<bool>("UseRepel", false);
-                }
-
-                if ((msg.compare(0, 8, "setship ") == 0 || msg.compare(0, 3, "ss ") == 0) && (mod || !locked)) {
-                    uint16_t number = 12;
-                    if (std::isdigit(msg[msg.size() - 1])) {
-                        number = (std::stoi(std::string(1, msg[msg.size() - 1])) - 1);
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
-                    }
-                    if (number >= 0 && number < 9) {
-                        bb.Set<uint16_t>("Ship", number);
-                        if (number == 8) {
-                            bb.Set<bool>("FreqLock", false);
-                            bb.Set<bool>("IsAnchor", false);
-                            bb.Set<bool>("Swarm", false);
-                            bb.Set<bool>("UseMultiFire", false);
-                            bb.Set<bool>("UseRepel", false);
-                            game.SendChatMessage(":" + chat.player + ":My behaviors are also reset when sent to spec");
-                        }
-                        else {
-                            game.SendChatMessage(":" + chat.player + ":Ship selection recieved.");
-                        }
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
-                    }
-                }
-
-                if ((msg.compare(0, 8, "setfreq ") == 0 || msg.compare(0, 3, "sf ") == 0) && (mod || !locked)) {
-                    uint16_t number = 111;
-                    std::string freq;
-                    if (std::isdigit(msg[msg.size() - 1])) {
-                        if (std::isdigit(msg[msg.size() - 2])) {
-                            freq = { msg[msg.size() - 2], msg[msg.size() - 1] };
-                        }
-                        else {
-                            freq = { msg[msg.size() - 1] };
-                        }
-
-                        number = std::stoi(freq);
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
-                    }
-                    if (number >= 0 && number < 100) {
-                        bb.Set<uint16_t>("Freq", number);
-                        game.SendChatMessage(":" + chat.player + ":Frequency selection recieved.");
-                    }
-                    else {
-                        game.SendChatMessage(":" + chat.player + ":Invalid selection.");
-                    }
-                }
-            }
-
-            return behavior::ExecuteResult::Success;
+        if (!in_center && IsValidPosition(player.position)) {
+          team_in_base = true;
         }
-
-
-
-        behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            uint16_t cShip = game.GetPlayer().ship;
-            uint16_t dShip = bb.ValueOr<uint16_t>("Ship", 0);
-
-            uint64_t ship_cooldown = 200;
-            if (cShip == 8) { ship_cooldown = 1000; }
-
-            if (cShip != dShip) {
-                if (ctx.bot->GetTime().TimedActionDelay("shipchange", ship_cooldown)) {
-                    game.SetEnergy(100.0f);
-                    if (!game.SetShip(dShip)) {
-                        ctx.bot->GetTime().TimedActionDelay("shipchange", 0);
-                    }
-                }
-                return behavior::ExecuteResult::Failure;
-            }
-            return behavior::ExecuteResult::Success;
+        if (!in_center && player.active) {
+          last_in_base = false;
         }
+      } else {
+        enemy_list.push_back(game.GetPlayers()[i]);
 
-
-
-
-        behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            const char* balancer_msg = "Changing to that team would disrupt the balance between it and your current team.";
-
-            uint16_t freq = bb.ValueOr<uint16_t>("Freq", 999);
-
-            if (freq != 999) {
-                if (ctx.bot->GetTime().TimedActionDelay("setfreq", 200)) {
-                    game.SetEnergy(100.0f);
-                    game.SetFreq(freq);                  
-                }
-                if (game.GetChat().message == balancer_msg && game.GetChat().type == 0) {
-                    game.SendChatMessage("The zone balancer has prevented me from joining that team.");
-                    bb.Set<uint16_t>("Freq", 999);
-                }
-                if (freq == int(game.GetPlayer().frequency)) {
-                    bb.Set<uint16_t>("Freq", 999);
-                }
-                return behavior::ExecuteResult::Failure;
-            }
-            return behavior::ExecuteResult::Success;
+        if (!in_center && IsValidPosition(player.position)) {
+          enemy_in_base = true;
         }
+      }
+    }
+  }
+  if (team_list.size() == 0) {
+    last_in_base = false;
+  }
 
+  bb.Set<std::vector<Player>>("TeamList", team_list);
+  bb.Set<std::vector<Player>>("EnemyList", enemy_list);
+  bb.Set<std::vector<Player>>("CombinedList", combined_list);
 
+  bb.Set<std::vector<uint16_t>>("FreqList", fList);
 
-        behavior::ExecuteResult ShipCheckNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
+  bb.Set<bool>("TeamInBase", team_in_base);
+  bb.Set<bool>("EnemyInBase", enemy_in_base);
+  bb.Set<bool>("LastInBase", last_in_base);
 
-            if (game.GetPlayer().ship == 8) {
-                return behavior::ExecuteResult::Failure;
-            }
-            return behavior::ExecuteResult::Success;
+  return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+
+  if (!game.GetPlayer().active) {
+    return behavior::ExecuteResult::Failure;
+  }
+  return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext& ctx) {
+  behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  if (!bb.ValueOr<bool>("InCenter", true)) {
+    return behavior::ExecuteResult::Failure;
+  }
+
+  const Player& bot = game.GetPlayer();
+
+  float closest_cost = std::numeric_limits<float>::max();
+
+  const Player* target = nullptr;
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
+    const Player& player = game.GetPlayers()[i];
+
+    if (!IsValidTarget(*ctx.bot, player)) {
+      continue;
+    }
+
+    float cost = CalculateCost(ctx, bot, player);
+
+    if (cost < closest_cost) {
+      closest_cost = cost;
+      target = &game.GetPlayers()[i];
+      result = behavior::ExecuteResult::Success;
+    }
+  }
+
+  const Player* current_target = bb.ValueOr<const Player*>("Target", nullptr);
+
+  if (current_target && IsValidTarget(*ctx.bot, *current_target)) {
+    // Calculate the cost to the current target so there's some stickiness
+    // between close targets.
+    const float kStickiness = 2.5f;
+    float cost = CalculateCost(ctx, bot, *current_target);
+
+    if (cost * kStickiness < closest_cost) {
+      target = current_target;
+    }
+  }
+
+  bb.Set<const Player*>("Target", target);
+  return result;
+}
+
+float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const Player& bot_player,
+                                           const Player& target) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  float dist = bot_player.position.Distance(target.position);
+
+  // How many seconds it takes to rotate 180 degrees
+  float rotate_speed = game.GetRotation();
+
+  float move_cost = dist / game.GetMaxSpeed();
+
+  Vector2f direction = Normalize(target.position - bot_player.position);
+  float dot = std::abs(bot_player.GetHeading().Dot(direction) - 1.0f) / 2.0f;
+  float rotate_cost = std::abs(dot) * rotate_speed;
+
+  return move_cost + rotate_cost;
+}
+
+behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& ctx) {
+  behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  Path base_path = ctx.bot->GetBasePath();
+
+  int bot_node = (int)FindPathIndex(base_path, game.GetPosition());
+
+  int closest_distance = std::numeric_limits<int>::max();
+
+  const Player* target = nullptr;
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
+    const Player& player = game.GetPlayers()[i];
+
+    if (!IsValidTarget(*ctx.bot, player)) {
+      continue;
+    }
+
+    int player_node = (int)FindPathIndex(base_path, player.position);
+
+    int distance = std::abs(bot_node - player_node);
+
+    if (distance < closest_distance) {
+      closest_distance = distance;
+      target = &game.GetPlayers()[i];
+      result = behavior::ExecuteResult::Success;
+    }
+  }
+
+  bb.Set<const Player*>("Target", target);
+  return result;
+}
+
+behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  Vector2f bot = game.GetPosition();
+
+  const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+
+  if (!enemy) {
+    return behavior::ExecuteResult::Failure;
+  }
+
+  Path path = bb.ValueOr<Path>("Path", Path());
+  float radius = game.GetShipSettings().GetRadius();
+
+  path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy->position, radius);
+
+  bb.Set<Path>("Path", path);
+  return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  Vector2f from = game.GetPosition();
+  Path path = bb.ValueOr<Path>("GetPath", Path());
+  float radius = game.GetShipSettings().GetRadius();
+
+  std::vector<Vector2f> nodes = bb.ValueOr<std::vector<Vector2f>>("PatrolNodes", std::vector<Vector2f>());
+  int index = ctx.blackboard.ValueOr<int>("PatrolIndex", 0);
+
+  if (bb.ValueOr<bool>("InCenter", true)) {
+    Vector2f to = nodes.at(index);
+
+    if (game.GetPosition().DistanceSq(to) < 5.0f * 5.0f) {
+      index = (index + 1) % nodes.size();
+      ctx.blackboard.Set<int>("PatrolIndex", index);
+      to = nodes.at(index);
+    }
+
+    path = ctx.bot->GetPathfinder().CreatePath(path, from, to, radius);
+    bb.Set<Path>("Path", path);
+
+    return behavior::ExecuteResult::Success;
+  }
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  bool in_center = bb.ValueOr<bool>("InCenter", true);
+  bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
+  bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
+
+  if (in_center) {
+    return behavior::ExecuteResult::Failure;
+  }
+
+  const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+
+  if (!enemy) {
+    return behavior::ExecuteResult::Failure;
+  }
+
+  Vector2f position = game.GetPosition();
+  float radius = game.GetShipSettings().GetRadius();
+
+  Path base_path = ctx.bot->GetBasePath();
+  Path path = bb.ValueOr<Path>("Path", Path());
+
+  Vector2f desired_position;
+
+  std::size_t bot_node = FindPathIndex(base_path, position);
+  std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
+
+  if (bot_node > enemy_node) {
+    desired_position =
+        LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+  } else {
+    desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
+                                   game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+  }
+
+  // path = ctx.bot->GetPathfinder().CreatePath(path, position, enemy->position, radius);
+
+  if (is_anchor || last_in_base) {
+    float energy_pct = ((float)game.GetPlayer().energy / game.GetMaxEnergy());
+    float enemy_speed = 1.0f;
+    float pathlength = 0.0f;
+
+    Vector2f ref;
+    if (bot_node > enemy_node) {
+      ref = LastLOSNode(game.GetMap(), enemy_node, false, base_path,
+                        game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+    } else {
+      ref = LastLOSNode(game.GetMap(), enemy_node, true, base_path,
+                        game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+    }
+
+    Vector2f to_bot = ref - enemy->position;
+    enemy_speed = enemy->velocity * Normalize(to_bot);
+
+    float desired = (30.0f + (enemy_speed + (6.0f / (energy_pct + 0.0001f))));
+
+    pathlength = PathLength(ctx.bot->GetBasePath(), position, enemy->position);
+
+    if (pathlength < desired || bb.ValueOr<bool>("TargetInSight", false) || AvoidInfluence(ctx)) {
+      if (bot_node > enemy_node) {
+        desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
+                                       game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+      } else {
+        desired_position = LastLOSNode(game.GetMap(), bot_node, true, base_path,
+                                       game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+      }
+
+      // path = ctx.bot->GetPathfinder().CreatePath(path, position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()),
+      // radius);
+      bb.Set<bool>("SteerBackwards", true);
+    }
+  }
+
+  path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
+  bb.Set<Path>("Path", path);
+  return behavior::ExecuteResult::Success;
+}
+
+bool TvsTBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+  float radius = game.GetShipSettings().GetRadius();
+
+  Vector2f pos = game.GetPlayer().position;
+  // Check the corners of the ship to see if it's touching any influenced tiles
+  Vector2f positions[] = {
+      pos,
+      pos + Vector2f(radius, radius),
+      pos + Vector2f(-radius, -radius),
+      pos + Vector2f(radius, -radius),
+      pos + Vector2f(-radius, radius),
+  };
+
+  for (size_t i = 0; i < sizeof(positions) / sizeof(*positions); ++i) {
+    Vector2f check = positions[i];
+
+    if (ctx.bot->GetInfluenceMap().GetValue(check) > 0.0f) {
+      Vector2f offsets[] = {
+          Vector2f(0, -1), Vector2f(0, 1),  Vector2f(-1, 0), Vector2f(1, 0),
+          Vector2f(1, 1),  Vector2f(1, -1), Vector2f(-1, 1), Vector2f(-1, -1),
+      };
+
+      size_t best_index = 0;
+      float best_value = 1000000.0f;
+
+      for (size_t i = 0; i < sizeof(offsets) / sizeof(*offsets); ++i) {
+        float value = ctx.bot->GetInfluenceMap().GetValue(check + offsets[i]);
+        float heading_value = std::abs(Normalize(offsets[i]).Dot(Normalize(game.GetPlayer().GetHeading())));
+
+        value *= heading_value;
+
+        if (value < best_value && game.GetMap().CanOccupy(check + offsets[i], radius)) {
+          best_value = value;
+          best_index = i;
         }
+      }
 
+      // ctx.bot->GetSteering().Seek(check + offsets[best_index], 1000.0f);
+      return true;
+    }
+  }
+  return false;
+}
 
+behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
 
+  Path path = bb.ValueOr<Path>("Path", Path());
 
+  size_t path_size = path.size();
 
-       
+  if (path.empty()) {
+    return behavior::ExecuteResult::Failure;
+  }
 
+  Vector2f current = path.front();
+  Vector2f from = game.GetPosition();
 
-        behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
+  // Fix an issue where the pathfinder generates nodes in the center of the tile
+  // but the ship can't occupy the exact center. This is only an issue without path smoothing.
+  if (!path.empty() && (u16)from.x == (u16)path.at(0).x && (u16)from.y == (u16)path.at(0).y) {
+    path.erase(path.begin());
 
-            const Player& bot = game.GetPlayer();
+    if (!path.empty()) {
+      current = path.front();
+    }
+  }
 
-            std::vector<Player> team_list;
-            std::vector<Player> enemy_list;
-            std::vector<Player> combined_list;
+  while (path.size() > 1 && CanMoveBetween(game, game.GetPosition(), path.at(1))) {
+    path.erase(path.begin());
+    current = path.front();
+  }
 
-            std::vector<uint16_t> fList(100, 0);
+  if (path.size() == 1 && path.front().DistanceSq(game.GetPosition()) < 2.0f * 2.0f) {
+    path.clear();
+  }
 
-            bool team_in_base = false;
-            bool enemy_in_base = false;
-            bool last_in_base = true;
+  if (path.size() != path_size) {
+    bb.Set<Path>("Path", path);
+  }
 
-            uint16_t pFreq0 = bb.ValueOr<uint16_t>("PubTeam0", 00);
-            uint16_t pFreq1 = bb.ValueOr<uint16_t>("PubTeam1", 01);
+  ctx.bot->Move(current, 0.0f);
 
-            // Vector2f current_base = ctx.blackboard.GetBase[ctx.blackboard.GetRegionIndex()];
+  return behavior::ExecuteResult::Success;
+}
 
-             //find team sizes and push team mates into a vector
-            for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
-                const Player& player = game.GetPlayers()[i];
+bool FollowPathNode::CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to) {
+  Vector2f trajectory = to - from;
+  Vector2f direction = Normalize(trajectory);
+  Vector2f side = Perpendicular(direction);
 
-                bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, (MapCoord)Vector2f(512, 512));
+  float distance = from.Distance(to);
+  float radius = game.GetShipSettings().GetRadius();
 
-                if (player.frequency < 100) fList[player.frequency]++;
+  CastResult center = RayCast(game.GetMap(), from, direction, distance);
+  CastResult side1 = RayCast(game.GetMap(), from + side * radius, direction, distance);
+  CastResult side2 = RayCast(game.GetMap(), from - side * radius, direction, distance);
 
-                if ((player.frequency == pFreq0 || player.frequency == pFreq1) && (player.id != bot.id)) {
+  return !center.hit && !side1.hit && !side2.hit;
+}
 
-                    combined_list.push_back(game.GetPlayers()[i]);
-
-                    if (player.frequency == bot.frequency) {
-
-                        team_list.push_back(game.GetPlayers()[i]);
-
-                        if (!in_center && IsValidPosition(player.position)) {
-                            team_in_base = true;
-                        }
-                        if (!in_center && player.active) {
-                            last_in_base = false;
-                        }
-                    }
-                    else {
-                        enemy_list.push_back(game.GetPlayers()[i]);
-
-                        if (!in_center && IsValidPosition(player.position)) {
-                            enemy_in_base = true;
-                        }
-                    }
-                }
-            }
-            if (team_list.size() == 0) {
-                last_in_base = false;
-            }
-
-            bb.Set<std::vector<Player>>("TeamList", team_list);
-            bb.Set<std::vector<Player>>("EnemyList", enemy_list);
-            bb.Set<std::vector<Player>>("CombinedList", combined_list);
-
-            bb.Set<std::vector<uint16_t>>("FreqList", fList);
-
-            bb.Set<bool>("TeamInBase", team_in_base);
-            bb.Set<bool>("EnemyInBase", enemy_in_base);
-            bb.Set<bool>("LastInBase", last_in_base);
-
-            return behavior::ExecuteResult::Success;
-        }
-
-
-
-        behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-
-            if (!game.GetPlayer().active) {
-                return behavior::ExecuteResult::Failure;
-            }
-            return behavior::ExecuteResult::Success;
-        }
-
-
-
-
-
-
-        behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext& ctx) {
-            behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
-
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-
-            if (!bb.ValueOr<bool>("InCenter", true)) {
-                return behavior::ExecuteResult::Failure;
-            }
-
-            const Player& bot = game.GetPlayer();
-
-            float closest_cost = std::numeric_limits<float>::max();
-
-            const Player* target = nullptr;
-        
-
-            for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
-                const Player& player = game.GetPlayers()[i];
-
-                if (!IsValidTarget(*ctx.bot, player)) { continue; }
-
-                float cost = CalculateCost(ctx, bot, player);
-
-
-                if (cost < closest_cost) {
-                    closest_cost = cost;
-                    target = &game.GetPlayers()[i];
-                    result = behavior::ExecuteResult::Success;
-                }
-            }
-
-            const Player* current_target = bb.ValueOr<const Player*>("Target", nullptr);
-
-            if (current_target && IsValidTarget(*ctx.bot, *current_target)) {
-                // Calculate the cost to the current target so there's some stickiness
-                // between close targets.
-                const float kStickiness = 2.5f;
-                float cost = CalculateCost(ctx, bot, *current_target);
-
-                if (cost * kStickiness < closest_cost) {
-                    target = current_target;
-                }
-            }
-
-
-            bb.Set<const Player*>("Target", target);
-            return result;
-        }
-
-        float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const Player& bot_player, const Player& target) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            float dist = bot_player.position.Distance(target.position);
-
-            // How many seconds it takes to rotate 180 degrees
-            float rotate_speed = game.GetRotation();
-
-            float move_cost = dist / game.GetMaxSpeed();
-
-            Vector2f direction = Normalize(target.position - bot_player.position);
-            float dot = std::abs(bot_player.GetHeading().Dot(direction) - 1.0f) / 2.0f;
-            float rotate_cost = std::abs(dot) * rotate_speed;
-
-            return move_cost + rotate_cost;
-        }
-
-
-        
-
-
-
-
-        behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& ctx) {
-            behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
-
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            Path base_path = ctx.bot->GetBasePath();
-
-            int bot_node = (int)FindPathIndex(base_path, game.GetPosition());
-
-            int closest_distance = std::numeric_limits<int>::max();
-
-            const Player* target = nullptr;
-
-
-                for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
-                    const Player& player = game.GetPlayers()[i];
-
-                    if (!IsValidTarget(*ctx.bot, player)) { continue; }
-
-
-                    int player_node = (int)FindPathIndex(base_path, player.position);
-
-                    int distance = std::abs(bot_node - player_node);
-
-                    if (distance < closest_distance) {
-                        closest_distance = distance;
-                        target = &game.GetPlayers()[i];
-                        result = behavior::ExecuteResult::Success;
-                    }
-                }
-
-            bb.Set<const Player*>("Target", target);
-            return result;
-        }
-
-
-
-
-
-
-
-
-
-        behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            Vector2f bot = game.GetPosition();
-
-            const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
-
-            if (!enemy) { return behavior::ExecuteResult::Failure; }
-
-            Path path = bb.ValueOr<Path>("Path", Path());
-            float radius = game.GetShipSettings().GetRadius();
-
-            path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy->position, radius);
-
-            bb.Set<Path>("Path", path);
-            return behavior::ExecuteResult::Success;
-        }
-
-
-
-
-
-        behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            Vector2f from = game.GetPosition();
-            Path path = bb.ValueOr<Path>("GetPath", Path());
-            float radius = game.GetShipSettings().GetRadius();
-
-            std::vector<Vector2f> nodes = bb.ValueOr<std::vector<Vector2f>>("PatrolNodes", std::vector<Vector2f>());
-            int index = ctx.blackboard.ValueOr<int>("PatrolIndex", 0);
-
-
-            if (bb.ValueOr<bool>("InCenter", true)) {
-
-                Vector2f to = nodes.at(index);
-
-                if (game.GetPosition().DistanceSq(to) < 5.0f * 5.0f) {
-                    index = (index + 1) % nodes.size();
-                    ctx.blackboard.Set<int>("PatrolIndex", index);                 
-                     to = nodes.at(index);                  
-                }
-
-                path = ctx.bot->GetPathfinder().CreatePath(path, from, to, radius);
-                bb.Set<Path>("Path", path);
-
-                return behavior::ExecuteResult::Success;
-            }
-            return behavior::ExecuteResult::Failure;
-        }
-
-
-
-
-        behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            bool in_center = bb.ValueOr<bool>("InCenter", true);
-            bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
-            bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
-
-
-            if (in_center) {
-                return behavior::ExecuteResult::Failure;
-            }
-
-
-            const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
-
-            if (!enemy) { 
-                return behavior::ExecuteResult::Failure; 
-            }
-
-            Vector2f position = game.GetPosition();
-            float radius = game.GetShipSettings().GetRadius();
-
-            Path base_path = ctx.bot->GetBasePath();
-            Path path = bb.ValueOr<Path>("Path", Path());
-
-            Vector2f desired_position;
-
-            std::size_t bot_node = FindPathIndex(base_path, position);
-            std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
-            
-            if (bot_node > enemy_node) {
-                desired_position = LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-            }
-            else {
-                desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-            }
-
-           // path = ctx.bot->GetPathfinder().CreatePath(path, position, enemy->position, radius);
-
-            if (is_anchor || last_in_base) {
-
-                float energy_pct = ((float)game.GetPlayer().energy / game.GetMaxEnergy());
-                float enemy_speed = 1.0f;
-                float pathlength = 0.0f;
-
-                Vector2f ref;
-                if (bot_node > enemy_node) {
-                    ref = LastLOSNode(game.GetMap(), enemy_node, false, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-                }
-                else {
-                    ref = LastLOSNode(game.GetMap(), enemy_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-                }
-
-                Vector2f to_bot = ref - enemy->position;
-                enemy_speed = enemy->velocity * Normalize(to_bot);
-
-                float desired = (30.0f + (enemy_speed + (6.0f / (energy_pct + 0.0001f))));
-
-
-                pathlength = PathLength(ctx.bot->GetBasePath(), position, enemy->position);
-
-              
-                if (pathlength < desired || bb.ValueOr<bool>("TargetInSight", false) || AvoidInfluence(ctx)) {
-
-                    if (bot_node > enemy_node) {
-                        desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-                    }
-                    else {
-                        desired_position = LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-                    }
-
-                    //path = ctx.bot->GetPathfinder().CreatePath(path, position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()), radius);
-                    bb.Set<bool>("SteerBackwards", true);
-                }
-            }
-
-            path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
-            bb.Set<Path>("Path", path);
-            return behavior::ExecuteResult::Success;
-        }
-
-
-        bool TvsTBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-            float radius = game.GetShipSettings().GetRadius();
-
-            Vector2f pos = game.GetPlayer().position;
-            // Check the corners of the ship to see if it's touching any influenced tiles
-            Vector2f positions[] = {
-               pos, pos + Vector2f(radius, radius), pos + Vector2f(-radius, -radius),
-               pos + Vector2f(radius, -radius), pos + Vector2f(-radius, radius),
-            };
-
-            for (size_t i = 0; i < sizeof(positions) / sizeof(*positions); ++i) {
-                Vector2f check = positions[i];
-
-                if (ctx.bot->GetInfluenceMap().GetValue(check) > 0.0f) {
-                    Vector2f offsets[] = {
-                        Vector2f(0, -1),
-                        Vector2f(0, 1),
-                        Vector2f(-1, 0),
-                        Vector2f(1, 0),
-                        Vector2f(1, 1),
-                        Vector2f(1, -1),
-                        Vector2f(-1, 1),
-                        Vector2f(-1, -1),
-                    };
-
-                    size_t best_index = 0;
-                    float best_value = 1000000.0f;
-
-                    for (size_t i = 0; i < sizeof(offsets) / sizeof(*offsets); ++i) {
-                        float value = ctx.bot->GetInfluenceMap().GetValue(check + offsets[i]);
-                        float heading_value = std::abs(Normalize(offsets[i]).Dot(Normalize(game.GetPlayer().GetHeading())));
-
-                        value *= heading_value;
-
-                        if (value < best_value && game.GetMap().CanOccupy(check + offsets[i], radius)) {
-                            best_value = value;
-                            best_index = i;
-                        }
-                    }
-
-                    //ctx.bot->GetSteering().Seek(check + offsets[best_index], 1000.0f);
-                    return true;
-                }
-            }
-            return false;
-        }
-
-
-
-
-
-        behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            Path path = bb.ValueOr<Path>("Path", Path());
-
-            size_t path_size = path.size();
-
-
-            if (path.empty()) { return behavior::ExecuteResult::Failure; }
-
-            Vector2f current = path.front();
-            Vector2f from = game.GetPosition();
-
-            // Fix an issue where the pathfinder generates nodes in the center of the tile
-            // but the ship can't occupy the exact center. This is only an issue without path smoothing.
-            if (!path.empty() && (u16)from.x == (u16)path.at(0).x && (u16)from.y == (u16)path.at(0).y) {
-                path.erase(path.begin());
-
-                if (!path.empty()) {
-                    current = path.front();
-                }
-            }
-
-            while (path.size() > 1 && CanMoveBetween(game, game.GetPosition(), path.at(1))) {
-                path.erase(path.begin());
-                current = path.front();
-            }
-
-            if (path.size() == 1 && path.front().DistanceSq(game.GetPosition()) < 2.0f * 2.0f) {
-                path.clear();
-            }
-
-            if (path.size() != path_size) {
-                bb.Set<Path>("Path", path);
-            }
-
-            ctx.bot->Move(current, 0.0f);
-
-            return behavior::ExecuteResult::Success;
-        }
-
-        bool FollowPathNode::CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to) {
-            Vector2f trajectory = to - from;
-            Vector2f direction = Normalize(trajectory);
-            Vector2f side = Perpendicular(direction);
-
-            float distance = from.Distance(to);
-            float radius = game.GetShipSettings().GetRadius();
-
-            CastResult center = RayCast(game.GetMap(), from, direction, distance);
-            CastResult side1 = RayCast(game.GetMap(), from + side * radius, direction, distance);
-            CastResult side2 = RayCast(game.GetMap(), from - side * radius, direction, distance);
-
-            return !center.hit && !side1.hit && !side2.hit;
-        }
-
-
-        /*monkey> no i dont have a list of the types
+/*monkey> no i dont have a list of the types
 monkey> i think it's some kind of combined thing with weapon flags in it
 monkey> im pretty sure type & 0x01 is whether or not it's bouncing
 monkey> and the 0x8000 is the alternative bit for things like mines and multifire
@@ -1292,249 +1205,230 @@ monkey> and 0x00F0 for bullet, but i don't think it's exact*/
 stopped at 0x0F01
 */
 
-        behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
+behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
 
-            for (Weapon* weapon : game.GetWeapons()) {
-                const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
+  for (Weapon* weapon : game.GetWeapons()) {
+    const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
 
-                if (weapon_player == nullptr) continue;
-                if (weapon_player->frequency == game.GetPlayer().frequency) continue;
-                if (weapon->GetType() & 0x8000) {
-
-                    if (weapon->GetVelocity() == Vector2f(0, 0)) {
-                        if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
-                            game.Repel(ctx.bot->GetKeys());
-                            return behavior::ExecuteResult::Success;
-                        }
-                    }
-                }
-            }
-            return behavior::ExecuteResult::Failure;
+    if (weapon_player == nullptr) continue;
+    if (weapon_player->frequency == game.GetPlayer().frequency) continue;
+    if (weapon->GetType() & 0x8000) {
+      if (weapon->GetVelocity() == Vector2f(0, 0)) {
+        if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
+          game.Repel(ctx.bot->GetKeys());
+          return behavior::ExecuteResult::Success;
         }
-
-
-
-
-        behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
-
-            if (target) {
-                if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target->position, game.GetShipSettings().GetRadius())) {
-                    return behavior::ExecuteResult::Success;
-                }
-            }
-            return behavior::ExecuteResult::Failure;
-        }
-
-
-
-
-        behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& bb = ctx.blackboard;
-
-            if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
-                return behavior::ExecuteResult::Success;
-            }
-            return behavior::ExecuteResult::Failure;
-        }
-
-
-
-
-        behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
-            if (!target) { return behavior::ExecuteResult::Failure; }
-
-            float energy_pct = (float)game.GetPlayer().energy / game.GetMaxEnergy() * 100.0f;
-
-            if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
-                return behavior::ExecuteResult::Failure;
-            }
-
-            float target_radius = game.GetSettings().ShipSettings[target->ship].GetRadius();
-            bool shoot = false;
-            bool bomb_hit = false;
-            Vector2f wall_pos;
-
-            if (BounceShot(game, target->position, target->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit, &wall_pos)) {
-                if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
-                    if (bomb_hit) {
-                        ctx.bot->GetKeys().Press(VK_TAB);
-                    }
-                    else {
-                        ctx.bot->GetKeys().Press(VK_CONTROL);
-                    }
-                }
-            }
-            return behavior::ExecuteResult::Success;
-        }
-
-
-
-
-
-        behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
-            if (!target_player) { return behavior::ExecuteResult::Failure; }
-            const Player& target = *target_player;
-            const Player& bot = game.GetPlayer();
-
-
-
-            float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
-            float radius = game.GetShipSettings().GetRadius();
-            Vector2f side = Perpendicular(bot.GetHeading());
-
-            float proj_speed = game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
-            float alive_time = ((float)game.GetSettings().BulletAliveTime / 100.0f);
-
-           // float gSpeed = game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
-           // float bSpeed = game.GetSettings().ShipSettings[bot.ship].BombSpeed / 10.0f / 16.0f;
-
-            Vector2f solution = target.position;
-            bb.Set<Vector2f>("Solution", solution);
-
-            float radius_multiplier = 1.2f;
-
-            int weapon_key = VK_CONTROL;
-
-            
-            bool gun_hit = false;
-            bool bomb_hit = false;
-
-            std::vector<Vector2f> positions;
- 
-            if (game.GetShipSettings().DoubleBarrel == 1) {
-                positions.push_back(bot.position + side * radius * 0.8f);
-                positions.push_back(bot.position - side * radius * 0.8f);
-            }
-            else {
-                positions.push_back(bot.position);
-            }
-
-            if (game.GetPlayer().multifire_status) {
-                positions.push_back(bot.position);
-                positions.push_back(bot.position);
-            }
-            //bomb element
-            positions.push_back(bot.position);
-
-            std::size_t iSize = positions.size();
-
-            for (std::size_t i = 0; i < positions.size(); i++) {
-
-                bool onBomb = i == (iSize - 1);
-                
-                //last element switch to bomb settings
-                if (onBomb) {
-                    //safe bomb distance
-                    if (bot.position.Distance(target.position) < ((((float)game.GetSettings().BombExplodePixels * (float)(game.GetShipSettings().MaxBombs & 3)) / 16.0f) + target_radius)) {
-                        continue;
-                    }
-                    weapon_key = VK_TAB;
-                    proj_speed = game.GetSettings().ShipSettings[bot.ship].BombSpeed / 10.0f / 16.0f;
-                    alive_time = ((float)game.GetSettings().BombAliveTime / 100.0f);
-                    radius_multiplier = 1.0f;
-                }
-
-                if (CalculateShot(bot.position, target.position, bot.velocity, target.velocity, proj_speed, &solution)) {
-
-                    if (!onBomb) { bb.Set<Vector2f>("Solution", solution); }
-
-                    if (CanShoot(game, game.GetPosition(), solution, proj_speed, alive_time)) {
-
-                        if (!onBomb && PreferGuns(ctx) && iSize == positions.size()) {
-                            positions.pop_back();
-                        }
-                        //if the target is cloaking and bot doesnt have xradar make the bot shoot wide
-                        if (!(game.GetPlayer().status & 4)) {
-                            if (target.status & 2) {
-                                radius_multiplier = 3.0f;
-                            }
-                        }
-
-                        float nearby_radius = target_radius * radius_multiplier;
-
-                        Vector2f bBox_min = solution - Vector2f(nearby_radius, nearby_radius);
-                        Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
-                        float dist;
-                        Vector2f norm;
-                        Vector2f heading = bot.GetHeading();
-
-                        if (game.GetPlayer().multifire_status) {
-                            if (i == iSize - 2) {
-                                heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, true);
-                            }
-                            else if (i == iSize - 3) {
-                                heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, false);
-                            }
-                        }
-
-                        if (RayBoxIntersect(bot.position, heading, bBox_min, box_extent, &dist, &norm)) {
-                            ctx.bot->GetKeys().Press(weapon_key);
-                            return behavior::ExecuteResult::Success;
-                        }
-                    }
-                }            
-            }
-            return behavior::ExecuteResult::Failure;
-        }
-
-        bool ShootEnemyNode::PreferGuns(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-
-            bool use_guns = false;
-
-            float bomb_dps = ((float)game.GetShipSettings().BombFireDelay / 100.0f) * (float)game.GetSettings().BombDamageLevel;
-
-            float gun_damage = ((float)game.GetSettings().BulletDamageLevel + ((float)(game.GetShipSettings().MaxGuns & 3) * ((float)game.GetSettings().BulletDamageUpgrade)));
-            float gun_dps = ((float)game.GetShipSettings().BulletFireDelay / 100.0f) * gun_damage;
-
-            if (game.GetShipSettings().DoubleBarrel == 1 || bomb_dps < gun_dps) {
-                use_guns = true;
-            }
-            return use_guns;
-        }
-
-
-
-
-
-
-
-
-        behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-            auto& game = ctx.bot->GetGame();
-            auto& bb = ctx.blackboard;
-
-            Vector2f position = bb.ValueOr<Vector2f>("Solution", Vector2f());
-
-            bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;     
-          
-            float hover_distance = 0.0f;
-
-            if (in_safe) hover_distance = 0.0f;
-            else {
-                hover_distance = 10.0f;
-            }
-
-            ctx.bot->Move(position, hover_distance);
-
-            ctx.bot->GetSteering().Face(position);
-
-            return behavior::ExecuteResult::Success;
-        }
-
+      }
     }
+  }
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+
+  if (target) {
+    if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target->position, game.GetShipSettings().GetRadius())) {
+      return behavior::ExecuteResult::Success;
+    }
+  }
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& bb = ctx.blackboard;
+
+  if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
+    return behavior::ExecuteResult::Success;
+  }
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  if (!target) {
+    return behavior::ExecuteResult::Failure;
+  }
+
+  float energy_pct = (float)game.GetPlayer().energy / game.GetMaxEnergy() * 100.0f;
+
+  if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
+    return behavior::ExecuteResult::Failure;
+  }
+
+  float target_radius = game.GetSettings().ShipSettings[target->ship].GetRadius();
+  bool shoot = false;
+  bool bomb_hit = false;
+  Vector2f wall_pos;
+
+  if (BounceShot(game, target->position, target->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit,
+                 &wall_pos)) {
+    if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
+      if (bomb_hit) {
+        ctx.bot->GetKeys().Press(VK_TAB);
+      } else {
+        ctx.bot->GetKeys().Press(VK_CONTROL);
+      }
+    }
+  }
+  return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
+  if (!target_player) {
+    return behavior::ExecuteResult::Failure;
+  }
+  const Player& target = *target_player;
+  const Player& bot = game.GetPlayer();
+
+  float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
+  float radius = game.GetShipSettings().GetRadius();
+  Vector2f side = Perpendicular(bot.GetHeading());
+
+  float proj_speed = game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
+  float alive_time = ((float)game.GetSettings().BulletAliveTime / 100.0f);
+
+  // float gSpeed = game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
+  // float bSpeed = game.GetSettings().ShipSettings[bot.ship].BombSpeed / 10.0f / 16.0f;
+
+  Vector2f solution = target.position;
+  bb.Set<Vector2f>("Solution", solution);
+
+  float radius_multiplier = 1.2f;
+
+  int weapon_key = VK_CONTROL;
+
+  bool gun_hit = false;
+  bool bomb_hit = false;
+
+  std::vector<Vector2f> positions;
+
+  if (game.GetShipSettings().DoubleBarrel == 1) {
+    positions.push_back(bot.position + side * radius * 0.8f);
+    positions.push_back(bot.position - side * radius * 0.8f);
+  } else {
+    positions.push_back(bot.position);
+  }
+
+  if (game.GetPlayer().multifire_status) {
+    positions.push_back(bot.position);
+    positions.push_back(bot.position);
+  }
+  // bomb element
+  positions.push_back(bot.position);
+
+  std::size_t iSize = positions.size();
+
+  for (std::size_t i = 0; i < positions.size(); i++) {
+    bool onBomb = i == (iSize - 1);
+
+    // last element switch to bomb settings
+    if (onBomb) {
+      // safe bomb distance
+      if (bot.position.Distance(target.position) <
+          ((((float)game.GetSettings().BombExplodePixels * (float)(game.GetShipSettings().MaxBombs & 3)) / 16.0f) +
+           target_radius)) {
+        continue;
+      }
+      weapon_key = VK_TAB;
+      proj_speed = game.GetSettings().ShipSettings[bot.ship].BombSpeed / 10.0f / 16.0f;
+      alive_time = ((float)game.GetSettings().BombAliveTime / 100.0f);
+      radius_multiplier = 1.0f;
+    }
+
+    if (CalculateShot(bot.position, target.position, bot.velocity, target.velocity, proj_speed, &solution)) {
+      if (!onBomb) {
+        bb.Set<Vector2f>("Solution", solution);
+      }
+
+      if (CanShoot(game, game.GetPosition(), solution, proj_speed, alive_time)) {
+        if (!onBomb && PreferGuns(ctx) && iSize == positions.size()) {
+          positions.pop_back();
+        }
+        // if the target is cloaking and bot doesnt have xradar make the bot shoot wide
+        if (!(game.GetPlayer().status & 4)) {
+          if (target.status & 2) {
+            radius_multiplier = 3.0f;
+          }
+        }
+
+        float nearby_radius = target_radius * radius_multiplier;
+
+        Vector2f bBox_min = solution - Vector2f(nearby_radius, nearby_radius);
+        Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
+        float dist;
+        Vector2f norm;
+        Vector2f heading = bot.GetHeading();
+
+        if (game.GetPlayer().multifire_status) {
+          if (i == iSize - 2) {
+            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, true);
+          } else if (i == iSize - 3) {
+            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, false);
+          }
+        }
+
+        if (RayBoxIntersect(bot.position, heading, bBox_min, box_extent, &dist, &norm)) {
+          ctx.bot->GetKeys().Press(weapon_key);
+          return behavior::ExecuteResult::Success;
+        }
+      }
+    }
+  }
+  return behavior::ExecuteResult::Failure;
+}
+
+bool ShootEnemyNode::PreferGuns(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+
+  bool use_guns = false;
+
+  float bomb_dps = ((float)game.GetShipSettings().BombFireDelay / 100.0f) * (float)game.GetSettings().BombDamageLevel;
+
+  float gun_damage = ((float)game.GetSettings().BulletDamageLevel +
+                      ((float)(game.GetShipSettings().MaxGuns & 3) * ((float)game.GetSettings().BulletDamageUpgrade)));
+  float gun_dps = ((float)game.GetShipSettings().BulletFireDelay / 100.0f) * gun_damage;
+
+  if (game.GetShipSettings().DoubleBarrel == 1 || bomb_dps < gun_dps) {
+    use_guns = true;
+  }
+  return use_guns;
+}
+
+behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  Vector2f position = bb.ValueOr<Vector2f>("Solution", Vector2f());
+
+  bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
+
+  float hover_distance = 0.0f;
+
+  if (in_safe)
+    hover_distance = 0.0f;
+  else {
+    hover_distance = 10.0f;
+  }
+
+  ctx.bot->Move(position, hover_distance);
+
+  ctx.bot->GetSteering().Face(position);
+
+  return behavior::ExecuteResult::Success;
+}
+
+}  // namespace bot
 }  // namespace marvin

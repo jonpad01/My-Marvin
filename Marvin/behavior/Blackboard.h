@@ -7,51 +7,63 @@
 
 #include "../player.h"
 
-
 namespace marvin {
 namespace behavior {
 
-    class Blackboard {
-    public:
-        Blackboard() : pubteam0_(00), pubteam1_(01), chatcount_(0), lock_(false), freqlock_(false), anchor_(false), repel_(false), multifire_(false), swarm_(false), ship_(0), freq_(999), 
-            teaminbase_(false), enemyinbase_(false), lastinbase_(true), regionindex_(0), incenter_(true), targetinsight_(false), steerbackwards_(false), target_(nullptr) {}
+class Blackboard {
+ public:
+  Blackboard()
+      : pubteam0_(00),
+        pubteam1_(01),
+        chatcount_(0),
+        lock_(false),
+        freqlock_(false),
+        anchor_(false),
+        repel_(false),
+        multifire_(false),
+        swarm_(false),
+        ship_(0),
+        freq_(999),
+        teaminbase_(false),
+        enemyinbase_(false),
+        lastinbase_(true),
+        regionindex_(0),
+        incenter_(true),
+        targetinsight_(false),
+        steerbackwards_(false),
+        target_(nullptr) {}
 
+  bool Has(const std::string& key) { return data_.find(key) != data_.end(); }
 
+  template <typename T>
+  void Set(const std::string& key, const T& value) {
+    data_[key] = std::any(value);
+  }
 
+  template <typename T>
+  std::optional<T> Value(const std::string& key) {
+    auto iter = data_.find(key);
 
-        bool Has(const std::string& key) { return data_.find(key) != data_.end(); }
+    if (iter == data_.end()) {
+      return std::nullopt;
+    }
 
-        template <typename T>
-        void Set(const std::string& key, const T& value) {
-            data_[key] = std::any(value);
-        }
+    auto& any = iter->second;
 
-        template <typename T>
-        std::optional<T> Value(const std::string& key) {
-            auto iter = data_.find(key);
+    try {
+      return std::any_cast<T>(any);
+    } catch (const std::bad_any_cast&) {
+      return std::nullopt;
+    }
+  }
 
-            if (iter == data_.end()) {
-                return std::nullopt;
-            }
+  template <typename T>
+  T ValueOr(const std::string& key, const T& or_result) {
+    return Value<T>(key).value_or(or_result);
+  }
 
-            auto& any = iter->second;
-
-            try {
-                return std::any_cast<T>(any);
-            }
-            catch (const std::bad_any_cast&) {
-                return std::nullopt;
-            }
-        }
-
-        template <typename T>
-        T ValueOr(const std::string& key, const T& or_result) {
-            return Value<T>(key).value_or(or_result);
-        }
-
-        void Clear() { data_.clear(); }
-        void Erase(const std::string& key) { data_.erase(key); }
-
+  void Clear() { data_.clear(); }
+  void Erase(const std::string& key) { data_.erase(key); }
 
 #if 0
         void SetPubTeam0(uint16_t freq) { pubteam0_ = freq; }
@@ -141,49 +153,46 @@ namespace behavior {
         Vector2f GetSolution() { return solution_; }
 #endif
 
-    private:
+ private:
+  uint16_t pubteam0_;
+  uint16_t pubteam1_;
 
-        uint16_t pubteam0_;
-        uint16_t pubteam1_;
+  std::size_t chatcount_;
+  bool lock_;
+  bool freqlock_;
+  bool anchor_;
+  bool repel_;
+  bool multifire_;
+  bool swarm_;
+  int ship_;
+  int freq_;
 
-        std::size_t chatcount_;
-        bool lock_;
-        bool freqlock_;
-        bool anchor_;
-        bool repel_;
-        bool multifire_;
-        bool swarm_;
-        int ship_;
-        int freq_;
+  std::vector<uint16_t> freqlist_;
 
-        std::vector<uint16_t> freqlist_;
+  std::vector<Player> teamlist_;
+  std::vector<Player> enemylist_;
+  std::vector<Player> combinedlist_;
 
-        std::vector<Player> teamlist_;
-        std::vector<Player> enemylist_;
-        std::vector<Player> combinedlist_;
+  bool teaminbase_;
+  bool enemyinbase_;
+  bool lastinbase_;
 
-        bool teaminbase_;
-        bool enemyinbase_;
-        bool lastinbase_;
+  std::size_t regionindex_;
+  bool incenter_;
 
-        std::size_t regionindex_;
-        bool incenter_;
+  Vector2f teamsafe_;
+  Vector2f enemysafe_;
 
-        Vector2f teamsafe_;
-        Vector2f enemysafe_;
+  const Player* target_;
+  bool targetinsight_;
+  bool steerbackwards_;
 
-        const Player* target_;
-        bool targetinsight_;
-        bool steerbackwards_;
+  Vector2f solution_;
 
-        Vector2f solution_;
+  std::vector<Vector2f> path_;
 
-        std::vector<Vector2f> path_;
-
-
-
-        std::unordered_map<std::string, std::any> data_;
-    };
+  std::unordered_map<std::string, std::any> data_;
+};
 
 }  // namespace behavior
 }  // namespace marvin

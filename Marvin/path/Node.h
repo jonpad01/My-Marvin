@@ -14,9 +14,7 @@ struct NodePoint {
   NodePoint() : x(0), y(0) {}
   NodePoint(uint16_t x, uint16_t y) : x(x), y(y) {}
 
-  bool operator==(const NodePoint& other) const {
-    return x == other.x && y == other.y;
-  }
+  bool operator==(const NodePoint& other) const { return x == other.x && y == other.y; }
 };
 
 struct Node {
@@ -33,14 +31,14 @@ struct Node {
 
   Node()
       : closed(false),
-      openset(false),
-      parent(nullptr),
-      g(0.0f),
-      h(0.0f),
-      f(0.0f),
-      weight(1.0f),
-      previous_weight(1.0f),
-      rotations(0) {}
+        openset(false),
+        parent(nullptr),
+        g(0.0f),
+        h(0.0f),
+        f(0.0f),
+        weight(1.0f),
+        previous_weight(1.0f),
+        rotations(0) {}
 };
 
 }  // namespace path
