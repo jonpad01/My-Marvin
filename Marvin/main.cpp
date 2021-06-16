@@ -242,11 +242,6 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 
   marvin::debug_log << "Starting Marvin.\n";
 
-  try {
-    CreateBot();
-  } catch (std::exception& e) {
-    MessageBox(NULL, e.what(), "A", MB_OK);
-  }
   //#endif
   CreateBot();
 

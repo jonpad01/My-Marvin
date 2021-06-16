@@ -553,8 +553,12 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
+  if (!current.empty()) {
+    queue.push_back(current);
+  }
+
   for (std::size_t i = 0; i < queue.size(); i++) {
-    msg = current[i];
+    msg = queue[i];
 
     if ((msg == "lockmarv" || msg == "lm") && mod) {
       if (bb.ValueOr<bool>("CmdLock", false) == true) {
