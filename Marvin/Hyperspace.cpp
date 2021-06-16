@@ -17,6 +17,17 @@
 namespace marvin {
 namespace hs {
 
+std::vector<Vector2f> kBaseEntrances = {Vector2f(827, 339), Vector2f(811, 530), Vector2f(729, 893), Vector2f(444, 757),
+                                        Vector2f(127, 848), Vector2f(268, 552), Vector2f(181, 330)};
+
+std::vector<Vector2f> kFlagRooms = {Vector2f(826, 229), Vector2f(834, 540), Vector2f(745, 828), Vector2f(489, 832),
+                                    Vector2f(292, 812), Vector2f(159, 571), Vector2f(205, 204)};
+
+void Initialize(Bot& bot) {
+  debug_log << "Initializing hyperspace bot." << std::endl;
+  bot.CreateBasePaths(kBaseEntrances, kFlagRooms, bot.GetGame().GetSettings().ShipSettings[6].GetRadius());
+}
+
 behavior::ExecuteResult HSFlaggerSort::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
@@ -69,11 +80,11 @@ behavior::ExecuteResult HSFlaggerSort::Execute(behavior::ExecuteContext& ctx) {
         } else if (player.ship == 6) {
           team_lancs++;
           if (player.id != game.GetPlayer().id) {
-            if (ctx.bot->GetRegions().IsConnected(player.position, ctx.bot->GetHSEntrance()[base_index])) {
+            if (ctx.bot->GetRegions().IsConnected(player.position, kBaseEntrances[base_index])) {
               base_anchor = &game.GetPlayers()[i];
             } else {
-              for (std::size_t i = 0; i < ctx.bot->GetHSEntrance().size(); ++i) {
-                if (ctx.bot->GetRegions().IsConnected(player.position, ctx.bot->GetHSEntrance()[i])) {
+              for (std::size_t i = 0; i < kBaseEntrances.size(); ++i) {
+                if (ctx.bot->GetRegions().IsConnected(player.position, kBaseEntrances[i])) {
                   base_anchor = &game.GetPlayers()[i];
                 }
               }
@@ -81,7 +92,7 @@ behavior::ExecuteResult HSFlaggerSort::Execute(behavior::ExecuteContext& ctx) {
             other_anchor = &game.GetPlayers()[i];
           }
         }
-      } else if (ctx.bot->GetRegions().IsConnected(player.position, ctx.bot->GetHSEntrance()[base_index])) {
+      } else if (ctx.bot->GetRegions().IsConnected(player.position, kBaseEntrances[base_index])) {
         if (player.ship == 6) {
           enemy_anchor = &game.GetPlayers()[i];
         } else {
@@ -110,8 +121,8 @@ behavior::ExecuteResult HSSetRegionNode::Execute(behavior::ExecuteContext& ctx) 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  const std::vector<Vector2f>& entrances = ctx.bot->GetHSEntrance();
-  const std::vector<Vector2f>& flagrooms = ctx.bot->GetHSFlagRoom();
+  const std::vector<Vector2f>& entrances = kBaseEntrances;
+  const std::vector<Vector2f>& flagrooms = kFlagRooms;
 
   bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(),
                                                      (MapCoord)bb.ValueOr<Vector2f>("Spawn", Vector2f(512, 512)));
@@ -139,8 +150,8 @@ behavior::ExecuteResult HSDefensePositionNode::Execute(behavior::ExecuteContext&
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  const std::vector<Vector2f>& entrances = ctx.bot->GetHSEntrance();
-  const std::vector<Vector2f>& flagrooms = ctx.bot->GetHSFlagRoom();
+  const std::vector<Vector2f>& entrances = kBaseEntrances;
+  const std::vector<Vector2f>& flagrooms = kFlagRooms;
   std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
 
   const Player* team_anchor = bb.ValueOr<const Player*>("TeamAnchor", nullptr);
@@ -235,7 +246,7 @@ behavior::ExecuteResult HSShipMan::Execute(behavior::ExecuteContext& ctx) {
 
       if (anchor) {
         if (ctx.bot->GetRegions().IsConnected(anchor->position,
-                                              ctx.bot->GetHSEntrance()[bb.ValueOr<std::size_t>("BaseIndex", 0)])) {
+                                              kBaseEntrances[bb.ValueOr<std::size_t>("BaseIndex", 0)])) {
           if (ctx.bot->GetTime().TimedActionDelay("switchtolast", unique_timer)) {
             bb.Set<uint16_t>("Ship", last_ship);
             bb.Erase("LastShip");

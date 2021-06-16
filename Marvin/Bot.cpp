@@ -52,7 +52,8 @@ void Bot::LoadBotConstuctor() {
   auto disconnect = std::make_unique<bot::DisconnectNode>();
 
   if (zone == "Devastation") {
-    CreateBasePaths();
+    // TODO: This should handle the creation of the behavior tree.
+    deva::Initialize(*this);
 
     auto is_anchor = std::make_unique<bot::IsAnchorNode>();
     auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
@@ -140,7 +141,8 @@ void Bot::LoadBotConstuctor() {
     behavior_nodes_.push_back(std::move(team_sort));
     behavior_nodes_.push_back(std::move(DEVA_set_region));
   } else if (zone == "Hyperspace") {
-    CreateBasePaths();
+    // TODO: This should handle the creation of the behavior tree.
+    hs::Initialize(*this);
     ctx_.blackboard.Set<bool>("Ship", 0);
 
     auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
@@ -341,21 +343,8 @@ void Bot::Move(const Vector2f& target, float target_distance) {
   }
 }
 
-void Bot::CreateBasePaths() {
-  std::vector<Vector2f> start_vector;
-  std::vector<Vector2f> end_vector;
-  float radius = 0.0f;
-
-  if (game_->GetZone() == "Devastation") {
-    radius = game_->GetSettings().ShipSettings[1].GetRadius() + 0.5f;
-    start_vector = deva0_safes;
-    end_vector = deva1_safes;
-  } else if (game_->GetZone() == "Hyperspace") {
-    radius = game_->GetSettings().ShipSettings[6].GetRadius();
-    start_vector = HS_entrances;
-    end_vector = HS_flagrooms;
-  }
-
+void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::vector<Vector2f>& end_vector,
+                          float radius) {
   for (std::size_t i = 0; i < start_vector.size(); i++) {
     Vector2f position_1 = start_vector[i];
     Vector2f position_2 = end_vector[i];

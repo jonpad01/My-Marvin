@@ -16,8 +16,10 @@ namespace marvin {
 using Path = std::vector<Vector2f>;
 
 namespace deva {
-// base 8 was reversed in the ini file (vector 7)
 
+void Initialize(Bot& bot);
+
+// base 8 was reversed in the ini file (vector 7)
 class DevaSetRegionNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);

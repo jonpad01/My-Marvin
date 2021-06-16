@@ -12,7 +12,12 @@
 //#include "Time.h"
 
 namespace marvin {
+
+class Bot;
+
 namespace hs {
+
+void Initialize(Bot& bot);
 
 class HSFlaggerSort : public behavior::BehaviorNode {
  public:
