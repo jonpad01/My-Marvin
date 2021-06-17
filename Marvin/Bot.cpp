@@ -99,12 +99,18 @@ void Bot::LoadBotConstuctor() {
 }
 
 void Bot::Update(float dt) {
+  g_RenderState.debug_y = 30.0f;
+
   keys_.ReleaseAll();
+
+  PerformanceTimer timer;
 
   if (!game_->Update(dt)) {
     LoadBotConstuctor();
     return;
   }
+
+  g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
   steering_.Reset();
 #if 0
@@ -126,9 +132,14 @@ void Bot::Update(float dt) {
     influence_map_.Update(*game_, ctx_.blackboard.ValueOr<std::vector<Player>>("EnemyList", std::vector<Player>()));
   }
 
+  g_RenderState.RenderDebugText("InfluenceMap: %llu", timer.GetElapsedTime());
+
 #if !DEBUG_NO_BEHAVIOR
   behavior_->Update(ctx_);
+
+  g_RenderState.RenderDebugText("Behavior: %llu", timer.GetElapsedTime());
 #endif
+
   //#if 0 // Test wall avoidance. This should be moved somewhere in the behavior tree
   std::vector<Vector2f> path = ctx_.blackboard.ValueOr<std::vector<Vector2f>>("Path", std::vector<Vector2f>());
   constexpr float kNearbyTurn = 20.0f;
@@ -144,6 +155,8 @@ void Bot::Update(float dt) {
 #if DEBUG_RENDER
   // RenderPath(game_->GetPosition(), base_paths_[ctx_.blackboard.GetRegionIndex()]);
 #endif
+
+  g_RenderState.RenderDebugText("Steering: %llu", timer.GetElapsedTime());
 }
 
 void Bot::Move(const Vector2f& target, float target_distance) {
@@ -163,6 +176,8 @@ void Bot::Move(const Vector2f& target, float target_distance) {
 
 void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::vector<Vector2f>& end_vector,
                           float radius) {
+  PerformanceTimer timer;
+
   for (std::size_t i = 0; i < start_vector.size(); i++) {
     Vector2f position_1 = start_vector[i];
     Vector2f position_2 = end_vector[i];
@@ -221,6 +236,8 @@ void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::
 
     base_paths_.push_back(reduced_path);
   }
+
+  g_RenderState.RenderDebugText("CreateBasePaths: %llu", timer.GetElapsedTime());
 }
 
 bool Bot::MaxEnergyCheck() {
@@ -289,6 +306,8 @@ namespace bot {
 
 behavior::ExecuteResult DisconnectNode::Execute(behavior::ExecuteContext& ctx) {
   // check chat for disconected message and terminate continuum
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
 
   for (ChatMessage& chat : game.GetChat()) {
@@ -307,10 +326,13 @@ behavior::ExecuteResult DisconnectNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
+  g_RenderState.RenderDebugText("  DisconnectNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -322,11 +344,14 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
+  g_RenderState.RenderDebugText("  CommandNode: %llu", timer.GetElapsedTime());
   // Return failure on execute so the behavior will start over next tick with the commands processed completely.
   return executed ? behavior::ExecuteResult::Failure : behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -345,12 +370,18 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
         ctx.bot->GetTime().TimedActionDelay("shipchange", 0);
       }
     }
+
+    g_RenderState.RenderDebugText("  SetShipNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
+
+  g_RenderState.RenderDebugText("  SetShipNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -376,21 +407,30 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
       bb.Set<uint16_t>("Freq", 999);
     }
 
+    g_RenderState.RenderDebugText("  SetFreqNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
+  g_RenderState.RenderDebugText("  SetFreqNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult ShipCheckNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
 
   if (game.GetPlayer().ship == 8) {
+    g_RenderState.RenderDebugText("  ShipCheckNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
+
+  g_RenderState.RenderDebugText("  ShipCheckNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -454,25 +494,35 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   bb.Set<bool>("EnemyInBase", enemy_in_base);
   bb.Set<bool>("LastInBase", last_in_base);
 
+  g_RenderState.RenderDebugText("  SortBaseTeams: %llu", timer.GetElapsedTime());
+
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
 
   if (!game.GetPlayer().active) {
+    g_RenderState.RenderDebugText("  RespawnCheckNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
+
+  g_RenderState.RenderDebugText("  RespawnCheckNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
   if (!bb.ValueOr<bool>("InCenter", true)) {
+    g_RenderState.RenderDebugText("  FindEnemyInCenterNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -512,6 +562,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   }
 
   bb.Set<const Player*>("Target", target);
+  g_RenderState.RenderDebugText("  FindEnemyInCenterNode: %llu", timer.GetElapsedTime());
   return result;
 }
 
@@ -535,6 +586,8 @@ float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const 
 }
 
 behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
 
   auto& game = ctx.bot->GetGame();
@@ -567,10 +620,13 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   }
 
   bb.Set<const Player*>("Target", target);
+  g_RenderState.RenderDebugText("  FindEnemyInBaseNode: %llu", timer.GetElapsedTime());
   return result;
 }
 
 behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -579,6 +635,7 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!enemy) {
+    g_RenderState.RenderDebugText("  PathToEnemyNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -588,10 +645,13 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy->position, radius);
 
   bb.Set<Path>("Path", path);
+  g_RenderState.RenderDebugText("  PathToEnemyNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -614,12 +674,17 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
     path = ctx.bot->GetPathfinder().CreatePath(path, from, to, radius);
     bb.Set<Path>("Path", path);
 
+    g_RenderState.RenderDebugText("  PatrolNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
+
+  g_RenderState.RenderDebugText("  PatrolNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -628,12 +693,14 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
   bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
 
   if (in_center) {
+    g_RenderState.RenderDebugText("  TvsTBasePathNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!enemy) {
+    g_RenderState.RenderDebugText("  TvsTBasePathNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -696,6 +763,8 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
 
   path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
   bb.Set<Path>("Path", path);
+
+  g_RenderState.RenderDebugText("  TvsTBasePathNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -746,6 +815,8 @@ bool TvsTBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
 }
 
 behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -754,6 +825,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   size_t path_size = path.size();
 
   if (path.empty()) {
+    g_RenderState.RenderDebugText("  FollowPathNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -784,7 +856,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   ctx.bot->Move(current, 0.0f);
-
+  g_RenderState.RenderDebugText("  FollowPathNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -824,6 +896,8 @@ stopped at 0x0F01
 */
 
 behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -835,14 +909,20 @@ behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) 
     if (weapon->IsMine()) {
       if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
         game.Repel(ctx.bot->GetKeys());
+
+        g_RenderState.RenderDebugText("  MineSweeperNode: %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Success;
       }
     }
   }
+
+  g_RenderState.RenderDebugText("  MineSweeperNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -850,33 +930,45 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
 
   if (target) {
     if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target->position, game.GetShipSettings().GetRadius())) {
+
+      g_RenderState.RenderDebugText("  InLineOfSightNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
   }
+
+  g_RenderState.RenderDebugText("  InLineOfSightNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
   auto& bb = ctx.blackboard;
 
   if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
+    g_RenderState.RenderDebugText("  IsAnchorNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
+
+  g_RenderState.RenderDebugText("  IsAnchorNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
   if (!target) {
+    g_RenderState.RenderDebugText("  BouncingShotNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   float energy_pct = (float)game.GetPlayer().energy / game.GetMaxEnergy() * 100.0f;
 
   if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
+    g_RenderState.RenderDebugText("  BouncingShotNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -895,15 +987,20 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
       }
     }
   }
+
+  g_RenderState.RenderDebugText("  BouncingShotNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
   const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
   if (!target_player) {
+    g_RenderState.RenderDebugText("  ShootEnemyNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
   const Player& target = *target_player;
@@ -998,11 +1095,13 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
         if (RayBoxIntersect(bot.position, heading, bBox_min, box_extent, &dist, &norm)) {
           ctx.bot->GetKeys().Press(weapon_key);
+          g_RenderState.RenderDebugText("  ShootEnemyNode: %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Success;
         }
       }
     }
   }
+  g_RenderState.RenderDebugText("  ShootEnemyNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -1024,6 +1123,8 @@ bool ShootEnemyNode::PreferGuns(behavior::ExecuteContext& ctx) {
 }
 
 behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -1043,6 +1144,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   ctx.bot->GetSteering().Face(position);
 
+  g_RenderState.RenderDebugText("  MoveToEnemyNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 

@@ -158,6 +158,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
 }
 
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -180,22 +182,28 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
             bb.Set<Vector2f>("EnemySafe", kBaseSafes0[i]);
           }
 
+
+          g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Success;
         }
       }
     }
   }
 
+  g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
   bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
 
   if (bb.ValueOr<bool>("FreqLock", false) || (bb.ValueOr<bool>("IsAnchor", false) && dueling)) {
+    g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
@@ -212,6 +220,7 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
         game.SetFreq(FindOpenFreq(fList, 2));
       }
 
+      g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
   }
@@ -243,6 +252,7 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
             float energy_pct =
                 (player.energy / (float)game.GetSettings().ShipSettings[player.ship].MaximumEnergy) * 100.0f;
             if (energy_pct != 100.0f) {
+              g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
               return behavior::ExecuteResult::Failure;
             }
           }
@@ -253,15 +263,19 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
           game.SetFreq(FindOpenFreq(fList, 2));
         }
 
+        g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
       }
     }
   }
 
+  g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult DevaWarpNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
   auto& time = ctx.bot->GetTime();
@@ -277,10 +291,13 @@ behavior::ExecuteResult DevaWarpNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
+  g_RenderState.RenderDebugText("  DevaWarpNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -305,6 +322,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
             }
           }
 
+          g_RenderState.RenderDebugText("  DevaAttachNode: %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Failure;
         }
       }
@@ -318,6 +336,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
           game.F7();
         }
 
+        g_RenderState.RenderDebugText("  DevaAttachNode: %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
       }
     }
@@ -331,9 +350,11 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
     game.F7();
 
+    g_RenderState.RenderDebugText("  DevaAttachNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
+  g_RenderState.RenderDebugText("  DevaAttachNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -445,6 +466,8 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
 }
 
 behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -452,12 +475,14 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
     if (!game.GetPlayer().multifire_status) {
       game.MultiFire();
 
+      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
   } else {
     if (game.GetPlayer().multifire_status) {
       game.MultiFire();
 
+      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
   }
@@ -477,6 +502,7 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
     if (ctx.bot->GetTime().TimedActionDelay("xradar", 800)) {
       game.XRadar();
 
+      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
 
@@ -486,6 +512,7 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
     if (ctx.bot->GetTime().TimedActionDelay("stealth", 800)) {
       game.Stealth();
 
+      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
 
@@ -495,16 +522,21 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
     if (ctx.bot->GetTime().TimedActionDelay("cloak", 800)) {
       game.Cloak(ctx.bot->GetKeys());
 
+      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
 
+    g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
+  g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -515,10 +547,13 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
 
   bb.Set<Path>("Path", path);
 
+  g_RenderState.RenderDebugText("  DevaPatrolBaseNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult DevaRepelEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -527,27 +562,33 @@ behavior::ExecuteResult DevaRepelEnemyNode::Execute(behavior::ExecuteContext& ct
       if (game.GetEnergyPercent() < 20.0f && game.GetPlayer().repels > 0) {
         game.Repel(ctx.bot->GetKeys());
 
+        g_RenderState.RenderDebugText("  DevaRepelEnemyNode: %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Success;
       }
     } else if (bb.ValueOr<bool>("UseRepel", false)) {
       if (game.GetEnergyPercent() < 10.0f && game.GetPlayer().repels > 0 && game.GetPlayer().bursts == 0) {
         game.Repel(ctx.bot->GetKeys());
 
+        g_RenderState.RenderDebugText("  DevaRepelEnemyNode: %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Success;
       }
     }
   }
 
+  g_RenderState.RenderDebugText("  DevaRepelEnemyNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult DevaBurstEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
   if (!bb.ValueOr<bool>("InCenter", true)) {
     const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
     if (!target) {
+      g_RenderState.RenderDebugText("  DevaBurstEnemyNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
 
@@ -555,14 +596,18 @@ behavior::ExecuteResult DevaBurstEnemyNode::Execute(behavior::ExecuteContext& ct
         game.GetPlayer().bursts > 0) {
       game.Burst(ctx.bot->GetKeys());
 
+      g_RenderState.RenderDebugText("  DevaBurstEnemyNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
   }
 
+  g_RenderState.RenderDebugText("  DevaBurstEnemyNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -571,6 +616,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!target) {
+    g_RenderState.RenderDebugText("  DevaMoveToEnemyNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -603,6 +649,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 
   ctx.bot->GetSteering().Face(shot_position);
 
+  g_RenderState.RenderDebugText("  DevaMoveToEnemyNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 

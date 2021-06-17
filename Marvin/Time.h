@@ -43,4 +43,13 @@ class Time {
   std::unordered_map<std::string, uint64_t> data_;
 };
 
+struct PerformanceTimer {
+  u64 begin_time;
+
+  PerformanceTimer();
+
+  // Returns elapsed time and resets begin time
+  u64 GetElapsedTime();
+};
+
 }  // namespace marvin

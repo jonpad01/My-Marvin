@@ -38,10 +38,15 @@ struct RenderableLine {
 };
 
 struct RenderState {
+  static const bool kDisplayDebugText;
+  float debug_y;
+
   std::vector<RenderableText> renderable_texts;
   std::vector<RenderableLine> renderable_lines;
 
   void Render();
+
+  void RenderDebugText(const char* fmt, ...);
 };
 
 extern RenderState g_RenderState;

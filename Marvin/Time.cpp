@@ -118,4 +118,22 @@ uint64_t Time::DevaFreqTimer(std::vector<std::string> names) {
   return offset;
 }
 
+PerformanceTimer::PerformanceTimer() {
+  begin_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now())
+                   .time_since_epoch()
+                   .count();
+}
+
+u64 PerformanceTimer::GetElapsedTime() {
+  u64 now = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now())
+    .time_since_epoch()
+    .count();
+
+  u64 elapsed = now - begin_time;
+
+  begin_time = now;
+
+  return elapsed;
+}
+
 }  // namespace marvin

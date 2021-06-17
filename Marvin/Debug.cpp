@@ -1,6 +1,7 @@
 #include "Debug.h"
 
 #include <ddraw.h>
+#include <stdarg.h>
 
 #include "Types.h"
 
@@ -12,6 +13,8 @@ namespace marvin {
 RenderState g_RenderState;
 
 std::ofstream debug_log;
+
+const bool RenderState::kDisplayDebugText = false;
 
 #if DEBUG_RENDER
 
@@ -63,6 +66,21 @@ void RenderState::Render() {
 
     render_text(This, 0, x, y, renderable.text.c_str(), (int)renderable.color, -1, 1);
   }
+}
+
+void RenderState::RenderDebugText(const char* fmt, ...) {
+  if (!kDisplayDebugText) return;
+
+  char buffer[2048];
+
+  va_list args;
+
+  va_start(args, fmt);
+  vsprintf_s(buffer, fmt, args);
+  va_end(args);
+
+  RenderText(std::string(buffer), Vector2f(GetWindowCenter().x + 150.0f, debug_y), TextColor::Pink, 0);
+  debug_y += 12.0f;
 }
 
 void RenderLine(Vector2f from, Vector2f to, COLORREF color) {
