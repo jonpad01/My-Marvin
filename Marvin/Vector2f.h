@@ -7,7 +7,6 @@
 
 namespace marvin {
 
-
 class Vector2f {
  public:
   union {
@@ -35,9 +34,7 @@ class Vector2f {
     return std::fabs(x - other.x) < epsilon && std::fabs(y - other.y) < epsilon;
   }
 
-  bool operator!=(const Vector2f& other) const noexcept {
-    return !(*this == other);
-  }
+  bool operator!=(const Vector2f& other) const noexcept { return !(*this == other); }
 
   float operator[](std::size_t index) { return values[index]; }
 
@@ -77,13 +74,9 @@ class Vector2f {
     return *this;
   }
 
-  inline Vector2f operator+(const Vector2f& other) const {
-    return Vector2f(x + other.x, y + other.y);
-  }
+  inline Vector2f operator+(const Vector2f& other) const { return Vector2f(x + other.x, y + other.y); }
 
-  inline Vector2f operator-(const Vector2f& other) const {
-    return Vector2f(x - other.x, y - other.y);
-  }
+  inline Vector2f operator-(const Vector2f& other) const { return Vector2f(x - other.x, y - other.y); }
 
   inline Vector2f operator+(float v) const { return Vector2f(x + v, y + v); }
 
@@ -118,9 +111,7 @@ class Vector2f {
     }
   }
 
-  inline float Dot(const Vector2f& other) const noexcept {
-    return x * other.x + y * other.y;
-  }
+  inline float Dot(const Vector2f& other) const noexcept { return x * other.x + y * other.y; }
 
   inline Vector2f& Truncate(float len) {
     if (LengthSq() > len * len) {
@@ -131,8 +122,6 @@ class Vector2f {
     return *this;
   }
 };
-
-
 
 inline float DotProduct(const Vector2f& v1, const Vector2f& v2) noexcept {
   return v1.x * v2.x + v1.y * v2.y;
@@ -146,9 +135,13 @@ inline Vector2f Normalize(const Vector2f& v) {
   return result;
 }
 
-inline Vector2f Perpendicular(const Vector2f& v) { return Vector2f(-v.y, v.x); }
+inline Vector2f Perpendicular(const Vector2f& v) {
+  return Vector2f(-v.y, v.x);
+}
 
-inline Vector2f Reverse(const Vector2f& v) { return v * -1.0f; }
+inline Vector2f Reverse(const Vector2f& v) {
+  return v * -1.0f;
+}
 
 inline Vector2f Rotate(const Vector2f& v, float rads) {
   float cosA = std::cos(rads);
@@ -168,26 +161,25 @@ inline bool operator<(const Vector2f& lhs, const Vector2f& rhs) noexcept {
 }
 
 inline float WrapMax(float x, float max) {
-    return fmod(max + fmod(x, max), max);
+  return fmod(max + fmod(x, max), max);
 }
 
 inline float WrapMinMax(float x, float min, float max) {
-    return min + WrapMax(x - min, max - min);
+  return min + WrapMax(x - min, max - min);
 }
 
 inline float WrapToPi(float rads) {
-    return WrapMinMax(rads, -3.14159f, 3.14159f);
+  return WrapMinMax(rads, -3.14159f, 3.14159f);
 }
 
-//the viewing area the bot could see if it were a player
+// the viewing area the bot could see if it were a player
 inline bool InRect(Vector2f pos, Vector2f min_rect, Vector2f max_rect) {
-    return ((pos.x >= min_rect.x && pos.y >= min_rect.y) &&
-        (pos.x <= max_rect.x && pos.y <= max_rect.y));
+  return ((pos.x >= min_rect.x && pos.y >= min_rect.y) && (pos.x <= max_rect.x && pos.y <= max_rect.y));
 }
 
-//probably checks if the target is dead
+// probably checks if the target is dead
 inline bool IsValidPosition(Vector2f position) {
-    return position.x >= 0 && position.x < 1024 && position.y >= 0 && position.y < 1024;
+  return position.x >= 0 && position.x < 1024 && position.y >= 0 && position.y < 1024;
 }
 
 }  // namespace marvin

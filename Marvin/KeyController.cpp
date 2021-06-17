@@ -4,19 +4,20 @@
 
 namespace marvin {
 
-KeyController::KeyController() { ReleaseAll(); }
+KeyController::KeyController() {
+  ReleaseAll();
+}
 
 void KeyController::Set(KeyId key, bool down) {
   if (key >= kKeyCount) return;
 
-	  keys_[key] = down;
+  keys_[key] = down;
 }
 
-
 void KeyController::Press(KeyId key) {
-	if (key >= kKeyCount) return;
+  if (key >= kKeyCount) return;
 
-	keys_[key] = true;
+  keys_[key] = true;
 }
 
 bool KeyController::IsPressed(KeyId key) {
@@ -31,7 +32,8 @@ void KeyController::Release(KeyId key) {
   keys_[key] = false;
 }
 
-void KeyController::ReleaseAll() { memset(keys_, 0, sizeof(keys_)); }
-
+void KeyController::ReleaseAll() {
+  memset(keys_, 0, sizeof(keys_));
+}
 
 }  // namespace marvin

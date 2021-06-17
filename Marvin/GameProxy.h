@@ -2,33 +2,49 @@
 
 #include <string>
 #include <vector>
-#include "KeyController.h"
-#include "ClientSettings.h"
-#include "Player.h"
-#include "types.h"
-#include "Vector2f.h"
 
+#include "ClientSettings.h"
+#include "KeyController.h"
+#include "Player.h"
+#include "Types.h"
+#include "Vector2f.h"
+#include "zones/Zone.h"
 
 namespace marvin {
 
 class Map;
 
+enum class WeaponType : short { None, Bullet, BouncingBullet, Bomb, ProximityBomb, Repel, Decoy, Burst, Thor };
+
+struct WeaponData {
+  WeaponType type : 5;
+  u16 level : 2;
+  u16 shrapbouncing : 1;
+  u16 shraplevel : 2;
+  u16 shrap : 5;
+  u16 alternate : 1;
+};
+
 class Weapon {
-public:
-    virtual u16 GetPlayerId() const = 0;
-    virtual Vector2f GetPosition() const = 0;
-    virtual Vector2f GetVelocity() const = 0;
-    virtual u16 GetType() const = 0;
+ public:
+  virtual u16 GetPlayerId() const = 0;
+  virtual Vector2f GetPosition() const = 0;
+  virtual Vector2f GetVelocity() const = 0;
+  virtual WeaponData GetData() const = 0;
+
+  bool IsMine() {
+    WeaponData data = GetData();
+
+    return data.alternate && (data.type == WeaponType::Bomb || data.type == WeaponType::ProximityBomb);
+  }
 };
 
-struct Chat {
-    Chat() : message(""), player(""), type(0), count(0) {}
-    std::string message;
-    std::string player;
-    int type;
-    std::size_t count;
+struct ChatMessage {
+  ChatMessage() : message(""), player(""), type(0) {}
+  std::string message;
+  std::string player;
+  int type;
 };
-
 
 class GameProxy {
  public:
@@ -37,7 +53,7 @@ class GameProxy {
   virtual bool Update(float dt) = 0;
 
   virtual std::string GetName() const = 0;
-  virtual Chat GetChat() const = 0;
+  virtual std::vector<ChatMessage> GetChat() const = 0;
   virtual int GetEnergy() const = 0;
   virtual const float GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
@@ -48,12 +64,13 @@ class GameProxy {
   virtual const float GetMaxEnergy() = 0;
   virtual const float GetRotation() = 0;
   virtual const float GetMaxSpeed() = 0;
-  virtual const std::string GetZone() = 0;
+  virtual const Zone GetZone() = 0;
   virtual const std::string GetMapFile() const = 0;
   virtual const Map& GetMap() const = 0;
   virtual void SetTileId(Vector2f position, u8 id) = 0;
   virtual const Player& GetPlayer() const = 0;
   virtual void SendChatMessage(const std::string& mesg) const = 0;
+  virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) const = 0;
   virtual int64_t TickerPosition() = 0;
   virtual const Player& GetSelectedPlayer() const = 0;
   virtual const uint32_t GetSelectedPlayerIndex() const = 0;
@@ -61,7 +78,6 @@ class GameProxy {
   virtual std::vector<Weapon*> GetWeapons() = 0;
   virtual const std::vector<BallData>& GetBalls() const = 0;
   virtual void SetWindowFocus() = 0;
-  
 
   // May need to be called more than once to transition the game menu
   // Returns true if it attempts to set the ship this call.
@@ -85,7 +101,6 @@ class GameProxy {
   virtual void Repel(KeyController& keys) = 0;
   virtual void F7() = 0;
   virtual void SetSelectedPlayer(uint16_t id) = 0;
-  
 };
 
 }  // namespace marvin

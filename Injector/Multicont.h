@@ -1,20 +1,18 @@
 #pragma once
 
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 class Multicont {
+ public:
+  Multicont() : pid_(0){};
 
-public:
+  bool RunMulticont();
+  DWORD GetPid() { return pid_; }
 
-	Multicont() : pid_(0) {};
+ private:
+  bool RemoveDebugPrivileges(HANDLE token);
+  HANDLE GetProcessHandle();
 
-	bool RunMulticont();
-	DWORD GetPid() { return pid_; }
-
-private:
-
-	bool RemoveDebugPrivileges(HANDLE token);
-	HANDLE GetProcessHandle();
-
-	DWORD pid_;
-
+  DWORD pid_;
 };
-

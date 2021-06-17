@@ -7,7 +7,6 @@
 #include "../Map.h"
 #include "Node.h"
 
-
 namespace marvin {
 namespace path {
 
@@ -22,8 +21,8 @@ struct NodeConnections {
 class NodeProcessor {
  public:
   NodeProcessor(GameProxy& game) : game_(game), map_(game.GetMap()) {
-      //NodeProcessor(const Map & map) : map_(map) {
-      nodes_.resize(kMaxNodes);
+    // NodeProcessor(const Map & map) : map_(map) {
+    nodes_.resize(kMaxNodes);
   }
 
   GameProxy& GetGame() { return game_; }
@@ -32,7 +31,7 @@ class NodeProcessor {
 
   bool Mined(std::vector<Vector2f> mines, NodePoint point);
 
-  //NodeConnections FindEdges(Node* node, Node* start, Node* goal);
+  // NodeConnections FindEdges(Node* node, Node* start, Node* goal);
   NodeConnections FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal, float radius);
   Node* GetNode(NodePoint point);
   bool IsSolid(u16 x, u16 y) { return map_.IsSolid(x, y); }

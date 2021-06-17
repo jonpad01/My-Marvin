@@ -1,84 +1,79 @@
 #include "InfluenceMap.h"
 
-#include "Vector2f.h"
-#include "Map.h"
-#include "platform/Platform.h"
-#include "Debug.h"
 #include "Bot.h"
-
-
-
+#include "Debug.h"
+#include "Map.h"
+#include "Vector2f.h"
+#include "platform/Platform.h"
 
 namespace marvin {
 
+float InfluenceMap::GetValue(uint16_t x, uint16_t y) {
+  return tiles[y * 1024 + x];
+}
 
-    float InfluenceMap::GetValue(uint16_t x, uint16_t y) {
-        return tiles[y * 1024 + x];
+float InfluenceMap::GetValue(Vector2f v) {
+  return tiles[(uint16_t)v.y * 1024 + (uint16_t)v.x];
+}
+
+void InfluenceMap::AddValue(uint16_t x, uint16_t y, float value) {
+  tiles[y * 1024 + x] += value;
+}
+
+void InfluenceMap::SetValue(uint16_t x, uint16_t y, float value) {
+  tiles[y * 1024 + x] = value;
+}
+
+void InfluenceMap::Clear() {
+  for (size_t i = 0; i < 1024 * 1024; ++i) {
+    tiles[i] = 0.0f;
+  }
+}
+
+void InfluenceMap::Decay(float dt) {
+  for (size_t i = 0; i < 1024 * 1024; ++i) {
+    tiles[i] = std::max(0.0f, tiles[i] - dt);
+  }
+}
+
+void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
+  const float kInfluenceValue = 1.0f;
+
+  for (Weapon* weapon : game.GetWeapons()) {
+    const Player* player = game.GetPlayerById(weapon->GetPlayerId());
+
+    if (player == nullptr || player->frequency == game.GetPlayer().frequency) {
+      continue;
     }
 
-    float InfluenceMap::GetValue(Vector2f v) {
-        return tiles[(uint16_t)v.y * 1024 + (uint16_t)v.x];
-    }
+    Vector2f side = Normalize(Perpendicular(weapon->GetVelocity()));
 
-    void InfluenceMap::AddValue(uint16_t x, uint16_t y, float value) {
-        tiles[y * 1024 + x] += value;
-    }
+    const float kInfluenceLength = 35.0f;
 
-    void InfluenceMap::SetValue(uint16_t x, uint16_t y, float value) {
-        tiles[y * 1024 + x] = value;
-    }
+    CastInfluence(game.GetMap(), weapon->GetPosition(), Normalize(weapon->GetVelocity()), kInfluenceLength,
+                  kInfluenceValue);
+    CastInfluence(game.GetMap(), weapon->GetPosition() + side, Normalize(weapon->GetVelocity()), kInfluenceLength,
+                  kInfluenceValue);
+    CastInfluence(game.GetMap(), weapon->GetPosition() - side, Normalize(weapon->GetVelocity()), kInfluenceLength,
+                  kInfluenceValue);
+  }
+  //#if 0
+  for (std::size_t i = 0; i < enemy_list.size(); i++) {
+    const Player& player = enemy_list[i];
 
-    void InfluenceMap::Clear() {
-        for (size_t i = 0; i < 1024 * 1024; ++i) {
-            tiles[i] = 0.0f;
-        }
-    }
+    Vector2f side = Normalize(Perpendicular(player.velocity));
 
-    void InfluenceMap::Decay(float dt) {
-        for (size_t i = 0; i < 1024 * 1024; ++i) {
-            tiles[i] = std::max(0.0f, tiles[i] - dt);
-        }
-    }
+    const float kInfluenceLength = 35.0f;
 
+    // CastInfluence(game.GetMap(), player.position, Normalize(player.velocity), kInfluenceLength, kInfluenceValue);
+    // CastInfluence(game.GetMap(), player.position + side, Normalize(player.velocity), kInfluenceLength,
+    // kInfluenceValue); CastInfluence(game.GetMap(), player.position - side, Normalize(player.velocity),
+    // kInfluenceLength, kInfluenceValue);
 
-
-    void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
-
-
-        const float kInfluenceValue = 1.0f;
-
-        for (Weapon* weapon : game.GetWeapons()) {
-            const Player* player = game.GetPlayerById(weapon->GetPlayerId());
-
-            if (player == nullptr || player->frequency == game.GetPlayer().frequency) {
-                continue;
-            }
-
-            Vector2f side = Normalize(Perpendicular(weapon->GetVelocity()));
-
-
-            const float kInfluenceLength = 35.0f;
-
-            CastInfluence(game.GetMap(), weapon->GetPosition(), Normalize(weapon->GetVelocity()), kInfluenceLength, kInfluenceValue);
-            CastInfluence(game.GetMap(), weapon->GetPosition() + side, Normalize(weapon->GetVelocity()), kInfluenceLength, kInfluenceValue);
-            CastInfluence(game.GetMap(), weapon->GetPosition() - side, Normalize(weapon->GetVelocity()), kInfluenceLength, kInfluenceValue);
-        }
-//#if 0
-        for (std::size_t i = 0; i < enemy_list.size(); i++) {
-            const Player& player = enemy_list[i];
-
-            Vector2f side = Normalize(Perpendicular(player.velocity));
-
-            const float kInfluenceLength = 35.0f;
-
-            //CastInfluence(game.GetMap(), player.position, Normalize(player.velocity), kInfluenceLength, kInfluenceValue);
-           // CastInfluence(game.GetMap(), player.position + side, Normalize(player.velocity), kInfluenceLength, kInfluenceValue);
-           // CastInfluence(game.GetMap(), player.position - side, Normalize(player.velocity), kInfluenceLength, kInfluenceValue);
-
-            CastInfluence(game.GetMap(), player.position, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
-            CastInfluence(game.GetMap(), player.position + side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
-            CastInfluence(game.GetMap(), player.position - side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
-        }
+    CastInfluence(game.GetMap(), player.position, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
+    CastInfluence(game.GetMap(), player.position + side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
+    CastInfluence(game.GetMap(), player.position - side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
+  }
 //#endif
 #if 0
         for (i32 y = -25; y < 25; ++y) {
@@ -96,77 +91,65 @@ namespace marvin {
             }
         }
 #endif
+}
+
+void InfluenceMap::CastInfluence(const Map& map, const Vector2f& from, const Vector2f& direction, float max_length,
+                                 float value) {
+  if (map.IsSolid((unsigned short)from.x, (unsigned short)from.y)) {
+    return;
+  }
+
+  Vector2f vMapSize = {1024.0f, 1024.0f};
+
+  float xStepSize = std::sqrt(1 + (direction.y / direction.x) * (direction.y / direction.x));
+  float yStepSize = std::sqrt(1 + (direction.x / direction.y) * (direction.x / direction.y));
+
+  Vector2f vMapCheck = Vector2f(std::floor(from.x), std::floor(from.y));
+  Vector2f vRayLength1D;
+
+  Vector2f vStep;
+
+  if (direction.x < 0) {
+    vStep.x = -1.0f;
+    vRayLength1D.x = (from.x - float(vMapCheck.x)) * xStepSize;
+  } else {
+    vStep.x = 1.0f;
+    vRayLength1D.x = (float(vMapCheck.x + 1) - from.x) * xStepSize;
+  }
+
+  if (direction.y < 0) {
+    vStep.y = -1.0f;
+    vRayLength1D.y = (from.y - float(vMapCheck.y)) * yStepSize;
+  } else {
+    vStep.y = 1.0f;
+    vRayLength1D.y = (float(vMapCheck.y + 1) - from.y) * yStepSize;
+  }
+
+  // Perform "Walk" until collision or range check
+  bool bTileFound = false;
+  float fDistance = 0.0f;
+
+  while (!bTileFound && fDistance < max_length) {
+    // Walk along shortest path
+    if (vRayLength1D.x < vRayLength1D.y) {
+      vMapCheck.x += vStep.x;
+      fDistance = vRayLength1D.x;
+      vRayLength1D.x += xStepSize;
+    } else {
+      vMapCheck.y += vStep.y;
+      fDistance = vRayLength1D.y;
+      vRayLength1D.y += yStepSize;
     }
 
-
-
-    void InfluenceMap::CastInfluence(const Map& map, const Vector2f& from, const Vector2f& direction, float max_length, float value) {
-
-        if (map.IsSolid((unsigned short)from.x, (unsigned short)from.y)) {
-            return;
-        }
-
-        Vector2f vMapSize = { 1024.0f, 1024.0f };
-
-        float xStepSize = std::sqrt(1 + (direction.y / direction.x) * (direction.y / direction.x));
-        float yStepSize = std::sqrt(1 + (direction.x / direction.y) * (direction.x / direction.y));
-
-
-        Vector2f vMapCheck = Vector2f(std::floor(from.x), std::floor(from.y));
-        Vector2f vRayLength1D;
-
-        Vector2f vStep;
-
-        if (direction.x < 0) {
-            vStep.x = -1.0f;
-            vRayLength1D.x = (from.x - float(vMapCheck.x)) * xStepSize;
-        }
-        else {
-            vStep.x = 1.0f;
-            vRayLength1D.x = (float(vMapCheck.x + 1) - from.x) * xStepSize;
-        }
-
-        if (direction.y < 0) {
-            vStep.y = -1.0f;
-            vRayLength1D.y = (from.y - float(vMapCheck.y)) * yStepSize;
-        }
-        else {
-            vStep.y = 1.0f;
-            vRayLength1D.y = (float(vMapCheck.y + 1) - from.y) * yStepSize;
-        }
-
-        // Perform "Walk" until collision or range check
-        bool bTileFound = false;
-        float fDistance = 0.0f;
-
-        while (!bTileFound && fDistance < max_length) {
-            // Walk along shortest path
-            if (vRayLength1D.x < vRayLength1D.y) {
-
-                vMapCheck.x += vStep.x;
-                fDistance = vRayLength1D.x;
-                vRayLength1D.x += xStepSize;
-            }
-            else {
-
-                vMapCheck.y += vStep.y;
-                fDistance = vRayLength1D.y;
-                vRayLength1D.y += yStepSize;
-            }
-
-            // Test tile at new test point
-            if (vMapCheck.x >= 0 && vMapCheck.x < vMapSize.x && vMapCheck.y >= 0 && vMapCheck.y < vMapSize.y) {
-                if (map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
-                    bTileFound = true;
-                }
-                else {
-                    SetValue((uint16_t)vMapCheck.x, (uint16_t)vMapCheck.y, value * (1.0f - (fDistance / max_length)));
-                }
-            }
-        }
+    // Test tile at new test point
+    if (vMapCheck.x >= 0 && vMapCheck.x < vMapSize.x && vMapCheck.y >= 0 && vMapCheck.y < vMapSize.y) {
+      if (map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
+        bTileFound = true;
+      } else {
+        SetValue((uint16_t)vMapCheck.x, (uint16_t)vMapCheck.y, value * (1.0f - (fDistance / max_length)));
+      }
     }
+  }
+}
 
-    
-
-
-} //namespace marvin
+}  // namespace marvin

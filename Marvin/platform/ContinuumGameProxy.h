@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 
 #include "../GameProxy.h"
 #include "ExeProcess.h"
@@ -9,59 +10,53 @@
 namespace marvin {
 
 #pragma pack(push, 1)
-    struct WeaponData {
-        u32 _unused1;
+struct WeaponMemory {
+  u32 _unused1;
 
-        u32 x;  // 0x04
-        u32 y;  // 0x08
+  u32 x;  // 0x04
+  u32 y;  // 0x08
 
-        u32 _unuseda;
-        i32 velocity_x;
-        i32 velocity_y;
-        u32 _unused2[32];
+  u32 _unuseda;
+  i32 velocity_x;
+  i32 velocity_y;
+  u32 _unused2[32];
 
-        u32 pid;  // 0x98
+  u32 pid;  // 0x98
 
-        char _unused3[11];
+  char _unused3[11];
 
-        u16 type;
-    };
+  WeaponData data;
+};
 #pragma pack(pop)
 
-    // In memory weapon data
-    class ContinuumWeapon : public Weapon {
-    public:
-        ContinuumWeapon(WeaponData* data) : weapon_(data) {}
+// In memory weapon data
+class ContinuumWeapon : public Weapon {
+ public:
+  ContinuumWeapon(WeaponMemory* data) : weapon_(data) {}
 
-        u16 GetPlayerId() const { return weapon_->pid; }
+  u16 GetPlayerId() const { return weapon_->pid; }
 
-        Vector2f GetPosition() const {
-            return Vector2f(weapon_->x / 1000.0f / 16.0f, weapon_->y / 1000.0f / 16.0f);
-        }
+  Vector2f GetPosition() const { return Vector2f(weapon_->x / 1000.0f / 16.0f, weapon_->y / 1000.0f / 16.0f); }
 
-        Vector2f GetVelocity() const {
-            return Vector2f(weapon_->velocity_x / 1000.0f / 16.0f,
-                weapon_->velocity_y / 1000.0f / 16.0f);
-        }
+  Vector2f GetVelocity() const {
+    return Vector2f(weapon_->velocity_x / 1000.0f / 16.0f, weapon_->velocity_y / 1000.0f / 16.0f);
+  }
 
-        u16 GetType() const { return weapon_->type; }
+  WeaponData GetData() const { return weapon_->data; }
 
-    private:
-        WeaponData* weapon_;
-    };
+ private:
+  WeaponMemory* weapon_;
+};
 
-
-    
 class ContinuumGameProxy : public GameProxy {
  public:
-     
   ContinuumGameProxy(HWND hwnd);
   void LoadGame();
 
   bool Update(float dt) override;
 
   std::string GetName() const override;
-  Chat GetChat() const override;
+  std::vector<ChatMessage> GetChat() const override;
   int GetEnergy() const override;
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
@@ -72,7 +67,7 @@ class ContinuumGameProxy : public GameProxy {
   const float GetMaxEnergy() override;
   const float GetRotation() override;
   const float GetMaxSpeed() override;
-  const std::string GetZone() override;
+  const Zone GetZone() override;
   const std::string GetMapFile() const override;
   const Map& GetMap() const override;
   void SetTileId(Vector2f position, u8 id) override;
@@ -84,7 +79,7 @@ class ContinuumGameProxy : public GameProxy {
   const std::vector<BallData>& GetBalls() const override;
 
   std::vector<Weapon*> GetWeapons() override;
-  
+
   void SetEnergy(float percent) override;
   void SetFreq(int freq) override;
   bool SetShip(uint16_t ship) override;
@@ -105,9 +100,8 @@ class ContinuumGameProxy : public GameProxy {
   void Repel(KeyController& keys) override;
   void F7() override;
   void SendChatMessage(const std::string& mesg) const override;
+  void SendPrivateMessage(const std::string& target, const std::string& mesg) const override;
   void SetSelectedPlayer(uint16_t id) override;
- 
-  
 
   void SetWindowFocus() override;
 
@@ -123,7 +117,8 @@ class ContinuumGameProxy : public GameProxy {
   void SendKey(int vKey);
 
   std::vector<BallData> balls_;
-  Chat chat_;
+  std::vector<ChatMessage> recent_chat_;
+  std::size_t chat_index_;
   ExeProcess process_;
   HWND hwnd_;
   std::size_t module_base_continuum_;
@@ -137,7 +132,7 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Player> players_;
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
-  std::string zone_;
+  Zone zone_;
 };
 
 }  // namespace marvin

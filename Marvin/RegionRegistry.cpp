@@ -89,7 +89,9 @@ void RegionRegistry::Insert(MapCoord coord, RegionIndex index) {
   coord_regions_[coord] = index;
 }
 
-RegionIndex RegionRegistry::CreateRegion() { return region_count_++; }
+RegionIndex RegionRegistry::CreateRegion() {
+  return region_count_++;
+}
 
 bool RegionRegistry::IsConnected(MapCoord a, MapCoord b) const {
   auto first = coord_regions_.find(a);

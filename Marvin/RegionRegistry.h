@@ -22,9 +22,7 @@ struct MapCoord {
   MapCoord(uint16_t x, uint16_t y) : x(x), y(y) {}
   MapCoord(Vector2f vec) : x((uint16_t)vec.x), y((uint16_t)vec.y) {}
 
-  bool operator==(const MapCoord& other) const {
-    return x == other.x && y == other.y;
-  }
+  bool operator==(const MapCoord& other) const { return x == other.x && y == other.y; }
 };
 
 }  // namespace marvin

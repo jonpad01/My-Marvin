@@ -4,23 +4,24 @@
 
 namespace marvin {
 
-	class Map;
+class Map;
 
-	struct CastResult {
-		CastResult() : hit(false), distance(0.0f), position(Vector2f()), normal(Vector2f()) {}
-		bool hit;
-		float distance;
-		Vector2f position;
-		Vector2f normal;
-	};
+struct CastResult {
+  CastResult() : hit(false), distance(0.0f), position(Vector2f()), normal(Vector2f()) {}
+  bool hit;
+  float distance;
+  Vector2f position;
+  Vector2f normal;
+};
 
-	bool LineBoxIntersect(Vector2f point, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist, Vector2f* norm);
-	bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist, Vector2f* norm);
-	float BoxPointDistance(Vector2f box_pos, Vector2f box_extent, Vector2f point);
+bool LineBoxIntersect(Vector2f point, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist,
+                      Vector2f* norm);
+bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist,
+                     Vector2f* norm);
+float BoxPointDistance(Vector2f box_pos, Vector2f box_extent, Vector2f point);
 
-	CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_length);
+CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_length);
 
-	bool RadiusRayCastHit(const Map& map, Vector2f from, Vector2f to, float radius);
+bool RadiusRayCastHit(const Map& map, Vector2f from, Vector2f to, float radius);
 
-
-} // namespace marvin
+}  // namespace marvin

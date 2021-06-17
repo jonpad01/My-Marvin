@@ -16,44 +16,37 @@
 
 namespace marvin {
 
-    class AutoBot {
+class AutoBot {
+ public:
+  AutoBot();
+  ~AutoBot() {
+    for (std::size_t i = 0; i < handles_.size(); i++) {
+      if (handles_[i]) {
+        CloseHandle(handles_[i]);
+      }
+    }
+  }
 
-    public:
+  DWORD StartBot(std::size_t index);
+  void MonitorBots();
 
-        AutoBot();
-        ~AutoBot() {
-            for (std::size_t i = 0; i < handles_.size(); i++) {
-                if (handles_[i]) { CloseHandle(handles_[i]); }
-            }
-        }
+ private:
+  std::vector<DWORD> pids_;
+  std::vector<HANDLE> handles_;
+  std::vector<std::size_t> addrs_;
 
-        DWORD StartBot(std::size_t index);
-        void MonitorBots();
+  bool hidden_;
+};
 
-    private:
+BOOL __stdcall FindMenu(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindExtraMenu(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindProfile(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindInformation(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindGame(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindInjectedTitle(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindError(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindContinuumApplication(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindApplication(HWND hwnd, LPARAM lParam);
+BOOL __stdcall FindRunTimeError(HWND hwnd, LPARAM lParam);
 
-        std::vector<DWORD> pids_;
-        std::vector<HANDLE> handles_;
-        std::vector<std::size_t> addrs_;
-
-        bool hidden_;
-    };
-
-    BOOL __stdcall FindMenu(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindExtraMenu(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindProfile(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindInformation(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindGame(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindInjectedTitle(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindError(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindContinuumApplication(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindApplication(HWND hwnd, LPARAM lParam);
-    BOOL __stdcall FindRunTimeError(HWND hwnd, LPARAM lParam);
-
-}
-
-
-
-
-
-
+}  // namespace marvin

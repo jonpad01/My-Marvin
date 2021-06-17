@@ -63,22 +63,22 @@
     <ClCompile Include="Debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Hyperspace.cpp">
+    <ClCompile Include="zones\Hyperspace.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Devastation.cpp">
+    <ClCompile Include="zones\Devastation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ExtremeGames.cpp">
+    <ClCompile Include="zones\ExtremeGames.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GalaxySports.cpp">
+    <ClCompile Include="zones\GalaxySports.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Hockey.cpp">
+    <ClCompile Include="zones\Hockey.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PowerBall.cpp">
+    <ClCompile Include="zones\PowerBall.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Common.cpp">
@@ -90,7 +90,7 @@
     <ClCompile Include="Time.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Commands.cpp">
+    <ClCompile Include="commands\CommandSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="platform\Communicator.cpp">
@@ -170,22 +170,22 @@
     <ClInclude Include="Debug.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Devastation.h">
+    <ClInclude Include="zones\Devastation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Hyperspace.h">
+    <ClInclude Include="zones\Hyperspace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ExtremeGames.h">
+    <ClInclude Include="zones\ExtremeGames.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GalaxySports.h">
+    <ClInclude Include="zones\GalaxySports.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Hockey.h">
+    <ClInclude Include="zones\Hockey.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PowerBall.h">
+    <ClInclude Include="zones\PowerBall.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">
@@ -197,13 +197,49 @@
     <ClInclude Include="Time.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Commands.h">
+    <ClInclude Include="commands\CommandSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="platform\Communicator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="InfluenceMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Zone.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\HelpCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\CommandsCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\ModListCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\LockCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SetShipCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SetFreqCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\LockFreqCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\AnchorCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SwarmCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\MultiCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\RepelCommand.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
