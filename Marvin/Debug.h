@@ -7,7 +7,7 @@
 #include "Vector2f.h"
 #include "platform/Platform.h"
 
-#define DEBUG_RENDER 0
+#define DEBUG_RENDER 1
 #define DEBUG_USER_CONTROL 0
 #define DEBUG_NO_BEHAVIOR 0
 #define DEBUG_NO_ARROWS 0

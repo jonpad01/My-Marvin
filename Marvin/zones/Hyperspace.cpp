@@ -140,19 +140,20 @@ behavior::ExecuteResult HSFlaggerSort::Execute(behavior::ExecuteContext& ctx) {
     game.SendChatMessage("?lancs");
   }
 
-  Chat chat = game.GetChat();
+  for (ChatMessage chat : game.GetChat()) {
+    if (chat.type == 0) {
+      if (chat.message.compare(0, 3, "(S)") == 0 || chat.message.compare(0, 3, "(E)") == 0) {
+        std::vector<std::string> anchors;
+        std::string name;
 
-  if (chat.type == 0) {
-    if (chat.message.compare(0, 3, "(S)") == 0 || chat.message.compare(0, 3, "(E)") == 0) {
-      std::vector<std::string> anchors;
-      std::string name;
-      for (std::size_t i = 4; i < chat.message.size(); i++) {
-        if (chat.message[i] == ' ') {
-          anchors.push_back(name);
-          name.clear();
-          i += 3;
-        } else {
-          name.push_back(chat.message[i]);
+        for (std::size_t i = 4; i < chat.message.size(); i++) {
+          if (chat.message[i] == ' ') {
+            anchors.push_back(name);
+            name.clear();
+            i += 3;
+          } else {
+            name.push_back(chat.message[i]);
+          }
         }
       }
     }

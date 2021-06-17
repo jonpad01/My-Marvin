@@ -99,13 +99,14 @@ void ExtremeGames::Update(float dt) {
   std::string eg_specced = "[ " + name + " ]";
   std::size_t len = 4 + name.size();
 
-  Chat chat = game_->GetChat();
-
-  if (chat.type == 0) {
-    if (chat.message.compare(0, 9, disconnected) == 0 || chat.message.compare(0, len, eg_specced) == 0) {
-      exit(5);
+  for (ChatMessage& chat : game_->GetChat()) {
+    if (chat.type == 0) {
+      if (chat.message.compare(0, 9, disconnected) == 0 || chat.message.compare(0, len, eg_specced) == 0) {
+        exit(5);
+      }
     }
   }
+  
   // RenderText("initial  " + std::to_string(game_->GetShipSettings().InitialEnergy), GetWindowCenter() - Vector2f(0,
   // 40), RGB(100, 100, 100), RenderText_Centered);
   //  RenderText("maximum   " + std::to_string(game_->GetShipSettings().MaximumEnergy), GetWindowCenter() - Vector2f(0,
@@ -260,23 +261,29 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
 
   // read private messages for !p and send the same message to join a duel team
   // std::vector<std::string> chat = game.GetChat(5);
-  Chat chat = game.GetChat();
+  for (ChatMessage chat : game.GetChat()) {
+    if (chat.message == "!p" && no_p) {
+      game.P();
 
-  if (chat.message == "!p" && no_p) {
-    game.P();
-    ctx.blackboard.Set("!PCheck", time + 3000);
-    ctx.blackboard.Set("ChatWait", time + 200);
-    return behavior::ExecuteResult::Success;
-  } else if (chat.message == "!l" && no_p) {
-    game.L();
-    ctx.blackboard.Set("!PCheck", time + 3000);
-    ctx.blackboard.Set("ChatWait", time + 200);
-    return behavior::ExecuteResult::Success;
-  } else if (chat.message == "!r" && no_p) {
-    game.R();
-    ctx.blackboard.Set("!PCheck", time + 3000);
-    ctx.blackboard.Set("ChatWait", time + 200);
-    return behavior::ExecuteResult::Success;
+      ctx.blackboard.Set("!PCheck", time + 3000);
+      ctx.blackboard.Set("ChatWait", time + 200);
+
+      return behavior::ExecuteResult::Success;
+    } else if (chat.message == "!l" && no_p) {
+      game.L();
+
+      ctx.blackboard.Set("!PCheck", time + 3000);
+      ctx.blackboard.Set("ChatWait", time + 200);
+
+      return behavior::ExecuteResult::Success;
+    } else if (chat.message == "!r" && no_p) {
+      game.R();
+
+      ctx.blackboard.Set("!PCheck", time + 3000);
+      ctx.blackboard.Set("ChatWait", time + 200);
+
+      return behavior::ExecuteResult::Success;
+    }
   }
 
   // bot needs to halt so eg can process chat input, i guess

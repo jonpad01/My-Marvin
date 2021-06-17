@@ -93,11 +93,11 @@ void Hockey::Update(float dt) {
   std::string name = game_->GetName();
   std::string disconnected = "WARNING: ";
 
-  Chat chat = game_->GetChat();
-
-  if (chat.type == 0) {
-    if (chat.message.compare(0, 9, disconnected) == 0) {
-      exit(5);
+  for (ChatMessage chat : game_->GetChat()) {
+    if (chat.type == 0) {
+      if (chat.message.compare(0, 9, disconnected) == 0) {
+        exit(5);
+      }
     }
   }
 

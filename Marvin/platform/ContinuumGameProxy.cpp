@@ -29,6 +29,10 @@ void ContinuumGameProxy::LoadGame() {
   FetchPlayers();
   SetZone();
 
+  // Skip over existing messages on load
+  u32 chat_base_addr = game_addr_ + 0x2DD08;
+  chat_index_ = *(u32*)(chat_base_addr + 8);
+
   for (auto& player : players_) {
     if (player.name == GetName()) {
       player_id_ = player.id;
@@ -197,13 +201,16 @@ void ContinuumGameProxy::FetchBallData() {
   }
 }
 
+// Retrieves every chat message since the last call
 void ContinuumGameProxy::FetchChat() {
-  // the entry count is an index to each chat line, this only updates the most recent entry
-  // but the entire chat history could be retrieved
   struct ChatEntry {
     char message[256];
     char player[24];
     char unknown[8];
+    /*  Arena = 0,
+      Public = 2,
+      Private = 5,
+      Channel = 9 */
     unsigned char type;
     char unknown2[3];
   };
@@ -212,28 +219,29 @@ void ContinuumGameProxy::FetchChat() {
 
   ChatEntry* chat_ptr = *(ChatEntry**)(chat_base_addr);
   u32 entry_count = *(u32*)(chat_base_addr + 8);
+  int read_count = entry_count - chat_index_;
 
-  Chat chat;
-  // the entry count is only 0 if there is no chat history at all
-  // if its 0 then the pointer will point to stuff that isnt chat
-  if (entry_count == 0) {
-    chat_ = chat;
-    return;
+  if (read_count < 0) {
+    read_count += 64;
   }
 
-  ChatEntry entry = *(chat_ptr + (entry_count - 1));
+  recent_chat_.clear();
 
-  chat.message = entry.message;
-  chat.player = entry.player;
-  chat.type = entry.type;
-  chat.count = entry_count;
+  for (int i = 0; i < read_count; ++i) {
+    if (chat_index_ >= 1024) {
+      chat_index_ -= 64;
+    }
 
-  /*  Arena = 0,
-      Public = 2,
-      Private = 5,
-      Channel = 9 */
+    ChatEntry* entry = chat_ptr + chat_index_;
+    ChatMessage chat;
 
-  chat_ = chat;
+    chat.message = entry->message;
+    chat.player = entry->player;
+    chat.type = entry->type;
+
+    recent_chat_.push_back(chat);
+    ++chat_index_;
+  }
 }
 
 void ContinuumGameProxy::FetchWeapons() {
@@ -278,8 +286,8 @@ const Zone ContinuumGameProxy::GetZone() {
   return zone_;
 }
 
-Chat ContinuumGameProxy::GetChat() const {
-  return chat_;
+std::vector<ChatMessage> ContinuumGameProxy::GetChat() const {
+  return recent_chat_;
 }
 
 const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
@@ -600,6 +608,12 @@ void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
 
   // Clear the text buffer after sending the message
   input[0] = 0;
+}
+
+void ContinuumGameProxy::SendPrivateMessage(const std::string& target, const std::string& mesg) const {
+  if (!target.empty()) {
+    SendChatMessage(":" + target + ":" + mesg);
+  }
 }
 
 int64_t ContinuumGameProxy::TickerPosition() {

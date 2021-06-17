@@ -169,16 +169,17 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   seconds dt = now - g_LastUpdateTime;
 
   if (g_Enabled) {
-    marvin::Chat chat = game->GetChat();
-    std::string name = game->GetPlayer().name;
+    for (marvin::ChatMessage chat : game->GetChat()) {
+      std::string name = game->GetPlayer().name;
 
-    std::string eg_msg = "[ " + name + " ]";
+      std::string eg_msg = "[ " + name + " ]";
 
-    if (chat.type == 0) {
-      if (chat.message.compare(0, 9, "WARNING: ") == 0 ||
-          (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames)) {
-        PostQuitMessage(0);
-        return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+      if (chat.type == 0) {
+        if (chat.message.compare(0, 9, "WARNING: ") == 0 ||
+            (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames)) {
+          PostQuitMessage(0);
+          return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+        }
       }
     }
 

@@ -150,7 +150,7 @@
     <ClCompile Include="behavior\BehaviorEngine.cpp" />
     <ClCompile Include="behavior\BehaviorTree.cpp" />
     <ClCompile Include="Bot.cpp" />
-    <ClCompile Include="Commands.cpp" />
+    <ClCompile Include="CommandSystem.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="zones\Devastation.cpp" />
@@ -180,7 +180,7 @@
     <ClInclude Include="behavior\Blackboard.h" />
     <ClInclude Include="Bot.h" />
     <ClInclude Include="ClientSettings.h" />
-    <ClInclude Include="Commands.h" />
+    <ClInclude Include="CommandSystem.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="zones\Devastation.h" />

@@ -90,7 +90,7 @@
     <ClCompile Include="Time.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Commands.cpp">
+    <ClCompile Include="CommandSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="platform\Communicator.cpp">
@@ -197,7 +197,7 @@
     <ClInclude Include="Time.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Commands.h">
+    <ClInclude Include="CommandSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="platform\Communicator.h">

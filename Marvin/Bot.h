@@ -3,6 +3,7 @@
 #include <fstream>
 #include <memory>
 
+#include "CommandSystem.h"
 #include "InfluenceMap.h"
 #include "KeyController.h"
 #include "RayCaster.h"
@@ -41,6 +42,7 @@ class Bot {
   const RegionRegistry& GetRegions() const { return *regions_; }
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return influence_map_; }
+  CommandSystem& GetCommandSystem() { return command_system_; }
 
   const std::vector<Vector2f>& GetBasePath() {
     return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
@@ -63,6 +65,7 @@ class Bot {
   behavior::ExecuteContext ctx_;
   SteeringBehavior steering_;
   InfluenceMap influence_map_;
+  CommandSystem command_system_;
 
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
 

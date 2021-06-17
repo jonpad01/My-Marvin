@@ -39,12 +39,11 @@ class Weapon {
   }
 };
 
-struct Chat {
-  Chat() : message(""), player(""), type(0), count(0) {}
+struct ChatMessage {
+  ChatMessage() : message(""), player(""), type(0) {}
   std::string message;
   std::string player;
   int type;
-  std::size_t count;
 };
 
 class GameProxy {
@@ -54,7 +53,7 @@ class GameProxy {
   virtual bool Update(float dt) = 0;
 
   virtual std::string GetName() const = 0;
-  virtual Chat GetChat() const = 0;
+  virtual std::vector<ChatMessage> GetChat() const = 0;
   virtual int GetEnergy() const = 0;
   virtual const float GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
@@ -71,6 +70,7 @@ class GameProxy {
   virtual void SetTileId(Vector2f position, u8 id) = 0;
   virtual const Player& GetPlayer() const = 0;
   virtual void SendChatMessage(const std::string& mesg) const = 0;
+  virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) const = 0;
   virtual int64_t TickerPosition() = 0;
   virtual const Player& GetSelectedPlayer() const = 0;
   virtual const uint32_t GetSelectedPlayerIndex() const = 0;

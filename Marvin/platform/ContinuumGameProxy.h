@@ -56,7 +56,7 @@ class ContinuumGameProxy : public GameProxy {
   bool Update(float dt) override;
 
   std::string GetName() const override;
-  Chat GetChat() const override;
+  std::vector<ChatMessage> GetChat() const override;
   int GetEnergy() const override;
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
@@ -100,6 +100,7 @@ class ContinuumGameProxy : public GameProxy {
   void Repel(KeyController& keys) override;
   void F7() override;
   void SendChatMessage(const std::string& mesg) const override;
+  void SendPrivateMessage(const std::string& target, const std::string& mesg) const override;
   void SetSelectedPlayer(uint16_t id) override;
 
   void SetWindowFocus() override;
@@ -116,7 +117,8 @@ class ContinuumGameProxy : public GameProxy {
   void SendKey(int vKey);
 
   std::vector<BallData> balls_;
-  Chat chat_;
+  std::vector<ChatMessage> recent_chat_;
+  std::size_t chat_index_;
   ExeProcess process_;
   HWND hwnd_;
   std::size_t module_base_continuum_;
