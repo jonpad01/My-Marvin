@@ -250,7 +250,7 @@ void ContinuumGameProxy::FetchWeapons() {
   for (size_t i = 0; i < weapon_count; ++i) {
     u32 weapon_data = *(u32*)(weapon_ptrs + i * 4);
 
-    WeaponData* data = (WeaponData*)(weapon_data);
+    WeaponMemory* data = (WeaponMemory*)(weapon_data);
 
     weapons_.emplace_back(data);
   }

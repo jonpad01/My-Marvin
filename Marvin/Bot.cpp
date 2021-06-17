@@ -1026,12 +1026,10 @@ behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) 
 
     if (weapon_player == nullptr) continue;
     if (weapon_player->frequency == game.GetPlayer().frequency) continue;
-    if (weapon->GetType() & 0x8000) {
-      if (weapon->GetVelocity() == Vector2f(0, 0)) {
-        if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
-          game.Repel(ctx.bot->GetKeys());
-          return behavior::ExecuteResult::Success;
-        }
+    if (weapon->IsMine()) {
+      if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
+        game.Repel(ctx.bot->GetKeys());
+        return behavior::ExecuteResult::Success;
       }
     }
   }

@@ -799,7 +799,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
     const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
     if (weapon_player == nullptr) continue;
     if (weapon_player->frequency == game.GetPlayer().frequency) continue;
-    if (weapon->GetType() & 0x8000) mine_position = (weapon->GetPosition());
+    if (weapon->IsMine()) mine_position = (weapon->GetPosition());
     if (mine_position.Distance(game.GetPosition()) < 5.0f) {
       game.Repel(ctx.eg->GetKeys());
     }

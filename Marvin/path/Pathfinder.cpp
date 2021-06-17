@@ -413,7 +413,7 @@ std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2
       const Player* weapon_player = processor_->GetGame().GetPlayerById(weapon->GetPlayerId());
       if (weapon_player == nullptr) continue;
       if (weapon_player->frequency == processor_->GetGame().GetPlayer().frequency) continue;
-      if (weapon->GetType() & 0x8000) mines.push_back(weapon->GetPosition());
+      if (weapon->IsMine()) mines.push_back(weapon->GetPosition());
     }
     //#endif
     new_path = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);

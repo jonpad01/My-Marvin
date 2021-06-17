@@ -10,7 +10,7 @@
 namespace marvin {
 
 #pragma pack(push, 1)
-struct WeaponData {
+struct WeaponMemory {
   u32 _unused1;
 
   u32 x;  // 0x04
@@ -25,14 +25,14 @@ struct WeaponData {
 
   char _unused3[11];
 
-  u16 type;
+  WeaponData data;
 };
 #pragma pack(pop)
 
 // In memory weapon data
 class ContinuumWeapon : public Weapon {
  public:
-  ContinuumWeapon(WeaponData* data) : weapon_(data) {}
+  ContinuumWeapon(WeaponMemory* data) : weapon_(data) {}
 
   u16 GetPlayerId() const { return weapon_->pid; }
 
@@ -42,10 +42,10 @@ class ContinuumWeapon : public Weapon {
     return Vector2f(weapon_->velocity_x / 1000.0f / 16.0f, weapon_->velocity_y / 1000.0f / 16.0f);
   }
 
-  u16 GetType() const { return weapon_->type; }
+  WeaponData GetData() const { return weapon_->data; }
 
  private:
-  WeaponData* weapon_;
+  WeaponMemory* weapon_;
 };
 
 class ContinuumGameProxy : public GameProxy {
