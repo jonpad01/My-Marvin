@@ -92,7 +92,7 @@ void Bot::LoadBotConstuctor() {
   Zone zone = game_->GetZone();
   auto builder = CreateBehaviorBuilder(zone);
 
-  ctx_.blackboard.Set<bool>("Ship", 0);
+  //ctx_.blackboard.Set<int>("Ship", game_->GetPlayer().ship);
   ctx_.bot = this;
 
   this->behavior_ = builder->Build(*this);
@@ -656,7 +656,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.blackboard;
 
   Vector2f from = game.GetPosition();
-  Path path = bb.ValueOr<Path>("GetPath", Path());
+  Path path = bb.ValueOr<Path>("Path", Path());
   float radius = game.GetShipSettings().GetRadius();
 
   std::vector<Vector2f> nodes = bb.ValueOr<std::vector<Vector2f>>("PatrolNodes", std::vector<Vector2f>());

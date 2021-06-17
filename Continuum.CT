@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="31">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>1</ID>
+      <Description>"Base"</Description>
+      <LastState Value="9460301" RealAddress="00400000"/>
+      <VariableType>4 Bytes</VariableType>
+      <Address>continuum.exe</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>2</ID>
+      <Description>"Game"</Description>
+      <LastState Value="65798216" RealAddress="004C1AFC"/>
+      <VariableType>4 Bytes</VariableType>
+      <Address>continuum.exe+c1afc</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>3</ID>
+      <Description>"Sever Folder"</Description>
+      <LastState RealAddress="03EF0509"/>
+      <VariableType>String</VariableType>
+      <Length>23</Length>
+      <Unicode>0</Unicode>
+      <CodePage>0</CodePage>
+      <ZeroTerminate>1</ZeroTerminate>
+      <Address>continuum.exe+c1afc</Address>
+      <Offsets>
+        <Offset>10d</Offset>
+        <Offset>18228</Offset>
+      </Offsets>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>4</ID>
+      <Description>"Ship"</Description>
+      <LastState Value="8" RealAddress="03DEF6AC"/>
+      <VariableType>4 Bytes</VariableType>
+      <Address>continuum.exe+c1afc</Address>
+      <Offsets>
+        <Offset>5c</Offset>
+        <Offset>13070</Offset>
+      </Offsets>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>16</ID>
+      <Description>"No description"</Description>
+      <LastState RealAddress="03DD8D0C"/>
+      <VariableType>String</VariableType>
+      <Length>11</Length>
+      <Unicode>0</Unicode>
+      <CodePage>0</CodePage>
+      <ZeroTerminate>1</ZeroTerminate>
+      <Address>03DD8D0C</Address>
+    </CheatEntry>
+  </CheatEntries>
+  <UserdefinedSymbols/>
+</CheatTable>
