@@ -90,7 +90,7 @@
     <ClCompile Include="Time.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CommandSystem.cpp">
+    <ClCompile Include="commands\CommandSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="platform\Communicator.cpp">
@@ -197,7 +197,7 @@
     <ClInclude Include="Time.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CommandSystem.h">
+    <ClInclude Include="commands\CommandSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="platform\Communicator.h">
@@ -207,6 +207,39 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zones\Zone.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\HelpCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\CommandsCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\ModListCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\LockCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SetShipCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SetFreqCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\LockFreqCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\AnchorCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SwarmCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\MultiCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\RepelCommand.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -3,7 +3,7 @@
 #include <fstream>
 #include <memory>
 
-#include "CommandSystem.h"
+#include "commands/CommandSystem.h"
 #include "InfluenceMap.h"
 #include "KeyController.h"
 #include "RayCaster.h"
@@ -38,6 +38,7 @@ class Bot {
 
   void Move(const Vector2f& target, float target_distance);
 
+  behavior::ExecuteContext& GetExecuteContext() { return ctx_; }
   path::Pathfinder& GetPathfinder() { return *pathfinder_; }
   const RegionRegistry& GetRegions() const { return *regions_; }
   SteeringBehavior& GetSteering() { return steering_; }

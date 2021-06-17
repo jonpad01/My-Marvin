@@ -4,7 +4,6 @@
 #include <cstring>
 #include <limits>
 
-#include "CommandSystem.h"
 #include "Debug.h"
 #include "GameProxy.h"
 #include "Map.h"
@@ -77,24 +76,6 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone) {
   return builder;
 }
 
-class HelpCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    if (sender.empty()) return;
-
-    bot.GetGame().SendPrivateMessage(sender, "!commands {.c} -- see command list (pm)");
-    bot.GetGame().SendPrivateMessage(sender, "!modlist {.ml} -- see who can lock marv (pm)");
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
-
-  std::vector<std::string> GetAliases() { return {"help", "h"}; }
-
-  std::string GetDescription() { return "Helps"; }
-
-  int GetSecurityLevel() { return 0; }
-};
-
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
   LoadBotConstuctor();
 }
@@ -113,8 +94,6 @@ void Bot::LoadBotConstuctor() {
 
   ctx_.blackboard.Set<bool>("Ship", 0);
   ctx_.bot = this;
-
-  this->command_system_.RegisterCommand(std::make_shared<HelpCommand>());
 
   this->behavior_ = builder->Build(*this);
 }
@@ -338,8 +317,6 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
   bool executed = false;
 
   for (ChatMessage& chat : game.GetChat()) {
-    bool locked = bb.ValueOr<bool>("CmdLock", false);
-
     if (ctx.bot->GetCommandSystem().ProcessMessage(*ctx.bot, chat)) {
       executed = true;
     }
