@@ -210,6 +210,7 @@
     <ClInclude Include="Time.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="Vector2f.h" />
+    <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -18,6 +18,65 @@
 
 namespace marvin {
 
+class DefaultBehaviorBuilder : public BehaviorBuilder {
+ public:
+  void CreateBehavior(Bot& bot) {
+    auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
+
+    auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+    auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
+    auto parallel_shoot_enemy =
+        std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
+
+    auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
+
+    auto los_shoot_conditional =
+        std::make_unique<behavior::SequenceNode>(target_in_los_.get(), parallel_shoot_enemy.get());
+
+    auto path_or_shoot_selector =
+        std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), path_to_enemy_sequence.get());
+
+    auto find_enemy_in_center_sequence =
+        std::make_unique<behavior::SequenceNode>(find_enemy_in_center_.get(), path_or_shoot_selector.get());
+
+    auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get());
+
+    auto root_sequence = std::make_unique<behavior::SequenceNode>(disconnect_.get(), respawn_check_.get(),
+                                                                  commands_.get(), set_ship_.get(), set_freq_.get(),
+                                                                  ship_check_.get(), action_selector.get());
+
+    engine_->PushRoot(std::move(root_sequence));
+
+    engine_->PushNode(std::move(move_to_enemy));
+    engine_->PushNode(std::move(move_method_selector));
+    engine_->PushNode(std::move(los_weapon_selector));
+    engine_->PushNode(std::move(parallel_shoot_enemy));
+    engine_->PushNode(std::move(path_to_enemy_sequence));
+    engine_->PushNode(std::move(los_shoot_conditional));
+    engine_->PushNode(std::move(path_or_shoot_selector));
+    engine_->PushNode(std::move(find_enemy_in_center_sequence));
+    engine_->PushNode(std::move(action_selector));
+  }
+};
+
+std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone) {
+  std::unique_ptr<BehaviorBuilder> builder;
+
+  switch (zone) {
+    case Zone::Devastation: {
+      builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+    } break;
+    case Zone::Hyperspace: {
+      builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+    } break;
+    default: {
+      builder = std::make_unique<DefaultBehaviorBuilder>();
+    } break;
+  }
+
+  return builder;
+}
+
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
   LoadBotConstuctor();
 }
@@ -31,254 +90,13 @@ void Bot::LoadBotConstuctor() {
 
   SetZoneVariables();
 
-  std::string zone = game_->GetZone();
+  Zone zone = game_->GetZone();
+  auto builder = CreateBehaviorBuilder(zone);
 
-  auto follow_path = std::make_unique<bot::FollowPathNode>();
-
-  auto shoot_enemy = std::make_unique<bot::ShootEnemyNode>();
-
-  auto mine_sweeper = std::make_unique<bot::MineSweeperNode>();
-
-  auto target_in_los = std::make_unique<bot::InLineOfSightNode>();
-
-  auto path_to_enemy = std::make_unique<bot::PathToEnemyNode>();
-  auto find_enemy_in_center = std::make_unique<bot::FindEnemyInCenterNode>();
-
-  auto set_freq = std::make_unique<bot::SetFreqNode>();
-  auto set_ship = std::make_unique<bot::SetShipNode>();
-  auto commands = std::make_unique<bot::CommandNode>();
-
-  auto ship_check = std::make_unique<bot::ShipCheckNode>();
-  auto respawn_check = std::make_unique<bot::RespawnCheckNode>();
-  auto disconnect = std::make_unique<bot::DisconnectNode>();
-
-  if (zone == "Devastation") {
-    // TODO: This should handle the creation of the behavior tree.
-    deva::Initialize(*this);
-
-    auto is_anchor = std::make_unique<bot::IsAnchorNode>();
-    auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
-    auto DEVA_repel_enemy = std::make_unique<deva::DevaRepelEnemyNode>();
-    auto DEVA_burst_enemy = std::make_unique<deva::DevaBurstEnemyNode>();
-    auto patrol_base = std::make_unique<deva::DevaPatrolBaseNode>();
-    auto patrol_center = std::make_unique<bot::PatrolNode>();
-    auto DEVA_move_to_enemy = std::make_unique<deva::DevaMoveToEnemyNode>();
-    auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
-
-    auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
-
-    auto DEVA_toggle_status = std::make_unique<deva::DevaToggleStatusNode>();
-    auto DEVA_attach = std::make_unique<deva::DevaAttachNode>();
-    auto DEVA_warp = std::make_unique<deva::DevaWarpNode>();
-    auto DEVA_freqman = std::make_unique<deva::DevaFreqMan>();
-    auto team_sort = std::make_unique<bot::SortBaseTeams>();
-    auto DEVA_set_region = std::make_unique<deva::DevaSetRegionNode>();
-
-    move_method_selector_ = std::make_unique<behavior::SelectorNode>(DEVA_move_to_enemy.get());
-    los_weapon_selector_ =
-        std::make_unique<behavior::SelectorNode>(DEVA_burst_enemy.get(), DEVA_repel_enemy.get(), shoot_enemy.get());
-    parallel_shoot_enemy_ =
-        std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
-
-    path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
-    TvsT_base_path_sequence_ = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path.get());
-    enemy_path_logic_selector_ = std::make_unique<behavior::SelectorNode>(
-        mine_sweeper.get(), TvsT_base_path_sequence_.get(), path_to_enemy_sequence_.get());
-
-    anchor_los_parallel_ =
-        std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), TvsT_base_path_sequence_.get());
-    anchor_los_sequence_ = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel_.get());
-    anchor_los_selector_ =
-        std::make_unique<behavior::SelectorNode>(anchor_los_sequence_.get(), parallel_shoot_enemy_.get());
-
-    los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), anchor_los_selector_.get());
-    bounce_path_parallel_ =
-        std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector_.get());
-    path_or_shoot_selector_ = std::make_unique<behavior::SelectorNode>(
-        DEVA_repel_enemy.get(), los_shoot_conditional_.get(), bounce_path_parallel_.get());
-
-    find_enemy_in_base_sequence_ =
-        std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector_.get());
-    find_enemy_in_center_sequence_ =
-        std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
-    find_enemy_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get(),
-                                                                    find_enemy_in_base_sequence_.get());
-
-    patrol_base_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path.get());
-    patrol_center_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path.get());
-    patrol_selector_ =
-        std::make_unique<behavior::SelectorNode>(patrol_center_sequence_.get(), patrol_base_sequence_.get());
-
-    action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_selector_.get(), patrol_selector_.get());
-    root_sequence_ = std::make_unique<behavior::SequenceNode>(
-        disconnect.get(), commands.get(), set_ship.get(), set_freq.get(), ship_check.get(), team_sort.get(),
-        DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check.get(),
-        DEVA_toggle_status.get(), action_selector_.get());
-
-    behavior_nodes_.push_back(std::move(DEVA_move_to_enemy));
-    behavior_nodes_.push_back(std::move(DEVA_repel_enemy));
-    behavior_nodes_.push_back(std::move(DEVA_burst_enemy));
-    behavior_nodes_.push_back(std::move(is_anchor));
-    behavior_nodes_.push_back(std::move(anchor_los_parallel_));
-    behavior_nodes_.push_back(std::move(anchor_los_sequence_));
-    behavior_nodes_.push_back(std::move(anchor_los_selector_));
-    behavior_nodes_.push_back(std::move(bouncing_shot));
-    behavior_nodes_.push_back(std::move(bounce_path_parallel_));
-    behavior_nodes_.push_back(std::move(TvsT_base_path));
-    behavior_nodes_.push_back(std::move(TvsT_base_path_sequence_));
-    behavior_nodes_.push_back(std::move(enemy_path_logic_selector_));
-    behavior_nodes_.push_back(std::move(find_enemy_in_base));
-    behavior_nodes_.push_back(std::move(find_enemy_in_base_sequence_));
-    behavior_nodes_.push_back(std::move(find_enemy_selector_));
-    behavior_nodes_.push_back(std::move(patrol_base));
-    behavior_nodes_.push_back(std::move(patrol_center));
-    behavior_nodes_.push_back(std::move(patrol_base_sequence_));
-    behavior_nodes_.push_back(std::move(patrol_center_sequence_));
-    behavior_nodes_.push_back(std::move(patrol_selector_));
-    behavior_nodes_.push_back(std::move(DEVA_toggle_status));
-    behavior_nodes_.push_back(std::move(DEVA_attach));
-    behavior_nodes_.push_back(std::move(DEVA_warp));
-    behavior_nodes_.push_back(std::move(DEVA_freqman));
-    behavior_nodes_.push_back(std::move(team_sort));
-    behavior_nodes_.push_back(std::move(DEVA_set_region));
-  } else if (zone == "Hyperspace") {
-    // TODO: This should handle the creation of the behavior tree.
-    hs::Initialize(*this);
-    ctx_.blackboard.Set<bool>("Ship", 0);
-
-    auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
-    auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
-    auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
-
-    auto is_anchor = std::make_unique<bot::IsAnchorNode>();
-    auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
-    auto patrol_base = std::make_unique<hs::HSPatrolBaseNode>();
-    auto patrol_center = std::make_unique<bot::PatrolNode>();
-    auto HS_toggle = std::make_unique<hs::HSToggleNode>();
-    auto HS_attach = std::make_unique<hs::HSAttachNode>();
-    auto HS_warp = std::make_unique<hs::HSWarpToCenter>();
-    auto HS_shipman = std::make_unique<hs::HSShipMan>();
-    auto HS_freqman = std::make_unique<hs::HSFreqMan>();
-    auto HS_defense_position = std::make_unique<hs::HSDefensePositionNode>();
-    auto flagger_sort = std::make_unique<hs::HSFlaggerSort>();
-    auto HS_set_region = std::make_unique<hs::HSSetRegionNode>();
-
-    move_method_selector_ = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
-    los_weapon_selector_ = std::make_unique<behavior::SelectorNode>(shoot_enemy.get());
-    parallel_shoot_enemy_ =
-        std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
-
-    path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
-    TvsT_base_path_sequence_ = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path.get());
-    enemy_path_logic_selector_ = std::make_unique<behavior::SelectorNode>(
-        mine_sweeper.get(), TvsT_base_path_sequence_.get(), path_to_enemy_sequence_.get());
-
-    anchor_los_parallel_ = std::make_unique<behavior::ParallelNode>(TvsT_base_path_sequence_.get());
-    anchor_los_sequence_ = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel_.get());
-    anchor_los_selector_ =
-        std::make_unique<behavior::SelectorNode>(anchor_los_sequence_.get(), parallel_shoot_enemy_.get());
-
-    los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), anchor_los_selector_.get());
-    bounce_path_parallel_ =
-        std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector_.get());
-    path_or_shoot_selector_ =
-        std::make_unique<behavior::SelectorNode>(los_shoot_conditional_.get(), bounce_path_parallel_.get());
-
-    find_enemy_in_base_sequence_ =
-        std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector_.get());
-    find_enemy_in_center_sequence_ =
-        std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
-    find_enemy_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get(),
-                                                                    find_enemy_in_base_sequence_.get());
-
-    patrol_base_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path.get());
-    patrol_center_sequence_ = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path.get());
-    patrol_selector_ =
-        std::make_unique<behavior::SelectorNode>(patrol_center_sequence_.get(), patrol_base_sequence_.get());
-
-    action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_selector_.get(), patrol_selector_.get());
-    root_sequence_ = std::make_unique<behavior::SequenceNode>(
-        disconnect.get(), commands.get(), set_ship.get(), set_freq.get(), ship_check.get(), flagger_sort.get(),
-        HS_set_region.get(), HS_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(),
-        HS_attach.get(), respawn_check.get(), HS_toggle.get(), action_selector_.get());
-
-    behavior_nodes_.push_back(std::move(move_to_enemy));
-    behavior_nodes_.push_back(std::move(TvsT_base_path));
-    behavior_nodes_.push_back(std::move(is_anchor));
-    behavior_nodes_.push_back(std::move(anchor_los_parallel_));
-    behavior_nodes_.push_back(std::move(anchor_los_sequence_));
-    behavior_nodes_.push_back(std::move(anchor_los_selector_));
-    behavior_nodes_.push_back(std::move(bouncing_shot));
-    behavior_nodes_.push_back(std::move(bounce_path_parallel_));
-    behavior_nodes_.push_back(std::move(TvsT_base_path_sequence_));
-    behavior_nodes_.push_back(std::move(enemy_path_logic_selector_));
-    behavior_nodes_.push_back(std::move(find_enemy_in_base));
-    behavior_nodes_.push_back(std::move(find_enemy_in_base_sequence_));
-    behavior_nodes_.push_back(std::move(find_enemy_selector_));
-    behavior_nodes_.push_back(std::move(patrol_base));
-    behavior_nodes_.push_back(std::move(patrol_center));
-    behavior_nodes_.push_back(std::move(patrol_base_sequence_));
-    behavior_nodes_.push_back(std::move(patrol_center_sequence_));
-    behavior_nodes_.push_back(std::move(patrol_selector_));
-    behavior_nodes_.push_back(std::move(HS_toggle));
-    behavior_nodes_.push_back(std::move(HS_attach));
-    behavior_nodes_.push_back(std::move(HS_warp));
-    behavior_nodes_.push_back(std::move(HS_shipman));
-    behavior_nodes_.push_back(std::move(HS_freqman));
-    behavior_nodes_.push_back(std::move(HS_defense_position));
-    behavior_nodes_.push_back(std::move(flagger_sort));
-    behavior_nodes_.push_back(std::move(HS_set_region));
-
-  } else {
-    auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
-
-    move_method_selector_ = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
-    los_weapon_selector_ = std::make_unique<behavior::SelectorNode>(shoot_enemy.get());
-    parallel_shoot_enemy_ =
-        std::make_unique<behavior::ParallelNode>(los_weapon_selector_.get(), move_method_selector_.get());
-    path_to_enemy_sequence_ = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
-    los_shoot_conditional_ = std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy_.get());
-    path_or_shoot_selector_ =
-        std::make_unique<behavior::SelectorNode>(los_shoot_conditional_.get(), path_to_enemy_sequence_.get());
-    find_enemy_in_center_sequence_ =
-        std::make_unique<behavior::SequenceNode>(find_enemy_in_center.get(), path_or_shoot_selector_.get());
-    action_selector_ = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence_.get());
-    root_sequence_ =
-        std::make_unique<behavior::SequenceNode>(disconnect.get(), respawn_check.get(), commands.get(), set_ship.get(),
-                                                 set_freq.get(), ship_check.get(), action_selector_.get());
-
-    behavior_nodes_.push_back(std::move(move_to_enemy));
-  }
-
-  behavior_nodes_.push_back(std::move(find_enemy_in_center));
-
-  behavior_nodes_.push_back(std::move(target_in_los));
-  behavior_nodes_.push_back(std::move(shoot_enemy));
-
-  behavior_nodes_.push_back(std::move(follow_path));
-  behavior_nodes_.push_back(std::move(path_to_enemy));
-  behavior_nodes_.push_back(std::move(mine_sweeper));
-
-  behavior_nodes_.push_back(std::move(move_method_selector_));
-  behavior_nodes_.push_back(std::move(los_weapon_selector_));
-  behavior_nodes_.push_back(std::move(parallel_shoot_enemy_));
-  behavior_nodes_.push_back(std::move(los_shoot_conditional_));
-  behavior_nodes_.push_back(std::move(path_to_enemy_sequence_));
-  behavior_nodes_.push_back(std::move(path_or_shoot_selector_));
-  behavior_nodes_.push_back(std::move(find_enemy_in_center_sequence_));
-  behavior_nodes_.push_back(std::move(action_selector_));
-
-  behavior_nodes_.push_back(std::move(ship_check));
-  behavior_nodes_.push_back(std::move(set_freq));
-  behavior_nodes_.push_back(std::move(set_ship));
-  behavior_nodes_.push_back(std::move(commands));
-  behavior_nodes_.push_back(std::move(respawn_check));
-  behavior_nodes_.push_back(std::move(disconnect));
-
-  behavior_nodes_.push_back(std::move(root_sequence_));
-
-  behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
+  ctx_.blackboard.Set<bool>("Ship", 0);
   ctx_.bot = this;
+
+  this->behavior_ = builder->Build(*this);
 }
 
 void Bot::Update(float dt) {
@@ -304,7 +122,7 @@ void Bot::Update(float dt) {
   // GetWindowCenter() - Vector2f(0, 60), TextColor::White, RenderText_Centered);
   ctx_.dt = dt;
 
-  if (game_->GetZone() == "Devastation") {
+  if (game_->GetZone() == Zone::Devastation) {
     influence_map_.Decay(dt);
     influence_map_.Update(*game_, ctx_.blackboard.ValueOr<std::vector<Player>>("EnemyList", std::vector<Player>()));
   }
@@ -434,7 +252,7 @@ void Bot::SetZoneVariables() {
   uint16_t ship = game_->GetPlayer().ship;
   bool specced = game_->GetPlayer().ship == 8;
 
-  if (game_->GetZone() == "Devastation") {
+  if (game_->GetZone() == Zone::Devastation) {
     std::string name = Lowercase(game_->GetPlayer().name);
     if (name == "lilmarv" && specced) {
       ship = 1;
@@ -447,13 +265,13 @@ void Bot::SetZoneVariables() {
     ctx_.blackboard.Set<std::vector<Vector2f>>("PatrolNodes", nodes);
   }
 
-  if (game_->GetZone() == "Extreme Games") {
+  if (game_->GetZone() == Zone::ExtremeGames) {
     if (specced) {
       ship = 2;
     }
   }
 
-  if (game_->GetZone() == "Hyperspace") {
+  if (game_->GetZone() == Zone::Hyperspace) {
     pubteam0 = 90;
     pubteam1 = 91;
 
@@ -480,7 +298,7 @@ behavior::ExecuteResult DisconnectNode::Execute(behavior::ExecuteContext& ctx) {
     if (chat.message.compare(0, 9, "WARNING: ") == 0) {
       // exit(5);
     }
-    if (game.GetZone() == "Extreme Games") {
+    if (game.GetZone() == Zone::ExtremeGames) {
       std::string name = game.GetPlayer().name;
 
       if (chat.message.compare(0, 4 + name.size(), "[ " + name + " ]") == 0) {

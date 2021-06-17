@@ -6,8 +6,9 @@
 #include "ClientSettings.h"
 #include "KeyController.h"
 #include "Player.h"
+#include "Types.h"
 #include "Vector2f.h"
-#include "types.h"
+#include "zones/Zone.h"
 
 namespace marvin {
 
@@ -47,7 +48,7 @@ class GameProxy {
   virtual const float GetMaxEnergy() = 0;
   virtual const float GetRotation() = 0;
   virtual const float GetMaxSpeed() = 0;
-  virtual const std::string GetZone() = 0;
+  virtual const Zone GetZone() = 0;
   virtual const std::string GetMapFile() const = 0;
   virtual const Map& GetMap() const = 0;
   virtual void SetTileId(Vector2f position, u8 id) = 0;

@@ -206,5 +206,8 @@
     <ClInclude Include="InfluenceMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="zones\Zone.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

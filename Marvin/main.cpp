@@ -176,7 +176,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
     if (chat.type == 0) {
       if (chat.message.compare(0, 9, "WARNING: ") == 0 ||
-          (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == "Extreme Games")) {
+          (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames)) {
         PostQuitMessage(0);
         return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
       }
@@ -214,13 +214,13 @@ void CreateBot() {
   game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
   auto game2(game);
 
-  if (game->GetZone() == "Extreme Games") {
+  if (game->GetZone() == marvin::Zone::ExtremeGames) {
     eg = std::make_unique<marvin::ExtremeGames>(std::move(game2));
-  } else if (game->GetZone() == "Galaxy Sports") {
+  } else if (game->GetZone() == marvin::Zone::GalaxySports) {
     gs = std::make_unique<marvin::GalaxySports>(std::move(game2));
-  } else if (game->GetZone() == "Hockey") {
+  } else if (game->GetZone() == marvin::Zone::Hockey) {
     hz = std::make_unique<marvin::Hockey>(std::move(game2));
-  } else if (game->GetZone() == "PowerBall") {
+  } else if (game->GetZone() == marvin::Zone::PowerBall) {
     pb = std::make_unique<marvin::PowerBall>(std::move(game2));
   } else {
     bot = std::make_unique<marvin::Bot>(std::move(game2));

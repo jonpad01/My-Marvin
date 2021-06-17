@@ -42,11 +42,6 @@ class Bot {
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return influence_map_; }
 
-  void AddBehaviorNode(std::unique_ptr<behavior::BehaviorNode> node) { behavior_nodes_.push_back(std::move(node)); }
-  void SetBehavior(behavior::BehaviorNode* behavior) {
-    behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior);
-  }
-
   const std::vector<Vector2f>& GetBasePath() {
     return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
   }
@@ -69,29 +64,7 @@ class Bot {
   SteeringBehavior steering_;
   InfluenceMap influence_map_;
 
-  std::unique_ptr<behavior::SelectorNode> move_method_selector_;
-  std::unique_ptr<behavior::SelectorNode> los_weapon_selector_;
-  std::unique_ptr<behavior::ParallelNode> parallel_shoot_enemy_;
-  std::unique_ptr<behavior::ParallelNode> anchor_los_parallel_;
-  std::unique_ptr<behavior::SequenceNode> anchor_los_sequence_;
-  std::unique_ptr<behavior::SelectorNode> anchor_los_selector_;
-  std::unique_ptr<behavior::SequenceNode> los_shoot_conditional_;
-  std::unique_ptr<behavior::ParallelNode> bounce_path_parallel_;
-  std::unique_ptr<behavior::SequenceNode> path_to_enemy_sequence_;
-  std::unique_ptr<behavior::SequenceNode> TvsT_base_path_sequence_;
-  std::unique_ptr<behavior::SelectorNode> enemy_path_logic_selector_;
-  std::unique_ptr<behavior::SelectorNode> path_or_shoot_selector_;
-  std::unique_ptr<behavior::SequenceNode> find_enemy_in_base_sequence_;
-  std::unique_ptr<behavior::SequenceNode> find_enemy_in_center_sequence_;
-  std::unique_ptr<behavior::SelectorNode> find_enemy_selector_;
-  std::unique_ptr<behavior::SequenceNode> patrol_base_sequence_;
-  std::unique_ptr<behavior::SequenceNode> patrol_center_sequence_;
-  std::unique_ptr<behavior::SelectorNode> patrol_selector_;
-  std::unique_ptr<behavior::SelectorNode> action_selector_;
-  std::unique_ptr<behavior::SequenceNode> root_sequence_;
-
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
-  std::vector<std::unique_ptr<behavior::BehaviorNode>> behavior_nodes_;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;
@@ -235,4 +208,66 @@ class MoveToEnemyNode : public behavior::BehaviorNode {
 };
 
 }  // namespace bot
+
+class BehaviorBuilder {
+ public:
+  std::unique_ptr<behavior::BehaviorEngine> Build(Bot& bot) {
+    BuildCommonNodes();
+    CreateBehavior(bot);
+    PushCommonNodes();
+
+    return std::move(engine_);
+  }
+
+ protected:
+  virtual void CreateBehavior(Bot& bot) = 0;
+
+  void BuildCommonNodes() {
+    engine_ = std::make_unique<behavior::BehaviorEngine>();
+
+    follow_path_ = std::make_unique<bot::FollowPathNode>();
+    shoot_enemy_ = std::make_unique<bot::ShootEnemyNode>();
+    mine_sweeper_ = std::make_unique<bot::MineSweeperNode>();
+    target_in_los_ = std::make_unique<bot::InLineOfSightNode>();
+    path_to_enemy_ = std::make_unique<bot::PathToEnemyNode>();
+    find_enemy_in_center_ = std::make_unique<bot::FindEnemyInCenterNode>();
+    set_freq_ = std::make_unique<bot::SetFreqNode>();
+    set_ship_ = std::make_unique<bot::SetShipNode>();
+    commands_ = std::make_unique<bot::CommandNode>();
+    ship_check_ = std::make_unique<bot::ShipCheckNode>();
+    respawn_check_ = std::make_unique<bot::RespawnCheckNode>();
+    disconnect_ = std::make_unique<bot::DisconnectNode>();
+  }
+
+  void PushCommonNodes() {
+    engine_->PushNode(std::move(follow_path_));
+    engine_->PushNode(std::move(shoot_enemy_));
+    engine_->PushNode(std::move(mine_sweeper_));
+    engine_->PushNode(std::move(target_in_los_));
+    engine_->PushNode(std::move(path_to_enemy_));
+    engine_->PushNode(std::move(find_enemy_in_center_));
+    engine_->PushNode(std::move(set_freq_));
+    engine_->PushNode(std::move(set_ship_));
+    engine_->PushNode(std::move(commands_));
+    engine_->PushNode(std::move(ship_check_));
+    engine_->PushNode(std::move(respawn_check_));
+    engine_->PushNode(std::move(disconnect_));
+  }
+
+  std::unique_ptr<behavior::BehaviorEngine> engine_;
+
+  std::unique_ptr<bot::FollowPathNode> follow_path_;
+  std::unique_ptr<bot::ShootEnemyNode> shoot_enemy_;
+  std::unique_ptr<bot::MineSweeperNode> mine_sweeper_;
+  std::unique_ptr<bot::InLineOfSightNode> target_in_los_;
+  std::unique_ptr<bot::PathToEnemyNode> path_to_enemy_;
+  std::unique_ptr<bot::FindEnemyInCenterNode> find_enemy_in_center_;
+  std::unique_ptr<bot::SetFreqNode> set_freq_;
+  std::unique_ptr<bot::SetShipNode> set_ship_;
+  std::unique_ptr<bot::CommandNode> commands_;
+  std::unique_ptr<bot::ShipCheckNode> ship_check_;
+  std::unique_ptr<bot::RespawnCheckNode> respawn_check_;
+  std::unique_ptr<bot::DisconnectNode> disconnect_;
+};
+
 }  // namespace marvin

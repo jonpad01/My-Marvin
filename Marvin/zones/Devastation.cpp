@@ -57,8 +57,105 @@ const std::vector<Vector2f> kBaseSafes1 = {
     Vector2f(272, 1015), Vector2f(617, 929), Vector2f(775, 983),  Vector2f(948, 983), Vector2f(1012, 494),
     Vector2f(669, 497)};
 
-void Initialize(Bot& bot) {
+void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   bot.CreateBasePaths(kBaseSafes0, kBaseSafes1, bot.GetGame().GetSettings().ShipSettings[1].GetRadius() + 0.5f);
+
+  auto is_anchor = std::make_unique<bot::IsAnchorNode>();
+  auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
+  auto DEVA_repel_enemy = std::make_unique<deva::DevaRepelEnemyNode>();
+  auto DEVA_burst_enemy = std::make_unique<deva::DevaBurstEnemyNode>();
+  auto patrol_base = std::make_unique<deva::DevaPatrolBaseNode>();
+  auto patrol_center = std::make_unique<bot::PatrolNode>();
+  auto DEVA_move_to_enemy = std::make_unique<deva::DevaMoveToEnemyNode>();
+  auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
+
+  auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
+
+  auto DEVA_toggle_status = std::make_unique<deva::DevaToggleStatusNode>();
+  auto DEVA_attach = std::make_unique<deva::DevaAttachNode>();
+  auto DEVA_warp = std::make_unique<deva::DevaWarpNode>();
+  auto DEVA_freqman = std::make_unique<deva::DevaFreqMan>();
+  auto team_sort = std::make_unique<bot::SortBaseTeams>();
+  auto DEVA_set_region = std::make_unique<deva::DevaSetRegionNode>();
+
+  auto move_method_selector = std::make_unique<behavior::SelectorNode>(DEVA_move_to_enemy.get());
+  auto los_weapon_selector =
+      std::make_unique<behavior::SelectorNode>(DEVA_burst_enemy.get(), DEVA_repel_enemy.get(), shoot_enemy_.get());
+  auto parallel_shoot_enemy =
+      std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
+
+  auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
+  auto TvsT_base_path_sequence = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path_.get());
+  auto enemy_path_logic_selector = std::make_unique<behavior::SelectorNode>(
+      mine_sweeper_.get(), TvsT_base_path_sequence.get(), path_to_enemy_sequence.get());
+
+  auto anchor_los_parallel =
+      std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), TvsT_base_path_sequence.get());
+  auto anchor_los_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
+  auto anchor_los_selector =
+      std::make_unique<behavior::SelectorNode>(anchor_los_sequence.get(), parallel_shoot_enemy.get());
+
+  auto los_shoot_conditional =
+      std::make_unique<behavior::SequenceNode>(target_in_los_.get(), anchor_los_selector.get());
+  auto bounce_path_parallel =
+      std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector.get());
+  auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(
+      DEVA_repel_enemy.get(), los_shoot_conditional.get(), bounce_path_parallel.get());
+
+  auto find_enemy_in_base_sequence =
+      std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector.get());
+  auto find_enemy_in_center_sequence =
+      std::make_unique<behavior::SequenceNode>(find_enemy_in_center_.get(), path_or_shoot_selector.get());
+  auto find_enemy_selector =
+      std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get(), find_enemy_in_base_sequence.get());
+
+  auto patrol_base_sequence = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path_.get());
+  auto patrol_center_sequence = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path_.get());
+  auto patrol_selector =
+      std::make_unique<behavior::SelectorNode>(patrol_center_sequence.get(), patrol_base_sequence.get());
+
+  auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
+  auto root_sequence = std::make_unique<behavior::SequenceNode>(
+      disconnect_.get(), commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), team_sort.get(),
+      DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check_.get(),
+      DEVA_toggle_status.get(), action_selector.get());
+
+  engine_->PushRoot(std::move(root_sequence));
+
+  engine_->PushNode(std::move(move_method_selector));
+  engine_->PushNode(std::move(los_weapon_selector));
+  engine_->PushNode(std::move(parallel_shoot_enemy));
+  engine_->PushNode(std::move(los_shoot_conditional));
+  engine_->PushNode(std::move(path_to_enemy_sequence));
+  engine_->PushNode(std::move(path_or_shoot_selector));
+  engine_->PushNode(std::move(DEVA_move_to_enemy));
+  engine_->PushNode(std::move(DEVA_repel_enemy));
+  engine_->PushNode(std::move(DEVA_burst_enemy));
+  engine_->PushNode(std::move(is_anchor));
+  engine_->PushNode(std::move(anchor_los_parallel));
+  engine_->PushNode(std::move(anchor_los_sequence));
+  engine_->PushNode(std::move(anchor_los_selector));
+  engine_->PushNode(std::move(bouncing_shot));
+  engine_->PushNode(std::move(bounce_path_parallel));
+  engine_->PushNode(std::move(TvsT_base_path));
+  engine_->PushNode(std::move(TvsT_base_path_sequence));
+  engine_->PushNode(std::move(enemy_path_logic_selector));
+  engine_->PushNode(std::move(find_enemy_in_base));
+  engine_->PushNode(std::move(find_enemy_in_base_sequence));
+  engine_->PushNode(std::move(find_enemy_in_center_sequence));
+  engine_->PushNode(std::move(find_enemy_selector));
+  engine_->PushNode(std::move(patrol_base));
+  engine_->PushNode(std::move(patrol_center));
+  engine_->PushNode(std::move(patrol_base_sequence));
+  engine_->PushNode(std::move(patrol_center_sequence));
+  engine_->PushNode(std::move(patrol_selector));
+  engine_->PushNode(std::move(DEVA_toggle_status));
+  engine_->PushNode(std::move(DEVA_attach));
+  engine_->PushNode(std::move(DEVA_warp));
+  engine_->PushNode(std::move(DEVA_freqman));
+  engine_->PushNode(std::move(team_sort));
+  engine_->PushNode(std::move(DEVA_set_region));
+  engine_->PushNode(std::move(action_selector));
 }
 
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {

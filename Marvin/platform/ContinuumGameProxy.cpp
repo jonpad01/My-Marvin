@@ -257,24 +257,24 @@ void ContinuumGameProxy::FetchWeapons() {
 }
 
 void ContinuumGameProxy::SetZone() {
-  zone_ = "Devastation";
+  zone_ = Zone::Devastation;
 
   if (GetServerFolder() == "zones\\SSCJ Devastation") {
-    zone_ = "Devastation";
+    zone_ = Zone::Devastation;
   } else if (GetServerFolder() == "zones\\SSCU Extreme Games") {
-    zone_ = "Extreme Games";
+    zone_ = Zone::ExtremeGames;
   } else if (GetServerFolder() == "zones\\SSCJ Galaxy Sports") {
-    zone_ = "Galaxy Sports";
+    zone_ = Zone::GalaxySports;
   } else if (GetServerFolder() == "zones\\SSCE HockeyFootball Zone") {
-    zone_ = "Hockey";
+    zone_ = Zone::Hockey;
   } else if (GetServerFolder() == "zones\\SSCE Hyperspace") {
-    zone_ = "Hyperspace";
+    zone_ = Zone::Hyperspace;
   } else if (GetServerFolder() == "zones\\SSCJ PowerBall") {
-    zone_ = "PowerBall";
+    zone_ = Zone::PowerBall;
   }
 }
 
-const std::string ContinuumGameProxy::GetZone() {
+const Zone ContinuumGameProxy::GetZone() {
   return zone_;
 }
 
@@ -375,10 +375,10 @@ const float ContinuumGameProxy::GetMaxEnergy() {
   // deva needs to use max and it never changes
   float energy = (float)GetShipSettings().InitialEnergy;
 
-  if (zone_ == "Devastation") {
+  if (zone_ == Zone::Devastation) {
     energy = (float)GetShipSettings().MaximumEnergy;
   }
-  if (zone_ == "Extreme Games") {
+  if (zone_ == Zone::ExtremeGames) {
     while (player_->energy > energy) {
       energy += (float)GetShipSettings().UpgradeEnergy;
     }
@@ -389,7 +389,7 @@ const float ContinuumGameProxy::GetMaxEnergy() {
 const float ContinuumGameProxy::GetMaxSpeed() {
   float speed = (float)GetShipSettings().InitialSpeed / 10.0f / 16.0f;
 
-  if (zone_ == "Devastation") {
+  if (zone_ == Zone::Devastation) {
     speed = (float)GetShipSettings().MaximumSpeed / 10.0f / 16.0f;
   }
 
@@ -402,7 +402,7 @@ const float ContinuumGameProxy::GetMaxSpeed() {
 const float ContinuumGameProxy::GetRotation() {
   float rotation = (float)GetShipSettings().InitialRotation / 200.0f;
 
-  if (zone_ == "Devastation") {
+  if (zone_ == Zone::Devastation) {
     rotation = (float)GetShipSettings().MaximumRotation / 200.0f;
   }
   return rotation;

@@ -23,9 +23,101 @@ std::vector<Vector2f> kBaseEntrances = {Vector2f(827, 339), Vector2f(811, 530), 
 std::vector<Vector2f> kFlagRooms = {Vector2f(826, 229), Vector2f(834, 540), Vector2f(745, 828), Vector2f(489, 832),
                                     Vector2f(292, 812), Vector2f(159, 571), Vector2f(205, 204)};
 
-void Initialize(Bot& bot) {
-  debug_log << "Initializing hyperspace bot." << std::endl;
+void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   bot.CreateBasePaths(kBaseEntrances, kFlagRooms, bot.GetGame().GetSettings().ShipSettings[6].GetRadius());
+
+  auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
+  auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
+  auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
+
+  auto is_anchor = std::make_unique<bot::IsAnchorNode>();
+  auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
+  auto patrol_base = std::make_unique<hs::HSPatrolBaseNode>();
+  auto patrol_center = std::make_unique<bot::PatrolNode>();
+  auto HS_toggle = std::make_unique<hs::HSToggleNode>();
+  auto HS_attach = std::make_unique<hs::HSAttachNode>();
+  auto HS_warp = std::make_unique<hs::HSWarpToCenter>();
+  auto HS_shipman = std::make_unique<hs::HSShipMan>();
+  auto HS_freqman = std::make_unique<hs::HSFreqMan>();
+  auto HS_defense_position = std::make_unique<hs::HSDefensePositionNode>();
+  auto flagger_sort = std::make_unique<hs::HSFlaggerSort>();
+  auto HS_set_region = std::make_unique<hs::HSSetRegionNode>();
+
+  auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
+  auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
+  auto parallel_shoot_enemy =
+      std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
+
+  auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
+  auto TvsT_base_path_sequence = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path_.get());
+  auto enemy_path_logic_selector = std::make_unique<behavior::SelectorNode>(
+      mine_sweeper_.get(), TvsT_base_path_sequence.get(), path_to_enemy_sequence.get());
+
+  auto anchor_los_parallel = std::make_unique<behavior::ParallelNode>(TvsT_base_path_sequence.get());
+  auto anchor_los_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
+  auto anchor_los_selector =
+      std::make_unique<behavior::SelectorNode>(anchor_los_sequence.get(), parallel_shoot_enemy.get());
+
+  auto los_shoot_conditional =
+      std::make_unique<behavior::SequenceNode>(target_in_los_.get(), anchor_los_selector.get());
+  auto bounce_path_parallel =
+      std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector.get());
+  auto path_or_shoot_selector =
+      std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), bounce_path_parallel.get());
+
+  auto find_enemy_in_base_sequence =
+      std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(), path_or_shoot_selector.get());
+  auto find_enemy_in_center_sequence =
+      std::make_unique<behavior::SequenceNode>(find_enemy_in_center_.get(), path_or_shoot_selector.get());
+  auto find_enemy_selector =
+      std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get(), find_enemy_in_base_sequence.get());
+
+  auto patrol_base_sequence = std::make_unique<behavior::SequenceNode>(patrol_base.get(), follow_path_.get());
+  auto patrol_center_sequence = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path_.get());
+  auto patrol_selector =
+      std::make_unique<behavior::SelectorNode>(patrol_center_sequence.get(), patrol_base_sequence.get());
+
+  auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
+  auto root_sequence = std::make_unique<behavior::SequenceNode>(
+      disconnect_.get(), commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), flagger_sort.get(),
+      HS_set_region.get(), HS_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(),
+      HS_attach.get(), respawn_check_.get(), HS_toggle.get(), action_selector.get());
+
+  engine_->PushRoot(std::move(root_sequence));
+
+  engine_->PushNode(std::move(move_method_selector));
+  engine_->PushNode(std::move(los_weapon_selector));
+  engine_->PushNode(std::move(parallel_shoot_enemy));
+  engine_->PushNode(std::move(los_shoot_conditional));
+  engine_->PushNode(std::move(path_to_enemy_sequence));
+  engine_->PushNode(std::move(find_enemy_in_center_sequence));
+  engine_->PushNode(std::move(move_to_enemy));
+  engine_->PushNode(std::move(TvsT_base_path));
+  engine_->PushNode(std::move(is_anchor));
+  engine_->PushNode(std::move(anchor_los_parallel));
+  engine_->PushNode(std::move(anchor_los_sequence));
+  engine_->PushNode(std::move(anchor_los_selector));
+  engine_->PushNode(std::move(bouncing_shot));
+  engine_->PushNode(std::move(bounce_path_parallel));
+  engine_->PushNode(std::move(TvsT_base_path_sequence));
+  engine_->PushNode(std::move(enemy_path_logic_selector));
+  engine_->PushNode(std::move(find_enemy_in_base));
+  engine_->PushNode(std::move(find_enemy_in_base_sequence));
+  engine_->PushNode(std::move(find_enemy_selector));
+  engine_->PushNode(std::move(patrol_base));
+  engine_->PushNode(std::move(patrol_center));
+  engine_->PushNode(std::move(patrol_base_sequence));
+  engine_->PushNode(std::move(patrol_center_sequence));
+  engine_->PushNode(std::move(patrol_selector));
+  engine_->PushNode(std::move(HS_toggle));
+  engine_->PushNode(std::move(HS_attach));
+  engine_->PushNode(std::move(HS_warp));
+  engine_->PushNode(std::move(HS_shipman));
+  engine_->PushNode(std::move(HS_freqman));
+  engine_->PushNode(std::move(HS_defense_position));
+  engine_->PushNode(std::move(flagger_sort));
+  engine_->PushNode(std::move(HS_set_region));
+  engine_->PushNode(std::move(action_selector));
 }
 
 behavior::ExecuteResult HSFlaggerSort::Execute(behavior::ExecuteContext& ctx) {

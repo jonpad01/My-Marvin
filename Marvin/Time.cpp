@@ -1,8 +1,7 @@
 #include "Time.h"
 
+#include <algorithm>
 #include <chrono>
-
-#include "Devastation.h"
 
 namespace marvin {
 

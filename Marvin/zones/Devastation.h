@@ -3,6 +3,7 @@
 #include <fstream>
 #include <memory>
 
+#include "../Bot.h"
 #include "../Common.h"
 #include "../KeyController.h"
 #include "../Steering.h"
@@ -17,7 +18,10 @@ using Path = std::vector<Vector2f>;
 
 namespace deva {
 
-void Initialize(Bot& bot);
+class DevastationBehaviorBuilder : public BehaviorBuilder {
+ public:
+  void CreateBehavior(Bot& bot);
+};
 
 // base 8 was reversed in the ini file (vector 7)
 class DevaSetRegionNode : public behavior::BehaviorNode {

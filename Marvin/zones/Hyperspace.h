@@ -3,15 +3,17 @@
 #include <fstream>
 #include <memory>
 
+#include "../Bot.h"
 #include "../behavior/BehaviorEngine.h"
 
 namespace marvin {
 
-class Bot;
-
 namespace hs {
 
-void Initialize(Bot& bot);
+class HyperspaceBehaviorBuilder : public BehaviorBuilder {
+ public:
+  void CreateBehavior(Bot& bot);
+};
 
 class HSFlaggerSort : public behavior::BehaviorNode {
  public:

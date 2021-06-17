@@ -67,7 +67,7 @@ class ContinuumGameProxy : public GameProxy {
   const float GetMaxEnergy() override;
   const float GetRotation() override;
   const float GetMaxSpeed() override;
-  const std::string GetZone() override;
+  const Zone GetZone() override;
   const std::string GetMapFile() const override;
   const Map& GetMap() const override;
   void SetTileId(Vector2f position, u8 id) override;
@@ -130,7 +130,7 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Player> players_;
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
-  std::string zone_;
+  Zone zone_;
 };
 
 }  // namespace marvin
