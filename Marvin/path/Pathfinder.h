@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 #include "../Vector2f.h"
@@ -51,7 +52,7 @@ class PriorityQueue {
 
 struct Pathfinder {
  public:
-  Pathfinder(std::unique_ptr<NodeProcessor> processor);
+  Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions);
   std::vector<Vector2f> FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to,
                                  float radius);
 
@@ -63,14 +64,13 @@ struct Pathfinder {
 
  private:
   struct NodeCompare {
-    bool operator()(const Node* lhs, const Node* rhs) const {
-      if (lhs->f == rhs->f) return lhs->rotations > rhs->rotations;
-      return lhs->f > rhs->f;
-    }
+    bool operator()(const Node* lhs, const Node* rhs) const { return lhs->f > rhs->f; }
   };
 
   std::unique_ptr<NodeProcessor> processor_;
+  RegionRegistry& regions_;
   PriorityQueue<Node*, NodeCompare> openset_;
+  std::unordered_set<Node*> touched_nodes_;
 };
 
 }  // namespace path

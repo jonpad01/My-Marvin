@@ -17,28 +17,21 @@ struct NodePoint {
   bool operator==(const NodePoint& other) const { return x == other.x && y == other.y; }
 };
 
+enum { NodeFlag_Openset = (1 << 0), NodeFlag_Closed = (1 << 1), NodeFlag_Initialized = (1 << 2) };
+typedef u32 NodeFlags;
+
 struct Node {
-  NodePoint point;
   Node* parent;
+
   float g;
-  float h;
   float f;
+
   float weight;
   float previous_weight;
-  uint32_t rotations;
-  bool closed;
-  bool openset;
 
-  Node()
-      : closed(false),
-        openset(false),
-        parent(nullptr),
-        g(0.0f),
-        h(0.0f),
-        f(0.0f),
-        weight(1.0f),
-        previous_weight(1.0f),
-        rotations(0) {}
+  u8 flags;
+
+  Node() : flags(0), parent(nullptr), g(0.0f), f(0.0f), weight(1.0f), previous_weight(1.0f) {}
 };
 
 }  // namespace path
