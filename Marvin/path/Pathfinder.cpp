@@ -2,10 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 
 #include "../Bot.h"
 #include "../Debug.h"
 #include "../RayCaster.h"
+
+extern std::unique_ptr<marvin::Bot> bot;
 
 namespace marvin {
 
@@ -155,20 +158,29 @@ NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
   return np;
 }
 
-float Euclidean(const Node* from, const Node* to) {
-  float dx = static_cast<float>(from->point.x - to->point.x);
-  float dy = static_cast<float>(from->point.y - to->point.y);
+inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* to) {
+  NodePoint from_p = processor.GetPoint(from);
+  NodePoint to_p = processor.GetPoint(to);
 
-  return std::sqrt(dx * dx + dy * dy);
+  float dx = static_cast<float>(from_p.x - to_p.x);
+  float dy = static_cast<float>(from_p.y - to_p.y);
+
+  return sqrt(dx * dx + dy * dy);
 }
 
-Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor) : processor_(std::move(processor)) {}
+Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
+    : processor_(std::move(processor)), regions_(regions) {}
 
 std::vector<Vector2f> Pathfinder::FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from,
                                            const Vector2f& to, float radius) {
   std::vector<Vector2f> path;
 
-  processor_->ResetNodes();
+  // Clear the touched nodes before pathfinding.
+  for (Node* node : touched_nodes_) {
+    // Setting the flag to zero causes GetNode to reset the node on next fetch.
+    node->flags = 0;
+  }
+  touched_nodes_.clear();
 
   Node* start = processor_->GetNode(ToNodePoint(from, radius, map));
   Node* goal = processor_->GetNode(ToNodePoint(to, radius, map));
@@ -177,74 +189,64 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, std::vector<Vector2f>
     return path;
   }
 
+  NodePoint start_p = processor_->GetPoint(start);
+  NodePoint goal_p = processor_->GetPoint(goal);
+
+  if (!regions_.IsConnected(MapCoord(start_p.x, start_p.y), MapCoord(goal_p.x, goal_p.y))) {
+    return path;
+  }
+
   // clear vector then add start node
   openset_.Clear();
   openset_.Push(start);
+
+  touched_nodes_.insert(start);
+  touched_nodes_.insert(goal);
 
   // at the start there is only one node here, the start node
   while (!openset_.Empty()) {
     // grab front item then delete it
     Node* node = openset_.Pop();
 
+    touched_nodes_.insert(node);
+
     // this is the only way to break the pathfinder
     if (node == goal) {
       break;
     }
 
-    node->closed = true;
+    node->flags |= NodeFlag_Closed;
 
     // returns neighbor nodes that are not solid
     NodeConnections connections = processor_->FindEdges(mines, node, start, goal, radius);
 
     for (std::size_t i = 0; i < connections.count; ++i) {
       Node* edge = connections.neighbors[i];
-      // float cost = node->g + edge->weight;
-      float dx = (float)(node->point.x - edge->point.x);
-      float dy = (float)(node->point.y - edge->point.y);
-      float d = std::sqrt(dx * dx + dy * dy);
-      float cost = node->g + edge->weight * d;
 
-      Node* parent = node->parent;
-      if (parent) {
-        NodePoint parent_diff(parent->point.x - node->point.x, parent->point.y - node->point.y);
-        NodePoint current_diff(node->point.x - edge->point.x, node->point.y - edge->point.y);
+      touched_nodes_.insert(edge);
 
-        edge->rotations = node->rotations;
+      float cost = node->g + edge->weight * Euclidean(*processor_, node, edge);
 
-        if (parent_diff.x != current_diff.x || parent_diff.y != current_diff.y) {
-          ++edge->rotations;
-        }
+      if ((edge->flags & NodeFlag_Closed) && cost < edge->g) {
+        edge->flags &= ~NodeFlag_Closed;
       }
 
-      if (edge->closed && cost < edge->g) {
-        edge->closed = false;
-      }
+      float h = Euclidean(*processor_, edge, goal);
 
-      if (edge->openset && cost < edge->g) {
+      if (!(edge->flags & NodeFlag_Openset) || cost + h < edge->f) {
         edge->g = cost;
-        edge->f = edge->g + edge->h;
+        edge->f = edge->g + h;
         edge->parent = node;
-        // sorts from highest to lowest
-        openset_.Update();
-      }
-      // all valid neighbors get in on first pass
-      else if (!edge->openset && !edge->closed) {
-        // weight
-        edge->g = cost;
-        // distance?
-        edge->h = Euclidean(goal, edge);
-        // combined
-        edge->f = edge->g + edge->h;
-        // it parent
-        edge->parent = node;
+
+        edge->flags |= NodeFlag_Openset;
+
         openset_.Push(edge);
-        edge->openset = true;
       }
     }
   }
 
   if (goal->parent) {
-    path.push_back(Vector2f(start->point.x + 0.5f, start->point.y + 0.5f));
+    path.push_back(Vector2f(start_p.x + 0.5f, start_p.y + 0.5f));
   }
 
   // Construct path backwards from goal node
@@ -252,7 +254,8 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, std::vector<Vector2f>
   Node* current = goal;
 
   while (current != nullptr && current != start) {
-    points.push_back(current->point);
+    NodePoint p = processor_->GetPoint(current);
+    points.push_back(p);
     current = current->parent;
   }
 
@@ -430,15 +433,15 @@ void Pathfinder::CreateMapWeights(const Map& map) {
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
-      u16 close_distance = 8;
+      u16 close_distance = 6;
 
       float distance = GetWallDistance(map, x, y, close_distance);
 
       if (distance == 0) distance = 1;
 
       if (distance < close_distance) {
-        node->weight = 12.0f / distance;
-        node->previous_weight = 12.0f / distance;
+        node->weight = 8.0f / distance;
+        node->previous_weight = node->weight;
       }
     }
   }

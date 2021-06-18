@@ -26,8 +26,9 @@ PowerBall::PowerBall(std::shared_ptr<marvin::GameProxy> game)
     ship_ = 1;
   }
 
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
   regions_ = RegionRegistry::Create(game_->GetMap());
+
+  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   pathfinder_->CreateMapWeights(game_->GetMap());
 
   FindPowerBallGoal();
@@ -133,10 +134,11 @@ void PowerBall::Update(float dt) {
     powerball_arena_ = game_->GetMapFile();
 
     auto processor = std::make_unique<path::NodeProcessor>(*game_);
-    pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
+    regions_ = RegionRegistry::Create(game_->GetMap());
+
+    pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
 
     ctx_.blackboard.Set("path", std::vector<Vector2f>());
-    regions_ = RegionRegistry::Create(game_->GetMap());
     pathfinder_->CreateMapWeights(game_->GetMap());
 
     // set new goals

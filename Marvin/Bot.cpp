@@ -83,8 +83,9 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), stee
 void Bot::LoadBotConstuctor() {
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
 
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
   regions_ = RegionRegistry::Create(game_->GetMap());
+
+  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   pathfinder_->CreateMapWeights(game_->GetMap());
 
   SetZoneVariables();
@@ -92,7 +93,7 @@ void Bot::LoadBotConstuctor() {
   Zone zone = game_->GetZone();
   auto builder = CreateBehaviorBuilder(zone);
 
-  //ctx_.blackboard.Set<int>("Ship", game_->GetPlayer().ship);
+  // ctx_.blackboard.Set<int>("Ship", game_->GetPlayer().ship);
   ctx_.bot = this;
 
   this->behavior_ = builder->Build(*this);
@@ -129,10 +130,10 @@ void Bot::Update(float dt) {
 
   if (game_->GetZone() == Zone::Devastation) {
     influence_map_.Decay(dt);
+    g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
     influence_map_.Update(*game_, ctx_.blackboard.ValueOr<std::vector<Player>>("EnemyList", std::vector<Player>()));
+    g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());
   }
-
-  g_RenderState.RenderDebugText("InfluenceMap: %llu", timer.GetElapsedTime());
 
 #if !DEBUG_NO_BEHAVIOR
   behavior_->Update(ctx_);
@@ -217,6 +218,12 @@ void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::
 #endif
 
     Path base_path = GetPathfinder().FindPath(game_->GetMap(), std::vector<Vector2f>(), position_1, position_2, radius);
+
+    if (base_path.empty()) {
+      base_paths_.push_back(base_path);
+      continue;
+    }
+
     base_path = GetPathfinder().SmoothPath(base_path, game_->GetMap(), radius);
 
     std::vector<Vector2f> reduced_path;
@@ -934,7 +941,6 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
 
   if (target) {
     if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target->position, game.GetShipSettings().GetRadius())) {
-
       g_RenderState.RenderDebugText("  InLineOfSightNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }

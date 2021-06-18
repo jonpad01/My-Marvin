@@ -32,7 +32,10 @@ void InfluenceMap::Clear() {
 
 void InfluenceMap::Decay(float dt) {
   for (size_t i = 0; i < 1024 * 1024; ++i) {
-    tiles[i] = std::max(0.0f, tiles[i] - dt);
+    tiles[i] = tiles[i] - dt;
+    if (tiles[i] < 0) {
+      tiles[i] = 0;
+    }
   }
 }
 

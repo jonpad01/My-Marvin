@@ -26,8 +26,9 @@ Hockey::Hockey(std::shared_ptr<marvin::GameProxy> game)
     ship_ = 2;
   }
 
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor));
   regions_ = RegionRegistry::Create(game_->GetMap());
+
+  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   pathfinder_->CreateMapWeights(game_->GetMap());
 
   auto find_enemy = std::make_unique<hz::FindEnemyNode>();
