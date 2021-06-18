@@ -715,7 +715,12 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
   std::size_t bot_node = FindPathIndex(base_path, position);
   std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
 
-  if (bot_node > enemy_node) {
+  if (RadiusRayCastHit(game.GetMap(), enemy->position, base_path[enemy_node],
+                       game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
+  
+  desired_position = enemy->position;
+  }
+  else if (bot_node > enemy_node) {
     desired_position =
         LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
   } else {
@@ -723,7 +728,6 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
   }
 
-  // path = ctx.bot->GetPathfinder().CreatePath(path, position, enemy->position, radius);
 
   if (is_anchor || last_in_base) {
     float energy_pct = ((float)game.GetPlayer().energy / game.GetMaxEnergy());
