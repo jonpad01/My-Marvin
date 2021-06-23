@@ -38,7 +38,7 @@ std::unique_ptr<marvin::Bot> bot;
 
 static bool g_Enabled = true;
 static bool g_Reload = false;
-HWND g_hWnd = 0;
+HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
 static time_point g_LastUpdateTime;
 
 HWND GetMainWindow();
@@ -249,7 +249,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 
   //#endif
 
-  g_hWnd = GetMainWindow();
+  //g_hWnd = GetMainWindow();
 
   marvin::debug_log << "Got Main Window." << std::endl;
 
