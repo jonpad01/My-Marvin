@@ -67,27 +67,32 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
 }
 
 BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
-  DWORD pid;
+  DWORD pid = 0;
 
   GetWindowThreadProcessId(hwnd, &pid);
 
+  
   if (pid == lParam) {
+
+    marvin::debug_log << "PID Found. " + std::to_string(pid) << std::endl;
+
     char title[1024];
-    GetWindowText(hwnd, title, 1024);
+    GetWindowText(hwnd, title, 1023);
+
+    marvin::debug_log << title << std::endl;
 
     if (strcmp(title, "Continuum") == 0) {
-      // return hwnd;
       g_hWnd = hwnd;
       return FALSE;
     }
   }
-
+  marvin::debug_log << "No Match Found." << std::endl;
   return TRUE;
 }
 
 HWND GetMainWindow() {
   DWORD pid = GetCurrentProcessId();
-
+  marvin::debug_log << "Got PID." << std::endl;
   EnumWindows(MyEnumWindowsProc, pid);
 
   return g_hWnd;
@@ -229,6 +234,11 @@ void CreateBot() {
 }
 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
+
+  marvin::debug_log.open("marvin.log", std::ios::out | std::ios::app);
+
+  marvin::debug_log << "Starting Marvin." << std::endl;
+
   //#if 0
   // prevent windows from throwing error messages and let the game crash out
   if (IsWindows7OrGreater() && !IsWindows8OrGreater()) {
@@ -237,14 +247,16 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
     SetErrorMode(SEM_NOGPFAULTERRORBOX);
   }
 
+  //#endif
+
   g_hWnd = GetMainWindow();
 
-  marvin::debug_log.open("marvin.log", std::ios::out | std::ios::app);
+  marvin::debug_log << "Got Main Window." << std::endl;
 
-  marvin::debug_log << "Starting Marvin.\n";
-
-  //#endif
+  
   CreateBot();
+
+  marvin::debug_log << "Bot Created.." << std::endl;
 
   u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
   LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
