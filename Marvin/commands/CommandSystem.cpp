@@ -59,50 +59,58 @@ int CommandSystem::GetSecurityLevel(const std::string& player) {
 }
 
 bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
+  bool result = false;
   std::string& msg = chat.message;
 
   if (msg.empty()) return false;
   if (msg[0] != '!' && msg[0] != '.') return false;
 
-  std::size_t split = msg.find(' ');
-  std::string trigger = Lowercase(msg.substr(1, split - 1));
-  std::string arg;
+  msg.erase(0, 1);
 
-  if (split != std::string::npos) {
-    arg = msg.substr(split + 1);
-  }
+  std::vector<std::string> tokens = Tokenize(msg, ';');
 
-  auto iter = commands_.find(trigger);
-  if (iter != commands_.end()) {
-    CommandExecutor& command = *iter->second;
-    u32 access_request = (1 << chat.type);
+  for (std::string current_msg : tokens) {
+    std::size_t split = current_msg.find(' ');
+    std::string trigger = Lowercase(current_msg.substr(0, split));
+    std::string arg;
 
-    if (access_request & command.GetAccess()) {
-      int security_level = 0;
+    if (split != std::string::npos) {
+      arg = current_msg.substr(split + 1);
+    }
 
-      if (chat.type == 0) {
-        security_level = kArenaSecurityLevel;
-      } else {
-        auto op_iter = kOperators.find(Lowercase(chat.player));
+    auto iter = commands_.find(trigger);
+    if (iter != commands_.end()) {
+      CommandExecutor& command = *iter->second;
+      u32 access_request = (1 << chat.type);
 
-        if (op_iter != kOperators.end()) {
-          security_level = op_iter->second;
+      if (access_request & command.GetAccess()) {
+        int security_level = 0;
+
+        if (chat.type == 0) {
+          security_level = kArenaSecurityLevel;
+        } else {
+          auto op_iter = kOperators.find(Lowercase(chat.player));
+
+          if (op_iter != kOperators.end()) {
+            security_level = op_iter->second;
+          }
         }
-      }
 
-      if (security_level >= command.GetSecurityLevel()) {
-        behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+        if (security_level >= command.GetSecurityLevel()) {
+          behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
 
-        // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
-        if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) || security_level > 0) {
-          command.Execute(*this, bot, chat.player, arg);
-          return true;
+          // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
+          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
+              security_level > 0) {
+            command.Execute(*this, bot, chat.player, arg);
+            result = true;
+          }
         }
       }
     }
   }
 
-  return false;
+  return result;
 }
 
 const Operators& CommandSystem::GetOperators() const {
