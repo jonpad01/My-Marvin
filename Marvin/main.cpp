@@ -248,11 +248,6 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   }
 
   //#endif
-
-  //g_hWnd = GetMainWindow();
-
-  marvin::debug_log << "Got Main Window." << std::endl;
-
   
   CreateBot();
 
@@ -263,6 +258,8 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   void** vtable = (*(void***)surface);
   RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD,
                                          LPDDBLTFX))vtable[5];
+
+   marvin::debug_log << "Render junk created." << std::endl;
 
   DetourRestoreAfterWith();
 
@@ -277,10 +274,11 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 #endif
   DetourTransactionCommit();
 
-  char buf[1024];
-  GetWindowText(g_hWnd, buf, 1024);
-  if (strcmp(buf, "Continuum") == 0) SetWindowText(g_hWnd, kEnabledText);
-  //#endif
+   marvin::debug_log << "Detours attached." << std::endl;
+
+  SetWindowText(g_hWnd, kEnabledText);
+  
+   marvin::debug_log << "Window Text changed." << std::endl;
 
   marvin::debug_log << "Marvin started successfully." << std::endl;
 }
