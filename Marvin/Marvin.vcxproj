@@ -183,6 +183,7 @@
     <ClInclude Include="commands\AnchorCommand.h" />
     <ClInclude Include="commands\CommandsCommand.h" />
     <ClInclude Include="commands\CommandSystem.h" />
+    <ClInclude Include="commands\DelimiterCommand.h" />
     <ClInclude Include="commands\HelpCommand.h" />
     <ClInclude Include="commands\LockCommand.h" />
     <ClInclude Include="commands\LockFreqCommand.h" />

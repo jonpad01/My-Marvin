@@ -4,6 +4,7 @@
 #include "../Common.h"
 #include "AnchorCommand.h"
 #include "CommandsCommand.h"
+#include "DelimiterCommand.h"
 #include "HelpCommand.h"
 #include "LockCommand.h"
 #include "LockFreqCommand.h"
@@ -24,6 +25,7 @@ const std::unordered_map<std::string, int> kOperators = {
 CommandSystem::CommandSystem() {
   RegisterCommand(std::make_shared<HelpCommand>());
   RegisterCommand(std::make_shared<CommandsCommand>());
+  RegisterCommand(std::make_shared<DelimiterCommand>());
   RegisterCommand(std::make_shared<ModListCommand>());
 
   RegisterCommand(std::make_shared<LockCommand>());
@@ -102,8 +104,8 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
           // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
           if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
               security_level > 0) {
-            command.Execute(*this, bot, chat.player, arg);
-            result = true;
+              command.Execute(*this, bot, chat.player, arg);
+              result = true;
           }
         }
       }
