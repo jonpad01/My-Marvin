@@ -41,7 +41,6 @@ static bool g_Reload = false;
 HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
 static time_point g_LastUpdateTime;
 
-HWND GetMainWindow();
 void CreateBot();
 
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
@@ -64,38 +63,6 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
   }
 
   return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
-}
-
-BOOL CALLBACK MyEnumWindowsProc(HWND hwnd, LPARAM lParam) {
-  DWORD pid = 0;
-
-  GetWindowThreadProcessId(hwnd, &pid);
-
-  
-  if (pid == lParam) {
-
-    marvin::debug_log << "PID Found. " + std::to_string(pid) << std::endl;
-
-    char title[1024];
-    GetWindowText(hwnd, title, 1023);
-
-    marvin::debug_log << title << std::endl;
-
-    if (strcmp(title, "Continuum") == 0) {
-      g_hWnd = hwnd;
-      return FALSE;
-    }
-  }
-  marvin::debug_log << "No Match Found." << std::endl;
-  return TRUE;
-}
-
-HWND GetMainWindow() {
-  DWORD pid = GetCurrentProcessId();
-  marvin::debug_log << "Got PID." << std::endl;
-  EnumWindows(MyEnumWindowsProc, pid);
-
-  return g_hWnd;
 }
 
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
@@ -165,7 +132,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       CreateBot();
       g_Enabled = true;
       g_Reload = false;
-      g_hWnd = GetMainWindow();
+      g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
       SetWindowText(g_hWnd, kEnabledText);
     }
   }
@@ -239,7 +206,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 
   marvin::debug_log << "Starting Marvin." << std::endl;
 
-  //#if 0
+  #if 0
   // prevent windows from throwing error messages and let the game crash out
   if (IsWindows7OrGreater() && !IsWindows8OrGreater()) {
     SetThreadErrorMode(SEM_NOGPFAULTERRORBOX, NULL);
@@ -247,7 +214,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
     SetErrorMode(SEM_NOGPFAULTERRORBOX);
   }
 
-  //#endif
+  #endif
   
   CreateBot();
 
