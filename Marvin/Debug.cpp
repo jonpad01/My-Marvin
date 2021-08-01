@@ -153,6 +153,8 @@ void RenderLine(Vector2f from, Vector2f to, COLORREF color) {}
 
 // void RenderText(std::string text, Vector2f at, COLORREF color, int flags) {}
 
+void RenderState::RenderDebugText(const char* fmt, ...) {}
+
 void RenderText(std::string, Vector2f at, TextColor color, int flags) {}
 
 void RenderPath(Vector2f position, std::vector<Vector2f> path) {}
