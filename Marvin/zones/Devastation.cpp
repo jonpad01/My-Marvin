@@ -20,7 +20,9 @@ namespace deva {
 const std::vector<std::string> kBotNames = {"LilMarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1", "Marv2",
                                             "Marv3",   "Marv4",   "Marv5",      "Marv6",      "Marv7", "Marv8"};
 
-const std::vector<Vector2f> kBaseSafes0 = {
+
+
+const std::vector<Vector2f> oldkBaseSafes0 = {
     Vector2f(32, 56),    Vector2f(185, 58),   Vector2f(247, 40),  Vector2f(383, 64),  Vector2f(579, 62),
     Vector2f(667, 56),   Vector2f(743, 97),   Vector2f(963, 51),  Vector2f(32, 111),  Vector2f(222, 82),
     Vector2f(385, 148),  Vector2f(499, 137),  Vector2f(624, 185), Vector2f(771, 189), Vector2f(877, 110),
@@ -38,7 +40,7 @@ const std::vector<Vector2f> kBaseSafes0 = {
     Vector2f(221, 1015), Vector2f(489, 1008), Vector2f(769, 983), Vector2f(948, 961), Vector2f(947, 511),
     Vector2f(580, 534)};
 
-const std::vector<Vector2f> kBaseSafes1 = {
+const std::vector<Vector2f> oldkBaseSafes1 = {
     Vector2f(102, 56),   Vector2f(189, 58),  Vector2f(373, 40),   Vector2f(533, 64),  Vector2f(606, 57),
     Vector2f(773, 56),   Vector2f(928, 46),  Vector2f(963, 47),   Vector2f(140, 88),  Vector2f(280, 82),
     Vector2f(395, 148),  Vector2f(547, 146), Vector2f(709, 117),  Vector2f(787, 189), Vector2f(993, 110),
@@ -55,6 +57,42 @@ const std::vector<Vector2f> kBaseSafes1 = {
     Vector2f(375, 996),  Vector2f(503, 909), Vector2f(694, 846),  Vector2f(720, 895), Vector2f(881, 945),
     Vector2f(272, 1015), Vector2f(617, 929), Vector2f(775, 983),  Vector2f(948, 983), Vector2f(1012, 494),
     Vector2f(669, 497)};
+
+
+
+
+
+const std::vector<Vector2f> kBaseSafes0 = {
+    Vector2f(139, 420), Vector2f(259, 337),  Vector2f(341, 447), Vector2f(114, 455),  Vector2f(861, 871),
+    Vector2f(886, 393), Vector2f(793, 331),  Vector2f(721, 657), Vector2f(650, 747),  Vector2f(795, 752),
+    Vector2f(863, 801), Vector2f(716, 851),  Vector2f(838, 820), Vector2f(776, 968),  Vector2f(492, 600),
+    Vector2f(230, 969), Vector2f(302, 67),   Vector2f(552, 17),  Vector2f(698, 52),   Vector2f(798, 41),
+    Vector2f(188, 106), Vector2f(284, 172),  Vector2f(429, 100), Vector2f(507, 196),  Vector2f(759, 151),
+    Vector2f(56, 194),  Vector2f(196, 259),  Vector2f(347, 176), Vector2f(414, 229),  Vector2f(567, 312),
+    Vector2f(676, 216), Vector2f(764, 272),  Vector2f(814, 286), Vector2f(980, 231),  Vector2f(746, 377),
+    Vector2f(62, 337),  Vector2f(135, 336),  Vector2f(125, 540), Vector2f(105, 607),  Vector2f(187, 645),
+    Vector2f(313, 570), Vector2f(601, 520),  Vector2f(831, 490), Vector2f(1008, 450), Vector2f(641, 590),
+    Vector2f(878, 603), Vector2f(52, 715),   Vector2f(128, 720), Vector2f(353, 741),  Vector2f(198, 840),
+    Vector2f(335, 877), Vector2f(105, 11),   Vector2f(891, 151), Vector2f(957, 43),   Vector2f(944, 907),
+    Vector2f(910, 987), Vector2f(418, 694),  Vector2f(57, 781),  Vector2f(630, 680),  Vector2f(517, 704),
+    Vector2f(623, 446), Vector2f(492, 877),  Vector2f(67, 968),  Vector2f(166, 1018), Vector2f(633, 900),
+    Vector2f(394, 936), Vector2f(286, 1018), Vector2f(526, 942), Vector2f(613, 1002)};
+
+const std::vector<Vector2f> kBaseSafes1 = {
+    Vector2f(297, 511),  Vector2f(311, 418),  Vector2f(341, 531), Vector2f(127, 523),  Vector2f(861, 957),
+    Vector2f(1006, 387), Vector2f(930, 305),  Vector2f(821, 657), Vector2f(705, 821),  Vector2f(799, 756),
+    Vector2f(983, 801),  Vector2f(716, 923),  Vector2f(838, 852), Vector2f(808, 968),  Vector2f(475, 673),
+    Vector2f(376, 902),  Vector2f(310, 67),   Vector2f(562, 17),  Vector2f(694, 56),   Vector2f(885, 128),
+    Vector2f(193, 201),  Vector2f(328, 172),  Vector2f(397, 200), Vector2f(620, 196),  Vector2f(849, 91),
+    Vector2f(135, 230),  Vector2f(196, 267),  Vector2f(317, 293), Vector2f(448, 348),  Vector2f(514, 365),
+    Vector2f(676, 226),  Vector2f(844, 174),  Vector2f(814, 373), Vector2f(980, 295),  Vector2f(838, 468),
+    Vector2f(72, 337),   Vector2f(93, 442),   Vector2f(125, 562), Vector2f(233, 607),  Vector2f(197, 645),
+    Vector2f(347, 679),  Vector2f(697, 520),  Vector2f(859, 518), Vector2f(1008, 536), Vector2f(649, 590),
+    Vector2f(966, 683),  Vector2f(52, 727),   Vector2f(128, 806), Vector2f(353, 747),  Vector2f(243, 840),
+    Vector2f(455, 798),  Vector2f(35, 106),   Vector2f(962, 191), Vector2f(957, 121),  Vector2f(977, 919),
+    Vector2f(1010, 987), Vector2f(410, 787),  Vector2f(67, 781),  Vector2f(666, 722),  Vector2f(527, 704),
+    Vector2f(633, 446),  Vector2f(611, 774),  Vector2f(77, 968),  Vector2f(176, 1018), Vector2f(654, 921),
+    Vector2f(484, 900),  Vector2f(476, 1018), Vector2f(602, 917), Vector2f(718, 986)};
 
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   bot.CreateBasePaths(kBaseSafes0, kBaseSafes1, bot.GetGame().GetSettings().ShipSettings[1].GetRadius() + 0.5f);
@@ -364,12 +402,15 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
 
   std::vector<Vector2f> path = ctx.bot->GetBasePath();
 
-  if (path.empty()) {
-    return;
-  }
-
   std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
   std::vector<Player> combined_list = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>());
+
+   if (path.empty()) {
+    if (!team_list.empty()) {
+      game.SetSelectedPlayer(team_list[0].id);
+    }
+    return;
+   }
 
   float closest_distance = std::numeric_limits<float>::max();
   float closest_team_distance_to_team = std::numeric_limits<float>::max();

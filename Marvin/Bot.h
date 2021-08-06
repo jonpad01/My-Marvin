@@ -46,7 +46,12 @@ class Bot {
   CommandSystem& GetCommandSystem() { return command_system_; }
 
   const std::vector<Vector2f>& GetBasePath() {
-    return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
+    std::vector<Vector2f> path;
+
+      if (ctx_.blackboard.Has("BaseIndex")) {
+      path = base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
+    }
+    return path;
   }
 
   bool MaxEnergyCheck();
