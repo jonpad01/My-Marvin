@@ -20,6 +20,8 @@
 #include "KeyController.h"
 //#include "behavior/BehaviorEngine.h"
 
+#define UM_SETTEXT WM_USER + 0x69
+
 const char* kEnabledText = "Continuum (enabled)";
 const char* kDisabledText = "Continuum (disabled)";
 
@@ -42,6 +44,11 @@ HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
 static time_point g_LastUpdateTime;
 
 void CreateBot();
+
+// text must not be stack allocated
+void SafeSetWindowText(HWND hwnd, const char* text) {
+  PostMessage(hwnd, UM_SETTEXT, NULL, (LPARAM)text);
+}
 
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
 
@@ -179,7 +186,14 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       g_LastUpdateTime = now;
     }
   }
-  return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+  //return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+  BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+
+  if (result && lpMsg->message == UM_SETTEXT) {
+    SendMessage(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
+  }
+
+  return result;
 }
 
 void CreateBot() {
@@ -218,7 +232,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   
   CreateBot();
 
-  marvin::debug_log << "Bot Created.." << std::endl;
+  marvin::debug_log << "Bot Created." << std::endl;
 
   u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
   LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
@@ -243,9 +257,9 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 
    marvin::debug_log << "Detours attached." << std::endl;
 
-  SetWindowText(g_hWnd, kEnabledText);
-  
-   marvin::debug_log << "Window Text changed." << std::endl;
+     SafeSetWindowText(g_hWnd, kEnabledText);
+
+     marvin::debug_log << "Window Text changed." << std::endl;
 
   marvin::debug_log << "Marvin started successfully." << std::endl;
 }

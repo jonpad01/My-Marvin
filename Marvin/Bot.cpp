@@ -58,12 +58,16 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
   }
 };
 
-std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone) {
+std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string name) {
   std::unique_ptr<BehaviorBuilder> builder;
 
   switch (zone) {
     case Zone::Devastation: {
-      builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+      if (name == "FrogBot") {
+        builder = std::make_unique<DefaultBehaviorBuilder>();
+      } else {
+        builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+      }
     } break;
     case Zone::Hyperspace: {
       builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
@@ -91,7 +95,7 @@ void Bot::LoadBotConstuctor() {
   SetZoneVariables();
 
   Zone zone = game_->GetZone();
-  auto builder = CreateBehaviorBuilder(zone);
+  auto builder = CreateBehaviorBuilder(zone, game_->GetPlayer().name);
 
   // ctx_.blackboard.Set<int>("Ship", game_->GetPlayer().ship);
   ctx_.bot = this;
@@ -129,6 +133,15 @@ void Bot::Update(float dt) {
   ctx_.dt = dt;
 
   if (game_->GetZone() == Zone::Devastation) {
+    if (game_->GetPlayer().name == "FrogBot") {
+      if (game_->GetMapFile() != "#frog.lvl") {
+        if (GetTime().TimedActionDelay("arenachange", 200)) {
+          game_->SendChatMessage("?go #Frog");
+        }
+        return;
+      }
+    }
+
     influence_map_.Decay(dt);
     g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
     influence_map_.Update(*game_, ctx_.blackboard.ValueOr<std::vector<Player>>("EnemyList", std::vector<Player>()));
