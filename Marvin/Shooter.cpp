@@ -231,10 +231,10 @@ void LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, 
   }
 }
 
-bool CanShoot(GameProxy& game, Vector2f player_pos, Vector2f solution, float proj_speed, float alive_time) {
-  float bullet_travel = (proj_speed + game.GetPlayer().velocity * game.GetPlayer().GetHeading()) * alive_time;
+bool CanShoot(GameProxy& game, Vector2f player_pos, Vector2f target, Vector2f weapon_velocity, float alive_time) {
+  float projectile_travel_sq = (weapon_velocity * alive_time).LengthSq();
 
-  if (player_pos.Distance(solution) > bullet_travel) return false;
+  if (player_pos.DistanceSq(target) > projectile_travel_sq) return false;
   if (game.GetMap().GetTileId(player_pos) == marvin::kSafeTileId) return false;
 
   return true;

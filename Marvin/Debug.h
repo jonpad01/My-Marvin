@@ -11,6 +11,7 @@
 #define DEBUG_USER_CONTROL 0
 #define DEBUG_NO_BEHAVIOR 0
 #define DEBUG_NO_ARROWS 0
+#define DEBUG_RENDER_AIMING 0
 
 extern HWND g_hWnd;
 
@@ -52,6 +53,8 @@ struct RenderState {
 extern RenderState g_RenderState;
 
 void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to, COLORREF color);
+void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right, COLORREF color);
+void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text, const Vector2f& at, TextColor color, int flags = 0);
 void RenderLine(Vector2f from, Vector2f to, COLORREF color);
 // void RenderText(std::string text, Vector2f at, COLORREF color, int flags = 0);
 void RenderText(std::string, Vector2f at, TextColor color, int flags = 0);
