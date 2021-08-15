@@ -657,7 +657,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!target) {
-    g_RenderState.RenderDebugText("  DevaMoveToEnemyNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  DevaMoveToEnemyNode (no target): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 

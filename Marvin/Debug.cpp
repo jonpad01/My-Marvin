@@ -28,6 +28,30 @@ void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f
   RenderLine(center + from, center + to, color);
 }
 
+void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
+                    COLORREF color) {
+  Vector2f diff = box_bottom_right - box_top_left;
+
+  Vector2f box_top_right = box_top_left + Vector2f(diff.x, 0);
+  Vector2f box_bottom_left = box_top_left + Vector2f(0, diff.y);
+
+  RenderWorldLine(screenCenterWorldPosition, box_top_left, box_top_right, color);
+  RenderWorldLine(screenCenterWorldPosition, box_top_right, box_bottom_right, color);
+  RenderWorldLine(screenCenterWorldPosition, box_top_left, box_bottom_left, color);
+  RenderWorldLine(screenCenterWorldPosition, box_bottom_left, box_bottom_right, color);
+}
+
+void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text, const Vector2f& at, TextColor color,
+                     int flags) {
+  Vector2f center = GetWindowCenter();
+
+  Vector2f screen_at = center + (at - screenCenterWorldPosition) * 16.0f;
+
+  if (screen_at.x > 0 && screen_at.y > 0 && screen_at.x < center.x * 2 && screen_at.y < center.y * 2) {
+    RenderText(text, screen_at, color, flags);
+  }
+}
+
 void RenderState::Render() {
   u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
   LPDIRECTDRAWSURFACE back_surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
@@ -148,6 +172,10 @@ void RenderPath(Vector2f position, std::vector<Vector2f> path) {
 void RenderState::Render() {}
 
 void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to, COLORREF color) {}
+void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
+                    COLORREF color) {}
+void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text, const Vector2f& at, TextColor color,
+                     int flags) {}
 
 void RenderLine(Vector2f from, Vector2f to, COLORREF color) {}
 

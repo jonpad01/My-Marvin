@@ -737,17 +737,14 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
 
   if (RadiusRayCastHit(game.GetMap(), enemy->position, base_path[enemy_node],
                        game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
-  
-  desired_position = enemy->position;
-  }
-  else if (bot_node > enemy_node) {
+    desired_position = enemy->position;
+  } else if (bot_node > enemy_node) {
     desired_position =
         LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
   } else {
     desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
   }
-
 
   if (is_anchor || last_in_base) {
     float energy_pct = ((float)game.GetPlayer().energy / game.GetMaxEnergy());
@@ -953,13 +950,19 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (target) {
-    if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target->position, game.GetShipSettings().GetRadius())) {
-      g_RenderState.RenderDebugText("  InLineOfSightNode: %llu", timer.GetElapsedTime());
+    // Pull out the radius check to the edge of the target's ship to be more accurate with raycast
+    Vector2f target_front = target->position + Normalize(game.GetPosition() - target->position) *
+                                                   game.GetShipSettings(target->ship).GetRadius();
+
+    // This probably shouldn't be a radius ray cast because they are still in line of sight even if just one piece of
+    // the ship is viewable.
+    if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target_front, game.GetShipSettings().GetRadius())) {
+      g_RenderState.RenderDebugText("  InLineOfSightNode (success): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
   }
 
-  g_RenderState.RenderDebugText("  InLineOfSightNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  InLineOfSightNode (fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -1042,7 +1045,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   Vector2f solution = target.position;
   bb.Set<Vector2f>("Solution", solution);
 
-  float radius_multiplier = 1.2f;
+  float radius_multiplier = 1.4f;
 
   int weapon_key = VK_CONTROL;
 
@@ -1084,12 +1087,28 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
       radius_multiplier = 1.0f;
     }
 
-    if (CalculateShot(bot.position, target.position, bot.velocity, target.velocity, proj_speed, &solution)) {
+    Vector2f weapon_velocity = bot.velocity + bot.GetHeading() * proj_speed;
+    float real_proj_speed = weapon_velocity.Length();
+
+    if (CalculateShot(bot.position, target.position, bot.velocity, target.velocity, real_proj_speed, &solution)) {
       if (!onBomb) {
         bb.Set<Vector2f>("Solution", solution);
       }
 
-      if (CanShoot(game, game.GetPosition(), solution, proj_speed, alive_time)) {
+#if DEBUG_RENDER_AIMING
+      float bullet_travel = (weapon_velocity * alive_time).Length();
+
+      RenderWorldLine(bot.position, bot.position, solution, RGB(100, 0, 0));
+      RenderWorldLine(bot.position, bot.position, bot.position + bot.GetHeading() * (solution - bot.position).Length(),
+                      RGB(100, 100, 0));
+
+      RenderWorldLine(bot.position, bot.position, bot.position + Normalize(weapon_velocity) * bullet_travel,
+                      onBomb ? RGB(0, 0, 100) : RGB(0, 100, 100));
+#endif
+
+      // Use target position in the distance calculation instead of solution so it will still aim at them while they are
+      // moving away
+      if (CanShoot(game, game.GetPosition(), target.position, weapon_velocity, alive_time)) {
         if (!onBomb && PreferGuns(ctx) && iSize == positions.size()) {
           positions.pop_back();
         }
@@ -1103,7 +1122,8 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
         float nearby_radius = target_radius * radius_multiplier;
 
         Vector2f bBox_min = solution - Vector2f(nearby_radius, nearby_radius);
-        Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
+        Vector2f bBox_max = solution + Vector2f(nearby_radius, nearby_radius);
+        Vector2f box_extent = bBox_max - bBox_min;
         float dist;
         Vector2f norm;
         Vector2f heading = bot.GetHeading();
@@ -1116,15 +1136,19 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
           }
         }
 
-        if (RayBoxIntersect(bot.position, heading, bBox_min, box_extent, &dist, &norm)) {
+#if DEBUG_RENDER_AIMING
+        RenderWorldBox(bot.position, bBox_min, bBox_min + box_extent, RGB(0, 255, 0));
+#endif
+
+        if (RayBoxIntersect(bot.position, Normalize(weapon_velocity), bBox_min, box_extent, &dist, &norm)) {
           ctx.bot->GetKeys().Press(weapon_key);
-          g_RenderState.RenderDebugText("  ShootEnemyNode: %llu", timer.GetElapsedTime());
+          g_RenderState.RenderDebugText("  ShootEnemyNode (success): %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Success;
         }
       }
     }
   }
-  g_RenderState.RenderDebugText("  ShootEnemyNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  ShootEnemyNode (fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
