@@ -79,7 +79,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      disconnect_.get(), commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), flagger_sort.get(),
+      commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), flagger_sort.get(),
       HS_set_region.get(), HS_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(),
       HS_attach.get(), respawn_check_.get(), HS_toggle.get(), action_selector.get());
 

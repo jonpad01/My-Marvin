@@ -23,6 +23,7 @@ const std::vector<std::string> kBotNames = {"LilMarv", "MadMarv", "MarvMaster", 
 
 
 const std::vector<Vector2f> oldkBaseSafes0 = {
+    Vector2f(512, 512),
     Vector2f(32, 56),    Vector2f(185, 58),   Vector2f(247, 40),  Vector2f(383, 64),  Vector2f(579, 62),
     Vector2f(667, 56),   Vector2f(743, 97),   Vector2f(963, 51),  Vector2f(32, 111),  Vector2f(222, 82),
     Vector2f(385, 148),  Vector2f(499, 137),  Vector2f(624, 185), Vector2f(771, 189), Vector2f(877, 110),
@@ -41,6 +42,7 @@ const std::vector<Vector2f> oldkBaseSafes0 = {
     Vector2f(580, 534)};
 
 const std::vector<Vector2f> oldkBaseSafes1 = {
+    Vector2f(512, 512),
     Vector2f(102, 56),   Vector2f(189, 58),  Vector2f(373, 40),   Vector2f(533, 64),  Vector2f(606, 57),
     Vector2f(773, 56),   Vector2f(928, 46),  Vector2f(963, 47),   Vector2f(140, 88),  Vector2f(280, 82),
     Vector2f(395, 148),  Vector2f(547, 146), Vector2f(709, 117),  Vector2f(787, 189), Vector2f(993, 110),
@@ -63,6 +65,7 @@ const std::vector<Vector2f> oldkBaseSafes1 = {
 
 
 const std::vector<Vector2f> kBaseSafes0 = {
+    Vector2f(512, 512),
     Vector2f(139, 420), Vector2f(259, 337),  Vector2f(341, 447), Vector2f(114, 455),  Vector2f(861, 871), 
     Vector2f(886, 393), Vector2f(793, 331),  Vector2f(721, 657), Vector2f(650, 747),  Vector2f(795, 752), // 10
     Vector2f(863, 801), Vector2f(716, 851),  Vector2f(838, 820), Vector2f(776, 968),  Vector2f(492, 600), 
@@ -79,6 +82,7 @@ const std::vector<Vector2f> kBaseSafes0 = {
     Vector2f(394, 936), Vector2f(286, 1018), Vector2f(526, 942), Vector2f(613, 1002)}; // 69
 
 const std::vector<Vector2f> kBaseSafes1 = {
+    Vector2f(512, 512),
     Vector2f(297, 511),  Vector2f(311, 418),  Vector2f(341, 531), Vector2f(127, 523),  Vector2f(861, 957),
     Vector2f(1006, 387), Vector2f(930, 305),  Vector2f(821, 657), Vector2f(705, 821),  Vector2f(799, 756), // 10
     Vector2f(983, 801),  Vector2f(716, 923),  Vector2f(838, 852), Vector2f(808, 968),  Vector2f(475, 673),
@@ -153,7 +157,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      disconnect_.get(), commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), team_sort.get(),
+      commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), team_sort.get(),
       DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check_.get(),
       DEVA_toggle_status.get(), action_selector.get());
 

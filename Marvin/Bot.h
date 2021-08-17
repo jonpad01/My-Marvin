@@ -46,12 +46,7 @@ class Bot {
   CommandSystem& GetCommandSystem() { return command_system_; }
 
   const std::vector<Vector2f>& GetBasePath() {
-    std::vector<Vector2f> path;
-
-      if (ctx_.blackboard.Has("BaseIndex")) {
-      path = base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
-    }
-    return path;
+     return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
   }
 
   bool MaxEnergyCheck();
@@ -81,13 +76,6 @@ class Bot {
 };
 
 namespace bot {
-
-class DisconnectNode : public behavior::BehaviorNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-
- private:
-};
 
 class CommandNode : public behavior::BehaviorNode {
  public:
@@ -245,7 +233,6 @@ class BehaviorBuilder {
     commands_ = std::make_unique<bot::CommandNode>();
     ship_check_ = std::make_unique<bot::ShipCheckNode>();
     respawn_check_ = std::make_unique<bot::RespawnCheckNode>();
-    disconnect_ = std::make_unique<bot::DisconnectNode>();
   }
 
   void PushCommonNodes() {
@@ -260,7 +247,6 @@ class BehaviorBuilder {
     engine_->PushNode(std::move(commands_));
     engine_->PushNode(std::move(ship_check_));
     engine_->PushNode(std::move(respawn_check_));
-    engine_->PushNode(std::move(disconnect_));
   }
 
   std::unique_ptr<behavior::BehaviorEngine> engine_;
@@ -276,7 +262,6 @@ class BehaviorBuilder {
   std::unique_ptr<bot::CommandNode> commands_;
   std::unique_ptr<bot::ShipCheckNode> ship_check_;
   std::unique_ptr<bot::RespawnCheckNode> respawn_check_;
-  std::unique_ptr<bot::DisconnectNode> disconnect_;
 };
 
 }  // namespace marvin

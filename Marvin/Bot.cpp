@@ -40,7 +40,7 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 
     auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get());
 
-    auto root_sequence = std::make_unique<behavior::SequenceNode>(disconnect_.get(), respawn_check_.get(),
+    auto root_sequence = std::make_unique<behavior::SequenceNode>(respawn_check_.get(),
                                                                   commands_.get(), set_ship_.get(), set_freq_.get(),
                                                                   ship_check_.get(), action_selector.get());
 
@@ -324,31 +324,6 @@ void Bot::SetZoneVariables() {
 
 namespace bot {
 
-behavior::ExecuteResult DisconnectNode::Execute(behavior::ExecuteContext& ctx) {
-  // check chat for disconected message and terminate continuum
-  PerformanceTimer timer;
-
-  auto& game = ctx.bot->GetGame();
-
-  for (ChatMessage& chat : game.GetChat()) {
-    if (chat.type == 0) {
-      if (chat.message.compare(0, 9, "WARNING: ") == 0) {
-        // exit(5);
-      }
-
-      if (game.GetZone() == Zone::ExtremeGames) {
-        std::string name = game.GetPlayer().name;
-
-        if (chat.message.compare(0, 4 + name.size(), "[ " + name + " ]") == 0) {
-          //  exit(5);
-        }
-      }
-    }
-  }
-
-  g_RenderState.RenderDebugText("  DisconnectNode: %llu", timer.GetElapsedTime());
-  return behavior::ExecuteResult::Success;
-}
 
 behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
