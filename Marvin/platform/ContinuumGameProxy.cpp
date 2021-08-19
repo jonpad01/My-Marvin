@@ -203,6 +203,7 @@ void ContinuumGameProxy::FetchBallData() {
 }
 
 void ContinuumGameProxy::FetchGreens() {
+  greens_.clear();
 
   u32 green_count = *(u32*)(game_addr_ + 0x2e350);
   Green* greens = (Green*)(game_addr_ + 0x2df50);
