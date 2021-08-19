@@ -54,6 +54,7 @@ bool ContinuumGameProxy::Update(float dt) {
   try {
     FetchPlayers();
     FetchBallData();
+    FetchGreens();
     FetchChat();
     FetchWeapons();
   } catch (...) {
@@ -201,6 +202,16 @@ void ContinuumGameProxy::FetchBallData() {
   }
 }
 
+void ContinuumGameProxy::FetchGreens() {
+
+  u32 green_count = *(u32*)(game_addr_ + 0x2e350);
+  Green* greens = (Green*)(game_addr_ + 0x2df50);
+
+  for (size_t i = 0; i < green_count; ++i) {   
+    greens_.push_back(greens[i]);
+  }
+}
+
 // Retrieves every chat message since the last call
 void ContinuumGameProxy::FetchChat() {
   struct ChatEntry {
@@ -292,6 +303,10 @@ std::vector<ChatMessage> ContinuumGameProxy::GetChat() const {
 
 const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
   return balls_;
+}
+
+const std::vector<Green>& ContinuumGameProxy::GetGreens() const {
+  return greens_;
 }
 
 std::vector<Weapon*> ContinuumGameProxy::GetWeapons() {

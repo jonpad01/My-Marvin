@@ -39,6 +39,13 @@ class Weapon {
   }
 };
 
+struct Green {
+  s32 prize_id;
+  u32 x;
+  u32 y;
+  u32 remaining_ticks;
+};
+
 struct ChatMessage {
   ChatMessage() : message(""), player(""), type(0) {}
   std::string message;
@@ -77,6 +84,7 @@ class GameProxy {
   virtual const Player* GetPlayerById(u16 id) const = 0;
   virtual std::vector<Weapon*> GetWeapons() = 0;
   virtual const std::vector<BallData>& GetBalls() const = 0;
+  virtual const std::vector<Green>& GetGreens() const = 0;
   virtual void SetWindowFocus() = 0;
 
   // May need to be called more than once to transition the game menu
