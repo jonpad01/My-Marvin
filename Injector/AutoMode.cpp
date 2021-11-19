@@ -5,26 +5,14 @@
 #include "Process.h"
 
 namespace marvin {
-namespace hwnd {
-
-HWND hmenu = NULL;
-HWND hprofile = NULL;
-HWND hlist = NULL;
-HWND hgame = NULL;
-HWND hinjected = NULL;
-
-HWND hinformation = NULL;
-HWND herror = NULL;
-HWND happlication = NULL;
-HWND hruntime = NULL;
-
-}  // namespace hwnd
-
 
 
 AutoBot::AutoBot() : pids_() {
   std::size_t bots = 0;
   std::string hide_window;
+
+  std::cout << "This program will terminate any open continuum processes before operation.\n";
+  std::cout << std::endl;
 
   // ask user how many bots
   std::cout << "How Many Bots?\n";
@@ -47,6 +35,24 @@ AutoBot::AutoBot() : pids_() {
     window_state_ = 0;
   } else {
     window_state_ = 6;
+  }
+
+  FetchWindows();
+  for (WindowInfo window : windows_) {
+    IsErrorWindow(window.title, window.pid, window.hwnd);
+
+    std::size_t found_pos = window.title.find("Continuum (enabled) - ");
+    if (found_pos == std::string::npos) {
+      found_pos = window.title.find("Continuum (disabled) - ");
+    }
+
+    bool found = window.title == "Continuum" || window.title == "Continuum 0.40";
+
+    if (found || found_pos != std::string::npos) {
+      HANDLE handle = OpenProcess(PROCESS_ALL_ACCESS, true, window.pid);
+      TerminateProcess(handle, 0);
+      CloseHandle(handle);
+    }
   }
 
   // loop through the awnser and start bots
@@ -92,87 +98,26 @@ DWORD AutoBot::StartBot(std::size_t index) {
       HANDLE handle = process->GetHandle();
 
       // find the menu handle by using the pid, or time out and return
-      HWND hMenu = GrabWindow("Continuum 0.40", pid, true, true, 10000);
+      WindowInfo iMenu = GrabWindow("Continuum 0.40", pid, true, true, true, 10000);
 
-      if (hMenu == 0) {
+      if (iMenu.hwnd == 0) {
         TerminateCont(handle);
         return 0;
       }
 
-#if 0
-      // find the menu handle by using the pid, or time out and return
-      for (std::size_t trys = 0;; trys++) {
-        Sleep(100);
-        // this function will assign the hwnd using the pid inserted
-        if (!EnumWindows(FindMenu, pid)) {
-          break;
-        }
-        if (trys > 100) {
-          TerminateProcess(handle, 0);
-          CloseHandle(handle);
-          std::cout << "Failed to find menu.\n";
-          return 0;
-        }
-      }
-
-
-      //#if 0
       // the code to open the profile menu
-      if (hwnd::hmenu) {
-        PostMessageA(hwnd::hmenu, WM_COMMAND, 40011, 0);
-      }
-#endif
-      // the code to open the profile menu
-      PostMessageA(hMenu, WM_COMMAND, 40011, 0);
+      PostMessageA(iMenu.hwnd, WM_COMMAND, 40011, 0);
 
       // wait for the profile handle
-      HWND hProfile = GrabWindow("Select/Edit Profile", pid, true, true, 10000);
+      WindowInfo iProfile = GrabWindow("Select/Edit Profile", pid, true, true, true, 10000);
 
-      if (hProfile == 0) {
+      if (iProfile.hwnd == 0) {
         TerminateCont(handle);
         return 0;
       }
 
-      #if 0
-      // wait for the profile handle
-      for (std::size_t trys = 0;; trys++) {
-        Sleep(100);
-        if (!EnumWindows(FindProfile, pid)) {
-          break;
-        }
-
-        if (trys > 100) {
-          TerminateProcess(handle, 0);
-          CloseHandle(handle);
-          std::cout << "Failed to find profile handle.\n";
-          return 0;
-        }
-      }
-
-
-
-
       // grab the handle for the list box
-      for (std::size_t trys = 0;; trys++) {
-        Sleep(200);
-
-        if (hwnd::hlist = FindWindowExA(hwnd::hprofile, NULL, "ListBox", NULL)) {
-          break;
-        }
-
-        if (trys > 100) {
-          TerminateProcess(handle, 0);
-          CloseHandle(handle);
-          std::cout << "Failed to find listbox handle.\n";
-          return 0;
-        }
-      }
-#endif
-
-
-
-      // grab the handle for the list box
-      HWND hListbox = FindWindowExA(hProfile, NULL, "ListBox", NULL);
+      HWND hListbox = FindWindowExA(iProfile.hwnd, NULL, "ListBox", NULL);
 
       if (hListbox == 0) {
         TerminateCont(handle);
@@ -183,26 +128,26 @@ DWORD AutoBot::StartBot(std::size_t index) {
       PostMessageA(hListbox, LB_SETCURSEL, (index), 0);
 
       // close profile
-      PostMessageA(hProfile, WM_COMMAND, 1, 0);
+      PostMessageA(iProfile.hwnd, WM_COMMAND, 1, 0);
 
       // good method but wont set the default zone when changing profiles
       // process->SetProfile(handle, index);
 
       // Start Game, allow zone list to update first
       Sleep(2000);
-      PostMessageA(hMenu, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-      PostMessageA(hMenu, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
+      PostMessageA(iMenu.hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
+      PostMessageA(iMenu.hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
     
 
       // wait for the game window to exist and grab the handle
-      HWND hGame = GrabWindow("Continuum", pid, true, true, 10000);
+      WindowInfo iGame = GrabWindow("Continuum", pid, true, true, true, 10000);
 
-      if (hGame == 0) {
+      if (iGame.hwnd == 0) {
         TerminateCont(handle);
         return 0;
       } 
 
-      if (!WaitForWindowState(hGame, "Continuum", 1, 10000)) {
+      if (!WaitForWindowState(iGame.hwnd, iGame.title, 1, 10000)) {
         TerminateCont(handle);
         return 0;
       }
@@ -216,38 +161,6 @@ DWORD AutoBot::StartBot(std::size_t index) {
         return 0;
       }
 
-#if 0
-      for (std::size_t trys = 0;; trys++) {
-        Sleep(1000);
-        if (!EnumWindows(FindGame, pid)) {
-          break;
-        } else {
-          if (trys > 100) {
-            TerminateProcess(handle, 0);
-            CloseHandle(handle);
-            std::cout << "Failed to find continuum window handle.\n";
-            return 0;
-          }
-
-          if (FindErrorWindows(pid) == 2) { 
-            TerminateProcess(handle, 0);
-            CloseHandle(handle);
-            std::cout << "Error window found while looking for continuum window.\n";
-            return 0;
-          }
-
-          if (!EnumWindows(FindInformation, pid)) {
-            PostMessage(hwnd::hinformation, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-            PostMessage(hwnd::hinformation, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-
-            TerminateProcess(handle, 0);
-            CloseHandle(handle);
-            std::cout << "Connection timeout while logging in (information window popup).\n";
-            return 0;
-          }
-        }
-      }
-#endif
      
 
 
@@ -262,42 +175,17 @@ DWORD AutoBot::StartBot(std::size_t index) {
   }
 
   // wait for the game window to exist and grab the handle
-  HWND hInjected = GrabWindow("Continuum (enabled)", pid, true, true, 10000);
+  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, true, 10000);
 
-  if (hInjected == 0) {
+  if (iInjected.hwnd == 0) {
     TerminateCont(handle);
     return 0;
   } 
 
-  #if 0
-  // wait for windows title to change before minimizing, allow this to hang for map downloads
-  for (std::size_t trys = 0;; trys++) {
-    Sleep(3000);
 
-    if (!EnumWindows(FindInjectedTitle, pid)) {
-      break;
-    }
+  ShowWindow(iInjected.hwnd, window_state_);
 
-    if (trys > 100) {
-      TerminateProcess(handle, 0);
-      CloseHandle(handle);
-      std::cout << "Continuum title failed to change to injected title.\n";
-      return 0;
-    }
-  }
-  
-
-  // 6 to minimize or 0 to hide the game
-  if (hidden_ && hwnd::hgame)
-    ShowWindow(hwnd::hgame, 0);
-  else if (hwnd::hgame) {
-    ShowWindow(hwnd::hgame, 6);
-  }
-#endif
-
-  ShowWindow(hInjected, window_state_);
-
-  if (!WaitForWindowState(hInjected, "Continuum (enabled)", 2, 10000)) {
+  if (!WaitForWindowState(iInjected.hwnd, iInjected.title, 2, 10000)) {
     TerminateCont(handle);
     return 0;
   }
@@ -330,25 +218,19 @@ void AutoBot::MonitorBots() {
       IsErrorWindow(window.title, window.pid, window.hwnd);
     }
   
-    HWND hMenu = GrabWindow("Continuum 0.40", 0, false, false, 100);
+    WindowInfo iMenu = GrabWindow("Continuum 0.40", 0, false, true, false, 100);
 
-    while (hMenu) {
-      PostMessage(hMenu, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
-      hMenu = GrabWindow("Continuum 0.40", 0, false, false, 100);
+    while (iMenu.hwnd) {
+      PostMessage(iMenu.hwnd, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
+      iMenu = GrabWindow("Continuum 0.40", 0, false, true, false, 100);
     }
 
-    #if 0
-    if (!EnumWindows(FindExtraMenu, NULL)) {
-      PostMessage(hwnd::hmenu, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
-    }
-    #endif
+    WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pids_[i], true, false, false, 1000);
 
-    HWND hInjected = GrabWindow("Continuum (enabled)", pids_[i], true, false, 1000);
-
-    if (hInjected == 0) {
-      hInjected = GrabWindow("Continuum (disabled)", pids_[i], true, false, 1000);
+    if (iInjected.hwnd == 0) {
+      iInjected = GrabWindow("Continuum (disabled) - ", pids_[i], true, false, false, 1000);
     }
-    if (hInjected == 0) {
+    if (iInjected.hwnd == 0) {
       DWORD pid = StartBot(i);
 
       if (pid == 0) {
@@ -357,19 +239,6 @@ void AutoBot::MonitorBots() {
       }
       pids_[i] = pid;
     }
-
-    #if 0 
-    // if the pid didnt return a handle, start a new bot
-    if (EnumWindows(FindInjectedTitle, pids_[i])) {
-      Sleep(1000);
-
-      if (!EnumWindows(FindMenu, pids_[i])) {
-        PostMessage(hwnd::hmenu, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
-      }
-
-      pids_[i] = StartBot(i);
-    }
-    #endif
   }
 }
 
@@ -412,32 +281,6 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
         found = 2;
       }
-  
-#if 0
-  if (!EnumWindows(FindApplicationError, NULL)) {
-    PostMessage(hwnd::happlication, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-    PostMessage(hwnd::happlication, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-    found = 1;
-  }
-
-  if (!EnumWindows(FindContinuumApplicationError, NULL)) {
-    PostMessage(hwnd::happlication, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-    PostMessage(hwnd::happlication, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-    found = 1;
-  }
-
-  if (!EnumWindows(FindRunTimeError, NULL)) {
-    PostMessage(hwnd::hruntime, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-    PostMessage(hwnd::hruntime, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-    found = 1;
-  }
-
-  if (!EnumWindows(FindError, pid)) {
-    PostMessage(hwnd::herror, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-    PostMessage(hwnd::herror, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-    found = 2;
-  }
-  #endif
 
   return found;
 }
@@ -511,10 +354,10 @@ bool AutoBot::FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pi
 }
 
 
-HWND AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, bool show_log, int timeout) {
+WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, bool show_log, int timeout) {
 
   int max_trys = timeout / 100;
-  HWND hwnd = 0;
+  WindowInfo info{0, 0, ""};
   int error_level = 0;
 
   for (int trys = 0; trys != max_trys; trys++) {
@@ -526,27 +369,31 @@ HWND AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, bool show
         error_level = 3;
         break;
       }
-      if (window.title == title) {
+      std::size_t pos = window.title.find(title);
+
+      if (window.title == title || !exact_match && pos != std::string::npos) {
         if (!match_pid || match_pid && window.pid == pid) {
-          hwnd = window.hwnd;
+          info.hwnd = window.hwnd;
+          info.pid = window.pid;
+          info.title = window.title;
           break;
         }
       }
     }
-    if (hwnd != 0 || error_level == 3) {
+    if (info.hwnd != 0 || error_level == 3) {
       break;
     }
   }
 
   if (show_log) {
-    if (hwnd == 0 && error_level != 3) {
+    if (info.hwnd == 0 && error_level != 3) {
       std::cout << "Timed out while looking for window:  " << title << std::endl;
     } else {
       std::cout << "HWND found for window:  " << title << std::endl;
     }
   }
 
-  return hwnd;
+  return info;
 }
 
 
@@ -589,177 +436,6 @@ BOOL __stdcall GrabWindows(HWND hwnd, LPARAM lParam) {
 void AutoBot::TerminateCont(HANDLE handle) {
   TerminateProcess(handle, 0);
   CloseHandle(handle);
-}
-
-
-
-
-
-
-BOOL __stdcall FindMenu(HWND hwnd, LPARAM lParam) {
-  DWORD pid;
-  GetWindowThreadProcessId(hwnd, &pid);
-
-  if (pid == (DWORD)lParam) {
-    char title[1024];
-    GetWindowTextA(hwnd, title, 1024);
-
-    if (strcmp(title, "Continuum 0.40") == 0) {
-      hwnd::hmenu = hwnd;
-
-      return FALSE;
-    }
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindExtraMenu(HWND hwnd, LPARAM lParam) {
-  char title[1024];
-  GetWindowTextA(hwnd, title, 1024);
-
-  if (strcmp(title, "Continuum 0.40") == 0) {
-    hwnd::hmenu = hwnd;
-
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindProfile(HWND hwnd, LPARAM lParam) {
-  DWORD pid;
-  GetWindowThreadProcessId(hwnd, &pid);
-
-  if (pid == (DWORD)lParam) {
-    char title[1024];
-    GetWindowTextA(hwnd, title, 1024);
-
-    if (strcmp(title, "Select/Edit Profile") == 0) {
-      hwnd::hprofile = hwnd;
-
-      return FALSE;
-    }
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindInformation(HWND hwnd, LPARAM lParam) {
-  DWORD pid;
-  GetWindowThreadProcessId(hwnd, &pid);
-
-  if (pid == (DWORD)lParam) {
-    char title[1024];
-    GetWindowTextA(hwnd, title, 1024);
-
-    if (strcmp(title, "Information") == 0) {
-      hwnd::hinformation = hwnd;
-
-      return FALSE;
-    }
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindGame(HWND hwnd, LPARAM lParam) {
-  DWORD pid;
-  GetWindowThreadProcessId(hwnd, &pid);
-
-  if (pid == (DWORD)lParam) {
-    char title[1024];
-    GetWindowTextA(hwnd, title, 1024);
-
-    if (strcmp(title, "Continuum") == 0) {
-      hwnd::hgame = hwnd;
-
-      return FALSE;
-    }
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindInjectedTitle(HWND hwnd, LPARAM lParam) {
-  char title[1024];
-  DWORD pid;
-
-  GetWindowThreadProcessId(hwnd, &pid);
-  GetWindowTextA(hwnd, title, 1024);
-
-  if (pid == (DWORD)lParam) {
-    if (strcmp(title, "Continuum (enabled)") == 0 || strcmp(title, "Continuum (disabled)") == 0) {
-      hwnd::hinjected = hwnd;
-
-      return FALSE;
-    }
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindError(HWND hwnd, LPARAM lParam) {
-  DWORD pid;
-  GetWindowThreadProcessId(hwnd, &pid);
-
-  if (pid == (DWORD)lParam) {
-    char title[1024];
-    GetWindowTextA(hwnd, title, 1024);
-
-    if (strcmp(title, "Error") == 0) {
-      hwnd::herror = hwnd;
-
-      return FALSE;
-    }
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindContinuumApplicationError(HWND hwnd, LPARAM lParam) {
-  char title[1024];
-  GetWindowTextA(hwnd, title, 1024);
-
-  
-
-  if (strcmp(title, "Continuum (enabled): Windows - Application Error") == 0) {
-  
-    hwnd::happlication = hwnd;
-
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindApplicationError(HWND hwnd, LPARAM lParam) {
-  char title[1024];
-  GetWindowTextA(hwnd, title, 1024);
-
-  std::string sTitle = title;
-
-  //if (strcmp(title, "Windows - Application Error") == 0) {
-    if (sTitle.find("Application Error")) {
-    hwnd::happlication = hwnd;
-
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-BOOL __stdcall FindRunTimeError(HWND hwnd, LPARAM lParam) {
-  char title[1024];
-  GetWindowTextA(hwnd, title, 1024);
-
-  if (strcmp(title, "Microsoft Visual C++ Runtime Library") == 0) {
-    hwnd::hruntime = hwnd;
-
-    return FALSE;
-  }
-
-  return TRUE;
 }
 
 }  // namespace marvin

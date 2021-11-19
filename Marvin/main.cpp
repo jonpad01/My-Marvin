@@ -22,8 +22,8 @@
 
 #define UM_SETTEXT WM_USER + 0x69
 
-const char* kEnabledText = "Continuum (enabled)";
-const char* kDisabledText = "Continuum (disabled)";
+std::string kEnabledText = "Continuum (enabled) - ";
+std::string kDisabledText = "Continuum (disabled) - ";
 
 using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
@@ -43,7 +43,7 @@ static bool g_Reload = false;
 HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
 static time_point g_LastUpdateTime;
 
-void CreateBot();
+std::string CreateBot();
 
 // text must not be stack allocated
 void SafeSetWindowText(HWND hwnd, const char* text) {
@@ -125,10 +125,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   if (GetFocus() == g_hWnd) {
     if (RealGetAsyncKeyState(VK_F10)) {
       g_Enabled = false;
-      SetWindowText(g_hWnd, kDisabledText);
+      SetWindowText(g_hWnd, kDisabledText.c_str());
     } else if (RealGetAsyncKeyState(VK_F9)) {
       g_Enabled = true;
-      SetWindowText(g_hWnd, kEnabledText);
+      SetWindowText(g_hWnd, kEnabledText.c_str());
     }
   }
 
@@ -136,11 +136,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     g_Enabled = false;
 
     if (GameLoaded()) {
-      CreateBot();
       g_Enabled = true;
       g_Reload = false;
       g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
-      SetWindowText(g_hWnd, kEnabledText);
+      SetWindowText(g_hWnd, kEnabledText.c_str());
     }
   }
 
@@ -196,7 +195,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   return result;
 }
 
-void CreateBot() {
+std::string CreateBot() {
  
   // create pointer to game and pass the window handle
   game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
@@ -215,6 +214,7 @@ void CreateBot() {
     bot = std::make_unique<marvin::Bot>(std::move(game2));
     marvin::debug_log << "Bot created" << std::endl;
   }
+  return game->GetName();
 }
 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
@@ -233,7 +233,10 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 
   #endif
   
-  CreateBot();
+ std::string name = CreateBot();
+
+ kEnabledText += name; 
+ kDisabledText += name;
 
   marvin::debug_log << "Bot Created." << std::endl;
 
@@ -260,7 +263,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 
    marvin::debug_log << "Detours attached." << std::endl;
 
-     SafeSetWindowText(g_hWnd, kEnabledText);
+     SafeSetWindowText(g_hWnd, kEnabledText.c_str());
 
      marvin::debug_log << "Window Text changed." << std::endl;
 
