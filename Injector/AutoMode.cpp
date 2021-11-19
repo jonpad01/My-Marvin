@@ -389,7 +389,7 @@ WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, boo
     if (info.hwnd == 0 && error_level != 3) {
       std::cout << "Timed out while looking for window:  " << title << std::endl;
     } else {
-      std::cout << "HWND found for window:  " << title << std::endl;
+      std::cout << "HWND found with title:  " << info.title << std::endl;
     }
   }
 

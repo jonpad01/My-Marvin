@@ -235,8 +235,8 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   
  std::string name = CreateBot();
 
- kEnabledText += name; 
- kDisabledText += name;
+ kEnabledText = kEnabledText + name; 
+ kDisabledText = kDisabledText + name;
 
   marvin::debug_log << "Bot Created." << std::endl;
 
