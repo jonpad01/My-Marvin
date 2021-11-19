@@ -161,6 +161,11 @@ void ContinuumGameProxy::FetchPlayers() {
     player.rockets = *(u32*)(player_addr + 0x2C8) + *(u32*)(player_addr + 0x2CC);
     player.portals = *(u32*)(player_addr + 0x2E0) + *(u32*)(player_addr + 0x2E4);
 
+    // remove "^" that gets placed on names when biller is down
+    if (!player.name.empty() && player.name[0] == '^') {
+      player.name.erase(0, 1);
+    }
+
     players_.emplace_back(player);
 
     if (player.id == player_id_) {
@@ -347,6 +352,11 @@ std::string ContinuumGameProxy::GetName() const {
   addr += profile_index * ProfileStructSize;
 
   std::string name = process_.ReadString(addr, 23);
+
+  // remove "^" that gets placed on names when biller is down
+  if (!name.empty() && name[0] == '^') {
+    name.erase(0, 1);
+  }
 
   name = name.substr(0, strlen(name.c_str()));
 

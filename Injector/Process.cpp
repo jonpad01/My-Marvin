@@ -96,8 +96,7 @@ bool Process::InjectModule(const std::string& module_path) {
       if (WriteProcessMemory(hProcess, path_addr, module_path.data(), module_path.size(), NULL)) {
         // Start a remote thread in the Continuum process that immediately
         // kicks off the load.
-        injected =
-            CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)load_addr, path_addr, 0, NULL) != NULL;
+        injected = CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)load_addr, path_addr, 0, NULL) != NULL;
       } else {
         std::cout << "Bad WriteProcessMemory\n";
       }
@@ -218,9 +217,7 @@ DWORD SelectPid(const std::vector<DWORD>& pids, std::string target_player) {
 }
 
 DWORD SelectPid(const std::vector<DWORD>& pids) {
-  std::cout << "0"
-            << ": "
-            << "Auto Mode\n";
+  
   for (std::size_t i = 0; i < pids.size(); ++i) {
     auto pid = pids[i];
     auto game = marvin::ContinuumGameProxy(std::make_unique<marvin::Process>(pid));
@@ -249,7 +246,7 @@ DWORD SelectPid(const std::vector<DWORD>& pids) {
     std::cerr << "Invalid selection." << std::endl;
     return 0;
   }
-  if (input == "0") return 1;
+
   return pids[selection - 1];
 }
 

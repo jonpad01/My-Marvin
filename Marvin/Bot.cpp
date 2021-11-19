@@ -63,6 +63,7 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string na
 
   switch (zone) {
     case Zone::Devastation: {
+      marvin::debug_log << "Building Deva Bot" << std::endl;
       if (name == "FrogBot") {
         builder = std::make_unique<DefaultBehaviorBuilder>();
       } else {
@@ -86,15 +87,20 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), stee
 
 void Bot::LoadBotConstuctor() {
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
+  marvin::debug_log << "proccessor created" << std::endl;
 
   regions_ = RegionRegistry::Create(game_->GetMap());
+  marvin::debug_log << "regions created" << std::endl;
 
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   pathfinder_->CreateMapWeights(game_->GetMap());
+  marvin::debug_log << "pathfinder created" << std::endl;
 
   SetZoneVariables();
+  marvin::debug_log << "zone variables created" << std::endl;
 
   Zone zone = game_->GetZone();
+  marvin::debug_log << "Zone " << game_->GetMapFile() << " found" << std::endl;
   auto builder = CreateBehaviorBuilder(zone, game_->GetPlayer().name);
 
   // ctx_.blackboard.Set<int>("Ship", game_->GetPlayer().ship);
@@ -285,10 +291,12 @@ void Bot::SetZoneVariables() {
 
   Vector2f spawn(512, 512);
 
+  marvin::debug_log << "player ship " << game_->GetPlayer().ship << " found" << std::endl;
   uint16_t ship = game_->GetPlayer().ship;
   bool specced = game_->GetPlayer().ship == 8;
 
   if (game_->GetZone() == Zone::Devastation) {
+    marvin::debug_log << "player name " << game_->GetPlayer().name << " found" << std::endl;
     std::string name = Lowercase(game_->GetPlayer().name);
     if (name == "lilmarv" && specced) {
       ship = 1;

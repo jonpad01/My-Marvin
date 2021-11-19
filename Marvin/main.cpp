@@ -197,8 +197,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 }
 
 void CreateBot() {
+ 
   // create pointer to game and pass the window handle
   game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
+  marvin::debug_log << "GameProxy Constructed." << std::endl;
   auto game2(game);
 
   if (game->GetZone() == marvin::Zone::ExtremeGames) {
@@ -211,12 +213,13 @@ void CreateBot() {
     pb = std::make_unique<marvin::PowerBall>(std::move(game2));
   } else {
     bot = std::make_unique<marvin::Bot>(std::move(game2));
+    marvin::debug_log << "Bot created" << std::endl;
   }
 }
 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
 
-  marvin::debug_log.open("marvin.log", std::ios::out | std::ios::app);
+  marvin::debug_log.open("marvin.log", std::ios::out | std::ios::trunc);
 
   marvin::debug_log << "Starting Marvin." << std::endl;
 
