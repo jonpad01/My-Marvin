@@ -3,6 +3,7 @@
 #include "Memory.h"
 #include "Multicont.h"
 #include "Process.h"
+#include "Debug.h"
 
 namespace marvin {
 
@@ -194,7 +195,6 @@ DWORD AutoBot::StartBot(std::size_t index) {
   std::cout << std::endl;
 
   CloseHandle(handle);
-
   return pid;
 }
 
@@ -212,6 +212,26 @@ void AutoBot::MonitorBots() {
   // cycle through each pid and see if it matches to an existing window
   for (std::size_t i = 0; i < pids_.size(); i++) {
     Sleep(1000);
+
+    auto process = std::make_unique<marvin::Process>(pids_[i]);
+    HANDLE handle = process->GetHandle();
+
+    ULONG exitcode;
+    bool bRestart = GetExitCodeProcess(handle, &exitcode);
+
+    if (bRestart) {
+      if (exitcode != 259) {
+        std::cout << "Exit code found: " << (int)exitcode << std::endl;
+        ;
+      }
+    }
+
+    CloseHandle(handle);
+
+
+
+
+
 
     FetchWindows();
     for (WindowInfo window : windows_) {
@@ -256,11 +276,18 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
       bool information = title == "Information";
 
       if (memory_error != std::string::npos) {
+        HWND hText = GetDlgItem(hwnd, 0x0000FFFF);
+        char text[1024];
+        GetWindowTextA(hText, text, 1024);
+
+        debug_log << title << " - " << text << std::endl;
         std::cout << "Application error found for process pid: " << pid << " with window title: " << title
                   << "\n" << std::endl;
+        
         Sleep(1000);
-        PostMessage(hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-        PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
+        PostMessage(hwnd, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
+        //PostMessage(hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
+        //PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
         found = 1;
       }
 

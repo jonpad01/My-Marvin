@@ -18,6 +18,8 @@ extern HWND g_hWnd;
 namespace marvin {
 
 extern std::ofstream debug_log;
+extern std::ofstream error_log;
+extern std::ofstream memory_log;
 
 enum class TextColor { White, Green, Blue, Red, Yellow, Fuchsia, DarkRed, Pink };
 

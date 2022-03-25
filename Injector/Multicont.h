@@ -7,6 +7,7 @@ class Multicont {
  public:
   Multicont() : pid_(0){};
 
+
   bool RunMulticont();
   DWORD GetPid() { return pid_; }
 

@@ -19,7 +19,7 @@ namespace marvin {
 
 using Path = std::vector<Vector2f>;
 
-extern std::ofstream debug_log;
+//extern std::ofstream debug_log;
 
 class GameProxy;
 struct Player;

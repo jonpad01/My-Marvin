@@ -1,11 +1,18 @@
+
 #include "AutoMode.h"
 #include "Multicont.h"
 #include "Process.h"
+#include "Debug.h"
+
+
 
 int main(int argc, char* argv[]) {
 
     std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
     std::string input;
+
+    marvin::debug_log.open("Injector.log", std::ios::out | std::ios::app);
+    marvin::debug_log << "List of memory errors" << std::endl << std::endl;
 
     auto continuum_pids = marvin::GetProcessIds("Continuum.exe");
 

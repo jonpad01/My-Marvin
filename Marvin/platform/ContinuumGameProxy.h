@@ -89,7 +89,6 @@ class ContinuumGameProxy : public GameProxy {
   void Cloak(KeyController& keys) override;
   void MultiFire() override;
   void Flag() override;
-  bool Spec() override;
   void Attach(std::string name) override;
   void P() override;
   void L() override;
@@ -117,7 +116,9 @@ class ContinuumGameProxy : public GameProxy {
   void FetchGreens();
   void FetchWeapons();
   void SendKey(int vKey);
+  void LogMemoryLocations();
 
+  
   std::vector<BallData> balls_;
   std::vector<Green> greens_;
   std::vector<ChatMessage> recent_chat_;
@@ -136,6 +137,30 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_;
+
+
+  std::vector<std::size_t> offsets_{0x04, 0x10, 0x18, 0x20, 0x24,  0x30,  0x34,  0x3C, 0x40,
+                                    0x4C, 0x5C, 0x58, 0x60, 0x6D, 0x178, 0x208, 0x20C, 0x2EC, 0x32C};
+
+  std::vector<std::string> offset_titles_{"kPosOffset",
+                                          "kVelocityOffset",
+                                          "kIdOffset",
+                                          "kBountyOffset1",
+                                          "kBountyOffset2",
+                                          "kFlagOffset1",
+                                          "kFlagOffset2",
+                                          "kRotOffset",
+                                          "kActiveOffset1",
+                                          "kActiveOffset2",
+                                          "kShipOffset",
+                                          "kFreqOffset",
+                                          "kStatusOffset",
+                                          "kNameOffset",
+                                          "kDeadOffset",
+                                          "kEnergyOffset1",
+                                          "kEnergyOffset2",
+                                          "kMultiFireCapableOffset",
+                                          "kMultiFireStatusOffset"};
 };
 
 }  // namespace marvin

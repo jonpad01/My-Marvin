@@ -41,7 +41,9 @@ std::unique_ptr<marvin::Bot> bot;
 static bool g_Enabled = true;
 static bool g_Reload = false;
 HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
+
 static time_point g_LastUpdateTime;
+static time_point g_StartTime = time_clock::now();
 
 std::string CreateBot();
 
@@ -121,86 +123,100 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 // This is used to hook into the main update loop in Continuum so the bot can be
 // updated.
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
-  // Check for key presses to enable/disable the bot.
-  if (GetFocus() == g_hWnd) {
-    if (RealGetAsyncKeyState(VK_F10)) {
+  BOOL result = 0;
+    try {
+    // Check for key presses to enable/disable the bot.
+    if (GetFocus() == g_hWnd) {
+      if (RealGetAsyncKeyState(VK_F10)) {
+        g_Enabled = false;
+        SetWindowText(g_hWnd, kDisabledText.c_str());
+      } else if (RealGetAsyncKeyState(VK_F9)) {
+        g_Enabled = true;
+        SetWindowText(g_hWnd, kEnabledText.c_str());
+      }
+    }
+
+    if (g_Reload) {
       g_Enabled = false;
-      SetWindowText(g_hWnd, kDisabledText.c_str());
-    } else if (RealGetAsyncKeyState(VK_F9)) {
-      g_Enabled = true;
-      SetWindowText(g_hWnd, kEnabledText.c_str());
+
+      if (GameLoaded()) {
+        g_Enabled = true;
+        g_Reload = false;
+        g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
+        SetWindowText(g_hWnd, kEnabledText.c_str());
+      }
     }
-  }
 
-  if (g_Reload) {
-    g_Enabled = false;
+    time_point now = time_clock::now();
+    seconds dt = now - g_LastUpdateTime;
+    seconds sec = now - g_StartTime;
+    if (g_Enabled) {
+      for (marvin::ChatMessage chat : game->GetChat()) {
+        std::string name = game->GetPlayer().name;
 
-    if (GameLoaded()) {
-      g_Enabled = true;
-      g_Reload = false;
-      g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
-      SetWindowText(g_hWnd, kEnabledText.c_str());
-    }
-  }
+        std::string eg_msg = "[ " + name + " ]";
 
-  time_point now = time_clock::now();
-  seconds dt = now - g_LastUpdateTime;
-
-  if (g_Enabled) {
-    for (marvin::ChatMessage chat : game->GetChat()) {
-      std::string name = game->GetPlayer().name;
-
-      std::string eg_msg = "[ " + name + " ]";
-
-      if (chat.type == 0) {
-        if (chat.message.compare(0, 9, "WARNING: ") == 0 ||
-            (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames)) {
-          PostQuitMessage(0);
-          return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+        if (chat.type == 0) {
+          if (chat.message.compare(0, 9, "WARNING: ") == 0 || (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 &&
+                                                               game->GetZone() == marvin::Zone::ExtremeGames)) {
+            PostQuitMessage(0);
+            return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+          }
         }
       }
-    }
 
-    if (dt.count() > (float)(1.0f / 60.0f)) {
+      if (dt.count() > (float)(1.0f / 60.0f)) {
 #if DEBUG_RENDER
-      marvin::g_RenderState.renderable_texts.clear();
-      marvin::g_RenderState.renderable_lines.clear();
+        marvin::g_RenderState.renderable_texts.clear();
+        marvin::g_RenderState.renderable_lines.clear();
 #endif
 
-      if (eg) {
-        eg->Update(dt.count());
+        if (eg) {
+          eg->Update(dt.count());
+        }
+        if (gs) {
+          gs->Update(dt.count());
+        }
+        if (hz) {
+          hz->Update(dt.count());
+        }
+        if (pb) {
+          pb->Update(dt.count());
+        }
+        if (bot) {
+          bot->Update(dt.count());
+        }
+        g_LastUpdateTime = now;
       }
-      if (gs) {
-        gs->Update(dt.count());
-      }
-      if (hz) {
-        hz->Update(dt.count());
-      }
-      if (pb) {
-        pb->Update(dt.count());
-      }
-      if (bot) {
-        bot->Update(dt.count());
-      }
-      g_LastUpdateTime = now;
     }
-  }
-  //return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
-  BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    // return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+     result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 
-  if (result && lpMsg->message == UM_SETTEXT) {
-    SendMessage(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
+    if (result && lpMsg->message == UM_SETTEXT) {
+      SendMessage(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
+    }
+    if (sec.count() > (float)(6.0f)) {
+     // std::vector<int> test(5);
+      //std::cout << test[10];
+      //test[1] = 3;
+    }
+  } catch (...) {
+      marvin::error_log << "Exception found in update loop." << std::endl;
   }
 
   return result;
 }
 
 std::string CreateBot() {
+
+     
  
   // create pointer to game and pass the window handle
   game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
-  marvin::debug_log << "GameProxy Constructed." << std::endl;
   auto game2(game);
+
+  marvin::debug_log << "Starting Marvin." << std::endl;
+ 
 
   if (game->GetZone() == marvin::Zone::ExtremeGames) {
     eg = std::make_unique<marvin::ExtremeGames>(std::move(game2));
@@ -217,22 +233,10 @@ std::string CreateBot() {
   return game->GetName();
 }
 
+/* there are limitations on what win32 calls/actions can be made inside of this funcion call (DLLMain) */
 extern "C" __declspec(dllexport) void InitializeMarvin() {
-
-  marvin::debug_log.open("marvin.log", std::ios::out | std::ios::trunc);
-
-  marvin::debug_log << "Starting Marvin." << std::endl;
-
-  #if 0
-  // prevent windows from throwing error messages and let the game crash out
-  if (IsWindows7OrGreater() && !IsWindows8OrGreater()) {
-    SetThreadErrorMode(SEM_NOGPFAULTERRORBOX, NULL);
-  } else if (IsWindows8OrGreater()) {
-    SetErrorMode(SEM_NOGPFAULTERRORBOX);
-  }
-
-  #endif
   
+
  std::string name = CreateBot();
 
  kEnabledText = kEnabledText + name; 
@@ -281,13 +285,15 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 #endif
   DetourTransactionCommit();
 
-  SetWindowText(g_hWnd, "Continuum");
+  SafeSetWindowText(g_hWnd, "Continuum");
 
   marvin::debug_log << "Shutting down Marvin." << std::endl;
 
   bot = nullptr;
 
   marvin::debug_log.close();
+  marvin::memory_log.close();
+  marvin::error_log.close();
 }
 
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {

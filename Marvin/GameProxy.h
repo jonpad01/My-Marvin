@@ -97,7 +97,6 @@ class GameProxy {
   virtual void Cloak(KeyController& keys) = 0;
   virtual void MultiFire() = 0;
   virtual void Flag() = 0;
-  virtual bool Spec() = 0;
   virtual void Attach(std::string name) = 0;
   virtual void P() = 0;
   virtual void L() = 0;

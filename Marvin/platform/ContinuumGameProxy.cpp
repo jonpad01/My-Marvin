@@ -7,6 +7,10 @@
 #include "../Debug.h"
 #include "../Map.h"
 
+/* Because this is injected code, there are limitations on what methods and win32 functions can be used.  The bot cannot wait or or use sleep functions or Continuum will crash.  
+For example, PostMessage seems to work better because it does not wait for the call to return.  Instead, of waiting for an aknowledgement from a SendMessage call, the bot can send a
+PostMessage call and read memory locations to know when a condition has been met.  This avoids possible hangs/crashes but probably results in spam/redundant PostMessage calls. */
+
 namespace marvin {
 
 ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
@@ -14,9 +18,15 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
 }
 
 void ContinuumGameProxy::LoadGame() {
+
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
   module_base_menu_ = process_.GetModuleBase("menu040.dll");
   player_id_ = 0xFFFF;
+
+  //these files probably get opened again if the LoadGame member ever gets called multiple times, need a better method
+  marvin::debug_log.open(GetName() + ".log", std::ios::out | std::ios::trunc);
+  marvin::memory_log.open(GetName() + " memory list.log", std::ios::out | std::ios::trunc);
+  marvin::error_log.open(GetName() + " error list.log", std::ios::out | std::ios::app);
 
   game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
 
@@ -28,6 +38,7 @@ void ContinuumGameProxy::LoadGame() {
 
   FetchPlayers();
   SetZone();
+  LogMemoryLocations();
 
   // Skip over existing messages on load
   u32 chat_base_addr = game_addr_ + 0x2DD08;
@@ -46,25 +57,25 @@ bool ContinuumGameProxy::Update(float dt) {
   // to make it think it always has focus.
   SetWindowFocus();
 
-  if (mapfile_path_ != GetServerFolder() + "\\" + GetMapFile()) {
+  std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
+
+  if (mapfile_path_ != map_file_path) {
     LoadGame();
     return false;
   }
 
-  try {
     FetchPlayers();
     FetchBallData();
     FetchGreens();
     FetchChat();
     FetchWeapons();
-  } catch (...) {
-    return false;
-  }
+  
 
   return true;
 }
 
 void ContinuumGameProxy::FetchPlayers() {
+
   const std::size_t kPosOffset = 0x04;
   const std::size_t kVelocityOffset = 0x10;
   const std::size_t kIdOffset = 0x18;
@@ -73,10 +84,13 @@ void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kFlagOffset1 = 0x30;
   const std::size_t kFlagOffset2 = 0x34;
   const std::size_t kRotOffset = 0x3C;
+  const std::size_t kActiveOffset1 = 0x40;
+  const std::size_t kActiveOffset2 = 0x4C;
   const std::size_t kShipOffset = 0x5C;
   const std::size_t kFreqOffset = 0x58;
   const std::size_t kStatusOffset = 0x60;
   const std::size_t kNameOffset = 0x6D;
+  const std::size_t kDeadOffset = 0x178;
   const std::size_t kEnergyOffset1 = 0x208;
   const std::size_t kEnergyOffset2 = 0x20C;
   const std::size_t kMultiFireCapableOffset = 0x2EC;
@@ -126,12 +140,12 @@ void ContinuumGameProxy::FetchPlayers() {
     player.flags = *(u32*)(player_addr + kFlagOffset1) + *(u32*)(player_addr + kFlagOffset2);
 
     // triggers if player is not moving and has no velocity, not used
-    player.dead = process_.ReadU32(player_addr + 0x178) == 0;
+    player.dead = process_.ReadU32(player_addr + kDeadOffset) == 0;
 
     // the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
     player.attach_id = process_.ReadU32(player_addr + 0x1C);
     // might not work on bot but works well on other players
-    player.active = *(u32*)(player_addr + 0x4C) == 0 && *(u32*)(player_addr + 0x40) == 0;
+    player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
 
     // Energy calculation @4485FA
     if (player.id == player_id_) {
@@ -150,8 +164,6 @@ void ContinuumGameProxy::FetchPlayers() {
 
       player.energy = static_cast<uint16_t>(first + second);
     }
-
-    // u32 test = *(u32*)(player_addr + 0x2AC);
 
     player.repels = *(u32*)(player_addr + 0x2B0) + *(u32*)(player_addr + 0x2B4);
     player.bursts = *(u32*)(player_addr + 0x2B8) + *(u32*)(player_addr + 0x2BC);
@@ -395,7 +407,6 @@ const Player* ContinuumGameProxy::GetPlayerById(u16 id) const {
       return &players_[i];
     }
   }
-
   return nullptr;
 }
 
@@ -470,17 +481,7 @@ void ContinuumGameProxy::SetEnergy(float percent) {
 }
 
 void ContinuumGameProxy::SetFreq(int freq) {
-  // process_.WriteU32(player_addr_ + 0x58, (uint32_t)freq);
-
-#if 1
-  std::string freq_ = std::to_string(freq);
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)('='), 0);
-  for (std::size_t i = 0; i < freq_.size(); i++) {
-    char letter = freq_[i];
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
-  }
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
-#endif
+  SendChatMessage("=" + std::to_string(freq));
 }
 
 void ContinuumGameProxy::PageUp() {
@@ -493,6 +494,7 @@ void ContinuumGameProxy::XRadar() {
   SendKey(VK_END);
 }
 void ContinuumGameProxy::Burst(KeyController& keys) {
+ // must be sent using this combination
   keys.Press(VK_SHIFT);
   SendKey(VK_DELETE);
 }
@@ -514,9 +516,9 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
     SendKey(VK_ESCAPE);
   } else {
     if (ship == 8) {
-      SendMessageW(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
+      PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
     } else {
-      SendMessageW(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
+      PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
     }
   }
 
@@ -542,58 +544,22 @@ void ContinuumGameProxy::MultiFire() {
 
 void ContinuumGameProxy::Flag() {
   SendChatMessage("?flag");
-#if 0
-    std::string message = "?flag";
-
-    for (std::size_t i = 0; i < message.size(); i++) {
-        char letter = message[i];
-        SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
-    }
-
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
-#endif
 }
 
 void ContinuumGameProxy::P() {
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)('!'), 0);
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)('p'), 0);
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+  SendChatMessage("!p");
 }
 
 void ContinuumGameProxy::L() {
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)('!'), 0);
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)('l'), 0);
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+  SendChatMessage("!l");
 }
 
 void ContinuumGameProxy::R() {
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)('!'), 0);
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)('r'), 0);
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+  SendChatMessage("!r");
 }
 
-bool ContinuumGameProxy::Spec() {
-  int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
-
-  bool menu_open = *menu_open_addr;
-
-  if (!menu_open) {
-    SendKey(VK_ESCAPE);
-  } else {
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
-  }
-
-  return menu_open;
-}
 void ContinuumGameProxy::Attach(std::string name) {
-  std::string message = ":" + name + ":?attach";
-
-  for (std::size_t i = 0; i < message.size(); i++) {
-    char letter = message[i];
-    SendMessage(hwnd_, WM_CHAR, (WPARAM)(letter), 0);
-  }
-
-  SendMessage(hwnd_, WM_CHAR, (WPARAM)(VK_RETURN), 0);
+  SendChatMessage(":" + name + ":?attach");
 }
 
 void ContinuumGameProxy::SetWindowFocus() {
@@ -607,8 +573,8 @@ ExeProcess& ContinuumGameProxy::GetProcess() {
 }
 
 void ContinuumGameProxy::SendKey(int vKey) {
-  SendMessage(hwnd_, WM_KEYDOWN, (WPARAM)vKey, 0);
-  SendMessage(hwnd_, WM_KEYUP, (WPARAM)vKey, 0);
+  PostMessage(hwnd_, WM_KEYDOWN, (WPARAM)vKey, 0);
+  PostMessage(hwnd_, WM_KEYUP, (WPARAM)vKey, 0);
 }
 
 void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
@@ -671,6 +637,36 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
       return;
     }
   }
+}
+
+void ContinuumGameProxy::LogMemoryLocations() {
+  
+    marvin::memory_log << "A list of memory addresses read by Marvin." << std::endl;
+
+
+  marvin::memory_log << "Module Base: - " << module_base_continuum_ << std::endl;
+  marvin::memory_log << "Module Base Menu: - " << module_base_menu_ << std::endl;
+  marvin::memory_log << "Game Address: - " << game_addr_ << std::endl;
+  marvin::memory_log << "Position Data: - " << game_addr_ + 0x126BC << std::endl;
+
+  std::size_t base_addr = game_addr_ + 0x127EC;
+  marvin::memory_log << "Base Address: - " << game_addr_ << std::endl;
+  std::size_t players_addr = base_addr + 0x884;
+  marvin::memory_log << "Players Address: - " << players_addr << std::endl;
+  std::size_t count_addr = base_addr + 0x1884;
+  marvin::memory_log << "Count Address: - " << count_addr << std::endl;
+
+  std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
+
+  for (std::size_t i = 0; i < count; ++i) {
+    std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
+    if (!player_addr) continue;
+    marvin::memory_log << "Player Address: - " << player_addr << std::endl;
+    for (std::size_t i = 0; i < offsets_.size(); i++) {
+      marvin::memory_log << offset_titles_[i] << " - " << player_addr + offsets_[i] << std::endl;
+    }
+  }
+
 }
 
 }  // namespace marvin
