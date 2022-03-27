@@ -104,7 +104,7 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 bool GameLoaded() {
   u32 game_addr = *(u32*)0x4C1AFC;
 
-  if (game_addr != 0) {
+  if (game_addr) {
     // Wait for map to load
     return *(u32*)(game_addr + 0x127ec + 0x6C4) != 0;
   }
@@ -124,15 +124,15 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 // updated.
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
   BOOL result = 0;
-    try {
+
     // Check for key presses to enable/disable the bot.
     if (GetFocus() == g_hWnd) {
       if (RealGetAsyncKeyState(VK_F10)) {
         g_Enabled = false;
-        SetWindowText(g_hWnd, kDisabledText.c_str());
+        SafeSetWindowText(g_hWnd, kDisabledText.c_str());
       } else if (RealGetAsyncKeyState(VK_F9)) {
         g_Enabled = true;
-        SetWindowText(g_hWnd, kEnabledText.c_str());
+        SafeSetWindowText(g_hWnd, kEnabledText.c_str());
       }
     }
 
@@ -143,7 +143,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         g_Enabled = true;
         g_Reload = false;
         g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
-        SetWindowText(g_hWnd, kEnabledText.c_str());
+        SafeSetWindowText(g_hWnd, kEnabledText.c_str());
       }
     }
 
@@ -196,13 +196,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       SendMessage(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
     }
     if (sec.count() > (float)(6.0f)) {
-     // std::vector<int> test(5);
+      //std::vector<int> test;
       //std::cout << test[10];
       //test[1] = 3;
     }
-  } catch (...) {
-      marvin::error_log << "Exception found in update loop." << std::endl;
-  }
 
   return result;
 }

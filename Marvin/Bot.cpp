@@ -169,9 +169,10 @@ void Bot::Update(float dt) {
     steering_.AvoidWalls(kMaxAvoidDistance);
   }
   //#endif
-  steering_.Steer(ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
-  ctx_.blackboard.Set<bool>("SteerBackwards", false);
-
+  if (game_->GetPlayer().ship != 8) {
+    steering_.Steer(ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
+    ctx_.blackboard.Set<bool>("SteerBackwards", false);
+  }
 #if DEBUG_RENDER
   // RenderPath(game_->GetPosition(), base_paths_[ctx_.blackboard.GetRegionIndex()]);
 #endif

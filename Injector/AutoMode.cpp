@@ -9,36 +9,20 @@ namespace marvin {
 
 
 AutoBot::AutoBot() : pids_() {
-  std::size_t bots = 0;
-  std::string hide_window;
+  int bots = 0;
 
-  std::cout << "This program will terminate any open continuum processes before operation.\n";
-  std::cout << std::endl;
-
-  // ask user how many bots
-  std::cout << "How Many Bots?\n";
-
+  std::cout << "How Many Bots?" << std::endl;
+  
   do {
     std::cin.clear();
     std::cin.ignore();
     std::cin >> bots;
   } while (bots < 1 || bots > 50 || std::cin.fail());
 
-  std::cout << "Hide Windows? (y/n)   Windows Will Be Minimized If No: \n";
-
-  do {
-    std::cin.clear();
-    std::cin.ignore();
-    std::cin >> hide_window;
-  } while ((hide_window != "y" && hide_window != "n") || std::cin.fail());
-
-  if (hide_window == "y") {
-    window_state_ = 0;
-  } else {
-    window_state_ = 6;
-  }
+  window_state_ = 6;
 
   FetchWindows();
+
   for (WindowInfo window : windows_) {
     IsErrorWindow(window.title, window.pid, window.hwnd);
 
@@ -56,23 +40,42 @@ AutoBot::AutoBot() : pids_() {
     }
   }
 
-  // loop through the awnser and start bots
-  for (std::size_t i = 0; i < bots; i++) {
-     //grab pid and address result and push into vector
-    DWORD pid = StartBot(i);
+  StartBot(bots);
 
-    if (pid == 0) {
-      std::cout << "Bot failed to start, this attempt has been terminated.";
-      std::cout << std::endl;
-    }
-    pids_.push_back(pid);
-    Sleep(1000);
-  }
-
-
-  std::cout << "\nBot starting loop has finished, this process will monitor and restart bots that get disconected "
-               "until closed.\n";
+  std::cout << "Bot starting loop has finished, this process will monitor and restart bots that get disconected." << std::endl;
 };
+
+DWORD AutoBot::StartBot(std::size_t index) {
+  DWORD pid = StartContinuum(index);
+  if (!InjectContinuum(pid)) {
+    pid = 0;
+  }
+  std::cout << "Restart successfull" << std::endl << std::endl;
+  return pid;
+}
+
+void AutoBot::StartBot(int bots) {
+
+    for (int i = 0; i < bots; i++) {
+      DWORD pid = StartContinuum(i);
+      if (pid == 0) {
+        std::cout << "Bot failed to start, this attempt has been terminated." << std::endl;
+      }
+      pids_.push_back(pid);
+      Sleep(1000);
+    }
+
+    for (std::size_t i = 0; i < pids_.size(); i++) {
+      if (pids_[i] == 0) {
+        continue;
+      }
+      if (!InjectContinuum(pids_[i])) {
+        pids_[i] = 0;
+        std::cout << "Bot failed to inject, this attempt has been terminated." << std::endl;
+      }
+      Sleep(1000);
+    }
+}
 
 
 
@@ -80,122 +83,124 @@ AutoBot::AutoBot() : pids_() {
 
 // if anything goes wrong, toss the attempt and return 0
 
-DWORD AutoBot::StartBot(std::size_t index) {
+DWORD AutoBot::StartContinuum(std::size_t index) {
   DWORD pid;
 
-      auto cont = std::make_unique<Multicont>();
+  auto cont = std::make_unique<Multicont>();
 
-      if (!cont->RunMulticont()) {
-        std::cout << "Failed to Start Multicont.\n";
-        Sleep(3000);
-        return 0;
-      } else {
-        pid = cont->GetPid();
-      }
+  if (!cont->RunMulticont()) {
+    std::cout << "Failed to Start Multicont.\n";
+    Sleep(3000);
+    return 0;
+  } else {
+    pid = cont->GetPid();
+  }
 
-      // grab path and access to Process
-      std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
-      auto process = std::make_unique<marvin::Process>(pid);
-      HANDLE handle = process->GetHandle();
+  // grab path and access to Process
+  std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
+  auto process = std::make_unique<marvin::Process>(pid);
+  HANDLE handle = process->GetHandle();
 
-      // find the menu handle by using the pid, or time out and return
-      WindowInfo iMenu = GrabWindow("Continuum 0.40", pid, true, true, true, 10000);
+  // find the menu handle by using the pid, or time out and return
+  WindowInfo iMenu = GrabWindow("Continuum 0.40", pid, true, true, 10000);
 
-      if (iMenu.hwnd == 0) {
-        TerminateCont(handle);
-        return 0;
-      }
+  if (iMenu.hwnd == 0) {
+    TerminateCont(handle);
+    return 0;
+  }
 
-      // the code to open the profile menu
-      PostMessageA(iMenu.hwnd, WM_COMMAND, 40011, 0);
+  // the code to open the profile menu
+  PostMessageA(iMenu.hwnd, WM_COMMAND, 40011, 0);
 
-      // wait for the profile handle
-      WindowInfo iProfile = GrabWindow("Select/Edit Profile", pid, true, true, true, 10000);
+  // wait for the profile handle
+  WindowInfo iProfile = GrabWindow("Select/Edit Profile", pid, true, true, 10000);
 
-      if (iProfile.hwnd == 0) {
-        TerminateCont(handle);
-        return 0;
-      }
+  if (iProfile.hwnd == 0) {
+    TerminateCont(handle);
+    return 0;
+  }
 
-      // grab the handle for the list box
-      HWND hListbox = FindWindowExA(iProfile.hwnd, NULL, "ListBox", NULL);
+  // grab the handle for the list box
+  HWND hListbox = FindWindowExA(iProfile.hwnd, NULL, "ListBox", NULL);
 
-      if (hListbox == 0) {
-        TerminateCont(handle);
-        return 0;
-      } 
+  if (hListbox == 0) {
+    TerminateCont(handle);
+    return 0;
+  }
 
-      // sets the profile
-      PostMessageA(hListbox, LB_SETCURSEL, (index), 0);
+  // sets the profile
+  PostMessageA(hListbox, LB_SETCURSEL, (index), 0);
 
-      // close profile
-      PostMessageA(iProfile.hwnd, WM_COMMAND, 1, 0);
+  // close profile
+  PostMessageA(iProfile.hwnd, WM_COMMAND, 1, 0);
 
-      // good method but wont set the default zone when changing profiles
-      // process->SetProfile(handle, index);
+  // good method but wont set the default zone when changing profiles
+  // process->SetProfile(handle, index);
 
-      // Start Game, allow zone list to update first
-      Sleep(2000);
-      PostMessageA(iMenu.hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-      PostMessageA(iMenu.hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-    
+  // Start Game, allow zone list to update first
+  Sleep(2000);
+  PostMessageA(iMenu.hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
+  PostMessageA(iMenu.hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
 
-      // wait for the game window to exist and grab the handle
-      WindowInfo iGame = GrabWindow("Continuum", pid, true, true, true, 10000);
+  // wait for the game window to exist and grab the handle
+  WindowInfo iGame = GrabWindow("Continuum", pid, true, true, 10000);
 
-      if (iGame.hwnd == 0) {
-        TerminateCont(handle);
-        return 0;
-      } 
+  if (iGame.hwnd == 0) {
+    TerminateCont(handle);
+    return 0;
+  }
 
-      if (!WaitForWindowState(iGame.hwnd, iGame.title, 1, 10000)) {
-        TerminateCont(handle);
-        return 0;
-      }
+  if (!WaitForWindowState(iGame.hwnd, iGame.title, 1, 10000)) {
+    TerminateCont(handle);
+    return 0;
+  }
 
-      // wait for the client to log in by waiting for the chat address to return an enter message
-      // this means the game a successfully connected
-      std::size_t module_base = process->GetModuleBase("Continuum.exe");
+  // wait for the client to log in by waiting for the chat address to return an enter message
+  // this means the game a successfully connected
+  std::size_t module_base = process->GetModuleBase("Continuum.exe");
 
-      if (!FetchEnterMessage(handle, module_base, pid, 10000)) {
-        TerminateCont(handle);
-        return 0;
-      }
-
-     
-
+  if (!FetchEnterMessage(handle, module_base, pid, 10000)) {
+    TerminateCont(handle);
+    return 0;
+  }
 
   // need a second after getting chat or game will likely crash when trying to minimize or hide window
   Sleep(1000);
 
+  ShowWindow(iGame.hwnd, window_state_);
+
+  if (!WaitForWindowState(iGame.hwnd, iGame.title, 2, 10000)) {
+    TerminateCont(handle);
+    return 0;
+  }
+  CloseHandle(handle);
+  return pid;
+}
+
+
+bool AutoBot::InjectContinuum(DWORD pid) {
+
+  std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
+  auto process = std::make_unique<marvin::Process>(pid);
+  HANDLE handle = process->GetHandle();
+
   // inject the loader and marvin dll
-  if (!process->InjectModule(inject_path)) {
+  if (!handle || !process->InjectModule(inject_path)) {
     TerminateCont(handle);
     std::cout << "Failed to inject into proccess.\n";
-    return 0;
+    return false;
   }
 
   // wait for the game window to exist and grab the handle
-  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, true, 10000);
+  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, 5000);
 
   if (iInjected.hwnd == 0) {
     TerminateCont(handle);
-    return 0;
+    return false;
   } 
 
-
-  ShowWindow(iInjected.hwnd, window_state_);
-
-  if (!WaitForWindowState(iInjected.hwnd, iInjected.title, 2, 10000)) {
-    TerminateCont(handle);
-    return 0;
-  }
-
-  std::cout << "Bot started successfully\n";
-  std::cout << std::endl;
-
   CloseHandle(handle);
-  return pid;
+  return true;
 }
 
 
@@ -222,7 +227,7 @@ void AutoBot::MonitorBots() {
     if (bRestart) {
       if (exitcode != 259) {
         std::cout << "Exit code found: " << (int)exitcode << std::endl;
-        ;
+        
       }
     }
 
@@ -238,17 +243,17 @@ void AutoBot::MonitorBots() {
       IsErrorWindow(window.title, window.pid, window.hwnd);
     }
   
-    WindowInfo iMenu = GrabWindow("Continuum 0.40", 0, false, true, false, 100);
+    WindowInfo iMenu = GrabWindow("Continuum 0.40", 0, false, true, 100);
 
     while (iMenu.hwnd) {
       PostMessage(iMenu.hwnd, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
-      iMenu = GrabWindow("Continuum 0.40", 0, false, true, false, 100);
+      iMenu = GrabWindow("Continuum 0.40", 0, false, true, 100);
     }
 
-    WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pids_[i], true, false, false, 1000);
+    WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pids_[i], true, false, 1000);
 
     if (iInjected.hwnd == 0) {
-      iInjected = GrabWindow("Continuum (disabled) - ", pids_[i], true, false, false, 1000);
+      iInjected = GrabWindow("Continuum (disabled) - ", pids_[i], true, false, 1000);
     }
     if (iInjected.hwnd == 0) {
       DWORD pid = StartBot(i);
@@ -280,14 +285,12 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         char text[1024];
         GetWindowTextA(hText, text, 1024);
 
-        debug_log << title << " - " << text << std::endl;
+        marvin::debug_log << title << " - " << text << std::endl;
         std::cout << "Application error found for process pid: " << pid << " with window title: " << title
                   << "\n" << std::endl;
         
         Sleep(1000);
         PostMessage(hwnd, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
-        //PostMessage(hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
-        //PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
         found = 1;
       }
 
@@ -329,9 +332,8 @@ bool AutoBot::WaitForWindowState(HWND hwnd, std::string title, int state, int ti
   }
   if (result == false) {
     std::cout << "Timout while waiting for window change on window: " << title << "\n ";
-  } else {
-    std::cout << "Window change found on window: " << title << "\n ";
-  }
+  } 
+
   return result;
 }
 
@@ -373,16 +375,13 @@ bool AutoBot::FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pi
 
   if (enter_msg.empty() && error_level != 3) {
     std::cout << "Timeout while trying to find chat message.\n";
-  } else {
-    std::cout << "Chat message found.\n";
-  }
+  } 
 
   return result;
 }
 
 
-WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, bool show_log, int timeout) {
-
+WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, int timeout) {
   int max_trys = timeout / 100;
   WindowInfo info{0, 0, ""};
   int error_level = 0;
@@ -412,12 +411,8 @@ WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, boo
     }
   }
 
-  if (show_log) {
-    if (info.hwnd == 0 && error_level != 3) {
-      std::cout << "Timed out while looking for window:  " << title << std::endl;
-    } else {
-      std::cout << "HWND found with title:  " << info.title << std::endl;
-    }
+  if (info.hwnd == 0 && error_level != 3) {
+    std::cout << "Timed out while looking for window:  " << title << std::endl;
   }
 
   return info;

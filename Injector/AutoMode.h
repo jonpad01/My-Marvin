@@ -26,11 +26,13 @@ class AutoBot {
  public:
   AutoBot();
  
-
+  void StartBot(int bots);
   DWORD StartBot(std::size_t index);
+  DWORD StartContinuum(std::size_t index);
+  bool InjectContinuum(DWORD pid);
   void MonitorBots();
   int IsErrorWindow(std::string title, DWORD pid, HWND hwnd);
-  WindowInfo GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, bool show_log, int timeout);
+  WindowInfo GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, int timeout);
   bool WaitForWindowState(HWND hwnd, std::string title, int state, int timeout);
   bool FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pid, int timeout);
   void FetchWindows();
