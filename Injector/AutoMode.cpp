@@ -102,7 +102,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
   HANDLE handle = process->GetHandle();
 
   // find the menu handle by using the pid, or time out and return
-  WindowInfo iMenu = GrabWindow("Continuum 0.40", pid, true, true, 10000);
+  WindowInfo iMenu = GrabWindow("Continuum 0.40", pid, true, true, true, 10000);
 
   if (iMenu.hwnd == 0) {
     TerminateCont(handle);
@@ -113,7 +113,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
   PostMessageA(iMenu.hwnd, WM_COMMAND, 40011, 0);
 
   // wait for the profile handle
-  WindowInfo iProfile = GrabWindow("Select/Edit Profile", pid, true, true, 10000);
+  WindowInfo iProfile = GrabWindow("Select/Edit Profile", pid, true, true, true, 10000);
 
   if (iProfile.hwnd == 0) {
     TerminateCont(handle);
@@ -143,7 +143,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
   PostMessageA(iMenu.hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
 
   // wait for the game window to exist and grab the handle
-  WindowInfo iGame = GrabWindow("Continuum", pid, true, true, 10000);
+  WindowInfo iGame = GrabWindow("Continuum", pid, true, true, true, 10000);
 
   if (iGame.hwnd == 0) {
     TerminateCont(handle);
@@ -192,7 +192,7 @@ bool AutoBot::InjectContinuum(DWORD pid) {
   }
 
   // wait for the game window to exist and grab the handle
-  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, 5000);
+  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, true, 5000);
 
   if (iInjected.hwnd == 0) {
     TerminateCont(handle);
@@ -243,17 +243,17 @@ void AutoBot::MonitorBots() {
       IsErrorWindow(window.title, window.pid, window.hwnd);
     }
   
-    WindowInfo iMenu = GrabWindow("Continuum 0.40", 0, false, true, 100);
+    WindowInfo iMenu = GrabWindow("Continuum 0.40", 0, false, true, false, 100);
 
     while (iMenu.hwnd) {
       PostMessage(iMenu.hwnd, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
-      iMenu = GrabWindow("Continuum 0.40", 0, false, true, 100);
+      iMenu = GrabWindow("Continuum 0.40", 0, false, true, false, 100);
     }
 
-    WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pids_[i], true, false, 1000);
+    WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pids_[i], true, false, false, 1000);
 
     if (iInjected.hwnd == 0) {
-      iInjected = GrabWindow("Continuum (disabled) - ", pids_[i], true, false, 1000);
+      iInjected = GrabWindow("Continuum (disabled) - ", pids_[i], true, false, false, 1000);
     }
     if (iInjected.hwnd == 0) {
       DWORD pid = StartBot(i);
@@ -381,7 +381,7 @@ bool AutoBot::FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pi
 }
 
 
-WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, int timeout) {
+WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, bool show_output, int timeout) {
   int max_trys = timeout / 100;
   WindowInfo info{0, 0, ""};
   int error_level = 0;
@@ -411,7 +411,7 @@ WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, boo
     }
   }
 
-  if (info.hwnd == 0 && error_level != 3) {
+  if (show_output && info.hwnd == 0 && error_level != 3) {
     std::cout << "Timed out while looking for window:  " << title << std::endl;
   }
 

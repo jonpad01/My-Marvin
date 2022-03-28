@@ -32,7 +32,7 @@ class AutoBot {
   bool InjectContinuum(DWORD pid);
   void MonitorBots();
   int IsErrorWindow(std::string title, DWORD pid, HWND hwnd);
-  WindowInfo GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, int timeout);
+  WindowInfo GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, bool show_output, int timeout);
   bool WaitForWindowState(HWND hwnd, std::string title, int state, int timeout);
   bool FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pid, int timeout);
   void FetchWindows();

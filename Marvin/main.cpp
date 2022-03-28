@@ -247,8 +247,6 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD,
                                          LPDDBLTFX))vtable[5];
 
-   marvin::debug_log << "Render junk created." << std::endl;
-
   DetourRestoreAfterWith();
 
   DetourTransactionBegin();

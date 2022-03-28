@@ -7,9 +7,11 @@
 #include "../Debug.h"
 #include "../Map.h"
 
-/* Because this is injected code, there are limitations on what methods and win32 functions can be used.  The bot cannot wait or or use sleep functions or Continuum will crash.  
-For example, PostMessage seems to work better because it does not wait for the call to return.  Instead, of waiting for an aknowledgement from a SendMessage call, the bot can send a
-PostMessage call and read memory locations to know when a condition has been met.  This avoids possible hangs/crashes but probably results in spam/redundant PostMessage calls. */
+/* Reading a bad memory address here can result in some very anoying problems that don't show up right away, so double check and mark any new additions.
+these addresses were checked and fixed on 03/27/2022.
+
+Main fix:  reading multifire status and item counts on other players was not the correct address and sometimes resulted in access violations.
+*/
 
 namespace marvin {
 
@@ -36,9 +38,12 @@ void ContinuumGameProxy::LoadGame() {
 
   map_ = Map::Load(mapfile_path_);
 
+  
   FetchPlayers();
+  marvin::debug_log << "players fetched." << std::endl;
   SetZone();
   LogMemoryLocations();
+ 
 
   // Skip over existing messages on load
   u32 chat_base_addr = game_addr_ + 0x2DD08;
@@ -105,11 +110,14 @@ void ContinuumGameProxy::FetchPlayers() {
   players_.clear();
 
   for (std::size_t i = 0; i < count; ++i) {
+
     std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
 
     if (!player_addr) continue;
 
     Player player;
+
+    player.name = process_.ReadString(player_addr + kNameOffset, 23);
 
     player.position.x = process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
 
@@ -118,7 +126,7 @@ void ContinuumGameProxy::FetchPlayers() {
     player.velocity.x = process_.ReadI32(player_addr + kVelocityOffset) / 10.0f / 16.0f;
 
     player.velocity.y = process_.ReadI32(player_addr + kVelocityOffset + 4) / 10.0f / 16.0f;
-
+ 
     player.id = static_cast<uint16_t>(process_.ReadU32(player_addr + kIdOffset));
 
     player.discrete_rotation = static_cast<uint16_t>(process_.ReadU32(player_addr + kRotOffset) / 1000);
@@ -128,12 +136,6 @@ void ContinuumGameProxy::FetchPlayers() {
     player.frequency = static_cast<uint16_t>(process_.ReadU32(player_addr + kFreqOffset));
 
     player.status = static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));
-
-    player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
-
-    player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
-
-    player.name = process_.ReadString(player_addr + kNameOffset, 23);
 
     player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
 
@@ -146,9 +148,25 @@ void ContinuumGameProxy::FetchPlayers() {
     player.attach_id = process_.ReadU32(player_addr + 0x1C);
     // might not work on bot but works well on other players
     player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
-
-    // Energy calculation @4485FA
+ 
+    
     if (player.id == player_id_) {
+
+      //these are not valid when reading on other players and will result in crashes
+      player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
+      player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
+
+      player.repels = *(u32*)(player_addr + 0x2B0) + *(u32*)(player_addr + 0x2B4);
+      player.bursts = *(u32*)(player_addr + 0x2B8) + *(u32*)(player_addr + 0x2BC);
+      player.decoys = *(u32*)(player_addr + 0x2D8) + *(u32*)(player_addr + 0x2DC);
+      player.thors = *(u32*)(player_addr + 0x2D0) + *(u32*)(player_addr + 0x2D4);
+      player.bricks = *(u32*)(player_addr + 0x2C0) + *(u32*)(player_addr + 0x2C4);
+      player.rockets = *(u32*)(player_addr + 0x2C8) + *(u32*)(player_addr + 0x2CC);
+      player.portals = *(u32*)(player_addr + 0x2E0) + *(u32*)(player_addr + 0x2E4);
+
+
+
+      // Energy calculation @4485FA
       u32 energy1 = process_.ReadU32(player_addr + kEnergyOffset1);
       u32 energy2 = process_.ReadU32(player_addr + kEnergyOffset2);
 
@@ -164,15 +182,8 @@ void ContinuumGameProxy::FetchPlayers() {
 
       player.energy = static_cast<uint16_t>(first + second);
     }
-
-    player.repels = *(u32*)(player_addr + 0x2B0) + *(u32*)(player_addr + 0x2B4);
-    player.bursts = *(u32*)(player_addr + 0x2B8) + *(u32*)(player_addr + 0x2BC);
-    player.decoys = *(u32*)(player_addr + 0x2D8) + *(u32*)(player_addr + 0x2DC);
-    player.thors = *(u32*)(player_addr + 0x2D0) + *(u32*)(player_addr + 0x2D4);
-    player.bricks = *(u32*)(player_addr + 0x2C0) + *(u32*)(player_addr + 0x2C4);
-    player.rockets = *(u32*)(player_addr + 0x2C8) + *(u32*)(player_addr + 0x2CC);
-    player.portals = *(u32*)(player_addr + 0x2E0) + *(u32*)(player_addr + 0x2E4);
-
+    
+    
     // remove "^" that gets placed on names when biller is down
     if (!player.name.empty() && player.name[0] == '^') {
       player.name.erase(0, 1);
@@ -181,9 +192,6 @@ void ContinuumGameProxy::FetchPlayers() {
     players_.emplace_back(player);
 
     if (player.id == player_id_) {
-      // RenderText("status  " + std::to_string((player.status)), GetWindowCenter() - Vector2f(0.0f, 60.0f),
-      // RGB(100, 100, 100), RenderText_Centered); RenderText("test  " + std::to_string(test), GetWindowCenter() -
-      // Vector2f(0.0f, 40.0f), RGB(100, 100, 100), RenderText_Centered);
       player_ = &players_.back();
       player_addr_ = player_addr;
     }
