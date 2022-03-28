@@ -46,33 +46,33 @@ AutoBot::AutoBot() : pids_() {
 };
 
 DWORD AutoBot::StartBot(std::size_t index) {
+
   DWORD pid = StartContinuum(index);
+
   if (!InjectContinuum(pid)) {
     pid = 0;
   }
+
   std::cout << "Restart successfull" << std::endl << std::endl;
+
   return pid;
 }
 
 void AutoBot::StartBot(int bots) {
 
     for (int i = 0; i < bots; i++) {
+
       DWORD pid = StartContinuum(i);
+
       if (pid == 0) {
         std::cout << "Bot failed to start, this attempt has been terminated." << std::endl;
       }
-      pids_.push_back(pid);
-      Sleep(1000);
-    }
-
-    for (std::size_t i = 0; i < pids_.size(); i++) {
-      if (pids_[i] == 0) {
-        continue;
-      }
-      if (!InjectContinuum(pids_[i])) {
-        pids_[i] = 0;
+      else if (!InjectContinuum(pid)) {
+        pid = 0;
         std::cout << "Bot failed to inject, this attempt has been terminated." << std::endl;
       }
+
+      pids_.push_back(pid);
       Sleep(1000);
     }
 }

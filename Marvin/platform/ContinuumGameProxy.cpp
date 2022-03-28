@@ -144,8 +144,6 @@ void ContinuumGameProxy::FetchPlayers() {
     // triggers if player is not moving and has no velocity, not used
     player.dead = process_.ReadU32(player_addr + kDeadOffset) == 0;
 
-    // the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
-    player.attach_id = process_.ReadU32(player_addr + 0x1C);
     // might not work on bot but works well on other players
     player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
  
@@ -153,6 +151,10 @@ void ContinuumGameProxy::FetchPlayers() {
     if (player.id == player_id_) {
 
       //these are not valid when reading on other players and will result in crashes
+
+      // the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
+      player.attach_id = process_.ReadU32(player_addr + 0x1C);
+
       player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
       player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
 
