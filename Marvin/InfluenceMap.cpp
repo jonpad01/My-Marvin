@@ -78,8 +78,8 @@ void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
     CastInfluence(game.GetMap(), player.position - side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
   }
 
-        for (i32 y = -25; y < 25; ++y) {
-            for (i32 x = -25; x < 25; ++x) {
+        for (i32 y = -50; y < 50; ++y) {
+            for (i32 x = -50; x < 50; ++x) {
                 Vector2f pos = game.GetPosition();
                 Vector2f check(std::floor(pos.x) + x, std::floor(pos.y) + y);
 

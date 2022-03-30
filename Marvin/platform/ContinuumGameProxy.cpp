@@ -478,6 +478,7 @@ const std::string ContinuumGameProxy::GetMapFile() const {
 }
 
 void ContinuumGameProxy::SetEnergy(float percent) {
+#if !DEBUG_USER_CONTROL
   const uint64_t overflow = 4294967296;
 
   double max_energy = (double)GetMaxEnergy();
@@ -488,10 +489,13 @@ void ContinuumGameProxy::SetEnergy(float percent) {
 
   process_.WriteU32(player_addr_ + 0x208, (u32)(mem_energy / 2));
   process_.WriteU32(player_addr_ + 0x20C, (u32)(mem_energy / 2));
+#endif
 }
 
 void ContinuumGameProxy::SetFreq(int freq) {
+#if !DEBUG_USER_CONTROL
   SendChatMessage("=" + std::to_string(freq));
+#endif
 }
 
 void ContinuumGameProxy::PageUp() {
@@ -518,10 +522,12 @@ void ContinuumGameProxy::F7() {
 }
 
 bool ContinuumGameProxy::SetShip(uint16_t ship) {
+
   int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
 
   bool menu_open = *menu_open_addr;
 
+#if !DEBUG_USER_CONTROL
   if (!menu_open) {
     SendKey(VK_ESCAPE);
   } else {
@@ -531,6 +537,7 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
       PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
     }
   }
+#endif
 
   return menu_open;
 }
@@ -643,6 +650,7 @@ const uint32_t ContinuumGameProxy::GetSelectedPlayerIndex() const {
 }
 
 void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
+#if !DEBUG_USER_CONTROL
   for (std::size_t i = 0; i < players_.size(); ++i) {
     const Player& player = players_[i];
 
@@ -651,6 +659,7 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
       return;
     }
   }
+  #endif
 }
 
 void ContinuumGameProxy::LogMemoryLocations() {

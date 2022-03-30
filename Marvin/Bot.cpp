@@ -996,6 +996,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.blackboard;
 
   const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
+
   if (!target_player) {
     g_RenderState.RenderDebugText("  ShootEnemyNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;

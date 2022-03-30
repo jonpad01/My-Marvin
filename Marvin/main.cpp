@@ -142,6 +142,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       if (GameLoaded()) {
         g_Enabled = true;
         g_Reload = false;
+        CreateBot();
         g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
         SafeSetWindowText(g_hWnd, kEnabledText.c_str());
       }
