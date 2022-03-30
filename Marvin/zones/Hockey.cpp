@@ -14,22 +14,9 @@
 #include "../platform/Platform.h"
 
 namespace marvin {
+namespace hz {
 
-Hockey::Hockey(std::shared_ptr<marvin::GameProxy> game)
-    : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
-  auto processor = std::make_unique<path::NodeProcessor>(*game_);
-
-  last_ship_change_ = 0;
-  ship_ = game_->GetPlayer().ship;
-
-  if (ship_ > 7) {
-    ship_ = 2;
-  }
-
-  regions_ = RegionRegistry::Create(game_->GetMap());
-
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  pathfinder_->CreateMapWeights(game_->GetMap());
+void HockeyBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto find_enemy = std::make_unique<hz::FindEnemyNode>();
   auto looking_at_enemy = std::make_unique<hz::LookingAtEnemyNode>();
@@ -58,94 +45,33 @@ Hockey::Hockey(std::shared_ptr<marvin::GameProxy> game)
 
   auto root_sequence = std::make_unique<behavior::SequenceNode>(ball_selector.get(), root_selector.get());
 
-  behavior_nodes_.push_back(std::move(find_enemy));
-  behavior_nodes_.push_back(std::move(looking_at_enemy));
-  behavior_nodes_.push_back(std::move(target_in_los));
-  behavior_nodes_.push_back(std::move(shoot_enemy));
-  behavior_nodes_.push_back(std::move(path_to_enemy));
-  behavior_nodes_.push_back(std::move(move_to_enemy));
-  behavior_nodes_.push_back(std::move(follow_path));
-  behavior_nodes_.push_back(std::move(patrol));
+  engine_->PushRoot(std::move(root_sequence));
 
-  behavior_nodes_.push_back(std::move(move_method_selector));
-  behavior_nodes_.push_back(std::move(shoot_sequence));
-  behavior_nodes_.push_back(std::move(parallel_shoot_enemy));
-  behavior_nodes_.push_back(std::move(los_shoot_conditional));
-  behavior_nodes_.push_back(std::move(enemy_path_sequence));
-  behavior_nodes_.push_back(std::move(patrol_path_sequence));
-  behavior_nodes_.push_back(std::move(path_or_shoot_selector));
-  behavior_nodes_.push_back(std::move(handle_enemy));
-  behavior_nodes_.push_back(std::move(root_selector));
-  behavior_nodes_.push_back(std::move(ball_selector));
-  behavior_nodes_.push_back(std::move(root_sequence));
+  engine_->PushNode(std::move(find_enemy));
+  engine_->PushNode(std::move(looking_at_enemy));
+  engine_->PushNode(std::move(target_in_los));
+  engine_->PushNode(std::move(shoot_enemy));
+  engine_->PushNode(std::move(path_to_enemy));
+  engine_->PushNode(std::move(move_to_enemy));
+  engine_->PushNode(std::move(follow_path));
+  engine_->PushNode(std::move(patrol));
 
-  behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
-  ctx_.hz = this;
+  engine_->PushNode(std::move(move_method_selector));
+  engine_->PushNode(std::move(shoot_sequence));
+  engine_->PushNode(std::move(parallel_shoot_enemy));
+  engine_->PushNode(std::move(los_shoot_conditional));
+  engine_->PushNode(std::move(enemy_path_sequence));
+  engine_->PushNode(std::move(patrol_path_sequence));
+  engine_->PushNode(std::move(path_or_shoot_selector));
+  engine_->PushNode(std::move(handle_enemy));
+  engine_->PushNode(std::move(root_selector));
+  engine_->PushNode(std::move(ball_selector));
+  engine_->PushNode(std::move(root_sequence));
 }
 
-void Hockey::Update(float dt) {
-  keys_.ReleaseAll();
-  game_->Update(dt);
-
-  uint64_t timestamp = time_.GetTime();
-  uint64_t ship_cooldown = 5000;
-
-  // check chat for disconected message and terminate continuum
-  std::string name = game_->GetName();
-  std::string disconnected = "WARNING: ";
-
-  for (ChatMessage chat : game_->GetChat()) {
-    if (chat.type == 0) {
-      if (chat.message.compare(0, 9, disconnected) == 0) {
-        exit(5);
-      }
-    }
-  }
-
-  // then check if specced for lag
-  if (game_->GetPlayer().ship > 7) {
-    uint64_t timestamp = time_.GetTime();
-    if (timestamp - last_ship_change_ > ship_cooldown) {
-      if (game_->SetShip(ship_)) {
-        last_ship_change_ = timestamp;
-      }
-    }
-    return;
-  }
-
-  steering_.Reset();
-
-  ctx_.dt = dt;
-
-  behavior_->Update(ctx_);
-
-#if DEBUG_RENDER
-  // RenderPath(GetGame(), behavior_ctx_.blackboard);
-#endif
-
-  steering_.Steer(false);
-}
-
-void Hockey::Move(const Vector2f& target, float target_distance) {
-  const Player& bot_player = game_->GetPlayer();
-  float distance = bot_player.position.Distance(target);
-  Vector2f heading = game_->GetPlayer().GetHeading();
-
-  if (distance > target_distance) {
-    steering_.Seek(target);
-  }
-
-  else if (distance <= target_distance) {
-    Vector2f to_target = target - bot_player.position;
-
-    steering_.Seek(target - Normalize(to_target) * target_distance);
-  }
-}
-
-namespace hz {
 
 behavior::ExecuteResult BallSelectorNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   Vector2f position = game.GetPosition();
   float closest_distance = std::numeric_limits<float>::max();
@@ -154,7 +80,7 @@ behavior::ExecuteResult BallSelectorNode::Execute(behavior::ExecuteContext& ctx)
   for (std::size_t i = 0; i < game.GetBalls().size(); i++) {
     const BallData& ball = game.GetBalls()[i];
 
-    if (!ctx.hz->GetRegions().IsConnected(position, ball.position)) {
+    if (!ctx.bot->GetRegions().IsConnected(position, ball.position)) {
       continue;
     }
 
@@ -174,11 +100,11 @@ behavior::ExecuteResult BallSelectorNode::Execute(behavior::ExecuteContext& ctx)
 behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
 
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
   float closest_cost = std::numeric_limits<float>::max();
   float cost = 0;
 
-  const Player& bot = ctx.hz->GetGame().GetPlayer();
+  const Player& bot = ctx.bot->GetGame().GetPlayer();
 
   const Player* target = nullptr;
 
@@ -221,7 +147,7 @@ float FindEnemyNode::CalculateCost(GameProxy& game, const Player& bot_player, co
 }
 
 bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
-  const auto& game = ctx.hz->GetGame();
+  const auto& game = ctx.bot->GetGame();
   const Player& bot_player = game.GetPlayer();
 
   if (!target.active) return false;
@@ -241,7 +167,7 @@ bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& t
   MapCoord bot_coord(bot_player.position);
   MapCoord target_coord(target.position);
 
-  if (!ctx.hz->GetRegions().IsConnected(bot_coord, target_coord)) {
+  if (!ctx.bot->GetRegions().IsConnected(bot_coord, target_coord)) {
     return false;
   }
 
@@ -249,19 +175,19 @@ bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& t
 }
 
 behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
   std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
   Vector2f bot = game.GetPosition();
   Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-  path = ctx.hz->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
+  path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
 
   ctx.blackboard.Set("path", path);
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
   Vector2f from = game.GetPosition();
 
   std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
@@ -289,15 +215,15 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
                     else path = CreatePath(ctx, "path", from, goal_0, game.GetShipSettings().GetRadius());
                 }
 #endif
-    path = ctx.hz->GetPathfinder().CreatePath(path, from, goal_0, game.GetShipSettings().GetRadius());
+    path = ctx.bot->GetPathfinder().CreatePath(path, from, goal_0, game.GetShipSettings().GetRadius());
 
     if (game.GetPosition().DistanceSq(goal_1) < 25.0f * 25.0f ||
         game.GetPosition().DistanceSq(goal_0) < 25.0f * 25.0f) {
-      ctx.hz->GetKeys().Press(VK_CONTROL);
+      ctx.bot->GetKeys().Press(VK_CONTROL);
     }
 
   } else
-    path = ctx.hz->GetPathfinder().CreatePath(path, from, ball->position, game.GetShipSettings().GetRadius());
+    path = ctx.bot->GetPathfinder().CreatePath(path, from, ball->position, game.GetShipSettings().GetRadius());
 
 #if 0
             std::vector<Vector2f> nodes{ Vector2f(570, 540), Vector2f(455, 540), Vector2f(455, 500), Vector2f(570, 500) };
@@ -320,7 +246,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   auto path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
 
   size_t path_size = path.size();
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   if (path.empty()) return behavior::ExecuteResult::Failure;
 
@@ -350,7 +276,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     ctx.blackboard.Set("path", path);
   }
 
-  ctx.hz->Move(current, 0.0f);
+  ctx.bot->Move(current, 0.0f);
 
   return behavior::ExecuteResult::Success;
 }
@@ -376,7 +302,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
   const auto target = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
   if (!target) return behavior::ExecuteResult::Failure;
 
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   auto to_target = target->position - game.GetPosition();
   CastResult ray_cast = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
@@ -396,7 +322,7 @@ behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ct
   }
 
   const Player& target = *target_player;
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   const Player& bot_player = game.GetPlayer();
 
@@ -474,21 +400,21 @@ bool LookingAtEnemyNode::CanShoot(const marvin::Map& map, const marvin::Player& 
 }
 
 behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-  ctx.hz->GetKeys().Press(VK_CONTROL);
+  ctx.bot->GetKeys().Press(VK_CONTROL);
 
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.hz->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   Vector2f target_position = ctx.blackboard.ValueOr("shot_position", Vector2f());
 
   float hover_distance = 1.0f;
 
-  ctx.hz->Move(target_position, hover_distance);
+  ctx.bot->Move(target_position, hover_distance);
 
-  ctx.hz->GetSteering().Face(target_position);
+  ctx.bot->GetSteering().Face(target_position);
 
   return behavior::ExecuteResult::Success;
 }

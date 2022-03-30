@@ -8,17 +8,10 @@
 #include <iostream>
 
 #include "platform/ContinuumGameProxy.h"
-//#include "GameProxy.h"
 #include "Bot.h"
 #include "Debug.h"
-#include "zones/ExtremeGames.h"
-#include "zones/GalaxySports.h"
-#include "zones/Hockey.h"
-#include "zones/PowerBall.h"
-//#include "Map.h"
-//#include "path/Pathfinder.h"
 #include "KeyController.h"
-//#include "behavior/BehaviorEngine.h"
+
 
 #define UM_SETTEXT WM_USER + 0x69
 
@@ -30,12 +23,6 @@ using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
 
 std::shared_ptr<marvin::ContinuumGameProxy> game;
-
-std::unique_ptr<marvin::ExtremeGames> eg;
-std::unique_ptr<marvin::GalaxySports> gs;
-std::unique_ptr<marvin::Hockey> hz;
-std::unique_ptr<marvin::PowerBall> pb;
-
 std::unique_ptr<marvin::Bot> bot;
 
 static bool g_Enabled = true;
@@ -86,14 +73,6 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
     }
 
     return 0;
-  } else if (eg && eg->GetKeys().IsPressed(vKey)) {
-    return (SHORT)0x8000;
-  } else if (gs && gs->GetKeys().IsPressed(vKey)) {
-    return (SHORT)0x8000;
-  } else if (hz && hz->GetKeys().IsPressed(vKey)) {
-    return (SHORT)0x8000;
-  } else if (pb && pb->GetKeys().IsPressed(vKey)) {
-    return (SHORT)0x8000;
   } else if (bot && bot->GetKeys().IsPressed(vKey)) {
     return (SHORT)0x8000;
   }
@@ -171,19 +150,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         marvin::g_RenderState.renderable_texts.clear();
         marvin::g_RenderState.renderable_lines.clear();
 #endif
-
-        if (eg) {
-          eg->Update(dt.count());
-        }
-        if (gs) {
-          gs->Update(dt.count());
-        }
-        if (hz) {
-          hz->Update(dt.count());
-        }
-        if (pb) {
-          pb->Update(dt.count());
-        }
         if (bot) {
           bot->Update(dt.count());
         }
@@ -196,38 +162,22 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     if (result && lpMsg->message == UM_SETTEXT) {
       SendMessage(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
     }
-    if (sec.count() > (float)(6.0f)) {
-      //std::vector<int> test;
-      //std::cout << test[10];
-      //test[1] = 3;
-    }
 
   return result;
 }
 
 std::string CreateBot() {
 
-     
- 
   // create pointer to game and pass the window handle
   game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
   auto game2(game);
 
   marvin::debug_log << "Starting Marvin." << std::endl;
  
+  bot = std::make_unique<marvin::Bot>(std::move(game2));
 
-  if (game->GetZone() == marvin::Zone::ExtremeGames) {
-    eg = std::make_unique<marvin::ExtremeGames>(std::move(game2));
-  } else if (game->GetZone() == marvin::Zone::GalaxySports) {
-    gs = std::make_unique<marvin::GalaxySports>(std::move(game2));
-  } else if (game->GetZone() == marvin::Zone::Hockey) {
-    hz = std::make_unique<marvin::Hockey>(std::move(game2));
-  } else if (game->GetZone() == marvin::Zone::PowerBall) {
-    pb = std::make_unique<marvin::PowerBall>(std::move(game2));
-  } else {
-    bot = std::make_unique<marvin::Bot>(std::move(game2));
-    marvin::debug_log << "Bot created" << std::endl;
-  }
+  marvin::debug_log << "Bot created" << std::endl;
+  
   return game->GetName();
 }
 

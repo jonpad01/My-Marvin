@@ -8,7 +8,7 @@
 #include "platform/Platform.h"
 
 #define DEBUG_RENDER 1
-#define DEBUG_USER_CONTROL 1
+#define DEBUG_USER_CONTROL 0
 #define DEBUG_DISABLE_BEHAVIOR 0
 
 extern HWND g_hWnd;

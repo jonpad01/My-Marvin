@@ -14,22 +14,9 @@
 #include "../platform/Platform.h"
 
 namespace marvin {
+namespace gs {
 
-GalaxySports::GalaxySports(std::shared_ptr<marvin::GameProxy> game)
-    : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
-  auto processor = std::make_unique<path::NodeProcessor>(*game_);
-
-  last_ship_change_ = 0;
-  ship_ = game_->GetPlayer().ship;
-
-  if (ship_ > 7) {
-    ship_ = 1;
-  }
-
-  regions_ = RegionRegistry::Create(game_->GetMap());
-
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  pathfinder_->CreateMapWeights(game_->GetMap());
+void GalaxySportsBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto freq_warp_attach = std::make_unique<gs::FreqWarpAttachNode>();
   auto find_enemy = std::make_unique<gs::FindEnemyNode>();
@@ -65,231 +52,39 @@ GalaxySports::GalaxySports(std::shared_ptr<marvin::GameProxy> game)
   auto root_selector =
       std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
 
-  behavior_nodes_.push_back(std::move(freq_warp_attach));
-  behavior_nodes_.push_back(std::move(find_enemy));
-  behavior_nodes_.push_back(std::move(looking_at_enemy));
-  behavior_nodes_.push_back(std::move(target_in_los));
-  behavior_nodes_.push_back(std::move(shoot_enemy));
-  behavior_nodes_.push_back(std::move(path_to_enemy));
-  behavior_nodes_.push_back(std::move(move_to_enemy));
-  behavior_nodes_.push_back(std::move(follow_path));
-  behavior_nodes_.push_back(std::move(patrol));
+  engine_->PushRoot(std::move(root_selector));
 
-  behavior_nodes_.push_back(std::move(move_method_selector));
-  behavior_nodes_.push_back(std::move(shoot_sequence));
-  behavior_nodes_.push_back(std::move(parallel_shoot_enemy));
-  behavior_nodes_.push_back(std::move(los_shoot_conditional));
-  behavior_nodes_.push_back(std::move(enemy_path_sequence));
-  behavior_nodes_.push_back(std::move(patrol_path_sequence));
-  behavior_nodes_.push_back(std::move(path_or_shoot_selector));
-  behavior_nodes_.push_back(std::move(handle_enemy));
-  behavior_nodes_.push_back(std::move(root_selector));
+  engine_->PushNode(std::move(freq_warp_attach));
+  engine_->PushNode(std::move(find_enemy));
+  engine_->PushNode(std::move(looking_at_enemy));
+  engine_->PushNode(std::move(target_in_los));
+  engine_->PushNode(std::move(shoot_enemy));
+  engine_->PushNode(std::move(path_to_enemy));
+  engine_->PushNode(std::move(move_to_enemy));
+  engine_->PushNode(std::move(follow_path));
+  engine_->PushNode(std::move(patrol));
 
-  behavior_ = std::make_unique<behavior::BehaviorEngine>(behavior_nodes_.back().get());
-  ctx_.gs = this;
+  engine_->PushNode(std::move(move_method_selector));
+  engine_->PushNode(std::move(shoot_sequence));
+  engine_->PushNode(std::move(parallel_shoot_enemy));
+  engine_->PushNode(std::move(los_shoot_conditional));
+  engine_->PushNode(std::move(enemy_path_sequence));
+  engine_->PushNode(std::move(patrol_path_sequence));
+  engine_->PushNode(std::move(path_or_shoot_selector));
+  engine_->PushNode(std::move(handle_enemy));
+  engine_->PushNode(std::move(root_selector));
+
 }
 
-void GalaxySports::Update(float dt) {
-  keys_.ReleaseAll();
-  game_->Update(dt);
 
-  uint64_t timestamp = time_.GetTime();
-  uint64_t ship_cooldown = 10000;
 
-  // check chat for disconected message and terminate continuum
-  std::string name = game_->GetName();
-  std::string disconnected = "WARNING: ";
-
-  for (ChatMessage chat : game_->GetChat()) {
-    if (chat.type == 0) {
-      if (chat.message.compare(0, 9, disconnected) == 0) {
-        exit(5);
-      }
-    }
-  }
-
-  // then check if specced for lag
-  if (game_->GetPlayer().ship > 7) {
-    uint64_t timestamp = time_.GetTime();
-    if (timestamp - last_ship_change_ > ship_cooldown) {
-      if (game_->SetShip(ship_)) {
-        last_ship_change_ = timestamp;
-      }
-    }
-    return;
-  }
-
-  steering_.Reset();
-
-  ctx_.dt = dt;
-
-  behavior_->Update(ctx_);
-
-#if DEBUG_RENDER
-  // RenderPath(GetGame(), behavior_ctx_.blackboard);
-#endif
-
-  Steer();
-}
-
-void GalaxySports::Steer() {
-  Vector2f center = GetWindowCenter();
-  float debug_y = 100.0f;
-  Vector2f force = steering_.GetSteering();
-  float rotation = steering_.GetRotation();
-  // RenderText("force" + std::to_string(force.Length()), center - Vector2f(0, debug_y), TextColor::White,
-  // RenderText_Centered);
-  Vector2f heading = game_->GetPlayer().GetHeading();
-  // Start out by trying to move in the direction that the bot is facing.
-  Vector2f steering_direction = heading;
-
-  bool has_force = force.LengthSq() > 0.0f;
-
-  // If the steering system calculated any movement force, then set the movement
-  // direction to it.
-  if (has_force) {
-    steering_direction = marvin::Normalize(force);
-  }
-
-  // Rotate toward the movement direction.
-  Vector2f rotate_target = steering_direction;
-
-  // If the steering system calculated any rotation then rotate from the heading
-  // to desired orientation.
-  if (rotation != 0.0f) {
-    rotate_target = Rotate(heading, -rotation);
-  }
-
-  if (!has_force) {
-    steering_direction = rotate_target;
-  }
-  Vector2f perp = marvin::Perpendicular(heading);
-  bool behind = force.Dot(heading) < 0;
-  // This is whether or not the steering direction is pointing to the left of
-  // the ship.
-  bool leftside = steering_direction.Dot(perp) < 0;
-
-  // Cap the steering direction so it's pointing toward the rotate target.
-  if (steering_direction.Dot(rotate_target) < 0.75) {
-    // RenderText("adjusting", center - Vector2f(0, debug_y), RGB(100, 100, 100), RenderText_Centered);
-    // debug_y -= 20;
-    float rotation = 0.1f;
-    int sign = leftside ? 1 : -1;
-    if (behind) sign *= -1;
-
-    // Pick the side of the rotate target that is closest to the force
-    // direction.
-    steering_direction = Rotate(rotate_target, rotation * sign);
-
-    leftside = steering_direction.Dot(perp) < 0;
-  }
-
-  bool clockwise = !leftside;
-
-  if (has_force) {
-    // allow bot to use afterburners, force returns high numbers in the hypertunnel so cap it
-    bool strong_force = force.Length() > 18.0f && force.Length() < 1000.0f;
-    // dont press shift if the bot is trying to shoot
-    bool shooting = keys_.IsPressed(VK_CONTROL) || keys_.IsPressed(VK_TAB);
-
-    if (behind) {
-      keys_.Press(VK_DOWN);
-    } else {
-      keys_.Press(VK_UP);
-    }
-
-    if (strong_force && !shooting) {
-      keys_.Press(VK_SHIFT);
-    }
-  }
-
-  if (heading.Dot(steering_direction) < 0.996f) {  // 1.0f
-
-    if (clockwise) {
-      keys_.Press(VK_RIGHT);
-    } else {
-      keys_.Press(VK_LEFT);
-    }
-
-    // ensure that only one arrow key is pressed at any given time
-    // keys_.Set(VK_RIGHT, clockwise, GetTime());
-    // keys_.Set(VK_LEFT, !clockwise, GetTime());
-  }
-
-#ifdef DEBUG_RENDER
-
-  if (has_force) {
-    Vector2f force_direction = Normalize(force);
-    float force_percent = force.Length() / (GetGame().GetShipSettings().MaximumSpeed / 16.0f / 16.0f);
-    RenderLine(center, center + (force_direction * 100 * force_percent), RGB(255, 255, 0));  // yellow
-  }
-
-  RenderLine(center, center + (heading * 100), RGB(255, 0, 0));            // red
-  RenderLine(center, center + (perp * 100), RGB(100, 0, 100));             // purple
-  RenderLine(center, center + (rotate_target * 85), RGB(0, 0, 255));       // blue
-  RenderLine(center, center + (steering_direction * 75), RGB(0, 255, 0));  // green
-  /*
-  if (rotation == 0.0f) {
-      RenderText("no rotation", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-          RenderText_Centered);
-      debug_y -= 20;
-  }
-  else {
-      std::string text = "rotation: " + std::to_string(rotation);
-      RenderText(text.c_str(), center - Vector2f(0, debug_y), RGB(100, 100, 100),
-          RenderText_Centered);
-      debug_y -= 20;
-  }
-
-  if (behind) {
-      RenderText("behind", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-          RenderText_Centered);
-      debug_y -= 20;
-  }
-
-  if (leftside) {
-      RenderText("leftside", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-          RenderText_Centered);
-      debug_y -= 20;
-  }
-
-  if (rotation != 0.0f) {
-      RenderText("face-locked", center - Vector2f(0, debug_y), RGB(100, 100, 100),
-          RenderText_Centered);
-      debug_y -= 20;
-  }
-  */
-
-#endif
-}
-
-void GalaxySports::Move(const Vector2f& target, float target_distance) {
-  const Player& bot_player = game_->GetPlayer();
-  float distance = bot_player.position.Distance(target);
-  Vector2f heading = game_->GetPlayer().GetHeading();
-
-  Vector2f target_position = ctx_.blackboard.ValueOr("target_position", Vector2f());
-  float dot = heading.Dot(Normalize(target_position - game_->GetPosition()));
-
-  if (distance > target_distance) {
-    steering_.Seek(target);
-  }
-
-  else if (distance <= target_distance) {
-    Vector2f to_target = target - bot_player.position;
-
-    steering_.Seek(target - Normalize(to_target) * target_distance);
-  }
-}
-
-namespace gs {
 
 behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
 
-  uint64_t time = ctx.gs->GetTime().GetTime();
+  uint64_t time = ctx.bot->GetTime().GetTime();
 
-  bool in_warp = ctx.gs->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(7, 7));
+  bool in_warp = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(7, 7));
 
   // some stuff to make bot wait for the warp after respawning
   uint64_t death_check = ctx.blackboard.ValueOr<uint64_t>("DeathWait", 0);
@@ -343,11 +138,11 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
 }
 
 bool FreqWarpAttachNode::CheckStatus(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
   float energy_pct = (game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy) * 100.0f;
   bool result = false;
   if ((game.GetPlayer().status & 2) != 0) {
-    game.Cloak(ctx.gs->GetKeys());
+    game.Cloak(ctx.bot->GetKeys());
     return false;
   }
   if ((game.GetPlayer().status & 1) != 0) {
@@ -363,10 +158,10 @@ behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
   float closest_cost = std::numeric_limits<float>::max();
   float cost = 0;
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
   std::vector<Player> players = game.GetPlayers();
   const Player* target = nullptr;
-  const Player& bot = ctx.gs->GetGame().GetPlayer();
+  const Player& bot = ctx.bot->GetGame().GetPlayer();
 
   Vector2f position = game.GetPosition();
   Vector2f resolution(1920, 1080);
@@ -431,7 +226,7 @@ float FindEnemyNode::CalculateCost(GameProxy& game, const Player& bot_player, co
 }
 
 bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& target) {
-  const auto& game = ctx.gs->GetGame();
+  const auto& game = ctx.bot->GetGame();
   const Player& bot_player = game.GetPlayer();
 
   if (!target.active) return false;
@@ -451,7 +246,7 @@ bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& t
   MapCoord bot_coord(bot_player.position);
   MapCoord target_coord(target.position);
 
-  if (!ctx.gs->GetRegions().IsConnected(bot_coord, target_coord)) {
+  if (!ctx.bot->GetRegions().IsConnected(bot_coord, target_coord)) {
     return false;
   }
   // TODO: check if player is cloaking and outside radar range
@@ -472,25 +267,25 @@ bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& t
 }
 
 behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
   std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
   Vector2f bot = game.GetPosition();
   Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-  path = ctx.gs->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
+  path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
 
   ctx.blackboard.Set("path", path);
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
   Vector2f from = game.GetPosition();
   std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
 
   std::vector<Vector2f> nodes;
-  bool in_spawn = ctx.gs->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(62, 62));
-  bool in_free_mode = ctx.gs->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(193, 80));
+  bool in_spawn = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(62, 62));
+  bool in_free_mode = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(193, 80));
   int index = ctx.blackboard.ValueOr<int>("patrol_index", 0);
 
   // if bot is in spawn move to warp gate
@@ -510,7 +305,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
     to = nodes.at(index);
   }
 
-  path = ctx.gs->GetPathfinder().CreatePath(path, from, to, game.GetShipSettings().GetRadius());
+  path = ctx.bot->GetPathfinder().CreatePath(path, from, to, game.GetShipSettings().GetRadius());
   ctx.blackboard.Set("path", path);
 
   return behavior::ExecuteResult::Success;
@@ -520,7 +315,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   auto path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
 
   size_t path_size = path.size();
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   if (path.empty()) return behavior::ExecuteResult::Failure;
 
@@ -550,7 +345,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     ctx.blackboard.Set("path", path);
   }
 
-  ctx.gs->Move(current, 0.0f);
+  ctx.bot->Move(current, 0.0f);
 
   return behavior::ExecuteResult::Success;
 }
@@ -576,7 +371,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
 
   if (target == nullptr) return behavior::ExecuteResult::Failure;
 
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   auto to_target = *target - game.GetPosition();
   CastResult ray_cast = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
@@ -596,7 +391,7 @@ behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ct
   }
 
   const Player& target = *target_player;
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   const Player& bot_player = game.GetPlayer();
 
@@ -674,13 +469,13 @@ bool LookingAtEnemyNode::CanShoot(const marvin::Map& map, const marvin::Player& 
 }
 
 behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-  ctx.gs->GetKeys().Press(VK_CONTROL);
+  ctx.bot->GetKeys().Press(VK_CONTROL);
 
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.gs->GetGame();
+  auto& game = ctx.bot->GetGame();
 
   float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().InitialEnergy;
 
@@ -696,7 +491,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
     if (weapon_player->frequency == game.GetPlayer().frequency) continue;
     if (weapon->IsMine()) mine_position = (weapon->GetPosition());
     if (mine_position.Distance(game.GetPosition()) < 5.0f) {
-      game.Repel(ctx.gs->GetKeys());
+      game.Repel(ctx.bot->GetKeys());
     }
   }
   //#endif
@@ -709,9 +504,9 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   if (hover_distance < 0.0f) hover_distance = 0.0f;
   const Player& shooter = *ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
 
-  ctx.gs->Move(target_position, hover_distance);
+  ctx.bot->Move(target_position, hover_distance);
 
-  ctx.gs->GetSteering().Face(target_position);
+  ctx.bot->GetSteering().Face(target_position);
 
   return behavior::ExecuteResult::Success;
 }

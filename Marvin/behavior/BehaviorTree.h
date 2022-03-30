@@ -11,12 +11,6 @@ namespace marvin {
 
 class Bot;
 
-class ExtremeGames;
-class GalaxySports;
-class Hockey;
-
-class PowerBall;
-
 namespace behavior {
 
 enum class ExecuteResult { Success, Failure, Running };
@@ -26,12 +20,8 @@ struct ExecuteContext {
 
   Bot* bot;
 
-  ExtremeGames* eg;
-  GalaxySports* gs;
-  Hockey* hz;
-  PowerBall* pb;
   float dt;
-  ExecuteContext() : bot(nullptr), eg(nullptr), gs(nullptr), hz(nullptr), pb(nullptr), dt(0) {}
+  ExecuteContext() : bot(nullptr), dt(0) {}
 };
 
 class BehaviorNode {

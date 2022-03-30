@@ -12,8 +12,13 @@
 #include "Shooter.h"
 #include "platform/ContinuumGameProxy.h"
 #include "platform/Platform.h"
+
 #include "zones/Devastation.h"
+#include "zones/ExtremeGames.h"
+#include "zones/GalaxySports.h"
+#include "zones/Hockey.h"
 #include "zones/Hyperspace.h"
+#include "zones/PowerBall.h"
 
 namespace marvin {
 
@@ -70,8 +75,20 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string na
         builder = std::make_unique<deva::DevastationBehaviorBuilder>();
       }
     } break;
+    case Zone::ExtremeGames: {
+      builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
+    } break;
+    case Zone::GalaxySports: {
+      builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
+    } break;
+    case Zone::Hockey: {
+      builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+    } break;
     case Zone::Hyperspace: {
       builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+    } break;
+    case Zone::PowerBall: {
+      builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
     } break;
     default: {
       builder = std::make_unique<DefaultBehaviorBuilder>();
@@ -252,6 +269,61 @@ void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::
   }
 
   g_RenderState.RenderDebugText("CreateBasePaths: %llu", timer.GetElapsedTime());
+}
+
+void Bot::FindPowerBallGoal() {
+  powerball_goal_;
+  powerball_goal_path_;
+
+  float closest_distance = std::numeric_limits<float>::max();
+  int alive_time = game_->GetSettings().BombAliveTime;
+
+  // player is in original
+  if (game_->GetMapFile() == "powerlg.lvl") {
+    if (game_->GetPlayer().frequency == 00) {
+      powerball_goal_ = Vector2f(945, 512);
+
+      std::vector<Vector2f> goal1_paths{Vector2f(945, 495), Vector2f(926, 512), Vector2f(962, 511), Vector2f(944, 528)};
+
+      for (std::size_t i = 0; i < goal1_paths.size(); i++) {
+        float distance = goal1_paths[i].Distance(game_->GetPosition());
+        if (distance < closest_distance) {
+          powerball_goal_path_ = goal1_paths[i];
+          closest_distance = distance;
+        }
+      }
+    } else {
+      powerball_goal_ = Vector2f(72, 510);
+
+      std::vector<Vector2f> goal0_paths{Vector2f(89, 510), Vector2f(72, 526), Vector2f(55, 509), Vector2f(73, 492)};
+
+      for (std::size_t i = 0; i < goal0_paths.size(); i++) {
+        float distance = goal0_paths[i].Distance(game_->GetPosition());
+        if (distance < closest_distance) {
+          powerball_goal_path_ = goal0_paths[i];
+          closest_distance = distance;
+        }
+      }
+    }
+  }
+  // player is in pub
+  else if (game_->GetMapFile() == "combo_pub.lvl") {
+    std::vector<Vector2f> arenas{Vector2f(512, 133), Vector2f(512, 224), Vector2f(512, 504), Vector2f(512, 775)};
+    std::vector<Vector2f> goal_0{Vector2f(484, 137), Vector2f(398, 263), Vector2f(326, 512), Vector2f(435, 780)};
+    std::vector<Vector2f> goal_1{Vector2f(540, 137), Vector2f(625, 263), Vector2f(697, 512), Vector2f(587, 780)};
+
+    for (std::size_t i = 0; i < arenas.size(); i++) {
+      if (GetRegions().IsConnected((MapCoord)game_->GetPosition(), arenas[i])) {
+        if (game_->GetPlayer().frequency == 00) {
+          powerball_goal_ = goal_1[i];
+          powerball_goal_path_ = powerball_goal_;
+        } else {
+          powerball_goal_ = goal_0[i];
+          powerball_goal_path_ = powerball_goal_;
+        }
+      }
+    }
+  }
 }
 
 bool Bot::MaxEnergyCheck() {

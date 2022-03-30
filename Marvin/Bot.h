@@ -19,8 +19,6 @@ namespace marvin {
 
 using Path = std::vector<Vector2f>;
 
-//extern std::ofstream debug_log;
-
 class GameProxy;
 struct Player;
 
@@ -35,9 +33,7 @@ class Bot {
   KeyController& GetKeys() { return keys_; }
   GameProxy& GetGame() { return *game_; }
   Time& GetTime() { return time_; }
-
-  void Move(const Vector2f& target, float target_distance);
-
+  behavior::Blackboard& GetBlackboard() { return ctx_.blackboard; }
   behavior::ExecuteContext& GetExecuteContext() { return ctx_; }
   path::Pathfinder& GetPathfinder() { return *pathfinder_; }
   const RegionRegistry& GetRegions() const { return *regions_; }
@@ -52,16 +48,22 @@ class Bot {
     return base_paths_;
   }
 
+  void Move(const Vector2f& target, float target_distance);
+
   bool MaxEnergyCheck();
 
   void CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::vector<Vector2f>& end_vector,
                        float radius);
+  void FindPowerBallGoal();
 
  private:
   void SetZoneVariables();
 
   std::vector<std::vector<Vector2f>> base_paths_;
   std::vector<std::vector<Vector2f>> base_holes_;
+  Vector2f powerball_goal_;
+  Vector2f powerball_goal_path_;
+  std::string powerball_arena_;
 
   std::shared_ptr<GameProxy> game_;
   std::unique_ptr<path::Pathfinder> pathfinder_;
