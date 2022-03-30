@@ -81,7 +81,7 @@ void AutoBot::StartBot(int bots) {
 
 
 
-// if anything goes wrong, toss the attempt and return 0
+// if anything goes wrong, toss the attempt and return 0 (invalid pid)
 
 DWORD AutoBot::StartContinuum(std::size_t index) {
   DWORD pid;

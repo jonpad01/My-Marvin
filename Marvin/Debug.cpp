@@ -19,7 +19,7 @@ std::ofstream memory_log;
 const bool RenderState::kDisplayDebugText = false;
 
 #if DEBUG_RENDER
-
+//bot crashes when screen moves to bottom edge
 void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to, COLORREF color) {
   Vector2f center = GetWindowCenter();
 
@@ -28,6 +28,16 @@ void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f
   to = from + (diff * 16.0f);
 
   RenderLine(center + from, center + to, color);
+}
+
+void RenderLine(Vector2f from, Vector2f to, COLORREF color) {
+  RenderableLine renderable;
+
+  renderable.from = from;
+  renderable.to = to;
+  renderable.color = color;
+
+  g_RenderState.renderable_lines.push_back(renderable);
 }
 
 void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
@@ -109,48 +119,18 @@ void RenderState::RenderDebugText(const char* fmt, ...) {
   debug_y += 12.0f;
 }
 
-void RenderLine(Vector2f from, Vector2f to, COLORREF color) {
-  RenderableLine renderable;
-
-  // MoveToEx(hdc, (int)from.x, (int)from.y, NULL);
-  // LineTo(hdc, (int)to.x, (int)to.y);
-
-  renderable.from = from;
-  renderable.to = to;
-  renderable.color = color;
-
-  // ReleaseDC(g_hWnd, hdc);
-  g_RenderState.renderable_lines.push_back(renderable);
-}
-
-// void RenderText(std::string text, Vector2f at, COLORREF color, int flags) {
-
-// HDC hdc = GetDC(g_hWnd);
-
-// HGDIOBJ obj = SelectObject(hdc, GetStockObject(DC_BRUSH));
-
 void RenderText(std::string text, Vector2f at, TextColor color, int flags) {
   RenderableText renderable;
-
-  // SetDCBrushColor(hdc, color);
 
   renderable.text = std::string(text);
   renderable.at = at;
   renderable.color = color;
   renderable.flags = flags;
 
-  //   SetBkColor(hdc, RGB(0, 0, 0));
-  //   SetTextColor(hdc, RGB(255, 255, 255));
-  //   if (flags & RenderText_Centered) {
-  //       SetTextAlign(hdc, TA_CENTER);
-  //   }
-  //   TextOutA(hdc, (int)at.x, (int)at.y, text.c_str(), text.size());
-
-  //   ReleaseDC(g_hWnd, hdc);
   g_RenderState.renderable_texts.push_back(std::move(renderable));
 }
 
-void RenderPath(Vector2f position, std::vector<Vector2f> path) {
+void RenderPlayerPath(Vector2f position, std::vector<Vector2f> path) {
   if (path.empty()) return;
 
   for (std::size_t i = 0; i < path.size() - 1; ++i) {
@@ -165,9 +145,16 @@ void RenderPath(Vector2f position, std::vector<Vector2f> path) {
   }
 }
 
-// void WaitForSync() {
-// DwmFlush();
-// }
+void RenderPath(Vector2f position, std::vector<Vector2f> path) {
+  if (path.empty()) return;
+
+  for (std::size_t i = 0; i < path.size() - 1; ++i) {
+    Vector2f current = path[i];
+    Vector2f next = path[i + 1];
+
+    RenderWorldLine(position, current, next, RGB(100, 0, 0));
+  }
+}
 
 #else
 

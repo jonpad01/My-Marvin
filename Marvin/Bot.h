@@ -48,6 +48,9 @@ class Bot {
   const std::vector<Vector2f>& GetBasePath() {
      return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
   }
+  const std::vector<std::vector<Vector2f>>& GetBasePaths() {
+    return base_paths_;
+  }
 
   bool MaxEnergyCheck();
 

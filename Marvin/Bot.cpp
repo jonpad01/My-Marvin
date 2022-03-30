@@ -124,18 +124,7 @@ void Bot::Update(float dt) {
   g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
   steering_.Reset();
-#if 0
-        Vector2f sDirection = game_->GetPlayer().MultiFireDirection(game_->GetShipSettings().MultiFireAngle, true);
-        CastResult line = RayCast(game_->GetMap(), game_->GetPosition(), sDirection, 1000.0f);
-        RenderWorldLine(game_->GetPosition(), game_->GetPosition(), line.position, RGB(100, 0, 0));      
-       // sDirection = sDirection - (line.normal * (2.0f * sDirection.Dot(line.normal)));      
-       // CastResult nextline = RayCast(game_->GetMap(), line.position, sDirection, 1000.0f);
-       // RenderWorldLine(game_->GetPosition(), line.position, nextline.position, RGB(100, 0, 0));
-#endif
-  // RenderPath(game_->GetPosition(), GetBasePath());
-  // RenderText(std::to_string((game_->GetPlayer().multifire_capable)), GetWindowCenter() - Vector2f(0, 40),
-  // TextColor::White, RenderText_Centered); RenderText(std::to_string((game_->GetPlayer().multifire_status)),
-  // GetWindowCenter() - Vector2f(0, 60), TextColor::White, RenderText_Centered);
+
   ctx_.dt = dt;
 
   if (game_->GetZone() == Zone::Devastation) {
@@ -154,11 +143,11 @@ void Bot::Update(float dt) {
     g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());
   }
 
-#if !DEBUG_NO_BEHAVIOR
+
   behavior_->Update(ctx_);
 
   g_RenderState.RenderDebugText("Behavior: %llu", timer.GetElapsedTime());
-#endif
+
 
   //#if 0 // Test wall avoidance. This should be moved somewhere in the behavior tree
   std::vector<Vector2f> path = ctx_.blackboard.ValueOr<std::vector<Vector2f>>("Path", std::vector<Vector2f>());
@@ -169,13 +158,11 @@ void Bot::Update(float dt) {
     steering_.AvoidWalls(kMaxAvoidDistance);
   }
   //#endif
+
   if (game_->GetPlayer().ship != 8) {
     steering_.Steer(ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
     ctx_.blackboard.Set<bool>("SteerBackwards", false);
   }
-#if DEBUG_RENDER
-  // RenderPath(game_->GetPosition(), base_paths_[ctx_.blackboard.GetRegionIndex()]);
-#endif
 
   g_RenderState.RenderDebugText("Steering: %llu", timer.GetElapsedTime());
 }
@@ -1079,7 +1066,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
         bb.Set<Vector2f>("Solution", solution);
       }
 
-#if DEBUG_RENDER_AIMING
+
       float bullet_travel = (weapon_velocity * alive_time).Length();
 
       RenderWorldLine(bot.position, bot.position, solution, RGB(100, 0, 0));
@@ -1088,7 +1075,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
       RenderWorldLine(bot.position, bot.position, bot.position + Normalize(weapon_velocity) * bullet_travel,
                       onBomb ? RGB(0, 0, 100) : RGB(0, 100, 100));
-#endif
+
 
       // Use target position in the distance calculation instead of solution so it will still aim at them while they are
       // moving away
@@ -1120,9 +1107,9 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
           }
         }
 
-#if DEBUG_RENDER_AIMING
+
         RenderWorldBox(bot.position, bBox_min, bBox_min + box_extent, RGB(0, 255, 0));
-#endif
+
 
         if (RayBoxIntersect(bot.position, Normalize(weapon_velocity), bBox_min, box_extent, &dist, &norm)) {
           ctx.bot->GetKeys().Press(weapon_key);

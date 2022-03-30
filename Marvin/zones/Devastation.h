@@ -23,6 +23,13 @@ class DevastationBehaviorBuilder : public BehaviorBuilder {
   void CreateBehavior(Bot& bot);
 };
 
+class DevaDebugNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+};
+
 // base 8 was reversed in the ini file (vector 7)
 class DevaSetRegionNode : public behavior::BehaviorNode {
  public:

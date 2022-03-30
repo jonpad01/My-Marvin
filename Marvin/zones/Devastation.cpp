@@ -105,6 +105,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   BaseSpawns spawn;
   bot.CreateBasePaths(spawn.t0, spawn.t1, bot.GetGame().GetSettings().ShipSettings[1].GetRadius() + 0.5f);
 
+  auto DEVA_debug = std::make_unique<deva::DevaDebugNode>();
   auto is_anchor = std::make_unique<bot::IsAnchorNode>();
   auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
   auto DEVA_repel_enemy = std::make_unique<deva::DevaRepelEnemyNode>();
@@ -161,7 +162,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), team_sort.get(),
+      DEVA_debug.get(), commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), team_sort.get(),
       DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check_.get(),
       DEVA_toggle_status.get(), action_selector.get());
 
@@ -200,7 +201,29 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(DEVA_freqman));
   engine_->PushNode(std::move(team_sort));
   engine_->PushNode(std::move(DEVA_set_region));
+  engine_->PushNode(std::move(DEVA_debug));
   engine_->PushNode(std::move(action_selector));
+}
+
+behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
+  #if DEBUG_RENDER
+
+  auto& game = ctx.bot->GetGame();
+  Vector2f position = game.GetPosition();
+  std::vector<std::vector<Vector2f>> base_paths = ctx.bot->GetBasePaths();
+
+  for (Path path : base_paths) {
+    if (!path.empty()) {
+      RenderPath(position, path);
+    }
+  }
+
+  #endif
+
+  #if DEBUG_DISABLE_BEHAVIOR
+    return behavior::ExecuteResult::Failure;
+  #endif
+    return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {

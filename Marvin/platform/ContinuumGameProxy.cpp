@@ -583,11 +583,14 @@ ExeProcess& ContinuumGameProxy::GetProcess() {
 }
 
 void ContinuumGameProxy::SendKey(int vKey) {
+#if !DEBUG_USER_CONTROL
   PostMessage(hwnd_, WM_KEYDOWN, (WPARAM)vKey, 0);
   PostMessage(hwnd_, WM_KEYUP, (WPARAM)vKey, 0);
+#endif
 }
 
 void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
+#if !DEBUG_USER_CONTROL
   typedef void(__fastcall * ChatSendFunction)(void* This, void* thiscall_garbage, char* msg, u32* unknown1,
                                               u32* unknown2);
 
@@ -610,6 +613,7 @@ void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
 
   // Clear the text buffer after sending the message
   input[0] = 0;
+#endif
 }
 
 void ContinuumGameProxy::SendPrivateMessage(const std::string& target, const std::string& mesg) const {

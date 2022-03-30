@@ -9,9 +9,7 @@
 
 #define DEBUG_RENDER 0
 #define DEBUG_USER_CONTROL 0
-#define DEBUG_NO_BEHAVIOR 0
-#define DEBUG_NO_ARROWS 0
-#define DEBUG_RENDER_AIMING 0
+#define DEBUG_DISABLE_BEHAVIOR 0
 
 extern HWND g_hWnd;
 
@@ -60,8 +58,9 @@ void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text
 void RenderLine(Vector2f from, Vector2f to, COLORREF color);
 // void RenderText(std::string text, Vector2f at, COLORREF color, int flags = 0);
 void RenderText(std::string, Vector2f at, TextColor color, int flags = 0);
+void RenderPlayerPath(Vector2f position, std::vector<Vector2f> path);
 void RenderPath(Vector2f position, std::vector<Vector2f> path);
-// void WaitForSync();
+    // void WaitForSync();
 
 Vector2f GetWindowCenter();
 

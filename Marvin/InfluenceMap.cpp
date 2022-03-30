@@ -60,7 +60,7 @@ void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
     CastInfluence(game.GetMap(), weapon->GetPosition() - side, Normalize(weapon->GetVelocity()), kInfluenceLength,
                   kInfluenceValue);
   }
-  //#if 0
+
   for (std::size_t i = 0; i < enemy_list.size(); i++) {
     const Player& player = enemy_list[i];
 
@@ -77,13 +77,24 @@ void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
     CastInfluence(game.GetMap(), player.position + side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
     CastInfluence(game.GetMap(), player.position - side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
   }
-//#endif
-#if 0
+
         for (i32 y = -25; y < 25; ++y) {
             for (i32 x = -25; x < 25; ++x) {
                 Vector2f pos = game.GetPosition();
                 Vector2f check(std::floor(pos.x) + x, std::floor(pos.y) + y);
 
+                if (check.x > 1023.0f) {
+                  check.x = 1023.0f;
+                }
+                if (check.x < 1.0f) {
+                  check.x = 1.0f;
+                }
+                if (check.y > 1023.0f) {
+                  check.y = 1023.0f;
+                }
+                if (check.y < 1.0f) {
+                  check.y = 1.0f;
+                }
                 float value = GetValue(check);
 
                 if (value >= 0.1f) {
@@ -93,7 +104,6 @@ void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
                 }
             }
         }
-#endif
 }
 
 void InfluenceMap::CastInfluence(const Map& map, const Vector2f& from, const Vector2f& direction, float max_length,
