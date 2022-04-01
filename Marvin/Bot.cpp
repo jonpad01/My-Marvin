@@ -20,6 +20,8 @@
 #include "zones/Hyperspace.h"
 #include "zones/PowerBall.h"
 
+#define NEW_MAP_DETECTED 0
+
 namespace marvin {
 
 class DefaultBehaviorBuilder : public BehaviorBuilder {
@@ -99,10 +101,10 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string na
 }
 
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
-  LoadBotConstuctor();
+  LoadBot();
 }
 
-void Bot::LoadBotConstuctor() {
+void Bot::LoadBot() {
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
   marvin::debug_log << "proccessor created" << std::endl;
 
@@ -113,14 +115,10 @@ void Bot::LoadBotConstuctor() {
   pathfinder_->CreateMapWeights(game_->GetMap());
   marvin::debug_log << "pathfinder created" << std::endl;
 
-  SetZoneVariables();
-  marvin::debug_log << "zone variables created" << std::endl;
-
   Zone zone = game_->GetZone();
   marvin::debug_log << "Zone " << game_->GetMapFile() << " found" << std::endl;
   auto builder = CreateBehaviorBuilder(zone, game_->GetPlayer().name);
 
-  // ctx_.blackboard.Set<int>("Ship", game_->GetPlayer().ship);
   ctx_.bot = this;
 
   this->behavior_ = builder->Build(*this);
@@ -133,8 +131,8 @@ void Bot::Update(float dt) {
 
   PerformanceTimer timer;
 
-  if (!game_->Update(dt)) {
-    LoadBotConstuctor();
+  if (game_->Update(dt) == NEW_MAP_DETECTED) {
+    LoadBot();
     return;
   }
 
@@ -343,51 +341,6 @@ bool Bot::MaxEnergyCheck() {
     result = false;
   }
   return result;
-}
-
-void Bot::SetZoneVariables() {
-  uint16_t pubteam0 = 00;
-  uint16_t pubteam1 = 01;
-
-  Vector2f spawn(512, 512);
-
-  marvin::debug_log << "player ship " << game_->GetPlayer().ship << " found" << std::endl;
-  uint16_t ship = game_->GetPlayer().ship;
-  bool specced = game_->GetPlayer().ship == 8;
-
-  if (game_->GetZone() == Zone::Devastation) {
-    marvin::debug_log << "player name " << game_->GetPlayer().name << " found" << std::endl;
-    std::string name = Lowercase(game_->GetPlayer().name);
-    if (name == "lilmarv" && specced) {
-      ship = 1;
-    }
-
-    std::vector<Vector2f> nodes = {Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454),
-                                   Vector2f(568, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568),
-                                   Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454)};
-
-    ctx_.blackboard.Set<std::vector<Vector2f>>("PatrolNodes", nodes);
-  }
-
-  if (game_->GetZone() == Zone::ExtremeGames) {
-    if (specced) {
-      ship = 2;
-    }
-  }
-
-  if (game_->GetZone() == Zone::Hyperspace) {
-    pubteam0 = 90;
-    pubteam1 = 91;
-
-    ctx_.blackboard.Set<std::vector<Vector2f>>("PatrolNodes",
-                                               std::vector<Vector2f>({Vector2f(585, 540), Vector2f(400, 570)}));
-  }
-
-  ctx_.blackboard.Set<uint16_t>("Freq", 999);
-  ctx_.blackboard.Set<uint16_t>("PubTeam0", pubteam0);
-  ctx_.blackboard.Set<uint16_t>("PubTeam1", pubteam1);
-  ctx_.blackboard.Set<uint16_t>("Ship", ship);
-  ctx_.blackboard.Set<Vector2f>("Spawn", spawn);
 }
 
 namespace bot {

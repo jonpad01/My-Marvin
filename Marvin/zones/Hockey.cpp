@@ -66,7 +66,6 @@ void HockeyBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(handle_enemy));
   engine_->PushNode(std::move(root_selector));
   engine_->PushNode(std::move(ball_selector));
-  engine_->PushNode(std::move(root_sequence));
 }
 
 

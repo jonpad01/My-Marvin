@@ -72,8 +72,6 @@ void GalaxySportsBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(patrol_path_sequence));
   engine_->PushNode(std::move(path_or_shoot_selector));
   engine_->PushNode(std::move(handle_enemy));
-  engine_->PushNode(std::move(root_selector));
-
 }
 
 

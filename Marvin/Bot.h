@@ -26,8 +26,7 @@ class Bot {
  public:
   Bot(std::shared_ptr<GameProxy> game);
 
-  void LoadBotConstuctor();
-
+  void LoadBot();
   void Update(float dt);
 
   KeyController& GetKeys() { return keys_; }
@@ -57,7 +56,6 @@ class Bot {
   void FindPowerBallGoal();
 
  private:
-  void SetZoneVariables();
 
   std::vector<std::vector<Vector2f>> base_paths_;
   std::vector<std::vector<Vector2f>> base_holes_;

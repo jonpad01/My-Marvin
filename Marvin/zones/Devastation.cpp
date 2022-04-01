@@ -105,6 +105,26 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   BaseSpawns spawn;
   bot.CreateBasePaths(spawn.t0, spawn.t1, bot.GetGame().GetSettings().ShipSettings[1].GetRadius() + 0.5f);
 
+  std::string name = Lowercase(bot.GetGame().GetPlayer().name);
+  uint16_t ship = bot.GetGame().GetPlayer().ship;
+
+    if (name == "lilmarv" && ship == 8) {
+      ship = 1;
+    }
+
+    std::vector<Vector2f> patrol_nodes = {Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454),
+                                   Vector2f(568, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568),
+                                   Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454)};
+
+    bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
+    bot.GetBlackboard().Set<uint16_t>("Freq", 999);
+    bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
+    bot.GetBlackboard().Set<uint16_t>("PubTeam1", 01);
+    bot.GetBlackboard().Set<uint16_t>("Ship", ship);
+    bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
+  
+  
+
   auto DEVA_debug = std::make_unique<deva::DevaDebugNode>();
   auto is_anchor = std::make_unique<bot::IsAnchorNode>();
   auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();

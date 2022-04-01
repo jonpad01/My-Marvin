@@ -24,7 +24,20 @@ std::vector<Vector2f> kFlagRooms = {Vector2f(826, 229), Vector2f(834, 540), Vect
                                     Vector2f(292, 812), Vector2f(159, 571), Vector2f(205, 204)};
 
 void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
+
   bot.CreateBasePaths(kBaseEntrances, kFlagRooms, bot.GetGame().GetSettings().ShipSettings[6].GetRadius());
+  
+  uint16_t ship = bot.GetGame().GetPlayer().ship;
+
+    std::vector<Vector2f> patrol_nodes = {Vector2f(585, 540), Vector2f(400, 570)};
+
+    bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
+    bot.GetBlackboard().Set<uint16_t>("Freq", 999);
+    bot.GetBlackboard().Set<uint16_t>("PubTeam0", 90);
+    bot.GetBlackboard().Set<uint16_t>("PubTeam1", 91);
+    bot.GetBlackboard().Set<uint16_t>("Ship", ship);
+    bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
+  
 
   auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
   auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();

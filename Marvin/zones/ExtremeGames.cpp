@@ -18,6 +18,19 @@ namespace eg {
 
 void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
 
+  uint16_t ship = bot.GetGame().GetPlayer().ship;
+
+    if (ship == 8) {
+      ship = 2;
+    }
+
+    bot.GetBlackboard().Set<uint16_t>("Freq", 999);
+    bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
+    bot.GetBlackboard().Set<uint16_t>("PubTeam1", 01);
+    bot.GetBlackboard().Set<uint16_t>("Ship", ship);
+    bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
+  
+
   auto freq_warp_attach = std::make_unique<eg::FreqWarpAttachNode>();
   auto find_enemy = std::make_unique<eg::FindEnemyNode>();
   auto aim_with_gun = std::make_unique<eg::AimWithGunNode>();
@@ -70,8 +83,6 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
    engine_->PushNode(std::move(patrol_path_sequence));
    engine_->PushNode(std::move(path_or_shoot_selector));
    engine_->PushNode(std::move(handle_enemy));
-   engine_->PushNode(std::move(root_selector));
-
 }
 
 

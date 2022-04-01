@@ -81,8 +81,6 @@ void PowerBallBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   engine_->PushNode(std::move(freq_warp_attach));
   engine_->PushNode(std::move(ball_selector));
-
-  engine_->PushNode(std::move(root_sequence));
 }
 
 
