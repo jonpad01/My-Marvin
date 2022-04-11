@@ -55,19 +55,23 @@ TileId Map::GetTileId(const Vector2f& position) const {
 }
 
 bool Map::CanOccupy(const Vector2f& position, float radius) const {
-  int radius_check = (int)(radius + 0.5f);
 
-  for (int y = -radius_check; y <= radius_check; ++y) {
-    for (int x = -radius_check; x <= radius_check; ++x) {
+  // casting the result to int always rounds towards 0
+  int tile_diameter = (int)((radius + 0.5f) * 2);
+
+  /* if the ship is a 2 x 2 square, assume the upper left square is the position and the radius expands down
+  and to the right. This will push the pathline to the upper left for tight corners but also allows bot to path 
+  through any size hole the ship will fit through.  Path could be fixed with smoothing. */
+
+  for (uint16_t y = 0; y < tile_diameter; ++y) {
+    for (uint16_t x = 0; x < tile_diameter; ++x) {
       uint16_t world_x = (uint16_t)(position.x + x);
       uint16_t world_y = (uint16_t)(position.y + y);
-
       if (IsSolid(world_x, world_y)) {
         return false;
       }
     }
   }
-
   return true;
 }
 

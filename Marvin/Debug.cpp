@@ -16,7 +16,7 @@ std::ofstream debug_log;
 std::ofstream error_log;
 std::ofstream memory_log;
 
-const bool RenderState::kDisplayDebugText = false;
+const bool RenderState::kDisplayDebugText = true;
 
 #if DEBUG_RENDER
 //bot crashes when screen moves to bottom edge

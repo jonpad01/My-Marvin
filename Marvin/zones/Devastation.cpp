@@ -101,9 +101,12 @@ struct BaseSpawns {
     
 
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
-
+  float radius_override = 0.9f;
   BaseSpawns spawn;
-  bot.CreateBasePaths(spawn.t0, spawn.t1, bot.GetGame().GetSettings().ShipSettings[1].GetRadius() + 0.5f);
+
+  //deva only has one ship size, so create map weights once and forget
+  bot.GetPathfinder().CreateMapWeights(bot.GetGame().GetMap(), radius_override);
+  bot.CreateBasePaths(spawn.t0, spawn.t1, radius_override);
 
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);
   uint16_t ship = bot.GetGame().GetPlayer().ship;

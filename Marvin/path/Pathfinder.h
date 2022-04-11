@@ -60,7 +60,7 @@ struct Pathfinder {
 
   std::vector<Vector2f> CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius);
 
-  void CreateMapWeights(const Map& map);
+  void CreateMapWeights(const Map& map, float radius);
 
  private:
   struct NodeCompare {

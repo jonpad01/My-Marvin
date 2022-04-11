@@ -10,6 +10,10 @@
 
 extern std::unique_ptr<marvin::Bot> bot;
 
+/* when creating map weights, a single tile with a weight of 10 equals 10 tiles with a weight of 1,
+or 5 tiles with a weight of 2, and so on. If a tile has a weight of 9, the pathfinder will need to step into 
+9 tiles with a weight of 1 before stepping into that tile. */
+
 namespace marvin {
 
 Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius) {
@@ -139,17 +143,20 @@ NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
 
   Vector2f check_pos(np.x, np.y);
 
-  // searches outward from the center, prevents the end node from breaking the pathfinder
-  if (!map.CanOccupy(check_pos, radius)) {
-    for (int i = 1; i < radius + 2; i++) {
-      for (int x = -i; x < i + 1; x++) {
-        for (int y = -i; y < i + 1; y++) {
-          Vector2f check_pos(np.x + (float)x, np.y + (float)y);
-          if (map.CanOccupy(check_pos, radius)) {
-            np.y += y;
-            np.x += x;
-            return np;
+  // push the start point up and to the left if needed
+  if (!map.CanOccupy(check_pos, radius + 0.5f)) {
+    int check_diameter = (int)((radius + 0.5f) * 2) + 2;
+
+    for (int x = 0; x < check_diameter; x++) {
+      for (int y = 0; y < check_diameter; y++) { 
+          if (x == 0 && y == 0) {
+          continue;
           }
+        Vector2f check_pos(np.x - (float)x, np.y - (float)y);
+        if (map.CanOccupy(check_pos, radius)) {
+          np.y -= y;
+          np.x -= x;
+          return np;
         }
       }
     }
@@ -360,26 +367,7 @@ std::vector<Vector2f> Pathfinder::SmoothPath(const std::vector<Vector2f>& path, 
   return result;
 }
 
-float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
-  float closest_sq = std::numeric_limits<float>::max();
 
-  for (i16 offset_y = -radius; offset_y < radius; ++offset_y) {
-    for (i16 offset_x = -radius; offset_x < radius; ++offset_x) {
-      u16 check_x = x + offset_x;
-      u16 check_y = y + offset_y;
-
-      if (map.IsSolid(check_x, check_y)) {
-        float dist_sq = (float)(offset_x * offset_x + offset_y * offset_y);
-
-        if (dist_sq < closest_sq) {
-          closest_sq = dist_sq;
-        }
-      }
-    }
-  }
-
-  return std::sqrt(closest_sq);
-}
 
 std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius) {
   bool build = true;
@@ -420,27 +408,58 @@ std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2
     }
     //#endif
     new_path = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);
-    new_path = SmoothPath(new_path, processor_->GetGame().GetMap(), radius);
+   // new_path = SmoothPath(new_path, processor_->GetGame().GetMap(), radius);
   }
 
   return new_path;
 }
 
-void Pathfinder::CreateMapWeights(const Map& map) {
+float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
+  float closest_sq = std::numeric_limits<float>::max();
+
+  for (i16 offset_y = -radius; offset_y <= radius; ++offset_y) {
+    for (i16 offset_x = -radius; offset_x <= radius; ++offset_x) {
+      u16 check_x = x + offset_x;
+      u16 check_y = y + offset_y;
+
+      if (map.IsSolid(check_x, check_y)) {
+        float dist_sq = (float)(offset_x * offset_x + offset_y * offset_y);
+
+        if (dist_sq < closest_sq) {
+          closest_sq = dist_sq;
+        }
+      }
+    }
+  }
+  return sqrt(closest_sq);
+}
+
+
+void Pathfinder::CreateMapWeights(const Map& map, float radius) {
+
+    int tile_diameter = (int)((radius + 0.5f) * 2);
+
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
       if (map.IsSolid(x, y)) continue;
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
-      u16 close_distance = 6;
+      int close_distance = tile_diameter + 1;
 
-      float distance = GetWallDistance(map, x, y, close_distance);
+      /* When visualizing, flooring this value causes a square ring around the current tile to have the same weight.
+      The idea is that diagonal distance is the same (or close) as side to side distance when considering movement weighting. 
+      This really seems to clean up the path line when travelling along a diagonal wall and seems to eliminate the need for 
+      path smoothing in its current implementation. This should work with any size ship since the CanOccupy check pushes the paths nodes into the 
+      when the bot is pathing through a tight space. */
 
-      if (distance == 0) distance = 1;
+      float distance = std::floor(GetWallDistance(map, x, y, close_distance));
 
-      if (distance < close_distance) {
-        node->weight = 8.0f / distance;
+      //nodes are initialized with a weight of 1.0f 
+      if (distance <= close_distance) {
+        float weight = 10.0f / distance;
+        //results in weights of 100, 25, 11.11, 6.25, etc
+        node->weight = weight * weight;
         node->previous_weight = node->weight;
       }
     }

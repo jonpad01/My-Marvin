@@ -112,7 +112,6 @@ void Bot::LoadBot() {
   marvin::debug_log << "regions created" << std::endl;
 
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  pathfinder_->CreateMapWeights(game_->GetMap());
   marvin::debug_log << "pathfinder created" << std::endl;
 
   Zone zone = game_->GetZone();

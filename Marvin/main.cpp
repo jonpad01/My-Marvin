@@ -22,15 +22,17 @@ using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
 
+static time_point g_LastUpdateTime;
+static time_point g_StartTime = time_clock::now();
+
 std::shared_ptr<marvin::ContinuumGameProxy> game;
 std::unique_ptr<marvin::Bot> bot;
 
 static bool g_Enabled = true;
 static bool g_Reload = false;
+
 HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
 
-static time_point g_LastUpdateTime;
-static time_point g_StartTime = time_clock::now();
 
 std::string CreateBot();
 
@@ -104,6 +106,10 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
   BOOL result = 0;
 
+  time_point now = time_clock::now();
+  seconds dt = now - g_LastUpdateTime;
+  seconds sec = now - g_StartTime;
+
     // Check for key presses to enable/disable the bot.
     if (GetFocus() == g_hWnd) {
       if (RealGetAsyncKeyState(VK_F10)) {
@@ -127,18 +133,21 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       }
     }
 
-    time_point now = time_clock::now();
-    seconds dt = now - g_LastUpdateTime;
-    seconds sec = now - g_StartTime;
+    
     if (g_Enabled) {
       for (marvin::ChatMessage chat : game->GetChat()) {
-        std::string name = game->GetPlayer().name;
 
+        std::string name = game->GetPlayer().name;
         std::string eg_msg = "[ " + name + " ]";
 
+        bool eg_locked_in_spec =
+            chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
+        bool disconected = chat.message.compare(0, 9, "WARNING: ") == 0;
+
+        
+
         if (chat.type == 0) {
-          if (chat.message.compare(0, 9, "WARNING: ") == 0 || (chat.message.compare(0, 4 + name.size(), eg_msg) == 0 &&
-                                                               game->GetZone() == marvin::Zone::ExtremeGames)) {
+          if (disconected || eg_locked_in_spec) {
             PostQuitMessage(0);
             return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
           }
@@ -156,7 +165,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         g_LastUpdateTime = now;
       }
     }
-    // return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    
      result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 
     if (result && lpMsg->message == UM_SETTEXT) {

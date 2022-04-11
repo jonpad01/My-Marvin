@@ -25,9 +25,17 @@ bool NodeProcessor::Mined(std::vector<Vector2f> mines, NodePoint point) {
   return false;
 }
 
-// NodeConnections NodeProcessor::FindEdges(Node* node, Node* start, Node* goal) {
-NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal,
-                                         float radius) {
+bool IsDiagonal(int x, int y) {
+  if (x == -1 || x == 1) {
+    if (y == -1 || y == 1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal, float radius) {
   NodeConnections connections;
   connections.count = 0;
 
@@ -38,6 +46,7 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
       if (x == 0 && y == 0) {
         continue;
       }
+      float radius_check = radius;
 
       uint16_t world_x = base_point.x + x;
       uint16_t world_y = base_point.y + y;
@@ -46,9 +55,15 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
         continue;
       }
 
+      /* quick fix for diagonal walls separated by a single diagonal tile, other option was 
+      //to disable diagonal neighbors */
+      if (IsDiagonal(x, y)) {
+        radius_check += 0.5f;
+      }
+
       Vector2f check_pos(world_x, world_y);
 
-      if (!map_.CanOccupy(check_pos, radius)) continue;
+      if (!map_.CanOccupy(check_pos, radius_check)) continue;
 
       NodePoint current_point(world_x, world_y);
       Node* current = GetNode(current_point);
@@ -66,10 +81,11 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
       connections.neighbors[connections.count++] = current;
 
       if (connections.count >= 8) {
-        return connections;
+          return connections;
       }
     }
   }
+
 
   return connections;
 }
