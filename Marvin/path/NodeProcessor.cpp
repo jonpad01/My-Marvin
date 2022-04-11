@@ -25,15 +25,6 @@ bool NodeProcessor::Mined(std::vector<Vector2f> mines, NodePoint point) {
   return false;
 }
 
-bool IsDiagonal(int x, int y) {
-  if (x == -1 || x == 1) {
-    if (y == -1 || y == 1) {
-      return true;
-    }
-  }
-  return false;
-}
-
 
 NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal, float radius) {
   NodeConnections connections;
@@ -55,9 +46,9 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
         continue;
       }
 
-      /* quick fix for diagonal walls separated by a single diagonal tile, other option was 
-      //to disable diagonal neighbors */
-      if (IsDiagonal(x, y)) {
+      /* quick fix for diagonal walls separated by a single diagonal tile (CanOccupy will miss this), other option was 
+      to disable this upper left neighbor */
+      if (x == -1 && y == -1) {
         radius_check += 0.5f;
       }
 

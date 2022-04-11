@@ -450,8 +450,8 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
       /* When visualizing, flooring this value causes a square ring around the current tile to have the same weight.
       The idea is that diagonal distance is the same (or close) as side to side distance when considering movement weighting. 
       This really seems to clean up the path line when travelling along a diagonal wall and seems to eliminate the need for 
-      path smoothing in its current implementation. This should work with any size ship since the CanOccupy check pushes the paths nodes into the 
-      when the bot is pathing through a tight space. */
+      path smoothing in its current implementation. This should work with any size ship since the CanOccupy check pushes the 
+      paths nodes into the wall when the bot is pathing through a tight space. */
 
       float distance = std::floor(GetWallDistance(map, x, y, close_distance));
 
