@@ -256,33 +256,36 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(),
-                                                     (MapCoord)bb.ValueOr<Vector2f>("Spawn", Vector2f(512, 512)));
-
+  bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), Vector2f(512, 512));
   bb.Set<bool>("InCenter", in_center);
 
-  if (!in_center && game.GetPlayer().active) {
-    if (!ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(),
-                                           (MapCoord)spawn.t0[bb.ValueOr<std::size_t>("BaseIndex", 0)])) {
-      for (std::size_t i = 0; i < spawn.t0.size(); i++) {
-        if (ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), (MapCoord)spawn.t0[i])) {
-          bb.Set<std::size_t>("BaseIndex", i);
-          if (game.GetPlayer().frequency == 00) {
-            bb.Set<Vector2f>("TeamSafe", spawn.t0[i]);
-            bb.Set<Vector2f>("EnemySafe", spawn.t1[i]);
-          } else if (game.GetPlayer().frequency == 01) {
-            bb.Set<Vector2f>("TeamSafe", spawn.t1[i]);
-            bb.Set<Vector2f>("EnemySafe", spawn.t0[i]);
+  std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
+  team_list.push_back(game.GetPlayer());
+
+  for (std::size_t i = 0; i < team_list.size(); i++) {
+    bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i].position, Vector2f(512, 512));
+    if (!in_center && team_list[i].active) {
+      std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
+      bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i].position, spawn.t0[base_index]) == 0;
+      if (update_region) {
+        for (std::size_t j = 0; j < spawn.t0.size(); j++) {
+          if (ctx.bot->GetRegions().IsConnected(team_list[i].position, spawn.t0[j])) {
+            bb.Set<std::size_t>("BaseIndex", j);
+            if (team_list[i].frequency == 00) {
+              bb.Set<Vector2f>("TeamSafe", spawn.t0[j]);
+              bb.Set<Vector2f>("EnemySafe", spawn.t1[j]);
+            } else if (team_list[i].frequency == 01) {
+              bb.Set<Vector2f>("TeamSafe", spawn.t1[j]);
+              bb.Set<Vector2f>("EnemySafe", spawn.t0[j]);
+            }
+
+            g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
+            return behavior::ExecuteResult::Success;
           }
-
-
-          g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
-          return behavior::ExecuteResult::Success;
         }
       }
     }
   }
-
   g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
