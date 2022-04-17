@@ -151,7 +151,7 @@ void Bot::Update(float dt) {
       }
     }
 
-    influence_map_.Decay(dt);
+    influence_map_.Decay(dt * 10);
     g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
     influence_map_.Update(*game_);
     g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());

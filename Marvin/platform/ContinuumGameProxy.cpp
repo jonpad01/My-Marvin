@@ -79,6 +79,7 @@ bool ContinuumGameProxy::Update(float dt) {
   }
 
     FetchPlayers();
+    SortPlayers();
     FetchBallData();
     FetchGreens();
     FetchChat();
@@ -194,7 +195,6 @@ void ContinuumGameProxy::FetchPlayers() {
       player.energy = static_cast<uint16_t>(first + second);
     }
     
-    
     // remove "^" that gets placed on names when biller is down
     if (!player.name.empty() && player.name[0] == '^') {
       player.name.erase(0, 1);
@@ -203,8 +203,17 @@ void ContinuumGameProxy::FetchPlayers() {
     //sort all players into this
     players_.emplace_back(player);
 
-    //sort into groups depending on team, include specced players
-    if (player_ && player.id != player_id_ && player_id_ != 0xffff) {
+    if (player.id == player_id_) {
+      player_ = &players_.back();
+      player_addr_ = player_addr;
+    }
+  }
+}
+
+void ContinuumGameProxy::SortPlayers() {
+  for (Player player : players_) {
+    // sort into groups depending on team, include specced players
+    if (player.id != player_id_) {
       if (player.frequency == player_->frequency) {
         team_.emplace_back(player);
       } else {
@@ -221,11 +230,6 @@ void ContinuumGameProxy::FetchPlayers() {
           enemy_team_.emplace_back(player);
         }
       }
-    }
-
-    if (player.id == player_id_) {
-      player_ = &players_.back();
-      player_addr_ = player_addr;
     }
   }
 }
@@ -328,8 +332,38 @@ void ContinuumGameProxy::FetchWeapons() {
     u32 weapon_data = *(u32*)(weapon_ptrs + i * 4);
 
     WeaponMemory* data = (WeaponMemory*)(weapon_data);
+    WeaponType type = data->data.type;
 
-    weapons_.emplace_back(data);
+    u32 total_ticks = 0;
+
+    switch (type) {
+      case WeaponType::Bomb:
+      case WeaponType::ProximityBomb:
+      case WeaponType::Thor: {
+        total_ticks = this->GetSettings().BombAliveTime;
+        if (data->data.alternate) {
+          total_ticks = this->GetSettings().MineAliveTime;
+        }
+      } break;
+      case WeaponType::Burst:
+      case WeaponType::Bullet:
+      case WeaponType::BouncingBullet: {
+        total_ticks = this->GetSettings().BulletAliveTime;
+      } break;
+      case WeaponType::Repel: {
+        total_ticks = this->GetSettings().RepelTime;
+      } break;
+      case WeaponType::Decoy: {
+        total_ticks = this->GetSettings().DecoyAliveTime;
+      } break;
+      default: {
+        total_ticks = this->GetSettings().BulletAliveTime;
+      } break;
+    }
+    u32 alive_ticks = data->alive_ticks;
+    if (alive_ticks > total_ticks) alive_ticks = total_ticks;
+
+    weapons_.emplace_back(data, total_ticks - alive_ticks);
   }
 }
 

@@ -32,6 +32,9 @@ class Weapon {
   virtual Vector2f GetPosition() const = 0;
   virtual Vector2f GetVelocity() const = 0;
   virtual WeaponData GetData() const = 0;
+  virtual u32 GetAliveTicks() const = 0;
+  virtual u32 GetRemainingTicks() const = 0;
+  virtual s32 GetRemainingBounces() const = 0;
 
   bool IsMine() {
     WeaponData data = GetData();

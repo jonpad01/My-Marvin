@@ -185,7 +185,7 @@ bool BounceShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float
       CastResult wall_line = RayCast(game.GetMap(), position, sDirection, travel);
 
       if (wall_line.hit) {
-         //RenderWorldLine(game.GetPosition(), position, wall_line.position, RGB(0, 100, 100));
+         RenderWorldLine(game.GetPosition(), position, wall_line.position, RGB(0, 100, 100));
 
         sDirection = sDirection - (wall_line.normal * (2.0f * sDirection.Dot(wall_line.normal)));
         velocity = velocity - (wall_line.normal * (2.0f * velocity.Dot(wall_line.normal)));
@@ -199,8 +199,8 @@ bool BounceShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float
           *wall_pos = position;
         }
       } else {
-         //RenderWorldLine(game.GetPosition(), position, position + sDirection * travel, RGB(0, 100, 100));
-        // RenderWorldLine(game_.GetPosition(), position, solution, RGB(100, 0, 0));
+         RenderWorldLine(game.GetPosition(), position, position + sDirection * travel, RGB(0, 100, 100));
+         //RenderWorldLine(game_.GetPosition(), position, solution, RGB(100, 0, 0));
         break;
       }
     }

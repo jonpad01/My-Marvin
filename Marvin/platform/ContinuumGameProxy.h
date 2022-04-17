@@ -11,28 +11,31 @@ namespace marvin {
 
 #pragma pack(push, 1)
 struct WeaponMemory {
-  u32 _unused1;
-
+  u32 _unused1;  // 0x00
   u32 x;  // 0x04
   u32 y;  // 0x08
-
-  u32 _unuseda;
-  i32 velocity_x;
-  i32 velocity_y;
-  u32 _unused2[32];
-
+  u32 _unuseda;    // 0x0C
+  i32 velocity_x;  // 0x10
+  i32 velocity_y;  // 0x14
+  u32 _unused2[29];
+  s32 remaining_bounces;  // 0x8C
+  u32 _unused3[2];
   u32 pid;  // 0x98
-
-  char _unused3[11];
-
-  WeaponData data;
+  char _unused4[11];
+  WeaponData data;  // a7-a9
+  char _unused5[23];
+  u32 alive_ticks;
 };
 #pragma pack(pop)
+
+static_assert(offsetof(WeaponMemory, remaining_bounces) == 0x8C);
+static_assert(offsetof(WeaponMemory, pid) == 0x98);
+static_assert(offsetof(WeaponMemory, data) == 0xA7);
 
 // In memory weapon data
 class ContinuumWeapon : public Weapon {
  public:
-  ContinuumWeapon(WeaponMemory* data) : weapon_(data) {}
+  ContinuumWeapon(WeaponMemory* data, u32 remaining_ticks) : weapon_(data), remaining_ticks_(remaining_ticks) {}
 
   u16 GetPlayerId() const { return weapon_->pid; }
 
@@ -44,8 +47,13 @@ class ContinuumWeapon : public Weapon {
 
   WeaponData GetData() const { return weapon_->data; }
 
+  u32 GetAliveTicks() const { return weapon_->alive_ticks; }
+  u32 GetRemainingTicks() const { return remaining_ticks_; }
+  s32 GetRemainingBounces() const { return weapon_->remaining_bounces; }
+
  private:
   WeaponMemory* weapon_;
+  u32 remaining_ticks_;
 };
 
 class ContinuumGameProxy : public GameProxy {
@@ -115,6 +123,7 @@ class ContinuumGameProxy : public GameProxy {
   void SetZone();
   void FetchChat();
   void FetchPlayers();
+  void SortPlayers();
   void FetchBallData();
   void FetchGreens();
   void FetchWeapons();
