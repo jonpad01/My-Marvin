@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "ClientSettings.h"
+#include "behavior/Blackboard.h"
 #include "KeyController.h"
 #include "Player.h"
 #include "Types.h"
@@ -34,7 +35,6 @@ class Weapon {
 
   bool IsMine() {
     WeaponData data = GetData();
-
     return data.alternate && (data.type == WeaponType::Bomb || data.type == WeaponType::ProximityBomb);
   }
 };
@@ -65,6 +65,9 @@ class GameProxy {
   virtual const float GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
   virtual const std::vector<Player>& GetPlayers() const = 0;
+  virtual const std::vector<Player>& GetTeam() const = 0;
+  virtual const std::vector<Player>& GetEnemys() const = 0;
+  virtual const std::vector<Player>& GetEnemyTeam() const = 0;
   virtual const ClientSettings& GetSettings() const = 0;
   virtual const ShipSettings& GetShipSettings() const = 0;
   virtual const ShipSettings& GetShipSettings(int ship) const = 0;

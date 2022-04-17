@@ -39,7 +39,7 @@ class ContinuumWeapon : public Weapon {
   Vector2f GetPosition() const { return Vector2f(weapon_->x / 1000.0f / 16.0f, weapon_->y / 1000.0f / 16.0f); }
 
   Vector2f GetVelocity() const {
-    return Vector2f(weapon_->velocity_x / 1000.0f / 16.0f, weapon_->velocity_y / 1000.0f / 16.0f);
+    return Vector2f(weapon_->velocity_x / 10.0f / 16.0f, weapon_->velocity_y / 10.0f / 16.0f);
   }
 
   WeaponData GetData() const { return weapon_->data; }
@@ -61,6 +61,9 @@ class ContinuumGameProxy : public GameProxy {
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
   const std::vector<Player>& GetPlayers() const override;
+  const std::vector<Player>& GetTeam() const override;
+  const std::vector<Player>& GetEnemys() const override;
+  const std::vector<Player>& GetEnemyTeam() const override;
   const ClientSettings& GetSettings() const override;
   const ShipSettings& GetShipSettings() const override;
   const ShipSettings& GetShipSettings(int ship) const override;
@@ -134,6 +137,9 @@ class ContinuumGameProxy : public GameProxy {
   std::unique_ptr<Map> map_;
   Player* player_;
   std::vector<Player> players_;
+  std::vector<Player> team_;
+  std::vector<Player> enemy_team_;
+  std::vector<Player> enemys_;
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_;

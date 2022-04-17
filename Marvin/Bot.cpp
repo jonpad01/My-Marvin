@@ -153,7 +153,7 @@ void Bot::Update(float dt) {
 
     influence_map_.Decay(dt);
     g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
-    influence_map_.Update(*game_, ctx_.blackboard.ValueOr<std::vector<Player>>("EnemyList", std::vector<Player>()));
+    influence_map_.Update(*game_);
     g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());
   }
 

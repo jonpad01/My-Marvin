@@ -20,7 +20,7 @@ class InfluenceMap {
   void Clear();
   void Decay(float dt);
 
-  void Update(GameProxy& game, std::vector<Player> enemy_list);
+  void Update(GameProxy& game);
 
   void CastInfluence(const Map& map, const Vector2f& from, const Vector2f& direction, float max_length, float value);
 

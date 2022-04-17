@@ -39,8 +39,9 @@ void InfluenceMap::Decay(float dt) {
   }
 }
 
-void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
+void InfluenceMap::Update(GameProxy& game) {
   const float kInfluenceValue = 1.0f;
+
 
   for (Weapon* weapon : game.GetWeapons()) {
     const Player* player = game.GetPlayerById(weapon->GetPlayerId());
@@ -49,35 +50,40 @@ void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
       continue;
     }
 
-    Vector2f side = Normalize(Perpendicular(weapon->GetVelocity()));
+    
 
-    const float kInfluenceLength = 35.0f;
+    Vector2f position = weapon->GetPosition();
+    Vector2f velocity = weapon->GetVelocity();
+    Vector2f direction = Normalize(velocity);
+    float speed = velocity.Length();
+    float influence_length = 2.0f * speed;
+    Vector2f side = Normalize(Perpendicular(velocity));
 
-    CastInfluence(game.GetMap(), weapon->GetPosition(), Normalize(weapon->GetVelocity()), kInfluenceLength,
-                  kInfluenceValue);
-    CastInfluence(game.GetMap(), weapon->GetPosition() + side, Normalize(weapon->GetVelocity()), kInfluenceLength,
-                  kInfluenceValue);
-    CastInfluence(game.GetMap(), weapon->GetPosition() - side, Normalize(weapon->GetVelocity()), kInfluenceLength,
-                  kInfluenceValue);
+    //g_RenderState.RenderDebugText("  Weapon Speed: %f", speed);
+
+    CastInfluence(game.GetMap(), position, direction, influence_length, kInfluenceValue);
+    CastInfluence(game.GetMap(), position + side, direction, influence_length, kInfluenceValue);
+    CastInfluence(game.GetMap(), position - side, direction, influence_length, kInfluenceValue);
   }
 
-  for (std::size_t i = 0; i < enemy_list.size(); i++) {
-    const Player& player = enemy_list[i];
+  for (std::size_t i = 0; i < game.GetEnemys().size(); i++) {
+    const Player& player = game.GetEnemys()[i];
 
-    Vector2f side = Normalize(Perpendicular(player.velocity));
+    Vector2f position = player.position;
+    Vector2f velocity = player.velocity;
+    Vector2f direction = Normalize(velocity);
+    float speed = velocity.Length();
+    float influence_length = 2.0f * speed;
+    Vector2f side = Normalize(Perpendicular(velocity));
 
-    const float kInfluenceLength = 35.0f;
+  //g_RenderState.RenderDebugText("  Enemy Speed: %f", speed);
 
-    // CastInfluence(game.GetMap(), player.position, Normalize(player.velocity), kInfluenceLength, kInfluenceValue);
-    // CastInfluence(game.GetMap(), player.position + side, Normalize(player.velocity), kInfluenceLength,
-    // kInfluenceValue); CastInfluence(game.GetMap(), player.position - side, Normalize(player.velocity),
-    // kInfluenceLength, kInfluenceValue);
 
-    CastInfluence(game.GetMap(), player.position, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
-    CastInfluence(game.GetMap(), player.position + side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
-    CastInfluence(game.GetMap(), player.position - side, player.GetHeading(), kInfluenceLength, kInfluenceValue / 2.0f);
+    CastInfluence(game.GetMap(), position, direction, influence_length, kInfluenceValue);
+    CastInfluence(game.GetMap(), position + side, direction, influence_length, kInfluenceValue);
+    CastInfluence(game.GetMap(), position - side, direction, influence_length, kInfluenceValue);
   }
-
+#if DEBUG_RENDER
         for (i32 y = -50; y < 50; ++y) {
             for (i32 x = -50; x < 50; ++x) {
                 Vector2f pos = game.GetPosition();
@@ -104,6 +110,7 @@ void InfluenceMap::Update(GameProxy& game, std::vector<Player> enemy_list) {
                 }
             }
         }
+#endif
 }
 
 void InfluenceMap::CastInfluence(const Map& map, const Vector2f& from, const Vector2f& direction, float max_length,

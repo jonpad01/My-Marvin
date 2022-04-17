@@ -7,10 +7,11 @@
 #include "../Debug.h"
 #include "../Map.h"
 
-/* Reading a bad memory address here can result in some very anoying problems that don't show up right away, so double check and mark any new additions.
+
+/* Reading a bad memory address here can result in some very annoying problems that don't show up right away, so double check and mark any new additions.
 these addresses were checked and fixed on 03/27/2022.
 
-Main fix:  reading multifire status and item counts on other players was not the correct address and sometimes resulted in access violations.
+Last fix:  reading multifire status and item counts on other players was not the correct address and sometimes resulted in access violations.
 */
 
 namespace marvin {
@@ -30,18 +31,26 @@ void ContinuumGameProxy::LoadGame() {
   marvin::memory_log.open(GetName() + " memory list.log", std::ios::out | std::ios::trunc);
   marvin::error_log.open(GetName() + " error list.log", std::ios::out | std::ios::app);
 
+  marvin::debug_log << "Log file created." << std::endl;
+
   game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
+
+  marvin::debug_log << "Game address read." << std::endl;
 
   position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
 
   mapfile_path_ = GetServerFolder() + "\\" + GetMapFile();
 
+  marvin::debug_log << "Server folder found." << std::endl;
+
   map_ = Map::Load(mapfile_path_);
 
-  
+  marvin::debug_log << "Map loaded." << std::endl;
+
+  SetZone();
+  marvin::debug_log << "fetching players." << std::endl;
   FetchPlayers();
   marvin::debug_log << "players fetched." << std::endl;
-  SetZone();
   LogMemoryLocations();
  
 
@@ -75,7 +84,6 @@ bool ContinuumGameProxy::Update(float dt) {
     FetchChat();
     FetchWeapons();
   
-
   return true;
 }
 
@@ -108,6 +116,9 @@ void ContinuumGameProxy::FetchPlayers() {
   std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
 
   players_.clear();
+  team_.clear();
+  enemys_.clear();
+  enemy_team_.clear();
 
   for (std::size_t i = 0; i < count; ++i) {
 
@@ -166,8 +177,6 @@ void ContinuumGameProxy::FetchPlayers() {
       player.rockets = *(u32*)(player_addr + 0x2C8) + *(u32*)(player_addr + 0x2CC);
       player.portals = *(u32*)(player_addr + 0x2E0) + *(u32*)(player_addr + 0x2E4);
 
-
-
       // Energy calculation @4485FA
       u32 energy1 = process_.ReadU32(player_addr + kEnergyOffset1);
       u32 energy2 = process_.ReadU32(player_addr + kEnergyOffset2);
@@ -191,7 +200,28 @@ void ContinuumGameProxy::FetchPlayers() {
       player.name.erase(0, 1);
     }
 
+    //sort all players into this
     players_.emplace_back(player);
+
+    //sort into groups depending on team, include specced players
+    if (player_ && player.id != player_id_ && player_id_ != 0xffff) {
+      if (player.frequency == player_->frequency) {
+        team_.emplace_back(player);
+      } else {
+        // sort as an enemy, ignore specced players
+        if (player.ship != 8) {
+          enemys_.emplace_back(player);
+        }
+        // sort on to an enemy team for zone specific team games, include specced players
+        // note that for not included zones, this list will be empty
+        bool common_teams = zone_ == Zone::ExtremeGames || zone_ == Zone::Devastation || zone_ == Zone::PowerBall;
+        if (zone_ == Zone::Hyperspace && (player.frequency == 90 || player.frequency == 91)) {
+          enemy_team_.emplace_back(player);
+        } else if (common_teams && (player.frequency == 00 || player.frequency == 01)) {
+          enemy_team_.emplace_back(player);
+        }
+      }
+    }
 
     if (player.id == player_id_) {
       player_ = &players_.back();
@@ -398,6 +428,18 @@ Vector2f ContinuumGameProxy::GetPosition() const {
 
 const std::vector<Player>& ContinuumGameProxy::GetPlayers() const {
   return players_;
+}
+
+const std::vector<Player>& ContinuumGameProxy::GetTeam() const {
+  return team_;
+}
+
+const std::vector<Player>& ContinuumGameProxy::GetEnemys() const {
+  return enemys_;
+}
+
+const std::vector<Player>& ContinuumGameProxy::GetEnemyTeam() const {
+  return enemy_team_;
 }
 
 void ContinuumGameProxy::SetTileId(Vector2f position, u8 id) {
