@@ -23,14 +23,11 @@ class InfluenceMap {
 
   void Update(GameProxy& game);
 
-    void CastWeapon(const Map& map, Vector2f from, Vector2f direction, float max_length, float value, Weapon* weapon);
-  void CastInfluence(const Map& map, Vector2f from, Vector2f direction, float max_length, float value);
-  //CastResult CastInfluence(const Map& map, const Vector2f& from, const Vector2f& direction, Vector2f side, float max_length, float value);
-  void CastReflectedInfluence(const Map& map, const Vector2f& from, const Vector2f& direction,
-                              Vector2f side, float max_length,
-                              float value);
+  void CastWeapon(const Map& map, Vector2f from, Vector2f direction, float max_length, float value, Weapon* weapon);
+  void CastPlayer(const Map& map, Vector2f from, Vector2f direction, float max_length,float value);
 
  private:
+  void DebugUpdate(GameProxy& game);
   float* tiles;
 };
 

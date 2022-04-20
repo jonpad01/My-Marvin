@@ -185,7 +185,7 @@ std::string CreateBot() {
  
   bot = std::make_unique<marvin::Bot>(std::move(game2));
 
-  marvin::debug_log << "Bot created" << std::endl;
+  marvin::debug_log << "Bot created." << std::endl;
   
   return game->GetName();
 }

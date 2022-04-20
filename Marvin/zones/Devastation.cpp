@@ -101,12 +101,9 @@ struct BaseSpawns {
     
 
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
-  float radius_override = 0.9f;
   BaseSpawns spawn;
-
-  //deva only has one ship size, so create map weights once and forget
-  bot.GetPathfinder().CreateMapWeights(bot.GetGame().GetMap(), radius_override);
-  bot.CreateBasePaths(spawn.t0, spawn.t1, radius_override);
+ 
+  bot.CreateBasePaths(spawn.t0, spawn.t1, 0.8f);
 
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);
   uint16_t ship = bot.GetGame().GetPlayer().ship;
@@ -229,7 +226,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
 }
 
 behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
-  #if DEBUG_RENDER
+  PerformanceTimer timer;
+#if DEBUG_RENDER_BASE_PATHS
 
   auto& game = ctx.bot->GetGame();
   Vector2f position = game.GetPosition();
@@ -244,8 +242,10 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
   #endif
 
   #if DEBUG_DISABLE_BEHAVIOR
+  g_RenderState.RenderDebugText("  DevaDebugNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   #endif
+    g_RenderState.RenderDebugText("  DevaDebugNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
 }
 

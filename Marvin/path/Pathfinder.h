@@ -60,9 +60,10 @@ struct Pathfinder {
 
   std::vector<Vector2f> CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius);
 
-  void CreateMapWeights(const Map& map, float radius);
+  void CreateMapWeights(const Map& map);
 
  private:
+  float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius);
   struct NodeCompare {
     bool operator()(const Node* lhs, const Node* rhs) const { return lhs->f > rhs->f; }
   };

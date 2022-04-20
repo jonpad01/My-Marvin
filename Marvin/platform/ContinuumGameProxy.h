@@ -28,6 +28,7 @@ struct WeaponMemory {
 };
 #pragma pack(pop)
 
+static_assert(sizeof(WeaponMemory) > 0x40);
 static_assert(offsetof(WeaponMemory, remaining_bounces) == 0x8C);
 static_assert(offsetof(WeaponMemory, pid) == 0x98);
 static_assert(offsetof(WeaponMemory, data) == 0xA7);
@@ -68,29 +69,38 @@ class ContinuumGameProxy : public GameProxy {
   int GetEnergy() const override;
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
+  const ShipStatus& GetShipStatus() const override;
+
+   const Player& GetPlayer() const override;
   const std::vector<Player>& GetPlayers() const override;
   const std::vector<Player>& GetTeam() const override;
   const std::vector<Player>& GetEnemys() const override;
   const std::vector<Player>& GetEnemyTeam() const override;
+
   const ClientSettings& GetSettings() const override;
   const ShipSettings& GetShipSettings() const override;
   const ShipSettings& GetShipSettings(int ship) const override;
+
   const float GetMaxEnergy() override;
   const float GetRotation() override;
   const float GetMaxSpeed() override;
+
   const Zone GetZone() override;
   const std::string GetMapFile() const override;
   const Map& GetMap() const override;
+
   void SetTileId(Vector2f position, u8 id) override;
-  const Player& GetPlayer() const override;
+
+ 
   int64_t TickerPosition() override;
   const Player& GetSelectedPlayer() const override;
   const uint32_t GetSelectedPlayerIndex() const override;
   const Player* GetPlayerById(u16 id) const override;
+
   const std::vector<BallData>& GetBalls() const override;
   const std::vector<Green>& GetGreens() const override;
-
   std::vector<Weapon*> GetWeapons() override;
+  std::vector<marvin::Flag> GetDroppedFlags() override;
 
   void SetEnergy(float percent) override;
   void SetFreq(int freq) override;
@@ -133,6 +143,7 @@ class ContinuumGameProxy : public GameProxy {
   
   std::vector<BallData> balls_;
   std::vector<Green> greens_;
+  ShipStatus ship_status_;
   std::vector<ChatMessage> recent_chat_;
   std::size_t chat_index_;
   ExeProcess process_;

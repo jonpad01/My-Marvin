@@ -98,31 +98,6 @@ std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position) {
 
 namespace path {
 
-Vector2f ClosestWall(const Map& map, Vector2f pos, int search) {
-  float closest_dist = std::numeric_limits<float>::max();
-  Vector2f closest;
-
-  Vector2f base(std::floor(pos.x), std::floor(pos.y));
-  for (int y = -search; y <= search; ++y) {
-    for (int x = -search; x <= search; ++x) {
-      Vector2f current = base + Vector2f((float)x, (float)y);
-
-      if (!map.IsSolid((unsigned short)current.x, (unsigned short)current.y)) {
-        continue;
-      }
-
-      float dist = BoxPointDistance(current, Vector2f(1, 1), pos);
-
-      if (dist < closest_dist) {
-        closest_dist = dist;
-        closest = current;
-      }
-    }
-  }
-
-  return closest;
-}
-
 bool IsPassablePath(const Map& map, Vector2f from, Vector2f to, float radius) {
   const Vector2f direction = Normalize(to - from);
   const Vector2f side = Perpendicular(direction) * radius;
@@ -278,91 +253,24 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, std::vector<Vector2f>
 }
 
 std::vector<Vector2f> Pathfinder::SmoothPath(const std::vector<Vector2f>& path, const Map& map, float ship_radius) {
-  std::vector<Vector2f> result;
-
-  // How far away it should try to push the path from walls
-  float push_distance = ship_radius * 1.5f;
-
-  if (ship_radius < 1.0f) {
-    push_distance = 2.0f;
-  }
-  // RenderText("Push: " + std::to_string(push_distance), GetWindowCenter() - Vector2f(0, 100), RGB(100, 100, 100),
-  // RenderText_Centered);
-  result.resize(path.size());
-
-  if (!path.empty()) {
-    result[0] = path[0];
-  }
-
-  for (std::size_t i = 1; i < path.size(); ++i) {
-    Vector2f current = path[i];
-    Vector2f closest = ClosestWall(map, current, (int)std::ceil(push_distance + 1));
-    Vector2f new_pos = current;
-
-    if (closest != Vector2f(0, 0)) {
-      // Attempt to push the path outward from the wall
-      // TODO: iterative box penetration push
-
-      Vector2f center = closest + Vector2f(0.5, 0.5);
-      Vector2f direction = Normalize(center - current);
-      CastResult cast_result = RayCast(map, current, direction, push_distance);
-
-      if (cast_result.hit) {
-        Vector2f hit = cast_result.position;
-        float dist = hit.Distance(current);
-        float force = push_distance - dist;
-
-        new_pos = current + Normalize(current - hit) * force;
-      }
-    }
-
-    if (current != new_pos) {
-      // Make sure the new node is in line of sight
-      if (!IsPassablePath(map, current, new_pos, ship_radius)) {
-        new_pos = current;
-      }
-    }
-
-    result[i] = new_pos;
-  }
-
-#if 1  // Don't cull the path if this is enabled
+  std::vector<Vector2f> result = path;
   return result;
-#endif
 
-  if (result.size() <= 2) return result;
 
-  std::vector<Vector2f> minimum;
-  minimum.reserve(result.size());
-  Vector2f prev = result[0];
+ for (std::size_t i = 0; i < result.size(); i++) {
+    std::size_t next = i + 1;
 
-  for (std::size_t i = 1; i < result.size(); ++i) {
-    Vector2f curr = result[i];
-    Vector2f direction = Normalize(curr - prev);
-    Vector2f side = Perpendicular(direction) * ship_radius;
-    float dist = prev.Distance(curr);
-    CastResult cast_center = RayCast(map, prev, direction, dist);
-    CastResult cast_side1 = RayCast(map, prev + side, direction, dist);
-    CastResult cast_side2 = RayCast(map, prev - side, direction, dist);
-
-    if (cast_center.hit || cast_side1.hit || cast_side2.hit) {
-      if (minimum.size() > result.size()) {
-        minimum = result;
-        break;
-      }
-      if (!minimum.empty() && result[i - 1] != minimum.back()) {
-        minimum.push_back(result[i - 1]);
-        prev = minimum.back();
-        i--;
-      } else {
-        minimum.push_back(result[i]);
-        prev = minimum.back();
-      }
+    if (next == result.size() - 1) {
+      return result;
     }
-  }
 
-  minimum.push_back(result.back());
-  result = minimum;
+    bool hit = RadiusRayCastHit(map, result[i], result[next], 3.0f);
+
+    if (!hit) {
+      result.erase(result.begin() + next);
+      i--;
+    }
+ }
 
   return result;
 }
@@ -414,7 +322,7 @@ std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2
   return new_path;
 }
 
-float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
+float Pathfinder::GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
   float closest_sq = std::numeric_limits<float>::max();
 
   for (i16 offset_y = -radius; offset_y <= radius; ++offset_y) {
@@ -434,10 +342,8 @@ float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
   return sqrt(closest_sq);
 }
 
+void Pathfinder::CreateMapWeights(const Map& map) {
 
-void Pathfinder::CreateMapWeights(const Map& map, float radius) {
-
-    int tile_diameter = (int)((radius + 0.5f) * 2);
 
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
@@ -445,21 +351,20 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
-      int close_distance = tile_diameter + 1;
+      int close_distance = 8;
 
       /* When visualizing, flooring this value causes a square ring around the current tile to have the same weight.
-      The idea is that diagonal distance is the same (or close) as side to side distance when considering movement weighting. 
-      This really seems to clean up the path line when travelling along a diagonal wall and seems to eliminate the need for 
-      path smoothing in its current implementation. This should work with any size ship since the CanOccupy check pushes the 
-      paths nodes into the wall when the bot is pathing through a tight space. */
+      The idea is that the ship should give a diagonal neighbor the same amount of weight. This should work with any size 
+      ship since the CanOccupy check pushes the paths nodes into the wall when the bot is pathing through a tight space. 
+      Known Issue: 3 tile gaps and 4 tile gaps will carry the same weight since each tiles closest wall is 2 tiles away.*/
 
       float distance = std::floor(GetWallDistance(map, x, y, close_distance));
 
       //nodes are initialized with a weight of 1.0f 
       if (distance <= close_distance) {
-        float weight = 10.0f / distance;
-        //results in weights of 100, 25, 11.11, 6.25, etc
-        node->weight = weight * weight;
+        float weight = 8.0f / distance;
+        //paths directly next to a wall will be a last resort, 1 tile from wall very unlikely
+        node->weight = (float)std::pow(weight, 4.0);
         node->previous_weight = node->weight;
       }
     }

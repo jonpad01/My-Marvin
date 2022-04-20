@@ -117,9 +117,6 @@ void ContinuumGameProxy::FetchPlayers() {
   std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
 
   players_.clear();
-  team_.clear();
-  enemys_.clear();
-  enemy_team_.clear();
 
   for (std::size_t i = 0; i < count; ++i) {
 
@@ -206,11 +203,21 @@ void ContinuumGameProxy::FetchPlayers() {
     if (player.id == player_id_) {
       player_ = &players_.back();
       player_addr_ = player_addr;
+      ship_status_.rotation = *(u32*)(player_addr + 0x278) + *(u32*)(player_addr + 0x274);
+      ship_status_.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
+      ship_status_.shrapnel = *(u32*)(player_addr + 0x2A8) + *(u32*)(player_addr + 0x2AC);
+      ship_status_.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
+      ship_status_.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
+      ship_status_.max_energy = *(u32*)(player_addr + 0x1C8) + *(u32*)(player_addr + 0x1C4);
     }
   }
 }
 
 void ContinuumGameProxy::SortPlayers() {
+  team_.clear();
+  enemys_.clear();
+  enemy_team_.clear();
+
   for (Player player : players_) {
     // sort into groups depending on team, include specced players
     if (player.id != player_id_) {
@@ -367,6 +374,22 @@ void ContinuumGameProxy::FetchWeapons() {
   }
 }
 
+std::vector<Flag> ContinuumGameProxy::GetDroppedFlags() {
+  u32 flag_count = *(u32*)(game_addr_ + 0x127ec + 0x1d4c);
+  u32** flag_ptrs = (u32**)(game_addr_ + 0x127ec + 0x188c);
+  std::vector<marvin::Flag> flags;
+  flags.reserve(flag_count);
+  for (size_t i = 0; i < flag_count; ++i) {
+    char* current = (char*)flag_ptrs[i];
+    u32 flag_id = *(u32*)(current + 0x1C);
+    u32 x = *(u32*)(current + 0x04);
+    u32 y = *(u32*)(current + 0x08);
+    u32 frequency = *(u32*)(current + 0x14);
+    flags.emplace_back(flag_id, frequency, Vector2f(x / 16000.0f, y / 16000.0f));
+  }
+  return flags;
+}
+
 void ContinuumGameProxy::SetZone() {
   zone_ = Zone::Devastation;
 
@@ -383,6 +406,10 @@ void ContinuumGameProxy::SetZone() {
   } else if (GetServerFolder() == "zones\\SSCJ PowerBall") {
     zone_ = Zone::PowerBall;
   }
+}
+
+const ShipStatus& ContinuumGameProxy::GetShipStatus() const {
+  return ship_status_;
 }
 
 const Zone ContinuumGameProxy::GetZone() {
@@ -497,10 +524,12 @@ const Player* ContinuumGameProxy::GetPlayerById(u16 id) const {
 }
 
 const float ContinuumGameProxy::GetEnergyPercent() {
-  return ((float)GetEnergy() / GetMaxEnergy()) * 100.0f;
+  return ((float)GetEnergy() / ship_status_.max_energy) * 100.0f;
 }
 
 const float ContinuumGameProxy::GetMaxEnergy() {
+  return (float)ship_status_.max_energy;
+  /*
   // zones like eg use initial energy but can be prized to increase max energy
   // hs probably hacks the initial energy for each player when they enter
   // deva needs to use max and it never changes
@@ -515,6 +544,7 @@ const float ContinuumGameProxy::GetMaxEnergy() {
     }
   }
   return energy;
+  */
 }
 
 const float ContinuumGameProxy::GetMaxSpeed() {
@@ -523,6 +553,8 @@ const float ContinuumGameProxy::GetMaxSpeed() {
   if (zone_ == Zone::Devastation) {
     speed = (float)GetShipSettings().MaximumSpeed / 10.0f / 16.0f;
   }
+
+  //float speed = (float)ship_status_.speed;
 
   if (player_->velocity.Length() > speed) {
     speed = std::abs(speed + GetShipSettings().GravityTopSpeed);

@@ -107,13 +107,13 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), stee
 void Bot::LoadBot() {
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
   marvin::debug_log << "proccessor created" << std::endl;
-
+  
   regions_ = RegionRegistry::Create(game_->GetMap());
   marvin::debug_log << "regions created" << std::endl;
-
+  
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   marvin::debug_log << "pathfinder created" << std::endl;
-
+  pathfinder_->CreateMapWeights(game_->GetMap());
   Zone zone = game_->GetZone();
   marvin::debug_log << "Zone " << game_->GetMapFile() << " found" << std::endl;
   auto builder = CreateBehaviorBuilder(zone, game_->GetPlayer().name);
@@ -150,8 +150,11 @@ void Bot::Update(float dt) {
         return;
       }
     }
-
-    influence_map_.Decay(dt * 10);
+    float offset = 5.0f * (game_->GetEnergy() / game_->GetMaxEnergy());
+    if (offset < 1.0f) {
+      offset = 1.0f;
+    } 
+    influence_map_.Decay(dt * offset);
     g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
     influence_map_.Update(*game_);
     g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());
@@ -204,67 +207,12 @@ void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::
     Vector2f position_1 = start_vector[i];
     Vector2f position_2 = end_vector[i];
 
-    float nRadius = 0.8f;  // still fits through 3 tile holes, the pathfinder cant do 4 tile holes, it jumps to 5
-    float hRadius = 0.3f;  // fits through single tile holes
-
-    std::vector<Vector2f> holes;
-    std::vector<u8> previousId;
-#if 0
-            for (std::size_t i = 0; i < 2; i++) {
-            //while (true) {
-                bool holes_found = false;
-                //make a path that can fit through single tile holes
-                Path hole_path = GetPathfinder().FindPath(game_->GetMap(), std::vector<Vector2f>(), safe_1, safe_2, hRadius);
-                hole_path = GetPathfinder().SmoothPath(hole_path, game_->GetMap(), hRadius);
-                for (std::size_t i = 0; i < hole_path.size(); i++) {
-                    Vector2f current = hole_path[i];
-                    //find the areas where a normal ship cant fit and save them
-                    if (!game_->GetMap().CanOccupy(current, nRadius)) {
-                        holes.push_back(current);
-                        previousId.push_back(game_->GetMap().GetTileId(current));
-                        //plug the holes and calculate a new path
-                        game_->SetTileId(current, 193);
-                        holes_found = true;
-                    }
-                }
-                if (holes_found == false) { break; }
-            }
-            //set Ids back to original value
-            for (std::size_t i = 0; i < holes.size(); i++) {
-                Vector2f current = holes[i];
-                game_->SetTileId(current, previousId[i]);
-            }
-
-            base_holes_.push_back(holes);
-#endif
-
     Path base_path = GetPathfinder().FindPath(game_->GetMap(), std::vector<Vector2f>(), position_1, position_2, radius);
 
-    if (base_path.empty()) {
-      base_paths_.push_back(base_path);
-      continue;
-    }
+    base_paths_.push_back(base_path);
 
-    base_path = GetPathfinder().SmoothPath(base_path, game_->GetMap(), radius);
-
-    std::vector<Vector2f> reduced_path;
-
-    Vector2f current = base_path[0];
-    reduced_path.push_back(current);
-
-    for (std::size_t i = 2; i < base_path.size(); i++) {
-      if (RadiusRayCastHit(game_->GetMap(), current, base_path[i], radius)) {
-        current = base_path[i];
-        reduced_path.push_back(base_path[i - 1]);
-      } else if (i % 3 == 0 || i == base_path.size() - 1) {
-        current = base_path[i];
-        reduced_path.push_back(base_path[i]);
-      }
-    }
-
-    base_paths_.push_back(reduced_path);
   }
-
+  
   g_RenderState.RenderDebugText("CreateBasePaths: %llu", timer.GetElapsedTime());
 }
 
