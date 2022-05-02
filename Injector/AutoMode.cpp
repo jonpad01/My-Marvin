@@ -192,7 +192,7 @@ bool AutoBot::InjectContinuum(DWORD pid) {
   }
 
   // wait for the game window to exist and grab the handle
-  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, true, 5000);
+  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, true, 10000);
 
   if (iInjected.hwnd == 0) {
     TerminateCont(handle);

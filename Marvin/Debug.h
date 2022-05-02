@@ -8,9 +8,17 @@
 #include "platform/Platform.h"
 
 #define DEBUG_RENDER 1
+
 #define DEBUG_USER_CONTROL 0
 #define DEBUG_RENDER_BASE_PATHS 0
+
 #define DEBUG_RENDER_INFLUENCE 1
+#define DEBUG_RENDER_INFLUENCE_TEXT 0
+
+#define DEBUG_RENDER_REGION_REGISTRY 0
+
+#define DEBUG_RENDER_PATHFINDER 0
+
 #define DEBUG_DISABLE_BEHAVIOR 0
 
 extern HWND g_hWnd;

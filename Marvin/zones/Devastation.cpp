@@ -22,7 +22,7 @@ const std::vector<std::string> kBotNames = {"LilMarv", "MadMarv", "MarvMaster", 
 
 
 
-const std::vector<Vector2f> oldkBaseSafes0 = {
+std::vector<Vector2f> oldkBaseSafes0 = {
     Vector2f(512, 512),
     Vector2f(32, 56),    Vector2f(185, 58),   Vector2f(247, 40),  Vector2f(383, 64),  Vector2f(579, 62),
     Vector2f(667, 56),   Vector2f(743, 97),   Vector2f(963, 51),  Vector2f(32, 111),  Vector2f(222, 82),
@@ -41,7 +41,7 @@ const std::vector<Vector2f> oldkBaseSafes0 = {
     Vector2f(221, 1015), Vector2f(489, 1008), Vector2f(769, 983), Vector2f(948, 961), Vector2f(947, 511),
     Vector2f(580, 534)};
 
-const std::vector<Vector2f> oldkBaseSafes1 = {
+std::vector<Vector2f> oldkBaseSafes1 = {
     Vector2f(512, 512),
     Vector2f(102, 56),   Vector2f(189, 58),  Vector2f(373, 40),   Vector2f(533, 64),  Vector2f(606, 57),
     Vector2f(773, 56),   Vector2f(928, 46),  Vector2f(963, 47),   Vector2f(140, 88),  Vector2f(280, 82),
@@ -62,7 +62,7 @@ const std::vector<Vector2f> oldkBaseSafes1 = {
 
 
 struct BaseSpawns {
-    const std::vector<Vector2f> t0 = {
+    std::vector<Vector2f> t0 = {
       Vector2f(512, 512), // center
       Vector2f(139, 420), Vector2f(259, 337),  Vector2f(341, 447), Vector2f(114, 455),  Vector2f(861, 871), 
       Vector2f(886, 393), Vector2f(793, 331),  Vector2f(721, 657), Vector2f(650, 747),  Vector2f(795, 752),  // 10
@@ -80,7 +80,7 @@ struct BaseSpawns {
       Vector2f(394, 936), Vector2f(286, 1018), Vector2f(526, 942), Vector2f(613, 1002)  // 69
   };
 
-    const std::vector<Vector2f> t1 = {
+    std::vector<Vector2f> t1 = {
         Vector2f(512, 512),  // center
         Vector2f(297, 511),  Vector2f(311, 418),  Vector2f(341, 531), Vector2f(127, 523),  Vector2f(861, 957), 
         Vector2f(1006, 387), Vector2f(930, 305),  Vector2f(821, 657), Vector2f(705, 821),  Vector2f(799, 756),  // 10
@@ -102,8 +102,10 @@ struct BaseSpawns {
 
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   BaseSpawns spawn;
+  float radius = bot.GetGame().GetSettings().ShipSettings[0].GetRadius();
  
-  bot.CreateBasePaths(spawn.t0, spawn.t1, 0.8f);
+  bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), spawn.t0);
+  bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);
   uint16_t ship = bot.GetGame().GetPlayer().ship;
@@ -234,7 +236,7 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
   std::vector<std::vector<Vector2f>> base_paths = ctx.bot->GetBasePaths();
 
   for (Path path : base_paths) {
-    if (!path.empty()) {
+    if (!path.empty() && ctx.bot->GetRegions().IsConnected(path[0], position)) {
       RenderPath(position, path);
     }
   }

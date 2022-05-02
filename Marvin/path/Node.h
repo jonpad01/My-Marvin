@@ -29,9 +29,21 @@ struct Node {
   float weight;
   float previous_weight;
 
+  bool is_pathable;
+  bool can_occupy;
+
   u8 flags;
 
-  Node() : flags(0), parent(nullptr), g(0.0f), f(0.0f), weight(1.0f), previous_weight(1.0f) {}
+  Node()
+      : flags(0),
+        parent(nullptr),
+        g(0.0f),
+        f(0.0f),
+        weight(1.0f),
+        previous_weight(1.0f),
+        is_pathable(false),
+        can_occupy(false)
+  {}
 };
 
 }  // namespace path

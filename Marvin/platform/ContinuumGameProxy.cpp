@@ -167,6 +167,9 @@ void ContinuumGameProxy::FetchPlayers() {
       player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
       player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
 
+      // remaining emp ticks if hit with emp
+      player.emp_ticks = *(u32*)(player_addr + 0x2f4) + *(u32*)(player_addr + 0x2f8);
+
       player.repels = *(u32*)(player_addr + 0x2B0) + *(u32*)(player_addr + 0x2B4);
       player.bursts = *(u32*)(player_addr + 0x2B8) + *(u32*)(player_addr + 0x2BC);
       player.decoys = *(u32*)(player_addr + 0x2D8) + *(u32*)(player_addr + 0x2DC);
@@ -529,32 +532,11 @@ const float ContinuumGameProxy::GetEnergyPercent() {
 
 const float ContinuumGameProxy::GetMaxEnergy() {
   return (float)ship_status_.max_energy;
-  /*
-  // zones like eg use initial energy but can be prized to increase max energy
-  // hs probably hacks the initial energy for each player when they enter
-  // deva needs to use max and it never changes
-  float energy = (float)GetShipSettings().InitialEnergy;
-
-  if (zone_ == Zone::Devastation) {
-    energy = (float)GetShipSettings().MaximumEnergy;
-  }
-  if (zone_ == Zone::ExtremeGames) {
-    while (player_->energy > energy) {
-      energy += (float)GetShipSettings().UpgradeEnergy;
-    }
-  }
-  return energy;
-  */
 }
 
 const float ContinuumGameProxy::GetMaxSpeed() {
-  float speed = (float)GetShipSettings().InitialSpeed / 10.0f / 16.0f;
 
-  if (zone_ == Zone::Devastation) {
-    speed = (float)GetShipSettings().MaximumSpeed / 10.0f / 16.0f;
-  }
-
-  //float speed = (float)ship_status_.speed;
+  float speed = (float)ship_status_.speed / 10.0f / 16.0f;
 
   if (player_->velocity.Length() > speed) {
     speed = std::abs(speed + GetShipSettings().GravityTopSpeed);
@@ -568,6 +550,9 @@ const float ContinuumGameProxy::GetRotation() {
   if (zone_ == Zone::Devastation) {
     rotation = (float)GetShipSettings().MaximumRotation / 200.0f;
   }
+
+  //float rotation = (float)ship_status_.rotation / 200.0f;
+
   return rotation;
 }
 

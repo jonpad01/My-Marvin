@@ -35,7 +35,7 @@ class Bot {
   behavior::Blackboard& GetBlackboard() { return ctx_.blackboard; }
   behavior::ExecuteContext& GetExecuteContext() { return ctx_; }
   path::Pathfinder& GetPathfinder() { return *pathfinder_; }
-  const RegionRegistry& GetRegions() const { return *regions_; }
+  RegionRegistry& GetRegions() { return *regions_; }
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return influence_map_; }
   CommandSystem& GetCommandSystem() { return command_system_; }
@@ -56,6 +56,8 @@ class Bot {
   void FindPowerBallGoal();
 
  private:
+
+  float radius_;
 
   std::vector<std::vector<Vector2f>> base_paths_;
   std::vector<std::vector<Vector2f>> base_holes_;

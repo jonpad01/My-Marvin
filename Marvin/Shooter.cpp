@@ -187,8 +187,11 @@ bool BounceShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float
       if (wall_line.hit) {
          RenderWorldLine(game.GetPosition(), position, wall_line.position, RGB(0, 100, 100));
 
-        sDirection = sDirection - (wall_line.normal * (2.0f * sDirection.Dot(wall_line.normal)));
-        velocity = velocity - (wall_line.normal * (2.0f * velocity.Dot(wall_line.normal)));
+        //sDirection = sDirection - (wall_line.normal * (2.0f * sDirection.Dot(wall_line.normal)));
+        //velocity = velocity - (wall_line.normal * (2.0f * velocity.Dot(wall_line.normal)));
+
+         sDirection = Vector2f(sDirection.x * wall_line.normal.x, sDirection.y * wall_line.normal.y);
+         velocity = Vector2f(velocity.x * wall_line.normal.x, velocity.y * wall_line.normal.y);
 
         position = wall_line.position;
 

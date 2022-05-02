@@ -8,7 +8,12 @@
 #include "../player.h"
 
 namespace marvin {
+
+    enum class Var : short { Ship };
+
 namespace behavior {
+
+    
 
 class Blackboard {
  public:
@@ -35,9 +40,16 @@ class Blackboard {
 
   bool Has(const std::string& key) { return data_.find(key) != data_.end(); }
 
+  bool Has(const Var& key) { return data2_.find(key) != data2_.end(); }
+
   template <typename T>
   void Set(const std::string& key, const T& value) {
     data_[key] = std::any(value);
+  }
+
+  template <typename T>
+  void Set(const Var& key, const T& value) {
+    data2_[key] = std::any(value);
   }
 
   template <typename T>
@@ -58,12 +70,38 @@ class Blackboard {
   }
 
   template <typename T>
+  std::optional<T> Value(const Var& key) {
+    auto iter = data2_.find(key);
+
+    if (iter == data2_.end()) {
+      return std::nullopt;
+    }
+
+    auto& any = iter->second;
+
+    try {
+      return std::any_cast<T>(any);
+    } catch (const std::bad_any_cast&) {
+      return std::nullopt;
+    }
+  }
+
+  template <typename T>
   T ValueOr(const std::string& key, const T& or_result) {
     return Value<T>(key).value_or(or_result);
   }
 
-  void Clear() { data_.clear(); }
+  template <typename T>
+  T ValueOr(const Var& key, const T& or_result) {
+    return Value<T>(key).value_or(or_result);
+  }
+
+  void Clear() { 
+    data_.clear();
+    data2_.clear();
+  }
   void Erase(const std::string& key) { data_.erase(key); }
+  void Erase(const Var& key) { data2_.erase(key); }
 
 #if 0
         void SetPubTeam0(uint16_t freq) { pubteam0_ = freq; }
@@ -191,7 +229,9 @@ class Blackboard {
 
   std::vector<Vector2f> path_;
 
+ 
   std::unordered_map<std::string, std::any> data_;
+  std::unordered_map<Var, std::any> data2_;
 };
 
 }  // namespace behavior

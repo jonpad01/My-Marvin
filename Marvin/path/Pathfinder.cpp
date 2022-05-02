@@ -16,6 +16,8 @@ or 5 tiles with a weight of 2, and so on. If a tile has a weight of 9, the pathf
 
 namespace marvin {
 
+    
+
 Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius) {
   Vector2f position;
 
@@ -98,6 +100,19 @@ std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position) {
 
 namespace path {
 
+    void Pathfinder::DebugUpdate(const Vector2f& position) {   
+        for (float y = -5.00; y <= 5.0f; y++) {
+        for (float x = -5.0f; x <= 5.0f; x++) {
+          Node* node = this->processor_->GetNode(NodePoint(uint16_t(position.x + x), uint16_t(position.y + y)));
+          if (node->can_occupy) {
+            Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
+            RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 100, 100));
+            RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 100, 100));
+          }
+        }
+      }
+    }
+
 bool IsPassablePath(const Map& map, Vector2f from, Vector2f to, float radius) {
   const Vector2f direction = Normalize(to - from);
   const Vector2f side = Perpendicular(direction) * radius;
@@ -118,20 +133,20 @@ NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
 
   Vector2f check_pos(np.x, np.y);
 
-  // push the start point up and to the left if needed
-  if (!map.CanOccupy(check_pos, radius + 0.5f)) {
-    int check_diameter = (int)((radius + 0.5f) * 2) + 2;
+  // in case the start or end point isnt on a pathable node, attmept to find one nearby
+  if (!map.CanPathOn(check_pos, radius + 0.5f)) {
+    int check_diameter = (int)((radius + 0.5f) * 2) + 1;
 
-    for (int x = 0; x < check_diameter; x++) {
-      for (int y = 0; y < check_diameter; y++) { 
-          if (x == 0 && y == 0) {
-          continue;
+    // start in the center and search outward
+    for (int i = 1; i < check_diameter; i++) {
+      for (int y = -i; y <= i; y++) {
+        for (int x = -i; x <= i; x++) {
+          check_pos = Vector2f(np.x + (float)x, np.y + (float)y);
+          if (map.CanPathOn(check_pos, radius)) {
+            np.y += y;
+            np.x += x;
+            return np;
           }
-        Vector2f check_pos(np.x - (float)x, np.y - (float)y);
-        if (map.CanOccupy(check_pos, radius)) {
-          np.y -= y;
-          np.x -= x;
-          return np;
         }
       }
     }
@@ -153,7 +168,7 @@ inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* t
 Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
     : processor_(std::move(processor)), regions_(regions) {}
 
-std::vector<Vector2f> Pathfinder::FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from,
+std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vector2f>& mines, const Vector2f& from,
                                            const Vector2f& to, float radius) {
   std::vector<Vector2f> path;
 
@@ -200,7 +215,7 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, std::vector<Vector2f>
     node->flags |= NodeFlag_Closed;
 
     // returns neighbor nodes that are not solid
-    NodeConnections connections = processor_->FindEdges(mines, node, start, goal, radius);
+    NodeConnections connections = processor_->FindEdges(mines, node, start, goal);
 
     for (std::size_t i = 0; i < connections.count; ++i) {
       Node* edge = connections.neighbors[i];
@@ -344,28 +359,45 @@ float Pathfinder::GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
 
 void Pathfinder::CreateMapWeights(const Map& map) {
 
-
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
       if (map.IsSolid(x, y)) continue;
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
+      // Search width is double this number (for 8, searches a 16 x 16 square).
       int close_distance = 8;
 
-      /* When visualizing, flooring this value causes a square ring around the current tile to have the same weight.
-      The idea is that the ship should give a diagonal neighbor the same amount of weight. This should work with any size 
-      ship since the CanOccupy check pushes the paths nodes into the wall when the bot is pathing through a tight space. 
+      /* Causes exponentianl weight increase as the path gets closer to wall tiles.  
       Known Issue: 3 tile gaps and 4 tile gaps will carry the same weight since each tiles closest wall is 2 tiles away.*/
 
-      float distance = std::floor(GetWallDistance(map, x, y, close_distance));
+      float distance = GetWallDistance(map, x, y, close_distance);
 
-      //nodes are initialized with a weight of 1.0f 
-      if (distance <= close_distance) {
+      // Nodes are initialized with a weight of 1.0f, so never calculate when the distance is greater or equal
+      // because the result will be less than 1.0f.
+      if (distance < close_distance) {
         float weight = 8.0f / distance;
         //paths directly next to a wall will be a last resort, 1 tile from wall very unlikely
         node->weight = (float)std::pow(weight, 4.0);
         node->previous_weight = node->weight;
+      }
+    }
+  }
+}
+
+void Pathfinder::SetPathableNodes(const Map& map, float radius) {
+  for (u16 y = 0; y < 1024; ++y) {
+    for (u16 x = 0; x < 1024; ++x) {
+
+      if (map.IsSolid(x, y)) continue;
+
+      Node* node = this->processor_->GetNode(NodePoint(x, y));
+
+      if (map.CanPathOn(Vector2f(x, y), radius)) {
+        node->is_pathable = true;
+      }
+      if (map.CanOccupy(Vector2f(x, y), radius)) {
+        node->can_occupy = true;
       }
     }
   }

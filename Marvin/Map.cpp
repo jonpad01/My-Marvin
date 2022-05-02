@@ -54,17 +54,123 @@ TileId Map::GetTileId(const Vector2f& position) const {
   return GetTileId(x, y);
 }
 
+bool Map::CanPathOn(const Vector2f& position, float radius) const {
+  /* Peg the check position to the same tile on the ship and expand the search for every tile it
+  *  will occupy at that point.
+  * 
+  *  if the ship is a 2 x 2 square, the upper left square is the position and the radius expands down
+     and to the right. This will always push the path to the upper left in tight spaces.
+
+     note: This method allows diagonal steps through diagonal gaps, but those nodes need to still
+     be considered pathathble for the bot to correctly path through tubes with non solid corners
+  */
+
+  int tile_diameter = (int)((radius + 0.5f) * 2);
+  //Direction direction = GetDirection(Normalize(to - from));
+  Vector2f offset;
+
+  switch (tile_diameter) {
+    case 3:
+    case 4: {
+      offset = Vector2f(1, 1);
+    } break;
+    case 5: {
+      offset = Vector2f(2, 2);
+    } break;
+  }
+
+  for (float y = -offset.y; y < tile_diameter - offset.y; ++y) {
+    for (float x = -offset.x; x < tile_diameter - offset.x; ++x) {
+      uint16_t world_x = (uint16_t)(position.x + x);
+      uint16_t world_y = (uint16_t)(position.y + y);
+      if (IsSolid(world_x, world_y)) {
+        return false;
+      }
+    }
+  }
+
+  // if direction is diagonal use recursive method to skip it if both the sides steps are false
+  #if 0
+  switch (direction) {
+    case Direction::NorthWest: {
+      if (!CanPathOn(from, East(to), radius) && !CanPathOn(from, South(to), radius)) {
+        return false;
+      }
+    } break;
+    case Direction::SouthWest: {
+      if (!CanPathOn(from, East(to), radius) && !CanPathOn(from, North(to), radius)) {
+        return false;
+      }
+    } break;
+    case Direction::NorthEast: {
+      if (!CanPathOn(from, West(to), radius) && !CanPathOn(from, South(to), radius)) {
+        return false;
+      }
+    } break;
+    case Direction::SouthEast: {
+      if (!CanPathOn(from, West(to), radius) && !CanPathOn(from, North(to), radius)) {
+        return false;
+      }
+    } break;
+  }
+  #endif
+
+  return true;
+}
+
+bool Map::CornerPointCheck(int sX, int sY, int diameter) const {
+
+  for (int y = 0; y < diameter; ++y) {
+    for (int x = 0; x < diameter; ++x) {
+      uint16_t world_x = (uint16_t)(sX + x);
+      uint16_t world_y = (uint16_t)(sY + y);
+      if (IsSolid(world_x, world_y)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+
 bool Map::CanOccupy(const Vector2f& position, float radius) const {
+    /* Convert the ship into a tiled grid and put each tile of the ship on the test 
+       position.
+
+       If the ship can get any part of itself on the tile return true.
+    */
+    if (IsSolid(position)) {
+      return false;
+    }
 
   // casting the result to int always rounds towards 0
   int tile_diameter = (int)((radius + 0.5f) * 2);
 
-  /* if the ship is a 2 x 2 square, assume the upper left square is the position and the radius expands down
-  and to the right. This will push the pathline to the upper left for tight corners but also allows bot to path 
-  through any size hole the ship will fit through.  Path could be fixed with smoothing. */
+  if (tile_diameter == 0) {
+      return true;
+  }
 
-  for (uint16_t y = 0; y < tile_diameter; ++y) {
-    for (uint16_t x = 0; x < tile_diameter; ++x) {
+  for (int y = -(tile_diameter - 1); y <= 0; ++y) {
+    for (int x = -(tile_diameter -1); x <= 0; ++x) {
+      if (CornerPointCheck((int)position.x + x, (int)position.y + y, tile_diameter)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool Map::CanOccupyRadius(const Vector2f& position, float radius) const {
+    // rounds 2 tile ships to a 3 tile search
+
+    if (IsSolid(position)) {
+      return false;
+    }
+
+  radius = std::floor(radius + 0.5f);
+
+  for (float y = -radius; y <= radius; ++y) {
+    for (float x = -radius; x <= radius; ++x) {
       uint16_t world_x = (uint16_t)(position.x + x);
       uint16_t world_y = (uint16_t)(position.y + y);
       if (IsSolid(world_x, world_y)) {

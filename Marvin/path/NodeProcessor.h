@@ -30,8 +30,7 @@ class NodeProcessor {
 
   bool Mined(std::vector<Vector2f> mines, NodePoint point);
 
-  // NodeConnections FindEdges(Node* node, Node* start, Node* goal);
-  NodeConnections FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal, float radius);
+  NodeConnections FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal);
   Node* GetNode(NodePoint point);
   bool IsSolid(u16 x, u16 y) { return map_.IsSolid(x, y); }
 

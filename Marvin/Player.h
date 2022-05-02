@@ -34,6 +34,7 @@ struct Player {
   uint16_t ship;
   int32_t bounty;
   int32_t flags;
+  uint32_t emp_ticks;
 
   Vector2f position;
   Vector2f velocity;

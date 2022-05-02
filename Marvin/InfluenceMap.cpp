@@ -1,5 +1,6 @@
 #include "InfluenceMap.h"
 
+#include  <queue>
 #include "Bot.h"
 #include "Debug.h"
 #include "Map.h"
@@ -39,12 +40,13 @@ void InfluenceMap::Decay(float dt) {
   }
 }
 
-void InfluenceMap::DebugUpdate(GameProxy& game) {
+void InfluenceMap::DebugUpdate(const Vector2f& position) {
+
   const float kInfluenceValue = 1.0f;
+
   for (i32 y = -50; y < 50; ++y) {
     for (i32 x = -50; x < 50; ++x) {
-      Vector2f pos = game.GetPosition();
-      Vector2f check(std::floor(pos.x) + x, std::floor(pos.y) + y);
+      Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
 
       if (check.x > 1023.0f) {
         check.x = 1023.0f;
@@ -62,114 +64,546 @@ void InfluenceMap::DebugUpdate(GameProxy& game) {
 
       if (value >= 0.1f) {
         int r = (int)(std::min(value * (255 / kInfluenceValue), 255.0f));
-        RenderWorldLine(game.GetPosition(), check, check + Vector2f(1, 1), RGB(r, 100, 100));
-        RenderWorldLine(game.GetPosition(), check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(r, 100, 100));
+        RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(r, 100, 100));
+        RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(r, 100, 100));
       }
     }
   }
 }
 
 
-void InfluenceMap::Update(GameProxy& game) {
-  
-
-
+void InfluenceMap::CastWeapons(Bot& bot) {
+GameProxy& game = bot.GetGame();
   for (Weapon* weapon : game.GetWeapons()) {
-    const Player* player = game.GetPlayerById(weapon->GetPlayerId());
+    CastWeapon(game.GetMap(), weapon, bot);
+  }
+}
 
-    if (player == nullptr || player->frequency == game.GetPlayer().frequency) {
-      continue;
-    }
+void InfluenceMap::CastWeapon(const Map& map, Weapon* weapon, Bot& bot) {
 
-    if (weapon->GetData().type == WeaponType::Decoy) continue;
-    if (weapon->GetData().type == WeaponType::Repel) continue;
-    if (weapon->GetData().type == WeaponType::None) continue;
-    
-    Vector2f velocity = weapon->GetVelocity();
-    Vector2f direction = Normalize(velocity);
-    float influence_length = (velocity * (weapon->GetRemainingTicks() / 100.0f)).Length();
+GameProxy& game = bot.GetGame();
 
-    u32 damage = 0;
-    
-    switch (weapon->GetData().type) {
-      case WeaponType::Thor:
-      case WeaponType::ProximityBomb:
-      case WeaponType::Bomb: {
-        damage = game.GetSettings().BombDamageLevel;
-      } break;
-      case WeaponType::Burst: {
-        damage = game.GetSettings().BurstDamageLevel;
+if (game.GetMap().IsSolid(weapon->GetPosition())) return;
 
-      } break;
-      default: {
-        damage =
-            game.GetSettings().BulletDamageLevel + game.GetSettings().BulletDamageUpgrade * weapon->GetData().level;
-      } break;
-    }
+  const Player* player = game.GetPlayerById(weapon->GetPlayerId());
 
-    // Calculate a value for the weapon being casted into the influence map.
-    // Value ranges from 0 to 1.0 depending on how much damage it does.
-    float max_energy = game.GetMaxEnergy();
-    float value = damage / (game.GetEnergy() + 2.0f);
-    //float value = damage / (max_energy);
-    if (value > 2.0f) {
-      value = 2.0f;
-    }
-
-    if (game.GetMap().IsSolid(weapon->GetPosition())) continue;
-
-    CastWeapon(game.GetMap(), weapon->GetPosition(), direction, influence_length, value, weapon);
+  if (player == nullptr || player->frequency == game.GetPlayer().frequency) {
+    return;
   }
 
-  for (std::size_t i = 0; i < game.GetEnemys().size(); i++) {
-    const Player& player = game.GetEnemys()[i];
-  //const Player& player = game.GetPlayer();
+  if (weapon->GetData().type == WeaponType::Decoy) return;
+  if (weapon->GetData().type == WeaponType::Repel) return;
+  if (weapon->GetData().type == WeaponType::None) return;
+
+  int bounces_remaining = 100000;
+  Vector2f velocity = weapon->GetVelocity();
+  Vector2f direction = Normalize(velocity);
+  Vector2f position = weapon->GetPosition();
+  RayWidth width = RayWidth::One;
+  bool perform_collision = true;
+  float influence_length = (velocity * (weapon->GetRemainingTicks() / 100.0f)).Length();
+
+  u32 damage = 0;
+
+  u32 bullet_damage = (game.GetSettings().BulletDamageLevel + (game.GetSettings().BulletDamageUpgrade * weapon->GetData().level)) / 1000;
+  u32 bomb_damage = game.GetSettings().BombDamageLevel / 1000;
+  u32 burst_damage = game.GetSettings().BurstDamageLevel / 1000;
+
+ 
+ 
+
+  switch (weapon->GetData().type) {
+    case WeaponType::Bomb: {
+      bounces_remaining = weapon->GetRemainingBounces();
+      width = RayWidth::Three;
+      damage = bomb_damage;
+    } break;
+    case WeaponType::ProximityBomb: {
+      damage = bomb_damage;
+      bounces_remaining = weapon->GetRemainingBounces();
+      u32 prox_tiles = game.GetSettings().ProximityDistance + weapon->GetData().level;
+      switch (prox_tiles) {
+        case 4:
+        case 5: {
+          width = RayWidth::Five;
+        } break;
+        case 6:
+        case 7: {
+          width = RayWidth::Seven;
+        } break;
+      }
+    } break;
+    case WeaponType::Thor: {
+      perform_collision = false;
+      damage = bomb_damage;
+      u32 prox_tiles = game.GetSettings().ProximityDistance + weapon->GetData().level;
+      switch (prox_tiles) {
+        case 4:
+        case 5: {
+          width = RayWidth::Five;
+        } break;
+        case 6:
+        case 7: {
+          width = RayWidth::Seven;
+        } break;
+      }
+    } break;
+    case WeaponType::Burst: {
+      damage = burst_damage;
+    } break;
+    case WeaponType::BouncingBullet: {
+      damage = bullet_damage;
+    } break;
+    case WeaponType::Bullet: {
+      damage = bullet_damage;
+      bounces_remaining = 0;
+    } break;
+  }
+
+     // g_RenderState.RenderDebugText("  DAMAGE: %f", (float)damage);
+      // Calculate a value for the weapon being casted into the influence map.
+      // Value ranges from 0 to 1.0 depending on how much damage it does.
+      // compare damage against highest damge weapon
+      float value = (float)damage / (float)bomb_damage;
+
+      CastResult result = CastInfluence(map, position, direction, influence_length, width, value, perform_collision);
+      bounces_remaining--;
+
+      while (result.hit && bounces_remaining >= 0) {
+        position = result.position;
+        direction = Vector2f(direction.x * result.normal.x, direction.y * result.normal.y);
+        value = value * ((influence_length - result.distance) / influence_length);
+        influence_length -= result.distance;
+
+        result = CastInfluence(map, position, direction, influence_length, width, value, perform_collision);
+        bounces_remaining--;
+      }
+  }
+
+
+void InfluenceMap::CastPlayer(const Map& map, const Player& player, Bot& bot) {
+  GameProxy& game = bot.GetGame();
 
     if (!player.active || !IsValidPosition(player.position)) {
-      continue;
+    return;
     }
-    float max_energy = game.GetMaxEnergy();
-    float value = player.energy / (game.GetEnergy() + 2.0f);
-    //float value = player.energy / (max_energy);
-    if (value > 2.0f) {
-      value = 2.0f;
-    }
+    if (game.GetMap().IsSolid(player.position)) return;
+
+    const float influence_multiplier = 0.75f;
 
     Vector2f velocity = player.velocity;
     Vector2f direction = Normalize(velocity);
-   // g_RenderState.RenderDebugText("  PlayerPositionX: %f", player.position.x);
-   // g_RenderState.RenderDebugText("  PlayerPositionY: %f", player.position.y);
-  //  g_RenderState.RenderDebugText("  PlayerNormVelocityX: %f", direction.x);
-  //  g_RenderState.RenderDebugText("  PlayerNormVelocityY: %f", direction.y);
+    Vector2f start_pos = player.position;
+    float travelled_length = 0.0f;
+
     float rotation_offset = Vector2f(Normalize(velocity) + player.GetHeading()).Length();
     float speed = velocity.Length();
-    float influence_length = speed * rotation_offset + 10.0f;
+    float influence_length = (speed * rotation_offset * influence_multiplier) + 10.0f;
+    float value = player.energy / (game.GetMaxEnergy());
 
-    if (game.GetMap().IsSolid(player.position)) continue;
-    
+   
 
-    CastPlayer(game.GetMap(), player.position, direction, speed * 3.0f, value);
-    direction = player.GetHeading();
-    //direction = Normalize(player.velocity);
-   Vector2f direction_left = Rotate(direction, 0.125f);
-    Vector2f direction_left_quarter = Rotate(direction, 0.25f);
-    Vector2f direction_right = Rotate(direction, -0.125f);
-    Vector2f direction_right_quarter = Rotate(direction, -0.25f);
+    // step into player direction
+    for (float i = 0.0f; i < influence_length; i++) {
+      Vector2f side = Perpendicular(direction);
+      Vector2f position = start_pos + direction * (i - travelled_length);
+      if (map.IsSolid((unsigned short)position.x, (unsigned short)position.y)) {
+       // direction = Vector2f(direction.x * result.normal.x, direction.y * result.normal.y);
+      //  start_pos = result.position;
+        travelled_length = i;
+       // result = CastInfluence(map, start_pos, direction, i, RayWidth::Five, value);
+      } else {
+      // cast influence to each side
+      //CastInfluence(game.GetMap(), position, side, influence_length - (influence_length - i), 1, value);
+      //CastInfluence(game.GetMap(), position, -side, influence_length - (influence_length - i), 1, value);
+     }
+    }
+}
 
-    CastPlayer(game.GetMap(), player.position, direction, influence_length, value);
-    CastPlayer(game.GetMap(), player.position, direction_right, influence_length, value);
-    CastPlayer(game.GetMap(), player.position, direction_left, influence_length, value); 
-    CastPlayer(game.GetMap(), player.position, direction_right_quarter, influence_length, value);
-    CastPlayer(game.GetMap(), player.position, direction_left_quarter, influence_length, value); 
+void InfluenceMap::FloodFillInfluence(const Map& map, GameProxy& game, const Player& player, float radius) {
+  if (!player.active || !IsValidPosition(player.position)) { return; }
+
+  const float influence_multiplier = 1.0f;
+  // a range of 0 - 2 (0 = flying backwards, 2 = flying forwards, 1 = sideways or stopped)
+  float rotation_multiplier = Vector2f(Normalize(player.velocity) + player.GetHeading()).Length();
+
+  if (rotation_multiplier < 1.0f) {
+    rotation_multiplier = 1.0f;
+  }
+  float speed = player.velocity.Length();
+
+  float max_distance = (speed * rotation_multiplier * influence_multiplier) + 40.0f;
+
+  if (max_distance > 80.0f) {
+    max_distance = 80.0f;
   }
 
-#if DEBUG_RENDER_INFLUENCE
-  DebugUpdate(game);
-#endif
+  struct VisitState {
+    MapCoord coord;
+    float distance;
+
+    VisitState(MapCoord coord, float distance) : coord(coord), distance(distance) {}
+  };
+
+  std::queue<VisitState> queue;
+  std::unordered_set<MapCoord> visited;
+
+    // Start at the player's position and flood fill forward
+  const Vector2f& start = player.position;
+
+  queue.emplace(start, 0.0f);
+  visited.insert(start);
+
+   Vector2f direction = Normalize(player.velocity);
+    Vector2f side = Perpendicular(direction);
+
+  for (float i = 0; i < 1024; ++i) {
+    for (float j = 0; j < 3; ++j) {
+      Vector2f current = start - direction * j + side * i;
+
+      if (map.IsSolid(current)) break;
+      if (RayCastHit(map, player.position, current)) break;
+
+      visited.insert(current);
+    }
+  }
+
+  for (float i = 0; i < 1024; ++i) {
+    for (float j = 0; j < 3; ++j) {
+      Vector2f current = start - direction * j - side * i;
+
+      if (map.IsSolid(current)) break;
+      if (RayCastHit(map, player.position, current)) break;
+
+      visited.insert(current);
+    }
+  }
+
+
+
+  while (!queue.empty()) {
+    // Grab the next tile from the queue
+    VisitState state = queue.front();
+    MapCoord coord = state.coord;
+    Vector2f current(coord.x, coord.y);
+
+    queue.pop();
+
+    if (state.distance > max_distance) continue;
+
+    // Set the value to be high near the player and fall off as the distance increases
+    float value = 1.0f - state.distance / max_distance;
+    SetValue((u16)current.x, (u16)current.y, value);
+
+    // Visit the neighbors of this tile and increment the flood distance by 1
+    const MapCoord west(coord.x - 1, coord.y);
+    const MapCoord east(coord.x + 1, coord.y);
+    const MapCoord north(coord.x, coord.y - 1);
+    const MapCoord south(coord.x, coord.y + 1);
+
+    if (visited.find(west) == visited.end() && map.CanOccupy(Vector2f(west.x, west.y), radius)) {
+      queue.emplace(west, state.distance + 1.0f);
+      visited.insert(west);
+    }
+
+    if (visited.find(east) == visited.end() && map.CanOccupy(Vector2f(east.x, east.y), radius)) {
+      queue.emplace(east, state.distance + 1.0f);
+      visited.insert(east);
+    }
+
+    if (visited.find(north) == visited.end() && map.CanOccupy(Vector2f(north.x, north.y), radius)) {
+      queue.emplace(north, state.distance + 1.0f);
+      visited.insert(north);
+    }
+
+    if (visited.find(south) == visited.end() && map.CanOccupy(Vector2f(south.x, south.y), radius)) {
+      queue.emplace(south, state.distance + 1.0f);
+      visited.insert(south);
+    }
+  }
+}
+
+CastResult InfluenceMap::CastInfluence(const Map& map, Vector2f from, Vector2f direction, float max_length, RayWidth width, float value, bool perform_collision) {
+  CastResult result;
+
+  Vector2f vRayUnitStepSize = Vector2f(abs(1.0f / direction.x), abs(1.0f / direction.y));
+  
+  Vector2f vMapCheck = Vector2f(std::floor(from.x), std::floor(from.y));
+  Vector2f vRayLength1D, vStep, reflection;
+
+  float fDistance = 0.0f;
+
+  bool cornered = false, bTileFound = false;
+
+  // fix for when stepping out of a bottom right corner both the first Y and the X steps are solid tiles
+  // this is a logic error if the raycaster were to start inside a solid position, but this should be
+  // safe since the raycaster is not intended to start inside of a wall.
+
+  if ((int)from.x == from.x && (int)from.y == from.y) {
+    if (vRayUnitStepSize.x == vRayUnitStepSize.y) {
+      if (direction.x < 0.0f && direction.y < 0.0f) {
+        if (map.IsSolid((unsigned short)vMapCheck.x - 1, (unsigned short)vMapCheck.y) &&
+            map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y - 1)) {
+          cornered = true;
+        }
+      }
+    }
+  }
+
+  if (direction.x < 0.0f) {
+    vStep.x = -1.0f;
+    vRayLength1D.x = (from.x - float(vMapCheck.x)) * vRayUnitStepSize.x;
+  } else {
+    vStep.x = 1.0f;
+    vRayLength1D.x = (float(vMapCheck.x + 1) - from.x) * vRayUnitStepSize.x;
+  }
+
+  if (direction.y < 0.0f) {
+    vStep.y = -1.0f;
+    vRayLength1D.y = (from.y - float(vMapCheck.y)) * vRayUnitStepSize.y;
+  } else {
+    vStep.y = 1.0f;
+    vRayLength1D.y = (float(vMapCheck.y + 1) - from.y) * vRayUnitStepSize.y;
+  }
+
+  // Perform "Walk" until collision or range check
+  while (!bTileFound && fDistance < max_length) {
+    // Walk along shortest path
+    if (vRayLength1D.x < vRayLength1D.y) {
+      vMapCheck.x += vStep.x;
+      fDistance = vRayLength1D.x;
+      vRayLength1D.x += vRayUnitStepSize.x;
+      reflection = Vector2f(-1, 1);
+    } else {
+      vMapCheck.y += vStep.y;
+      fDistance = vRayLength1D.y;
+      vRayLength1D.y += vRayUnitStepSize.y;
+      reflection = Vector2f(1, -1);
+    }
+
+    // Test tile at new test point
+    if (IsValidPosition(vMapCheck)) {
+      if (perform_collision && map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
+        bool skipFirstCheck = cornered && fDistance == 0.0f;
+
+        if (!skipFirstCheck) {
+          bTileFound = true;
+        }
+
+      } else {
+        Vector2f side = Perpendicular(direction);
+
+           SetValue((uint16_t)vMapCheck.x, (uint16_t)vMapCheck.y, value * (max_length - fDistance) / max_length);
+
+           u16 influence_width = 0;
+
+            switch (width) {
+             case RayWidth::Three: {
+               influence_width = 2;
+             } break;
+             case RayWidth::Five: {
+               influence_width = 3;
+             } break;
+             case RayWidth::Seven: {
+               influence_width = 4;
+             } break;
+             default: {
+               influence_width = 0;
+             } break;
+            }
+
+        for (u16 i = 1; i < influence_width; i++) {
+
+          Vector2f side1 = vMapCheck + side * i;
+          Vector2f side2 = vMapCheck - side * i;
+
+          if (!map.IsSolid(side1)) {
+            SetValue((uint16_t)side1.x, (uint16_t)side1.y, value * (max_length - fDistance) / max_length);
+          }
+
+          if (!map.IsSolid(side2)) {
+            SetValue((uint16_t)side2.x, (uint16_t)side2.y, value * (max_length - fDistance) / max_length);
+          }
+        
+        }        
+      }
+    } else {
+      return result;
+    }
+  }
+  if (bTileFound) {
+
+    result.hit = true;
+    result.distance = fDistance;
+    result.position = from + direction * fDistance;
+
+    if ((int)result.position.x == result.position.x && (int)result.position.y == result.position.y) {
+      if (direction.x > 0 && direction.y > 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y - 1)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x < 0 && direction.y > 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y - 1) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x > 0 && direction.y < 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y - 1) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x < 0 && direction.y < 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y - 1)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+    }
+    result.normal = reflection;
+  }
+  #if DEBUG_RENDER_INFLUENCE_TEXT
+  g_RenderState.RenderDebugText("  LOOP: %f", bounces_);
+  g_RenderState.RenderDebugText("  directionX: %f", direction.x);
+  g_RenderState.RenderDebugText("  directionY: %f", direction.y);
+  g_RenderState.RenderDebugText("  fromX: %f", from.x);
+  g_RenderState.RenderDebugText("  fromY: %f", from.y);
+  g_RenderState.RenderDebugText("  vMapCheckX: %f", vMapCheck.x);
+  g_RenderState.RenderDebugText("  vMapCheckY: %f", vMapCheck.y);
+  g_RenderState.RenderDebugText("  xStepSize: %f", vRayUnitStepSize.x);
+  g_RenderState.RenderDebugText("  yStepSize: %f", vRayUnitStepSize.y);
+  g_RenderState.RenderDebugText("  vRayLength1D_X: %f", vRayLength1D.x);
+  g_RenderState.RenderDebugText("  vRayLength1D_Y: %f", vRayLength1D.y);
+  g_RenderState.RenderDebugText("  vStepX: %f", vStep.x);
+  g_RenderState.RenderDebugText("  vStepY: %f", vStep.y);
+  g_RenderState.RenderDebugText("  reflectionX: %f", reflection.x);
+  g_RenderState.RenderDebugText("  reflectionY: %f", reflection.y);
+  g_RenderState.RenderDebugText("  fDistance: %f", fDistance);
+  g_RenderState.RenderDebugText("  vIntersectionX: %f", result.position.x);
+  g_RenderState.RenderDebugText("  vIntersectionY: %f", result.position.y);
+  #endif
+
+  return result;
+}
+
+CastResult InfluenceMap::SpreadInfluence(const Map& map, Vector2f from, Vector2f direction, float max_length, float value) {
+  CastResult result;
+
+  Vector2f vRayUnitStepSize = Vector2f(abs(1.0f / direction.x), abs(1.0f / direction.y));
+
+  Vector2f vMapCheck = Vector2f(std::floor(from.x), std::floor(from.y));
+  Vector2f vRayLength1D, vStep, reflection;
+
+  float fDistance = 0.0f;
+
+  bool cornered = false, bTileFound = false;
+
+  if ((int)from.x == from.x && (int)from.y == from.y) {
+    if (vRayUnitStepSize.x == vRayUnitStepSize.y) {
+      if (direction.x < 0.0f && direction.y < 0.0f) {
+        if (map.IsSolid((unsigned short)vMapCheck.x - 1, (unsigned short)vMapCheck.y) &&
+            map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y - 1)) {
+          cornered = true;
+        }
+      }
+    }
+  }
+
+  if (direction.x < 0.0f) {
+    vStep.x = -1.0f;
+    vRayLength1D.x = (from.x - float(vMapCheck.x)) * vRayUnitStepSize.x;
+  } else {
+    vStep.x = 1.0f;
+    vRayLength1D.x = (float(vMapCheck.x + 1) - from.x) * vRayUnitStepSize.x;
+  }
+
+  if (direction.y < 0.0f) {
+    vStep.y = -1.0f;
+    vRayLength1D.y = (from.y - float(vMapCheck.y)) * vRayUnitStepSize.y;
+  } else {
+    vStep.y = 1.0f;
+    vRayLength1D.y = (float(vMapCheck.y + 1) - from.y) * vRayUnitStepSize.y;
+  }
+
+  while (!bTileFound && fDistance < max_length) {
+    if (vRayLength1D.x < vRayLength1D.y) {
+      vMapCheck.x += vStep.x;
+      fDistance = vRayLength1D.x;
+      vRayLength1D.x += vRayUnitStepSize.x;
+      reflection = Vector2f(-1, 1);
+    } else {
+      vMapCheck.y += vStep.y;
+      fDistance = vRayLength1D.y;
+      vRayLength1D.y += vRayUnitStepSize.y;
+      reflection = Vector2f(1, -1);
+    }
+
+    if (IsValidPosition(vMapCheck)) {
+      if (map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
+        bool skipFirstCheck = cornered && fDistance == 0.0f;
+
+        if (!skipFirstCheck) {
+          bTileFound = true;
+        }
+
+      } else {
+        SetValue((uint16_t)vMapCheck.x, (uint16_t)vMapCheck.y, value * (max_length - fDistance) / max_length);
+
+        Vector2f side = Perpendicular(direction);
+        CastInfluence(map, vMapCheck, side, fDistance, RayWidth::One, value * (max_length - fDistance) / max_length, true);
+        CastInfluence(map, vMapCheck, -side, fDistance, RayWidth::One, value * (max_length - fDistance) / max_length, true);       
+      }
+    }
+  }
+
+  if (bTileFound) {
+    result.hit = true;
+    result.distance = fDistance;
+    result.position = from + direction * fDistance;
+
+    if ((int)result.position.x == result.position.x && (int)result.position.y == result.position.y) {
+      if (direction.x > 0 && direction.y > 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y - 1)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x < 0 && direction.y > 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y - 1) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x > 0 && direction.y < 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y - 1) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x < 0 && direction.y < 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y - 1)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+    }
+    result.normal = reflection;
+  }
+
+  return result;
 }
 
 
-void InfluenceMap::CastWeapon(const Map& map, Vector2f from, Vector2f direction, float max_length, float value,
+void InfluenceMap::CastWeaponOld(const Map& map, Vector2f from, Vector2f direction, float max_length, float value,
                               Weapon* weapon) {
   WeaponType type = weapon->GetData().type;
   int bounces_remaining = 100000;
@@ -220,7 +654,7 @@ void InfluenceMap::CastWeapon(const Map& map, Vector2f from, Vector2f direction,
   }
 }
 
-void InfluenceMap::CastPlayer(const Map& map, Vector2f from, Vector2f direction, float max_length, float value) {
+void InfluenceMap::CastPlayerOld(const Map& map, Vector2f from, Vector2f direction, float max_length, float value) {
 
   for (float i = 0; i < max_length; ++i) {
 

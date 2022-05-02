@@ -7,6 +7,8 @@
 
 namespace marvin {
 
+    enum class Direction : short {West, East, North, NorthWest, NorthEast, South, SouthWest, SouthEast, None};
+
 class Vector2f {
  public:
   union {
@@ -143,6 +145,59 @@ inline Vector2f Reverse(const Vector2f& v) {
   return v * -1.0f;
 }
 
+inline Direction GetDirection(const Vector2f& direction) {
+  if (direction.x == -1.0f && direction.y == 0.0f) {
+    return Direction::West;
+  } else if (direction.x == 1.0f && direction.y == 0.0f) {
+    return Direction::East;
+  } else if (direction.x == 0.0f && direction.y == -1.0f) {
+    return Direction::North;
+  } else if (direction.x < 0.0f && direction.y < 0.0f) {
+    return Direction::NorthWest;
+  } else if (direction.x > 0.0f && direction.y < 0.0f) {
+    return Direction::NorthEast;
+  } else if (direction.x == 0.0f && direction.y == 1.0f) {
+    return Direction::South;
+  } else if (direction.x < 0.0f && direction.y > 0.0f) {
+    return Direction::SouthWest;
+  } else if (direction.x > 0.0f && direction.y > 0.0f) {
+    return Direction::SouthEast;
+  }
+  return Direction::None;
+}
+
+inline Vector2f West(const Vector2f& position) {
+  return Vector2f(position.x - 1, position.y);
+}
+
+inline Vector2f East(const Vector2f& position) {
+  return Vector2f(position.x + 1, position.y);
+}
+
+inline Vector2f North(const Vector2f& position) {
+  return Vector2f(position.x, position.y - 1);
+}
+
+inline Vector2f NorthWest(const Vector2f& position) {
+  return Vector2f(position.x - 1, position.y - 1);
+}
+
+inline Vector2f NorthEast(const Vector2f& position) {
+  return Vector2f(position.x + 1, position.y - 1);
+}
+
+inline Vector2f South(const Vector2f& position) {
+  return Vector2f(position.x, position.y + 1);
+}
+
+inline Vector2f SouthWest(const Vector2f& position) {
+  return Vector2f(position.x - 1, position.y + 1);
+}
+
+inline Vector2f SouthEast(const Vector2f& position) {
+  return Vector2f(position.x + 1, position.y + 1);
+}
+
 inline Vector2f Rotate(const Vector2f& v, float rads) {
   float cosA = std::cos(rads);
   float sinA = std::sin(rads);
@@ -171,6 +226,8 @@ inline float WrapMinMax(float x, float min, float max) {
 inline float WrapToPi(float rads) {
   return WrapMinMax(rads, -3.14159f, 3.14159f);
 }
+
+
 
 // the viewing area the bot could see if it were a player
 inline bool InRect(Vector2f pos, Vector2f min_rect, Vector2f max_rect) {

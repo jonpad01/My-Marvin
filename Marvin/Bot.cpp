@@ -105,15 +105,19 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), stee
 }
 
 void Bot::LoadBot() {
+  radius_ = game_->GetShipSettings().GetRadius();
+
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
   marvin::debug_log << "proccessor created" << std::endl;
   
-  regions_ = RegionRegistry::Create(game_->GetMap());
+  //regions_ = RegionRegistry::Create(game_->GetMap());
+  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
   marvin::debug_log << "regions created" << std::endl;
   
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   marvin::debug_log << "pathfinder created" << std::endl;
   pathfinder_->CreateMapWeights(game_->GetMap());
+  pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
   Zone zone = game_->GetZone();
   marvin::debug_log << "Zone " << game_->GetMapFile() << " found" << std::endl;
   auto builder = CreateBehaviorBuilder(zone, game_->GetPlayer().name);
@@ -128,6 +132,8 @@ void Bot::Update(float dt) {
 
   keys_.ReleaseAll();
 
+  float radius = game_->GetShipSettings().GetRadius();
+  int ship = game_->GetPlayer().ship;
   PerformanceTimer timer;
 
   if (game_->Update(dt) == NEW_MAP_DETECTED) {
@@ -153,13 +159,33 @@ void Bot::Update(float dt) {
     float offset = 5.0f * (game_->GetEnergy() / game_->GetMaxEnergy());
     if (offset < 1.0f) {
       offset = 1.0f;
-    } 
+    }
     influence_map_.Decay(dt * offset);
     g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
-    influence_map_.Update(*game_);
+    //influence_map_.Update(*this);
+     influence_map_.CastWeapons(*this);
     g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());
   }
 
+  #if DEBUG_RENDER_PATHFINDER
+      pathfinder_->DebugUpdate(game_->GetPosition());
+  g_RenderState.RenderDebugText("PathfinderDebugUpdate: %llu", timer.GetElapsedTime());
+  #endif
+
+  #if DEBUG_RENDER_INFLUENCE
+  influence_map_.DebugUpdate(game_->GetPosition());
+#endif
+
+  #if DEBUG_RENDER_REGION_REGISTRY
+    regions_->DebugUpdate(game_->GetPosition());
+    g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
+#endif
+
+  if (radius_ != radius && ship != 8) {
+    pathfinder_->SetPathableNodes(game_->GetMap(), radius);
+    radius_ = radius;
+    g_RenderState.RenderDebugText("SetPathableNodes: %llu", timer.GetElapsedTime());
+  }
 
   behavior_->Update(ctx_);
 
@@ -176,7 +202,7 @@ void Bot::Update(float dt) {
   }
   //#endif
 
-  if (game_->GetPlayer().ship != 8) {
+  if (ship != 8) {
     steering_.Steer(ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
     ctx_.blackboard.Set<bool>("SteerBackwards", false);
   }
@@ -320,6 +346,7 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
 
   uint16_t cShip = game.GetPlayer().ship;
   uint16_t dShip = bb.ValueOr<uint16_t>("Ship", 0);
+  //uint16_t dShip = bb.ValueOr<uint16_t>(Var::Ship, 0);
 
   uint64_t ship_cooldown = 200;
   if (cShip == 8) {
@@ -838,26 +865,6 @@ bool FollowPathNode::CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to)
 
   return !center.hit && !side1.hit && !side2.hit;
 }
-
-/*monkey> no i dont have a list of the types
-monkey> i think it's some kind of combined thing with weapon flags in it
-monkey> im pretty sure type & 0x01 is whether or not it's bouncing
-monkey> and the 0x8000 is the alternative bit for things like mines and multifire
-monkey> i was using type & 0x8F00 to see if it was a mine and it worked decently well
-monkey> 0x0F00 worked ok for seeing if its a bomb
-monkey> and 0x00F0 for bullet, but i don't think it's exact*/
-
-/*
-0x0000 = nothing
-0x1000 & 0x0F00 & 0x1100 & 0x1800 & 0x1F00 & 0x0001 = mine or bomb
-0x0800 = emp mine or bomb
-0x8000 & 0x8100 = mine or multifire
-0x8001 = multi mine bomb
-0xF000 & 0x8800 & 0x8F00 & 0xF100 & 0xF800 & 0xFF00 = mine multi bomb
-0x000F & 0x00F0 = any weapon
-
-stopped at 0x0F01
-*/
 
 behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;

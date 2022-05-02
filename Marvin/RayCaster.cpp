@@ -81,66 +81,135 @@ CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_
 
   CastResult result;
 
-  float xStepSize = std::sqrt(1 + (direction.y / direction.x) * (direction.y / direction.x));
-  float yStepSize = std::sqrt(1 + (direction.x / direction.y) * (direction.x / direction.y));
+  // this can result in division by 0.0f infinity which means that the direction is parallel with the axis and will never intersect.
+  // in this case the ray caster will only step in one direction.
+  Vector2f vRayUnitStepSize = Vector2f(abs(1.0f / direction.x), abs(1.0f / direction.y));
 
   Vector2f vMapCheck = Vector2f(std::floor(from.x), std::floor(from.y));
-  Vector2f vRayLength1D;
+  Vector2f vRayLength1D, vStep, reflection;
 
-  Vector2f vStep;
+  float fDistance = 0.0f;
 
+  bool cornered = false, bTileFound = false;
+
+  // fix for when stepping out of a bottom right corner both the first Y and the X steps are solid tiles
+  // this is a logic error if the raycaster were to start inside a solid position, but this should be
+  // safe since the raycaster is not intended to start inside of a wall.
+
+  if ((int)from.x == from.x && (int)from.y == from.y) {
+    if (vRayUnitStepSize.x == vRayUnitStepSize.y) {
+      if (direction.x < 0.0f && direction.y < 0.0f) {
+        if (map.IsSolid((unsigned short)vMapCheck.x - 1, (unsigned short)vMapCheck.y) &&
+            map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y - 1)) {
+          cornered = true;
+        }
+      }
+    }
+  }
+
+  // this decides how long the first step should be from the starting point
+  // and which direction to step in.
+  // a 0 value means the starting point is perfectly aligned with a wall tile
   if (direction.x < 0) {
     vStep.x = -1.0f;
-    vRayLength1D.x = (from.x - float(vMapCheck.x)) * xStepSize;
+    vRayLength1D.x = (from.x - float(vMapCheck.x)) * vRayUnitStepSize.x;
   } else {
     vStep.x = 1.0f;
-    vRayLength1D.x = (float(vMapCheck.x + 1) - from.x) * xStepSize;
+    vRayLength1D.x = (float(vMapCheck.x + 1) - from.x) * vRayUnitStepSize.x;
   }
 
   if (direction.y < 0) {
     vStep.y = -1.0f;
-    vRayLength1D.y = (from.y - float(vMapCheck.y)) * yStepSize;
+    vRayLength1D.y = (from.y - float(vMapCheck.y)) * vRayUnitStepSize.y;
   } else {
     vStep.y = 1.0f;
-    vRayLength1D.y = (float(vMapCheck.y + 1) - from.y) * yStepSize;
+    vRayLength1D.y = (float(vMapCheck.y + 1) - from.y) * vRayUnitStepSize.y;
   }
 
   // Perform "Walk" until collision or range check
-  bool bTileFound = false;
-  float fDistance = 0.0f;
-
   while (!bTileFound && fDistance < max_length) {
     // Walk along shortest path
     if (vRayLength1D.x < vRayLength1D.y) {
       vMapCheck.x += vStep.x;
       fDistance = vRayLength1D.x;
-      vRayLength1D.x += xStepSize;
+      vRayLength1D.x += vRayUnitStepSize.x;
+      reflection = Vector2f(-1, 1);
     } else {
       vMapCheck.y += vStep.y;
       fDistance = vRayLength1D.y;
-      vRayLength1D.y += yStepSize;
+      vRayLength1D.y += vRayUnitStepSize.y;
+      reflection = Vector2f(1, -1);
     }
 
     // Test tile at new test point
     if (vMapCheck.x >= 0 && vMapCheck.x < vMapSize.x && vMapCheck.y >= 0 && vMapCheck.y < vMapSize.y) {
       if (map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
-        bTileFound = true;
+        bool skipFirstCheck = cornered && fDistance == 0.0f;
+
+        if (!skipFirstCheck) {
+          bTileFound = true;
+        }
       }
     }
   }
 
-  // Calculate intersection location
-  Vector2f vIntersection;
   if (bTileFound) {
-    vIntersection = from + direction * fDistance;
-    float dist;
 
     result.hit = true;
     result.distance = fDistance;
-    result.position = vIntersection;
+    result.position = from + direction * fDistance;
 
-    // wall tiles are checked and returns distance + norm
-    RayBoxIntersect(from, direction, vMapCheck, Vector2f(1.0f, 1.0f), &dist, &result.normal);
+    /* special case handling for reflections off of a corner tile when the intersection has a 0 decimal
+     (the intersected position landed exactly on the tiles map coordinate)
+
+     the raycaster has to run twice to make 2 dicerection changes and reflect out of a corner.
+     the rayboxintersect and the reflection when stepping both get this wrong on the 2nd step
+
+       The first step calculates a floored corner, feeding that back into the 2nd step
+       results in a reflection in an unintended direction.
+
+       The following below looks for this specific situation and reverses the direction so the raycaster
+       can avoid the 2nd step that it doesnt handle correctly.
+       */
+
+    // if the calculated intersection has a 0 decimal (floored)
+    if ((int)result.position.x == result.position.x && (int)result.position.y == result.position.y) {
+      /* when pointing into a lower right corner it finds the bottom left tile to be solid,
+         it then calculates a floored position and reflects Y upward, when fed back into the raycaster
+         it says that the vraylength for Y is 0 and X is 1, takes a 0 distance step and says that the Y
+         step is solid, and reflects Y back down.
+        */
+      if (direction.x > 0 && direction.y > 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y - 1)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x < 0 && direction.y > 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y - 1) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      if (direction.x > 0 && direction.y < 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y - 1) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+
+      /* when pointing into a upper left corner it finds the bottom left corner tile to be solid,
+         returns a floored position and reflects to the right? */
+      if (direction.x < 0 && direction.y < 0) {
+        if (map.IsSolid((unsigned short)result.position.x - 1, (unsigned short)result.position.y) &&
+            map.IsSolid((unsigned short)result.position.x, (unsigned short)result.position.y - 1)) {
+          reflection = Vector2f(-1, -1);
+        }
+      }
+    }
+    result.normal = reflection;
   }
 
 #if 0
@@ -215,6 +284,14 @@ bool RadiusRayCastHit(const Map& map, Vector2f from, Vector2f to, float radius) 
     }
   }
   return result;
+}
+
+bool RayCastHit(const Map& map, Vector2f from, Vector2f to) {
+
+  Vector2f to_target = to - from;
+  CastResult center = RayCast(map, from, Normalize(to_target), to_target.Length());
+
+  return center.hit;
 }
 
 }  // namespace marvin

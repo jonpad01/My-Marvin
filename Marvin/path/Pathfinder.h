@@ -53,7 +53,7 @@ class PriorityQueue {
 struct Pathfinder {
  public:
   Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions);
-  std::vector<Vector2f> FindPath(const Map& map, std::vector<Vector2f> mines, const Vector2f& from, const Vector2f& to,
+  std::vector<Vector2f> FindPath(const Map& map, const std::vector<Vector2f>& mines, const Vector2f& from, const Vector2f& to,
                                  float radius);
 
   std::vector<Vector2f> SmoothPath(const std::vector<Vector2f>& path, const Map& map, float ship_radius);
@@ -61,6 +61,8 @@ struct Pathfinder {
   std::vector<Vector2f> CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius);
 
   void CreateMapWeights(const Map& map);
+  void SetPathableNodes(const Map& map, float radius);
+  void DebugUpdate(const Vector2f& position);
 
  private:
   float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius);
