@@ -156,15 +156,7 @@ void Bot::Update(float dt) {
         return;
       }
     }
-    float offset = 5.0f * (game_->GetEnergy() / game_->GetMaxEnergy());
-    if (offset < 1.0f) {
-      offset = 1.0f;
-    }
-    influence_map_.Decay(dt * offset);
-    g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
-    //influence_map_.Update(*this);
-     influence_map_.CastWeapons(*this);
-    g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());
+
   }
 
   #if DEBUG_RENDER_PATHFINDER
@@ -174,6 +166,10 @@ void Bot::Update(float dt) {
 
   #if DEBUG_RENDER_INFLUENCE
   influence_map_.DebugUpdate(game_->GetPosition());
+#endif
+
+  #if DEBUG_RENDER_SHOOTER
+  shooter_.DebugUpdate(*game_);
 #endif
 
   #if DEBUG_RENDER_REGION_REGISTRY
@@ -329,13 +325,15 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
 
   for (ChatMessage& chat : game.GetChat()) {
     if (ctx.bot->GetCommandSystem().ProcessMessage(*ctx.bot, chat)) {
-      executed = true;
+      // Return failure on execute so the behavior will start over next tick with the commands processed completely.
+      g_RenderState.RenderDebugText("  CommandNode(fail): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
     }
   }
 
-  g_RenderState.RenderDebugText("  CommandNode: %llu", timer.GetElapsedTime());
-  // Return failure on execute so the behavior will start over next tick with the commands processed completely.
-  return executed ? behavior::ExecuteResult::Failure : behavior::ExecuteResult::Success;
+  g_RenderState.RenderDebugText("  CommandNode(success): %llu", timer.GetElapsedTime());
+  
+  return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
@@ -361,11 +359,11 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
       }
     }
 
-    g_RenderState.RenderDebugText("  SetShipNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
-  g_RenderState.RenderDebugText("  SetShipNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  SetShipNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -397,10 +395,10 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
       bb.Set<uint16_t>("Freq", 999);
     }
 
-    g_RenderState.RenderDebugText("  SetFreqNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  SetFreqNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
-  g_RenderState.RenderDebugText("  SetFreqNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  SetFreqNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -410,13 +408,31 @@ behavior::ExecuteResult ShipCheckNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
 
   if (game.GetPlayer().ship == 8) {
-    g_RenderState.RenderDebugText("  ShipCheckNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  ShipCheckNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
-  g_RenderState.RenderDebugText("  ShipCheckNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  ShipCheckNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
+
+behavior::ExecuteResult CastWeaponInfluenceNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+  auto& influence = ctx.bot->GetInfluenceMap();
+
+  float decay_multiplier = 5.0f * (game.GetEnergy() / game.GetMaxEnergy());
+  if (decay_multiplier < 1.0f) {
+    decay_multiplier = 1.0f;
+  }
+  influence.Decay(game.GetPosition(), game.GetMaxSpeed(), ctx.dt, decay_multiplier);
+  g_RenderState.RenderDebugText("InfluenceMapDecay: %llu", timer.GetElapsedTime());
+
+  influence.CastWeapons(*ctx.bot);
+  g_RenderState.RenderDebugText("InfluenceMapUpdate: %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+};
 
 behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
@@ -495,11 +511,11 @@ behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx)
   auto& game = ctx.bot->GetGame();
 
   if (!game.GetPlayer().active) {
-    g_RenderState.RenderDebugText("  RespawnCheckNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  RespawnCheckNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
-  g_RenderState.RenderDebugText("  RespawnCheckNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  RespawnCheckNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -512,7 +528,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   auto& bb = ctx.blackboard;
 
   if (!bb.ValueOr<bool>("InCenter", true)) {
-    g_RenderState.RenderDebugText("  FindEnemyInCenterNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  FindEnemyInCenterNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -525,7 +541,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
     const Player& player = game.GetPlayers()[i];
 
-    if (!IsValidTarget(*ctx.bot, player)) {
+    if (!IsValidTarget(*ctx.bot, player, false)) {
       continue;
     }
 
@@ -540,7 +556,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
 
   const Player* current_target = bb.ValueOr<const Player*>("Target", nullptr);
 
-  if (current_target && IsValidTarget(*ctx.bot, *current_target)) {
+  if (current_target && IsValidTarget(*ctx.bot, *current_target, false)) {
     // Calculate the cost to the current target so there's some stickiness
     // between close targets.
     const float kStickiness = 2.5f;
@@ -552,7 +568,11 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   }
 
   bb.Set<const Player*>("Target", target);
-  g_RenderState.RenderDebugText("  FindEnemyInCenterNode: %llu", timer.GetElapsedTime());
+  if (result == behavior::ExecuteResult::Success) {
+    g_RenderState.RenderDebugText("  FindEnemyInCenterNode(success): %llu", timer.GetElapsedTime());
+  } else {
+    g_RenderState.RenderDebugText("  FindEnemyInCenterNode(fail): %llu", timer.GetElapsedTime());
+  }
   return result;
 }
 
@@ -585,7 +605,23 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
 
   Path base_path = ctx.bot->GetBasePath();
 
-  int bot_node = (int)FindPathIndex(base_path, game.GetPosition());
+  if (base_path.empty()) {
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(fail): %llu", timer.GetElapsedTime());
+    return result;
+  }
+  bool in_center = bb.ValueOr<bool>("InCenter", false);
+  bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
+
+  if (in_center) {
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(fail): %llu", timer.GetElapsedTime());
+    return result;
+  }
+
+  //int bot_node = (int)FindPathIndex(base_path, game.GetPosition());
+
+   auto search = path::PathNodeSearch::Create(game.GetMap(), base_path, 30);
+  int bot_node = (int)search->FindNearestNodeBFS(game.GetPosition(), game.GetShipSettings().GetRadius());
+  int target_node = bot_node;
 
   int closest_distance = std::numeric_limits<int>::max();
 
@@ -594,23 +630,30 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
     const Player& player = game.GetPlayers()[i];
 
-    if (!IsValidTarget(*ctx.bot, player)) {
+    if (!IsValidTarget(*ctx.bot, player, anchoring)) {
       continue;
     }
 
-    int player_node = (int)FindPathIndex(base_path, player.position);
+    //int player_node = (int)FindPathIndex(base_path, player.position);
+    int player_node = (int)search->FindNearestNodeBFS(player.position, game.GetShipSettings(player.ship).GetRadius());
 
     int distance = std::abs(bot_node - player_node);
 
     if (distance < closest_distance) {
       closest_distance = distance;
       target = &game.GetPlayers()[i];
+      target_node = player_node;
       result = behavior::ExecuteResult::Success;
     }
   }
 
   bb.Set<const Player*>("Target", target);
-  g_RenderState.RenderDebugText("  FindEnemyInBaseNode: %llu", timer.GetElapsedTime());
+  if (result == behavior::ExecuteResult::Success) {
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(success): %llu", timer.GetElapsedTime());
+  } else {
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(fail): %llu", timer.GetElapsedTime());
+  }
+  
   return result;
 }
 
@@ -625,7 +668,7 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!enemy) {
-    g_RenderState.RenderDebugText("  PathToEnemyNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  PathToEnemyNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -635,7 +678,7 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy->position, radius);
 
   bb.Set<Path>("Path", path);
-  g_RenderState.RenderDebugText("  PathToEnemyNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  PathToEnemyNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -664,11 +707,11 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
     path = ctx.bot->GetPathfinder().CreatePath(path, from, to, radius);
     bb.Set<Path>("Path", path);
 
-    g_RenderState.RenderDebugText("  PatrolNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  PatrolNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
-  g_RenderState.RenderDebugText("  PatrolNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  PatrolNode(fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -683,14 +726,14 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
   bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
 
   if (in_center) {
-    g_RenderState.RenderDebugText("  TvsTBasePathNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  TvsTBasePathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!enemy) {
-    g_RenderState.RenderDebugText("  TvsTBasePathNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  TvsTBasePathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -702,8 +745,13 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
 
   Vector2f desired_position;
 
-  std::size_t bot_node = FindPathIndex(base_path, position);
-  std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
+  //std::size_t bot_node = FindPathIndex(base_path, position);
+  //std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
+
+    auto search = path::PathNodeSearch::Create(game.GetMap(), base_path, 30);
+
+  size_t bot_node = search->FindNearestNodeBFS(position, game.GetShipSettings().GetRadius());
+  size_t enemy_node = search->FindNearestNodeBFS(enemy->position, game.GetShipSettings(enemy->ship).GetRadius());
 
   if (RadiusRayCastHit(game.GetMap(), enemy->position, base_path[enemy_node],
                        game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
@@ -721,30 +769,90 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
     float enemy_speed = 1.0f;
     float pathlength = 0.0f;
 
-    Vector2f ref;
+    Vector2f enemy_ref;
+    Vector2f bot_ref;
     if (bot_node > enemy_node) {
-      ref = LastLOSNode(game.GetMap(), enemy_node, false, base_path,
+      enemy_ref = LastLOSNode(game.GetMap(), enemy_node, false, base_path,
                         game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+      bot_ref = LastLOSNode(game.GetMap(), bot_node, true, base_path, radius);
+
     } else {
-      ref = LastLOSNode(game.GetMap(), enemy_node, true, base_path,
+      enemy_ref = LastLOSNode(game.GetMap(), enemy_node, true, base_path,
                         game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+      bot_ref = LastLOSNode(game.GetMap(), bot_node, false, base_path, radius);
     }
 
-    Vector2f to_bot = ref - enemy->position;
-    enemy_speed = enemy->velocity * Normalize(to_bot);
+    RenderWorldBox(game.GetPosition(), bot_ref - Vector2f(1, 1), bot_ref + Vector2f(1, 1), RGB(0, 0, 255));
+    RenderWorldBox(game.GetPosition(), enemy_ref - Vector2f(1, 1), enemy_ref + Vector2f(1, 1), RGB(255, 0, 0));
 
-    float desired = (30.0f + (enemy_speed + (6.0f / (energy_pct + 0.0001f))));
+    Vector2f to_anchor = enemy_ref - enemy->position;
+    Vector2f to_enemy = bot_ref - game.GetPosition();
+    //enemy_speed = enemy->velocity.Dot(Normalize(to_bot));
 
-    pathlength = PathLength(ctx.bot->GetBasePath(), position, enemy->position);
+    float bullet_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
+    float alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
+    //float bullet_travel = (bullet_speed + (enemy->velocity * enemy->GetHeading())) * alive_time;
 
-    if (pathlength < desired || bb.ValueOr<bool>("TargetInSight", false) || AvoidInfluence(ctx)) {
-      if (bot_node > enemy_node) {
-        desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
-                                       game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      } else {
-        desired_position = LastLOSNode(game.GetMap(), bot_node, true, base_path,
-                                       game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      }
+    // the bullets expected velocity when fired
+    Vector2f bullet_velocity = enemy->GetHeading() * bullet_speed + enemy->velocity;
+    // the total distance the bullet will travel
+    float bullet_travel = bullet_velocity.Length() * alive_time;
+    if (!enemy->active) {
+     // bullet_travel = bullet_speed * alive_time;
+    }
+    // the speed that the enemy is moving toward or away from the anchor
+    float enemy_speed_offset = (Normalize(enemy->velocity).Dot(Normalize(to_anchor))) * enemy->velocity.Length();
+    float bullet_speed_offset = (Normalize(bullet_velocity).Dot(Normalize(to_anchor))) * bullet_velocity.Length();
+    float bot_speed_offset = (Normalize(to_enemy).Dot(Normalize(game.GetPlayer().velocity))) * game.GetPlayer().velocity.Length();
+
+    float threat_range = enemy_speed_offset + bot_speed_offset;
+
+    g_RenderState.RenderDebugText("  BOTSPEEDOFFSET: %F", bot_speed_offset);
+    g_RenderState.RenderDebugText("  ENEMYSPEEDOFFSET: %F", enemy_speed_offset);
+    g_RenderState.RenderDebugText("  BULLETSPEEDOFFSET: %F", bullet_speed_offset);
+
+    g_RenderState.RenderDebugText("TRAVEL: %f", bullet_travel);
+    g_RenderState.RenderDebugText("VEL X: %f", bullet_velocity.x);
+    g_RenderState.RenderDebugText("VEL Y: %f", bullet_velocity.y);
+
+    // this reflects the likelyhood that a player could hit the bot at the bullets travel length
+    float bullet_travel_multiplier = 0.5f;
+
+    // if the bots reference point is in sight of the targets reference point, then its just around the corner
+    if (!RadiusRayCastHit(game.GetMap(), bot_ref, Normalize(enemy_ref - bot_ref), bot_ref.Distance(enemy_ref))) {
+      bullet_travel_multiplier = 0.65f;
+    }
+
+    if (!RadiusRayCastHit(game.GetMap(), position, Normalize(enemy->position - position), enemy->position.Distance(position))) {
+      bullet_travel_multiplier = 1.0f;
+    }
+
+    //float desired = (30.0f + (enemy_speed + (6.0f / (energy_pct + 0.0001f))));
+    float desired = bullet_travel * bullet_travel_multiplier + threat_range + (1.0F / energy_pct);
+    if (desired < 25.f) {
+      desired = 25.0f;
+    }
+
+    //pathlength = PathLength(ctx.bot->GetBasePath(), position, enemy->position);
+
+    pathlength = search->GetPathDistance(position, enemy->position);
+
+   // Vector2f to_enemy = enemy->position - game.GetPosition();
+   // bool enemy_visible = !RayCast(game.GetMap(), game.GetPosition(), Normalize(to_enemy), to_enemy.Length()).hit;
+
+    //if (pathlength < desired || bb.ValueOr<bool>("TargetInSight", false) || AvoidInfluence(ctx)) {
+    if (pathlength < desired || AvoidInfluence(ctx)) {
+    if (bot_node > enemy_node) {
+       // desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
+                          //             game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+      desired_position = MaintainObstructedDistance(game.GetMap(), bot_node, enemy_node, desired, false, base_path,
+                                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+    } else {
+       // desired_position = LastLOSNode(game.GetMap(), bot_node, true, base_path,
+                              //         game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+      desired_position = MaintainObstructedDistance(game.GetMap(), bot_node, enemy_node, desired, true, base_path,
+                                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+    }
 
       // path = ctx.bot->GetPathfinder().CreatePath(path, position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()),
       // radius);
@@ -755,7 +863,7 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
   path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
   bb.Set<Path>("Path", path);
 
-  g_RenderState.RenderDebugText("  TvsTBasePathNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  TvsTBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -805,6 +913,75 @@ bool TvsTBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
   return false;
 }
 
+// Always stays behind a corner and maintains the desired distance beyond that.
+Vector2f TvsTBasePathNode::MaintainObstructedDistance(const Map& map, std::size_t current_index, std::size_t enemy_index,
+                                    float desired_distance, bool count_down, const std::vector<Vector2f>& path,
+                                    float ship_radius) {
+  Vector2f position;
+
+  if (path.empty()) return position;
+
+  float distance_acc = 0.0f;
+  bool is_obstructed = false;
+
+  if (count_down) {
+    position = path.front();
+
+    Vector2f previous = path[current_index];
+
+    for (size_t i = current_index; i < enemy_index; ++i) {
+      distance_acc += path[i].Distance(previous);
+      previous = path[i];
+    }
+
+    previous = path[current_index];
+
+    for (std::size_t i = current_index; i > 0; i--) {
+      const Vector2f& current = path[i];
+
+      distance_acc += current.Distance(previous);
+      previous = current;
+
+      if (!is_obstructed && RadiusRayCastHit(map, path[current_index], current, ship_radius)) {
+        is_obstructed = true;
+      }
+
+      if (is_obstructed && distance_acc >= desired_distance) {
+        position = current;
+        break;
+      }
+    }
+  } else {
+    position = path.back();
+
+    Vector2f previous = path[enemy_index];
+
+    for (size_t i = enemy_index; i < current_index; ++i) {
+      distance_acc += path[i].Distance(previous);
+      previous = path[i];
+    }
+
+    previous = path[current_index];
+    for (std::size_t i = current_index; i < path.size(); i++) {
+      const Vector2f& current = path[i];
+
+      distance_acc += current.Distance(previous);
+      previous = current;
+
+      if (!is_obstructed && RadiusRayCastHit(map, path[current_index], current, ship_radius)) {
+        is_obstructed = true;
+      }
+
+      if (is_obstructed && distance_acc >= desired_distance) {
+        position = current;
+        break;
+      }
+    }
+  }
+
+  return position;
+}
+
 behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
@@ -816,7 +993,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   size_t path_size = path.size();
 
   if (path.empty()) {
-    g_RenderState.RenderDebugText("  FollowPathNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  FollowPathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -847,7 +1024,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   ctx.bot->Move(current, 0.0f);
-  g_RenderState.RenderDebugText("  FollowPathNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  FollowPathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -881,13 +1058,13 @@ behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) 
       if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
         game.Repel(ctx.bot->GetKeys());
 
-        g_RenderState.RenderDebugText("  MineSweeperNode: %llu", timer.GetElapsedTime());
+        g_RenderState.RenderDebugText("  MineSweeperNode(success): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Success;
       }
     }
   }
 
-  g_RenderState.RenderDebugText("  MineSweeperNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  MineSweeperNode(fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -921,11 +1098,11 @@ behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.blackboard;
 
   if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
-    g_RenderState.RenderDebugText("  IsAnchorNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  IsAnchorNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
-  g_RenderState.RenderDebugText("  IsAnchorNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  IsAnchorNode(fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -937,34 +1114,31 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
 
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
   if (!target) {
-    g_RenderState.RenderDebugText("  BouncingShotNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   float energy_pct = (float)game.GetPlayer().energy / game.GetMaxEnergy() * 100.0f;
 
   if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
-    g_RenderState.RenderDebugText("  BouncingShotNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   float target_radius = game.GetSettings().ShipSettings[target->ship].GetRadius();
-  bool shoot = false;
-  bool bomb_hit = false;
-  Vector2f wall_pos;
 
-  if (BounceShot(game, target->position, target->velocity, target_radius, game.GetPlayer().GetHeading(), &bomb_hit,
-                 &wall_pos)) {
+  ShotResult bResult = ctx.bot->GetShooter().BouncingBombShot(game, target->position, target->velocity, target_radius);
+  ShotResult gResult = ctx.bot->GetShooter().BouncingBulletShot(game, target->position, target->velocity, target_radius);
+
     if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
-      if (bomb_hit) {
+      if (bResult.hit) {
         ctx.bot->GetKeys().Press(VK_TAB);
-      } else {
+      } else if (gResult.hit) {
         ctx.bot->GetKeys().Press(VK_CONTROL);
       }
     }
-  }
 
-  g_RenderState.RenderDebugText("  BouncingShotNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  BouncingShotNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -977,7 +1151,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!target_player) {
-    g_RenderState.RenderDebugText("  ShootEnemyNode: %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  ShootEnemyNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
   const Player& target = *target_player;
@@ -987,11 +1161,8 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   float radius = game.GetShipSettings().GetRadius();
   Vector2f side = Perpendicular(bot.GetHeading());
 
-  float proj_speed = game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
-  float alive_time = ((float)game.GetSettings().BulletAliveTime / 100.0f);
-
-  // float gSpeed = game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
-  // float bSpeed = game.GetSettings().ShipSettings[bot.ship].BombSpeed / 10.0f / 16.0f;
+  float proj_speed = (float)game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
+  float alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
 
   Vector2f solution = target.position;
   bb.Set<Vector2f>("Solution", solution);
@@ -1005,7 +1176,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
   std::vector<Vector2f> positions;
 
-  if (game.GetShipSettings().DoubleBarrel == 1) {
+  if ((game.GetShipSettings().DoubleBarrel & 1) != 0) {
     positions.push_back(bot.position + side * radius * 0.8f);
     positions.push_back(bot.position - side * radius * 0.8f);
   } else {
@@ -1039,9 +1210,13 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
     }
 
     Vector2f weapon_velocity = bot.velocity + bot.GetHeading() * proj_speed;
-    float real_proj_speed = weapon_velocity.Length();
+    float adjusted_proj_speed = weapon_velocity.Length();
 
-    if (CalculateShot(bot.position, target.position, bot.velocity, target.velocity, real_proj_speed, &solution)) {
+    ShotResult result =
+        ctx.bot->GetShooter().CalculateShot(bot.position, target.position, bot.velocity, target.velocity, adjusted_proj_speed);
+    solution = result.solution;
+
+    if (result.hit) {
       if (!onBomb) {
         bb.Set<Vector2f>("Solution", solution);
       }
@@ -1091,7 +1266,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
         RenderWorldBox(bot.position, bBox_min, bBox_min + box_extent, RGB(0, 255, 0));
 
 
-        if (RayBoxIntersect(bot.position, Normalize(weapon_velocity), bBox_min, box_extent, &dist, &norm)) {
+        if (FloatingRayBoxIntersect(bot.position, Normalize(weapon_velocity), solution, nearby_radius, &dist, &norm)) {
           ctx.bot->GetKeys().Press(weapon_key);
           g_RenderState.RenderDebugText("  ShootEnemyNode (success): %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Success;
@@ -1142,7 +1317,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   ctx.bot->GetSteering().Face(position);
 
-  g_RenderState.RenderDebugText("  MoveToEnemyNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  MoveToEnemyNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 

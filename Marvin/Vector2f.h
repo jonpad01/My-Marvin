@@ -235,7 +235,7 @@ inline bool InRect(Vector2f pos, Vector2f min_rect, Vector2f max_rect) {
 }
 
 // probably checks if the target is dead
-inline bool IsValidPosition(Vector2f position) {
+inline bool IsValidPosition(const Vector2f& position) {
   return position.x >= 0 && position.x < 1024 && position.y >= 0 && position.y < 1024;
 }
 

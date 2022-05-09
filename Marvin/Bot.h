@@ -14,6 +14,7 @@
 #include "common.h"
 #include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
+#include "Shooter.h"
 
 namespace marvin {
 
@@ -36,6 +37,7 @@ class Bot {
   behavior::ExecuteContext& GetExecuteContext() { return ctx_; }
   path::Pathfinder& GetPathfinder() { return *pathfinder_; }
   RegionRegistry& GetRegions() { return *regions_; }
+  Shooter& GetShooter() { return shooter_; }
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return influence_map_; }
   CommandSystem& GetCommandSystem() { return command_system_; }
@@ -72,6 +74,7 @@ class Bot {
   SteeringBehavior steering_;
   InfluenceMap influence_map_;
   CommandSystem command_system_;
+  Shooter shooter_;
 
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
 
@@ -124,6 +127,13 @@ class SortBaseTeams : public behavior::BehaviorNode {
  private:
 };
 
+class CastWeaponInfluenceNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+};
+
 class FindEnemyInCenterNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
@@ -154,6 +164,9 @@ class TvsTBasePathNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
+  Vector2f MaintainObstructedDistance(const Map& map, std::size_t current_index, std::size_t enemy_index,
+                                      float desired_distance, bool count_down, const std::vector<Vector2f>& path,
+                                      float ship_radius);
   bool AvoidInfluence(behavior::ExecuteContext& ctx);
 };
 

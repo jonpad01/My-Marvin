@@ -43,7 +43,7 @@ struct Triangle {
 
 class InfluenceMap {
  public:
-  InfluenceMap() : map_extent_(1023) { tiles = new float[1024 * 1024]; }
+  InfluenceMap() : map_extent_(1023), maximum_value_(1.0f) { tiles = new float[1024 * 1024]; }
   void DebugUpdate(const Vector2f& position);
 
   float GetValue(uint16_t x, uint16_t y);
@@ -52,8 +52,8 @@ class InfluenceMap {
   void AddValue(uint16_t x, uint16_t y, float value);
   void SetValue(uint16_t x, uint16_t y, float value);
 
-  void Clear();
-  void Decay(float dt);
+  void Clear(); 
+  void Decay(const Vector2f& position, float max_speed, float dt, float decay_multiplier);
 
   void CastPlayer(const Map& map, const Player& player, Bot& bot);
 
@@ -71,6 +71,7 @@ class InfluenceMap {
  private:
   int map_extent_;
   float* tiles;
+  float maximum_value_;
 };
 
 }  // namespace marvin

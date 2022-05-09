@@ -491,16 +491,19 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
     bool bomb_hit = false;
     Vector2f wall_pos;
 
-    if (BounceShot(game, target_player->position, target_player->velocity, target_radius, game.GetPlayer().GetHeading(),
-                   &bomb_hit, &wall_pos)) {
+    ShotResult bResult =
+        ctx.bot->GetShooter().BouncingBombShot(game, target_player->position, target_player->velocity, target_radius);
+    ShotResult gResult =
+        ctx.bot->GetShooter().BouncingBulletShot(game, target_player->position, target_player->velocity, target_radius);
+
       if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
-        if (bomb_hit) {
+      if (bResult.hit) {
           ctx.bot->GetKeys().Press(VK_TAB);
-        } else {
+      } else if (gResult.hit) {
           ctx.bot->GetKeys().Press(VK_CONTROL);
         }
       }
-    }
+ 
   }
 
   return result;
@@ -522,11 +525,11 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
   float radius = game.GetShipSettings().GetRadius();
   float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
 
-  Vector2f solution;
+  ShotResult result = ctx.bot->GetShooter().CalculateShot(game.GetPosition(), target.position, bot_player.velocity,
+                                                          target.velocity, proj_speed);
 
-  if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed,
-                     &solution)) {
-    ctx.blackboard.Set<Vector2f>("shot_position", solution);
+  if (!result.hit) {
+    ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
     ctx.blackboard.Set<bool>("bullet_shot", false);
     return behavior::ExecuteResult::Failure;
   }
@@ -546,7 +549,7 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
   float nearby_radius = target_radius * radius_multiplier;
 
   // Vector2f box_min = target.position - Vector2f(nearby_radius, nearby_radius);
-  Vector2f box_min = solution - Vector2f(nearby_radius, nearby_radius);
+  Vector2f box_min = result.solution - Vector2f(nearby_radius, nearby_radius);
   Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
   float dist;
   Vector2f norm;
@@ -555,22 +558,25 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
   if ((game.GetShipSettings().DoubleBarrel & 1) != 0) {
     Vector2f side = Perpendicular(bot_player.GetHeading());
 
-    bool rHit1 = RayBoxIntersect(bot_player.position + side * radius, bot_player.GetHeading(), box_min, box_extent,
+    bool rHit1 = FloatingRayBoxIntersect(bot_player.position + side * radius, bot_player.GetHeading(), result.solution,
+                                 nearby_radius,
                                  &dist, &norm);
-    bool rHit2 = RayBoxIntersect(bot_player.position - side * radius, bot_player.GetHeading(), box_min, box_extent,
+    bool rHit2 = FloatingRayBoxIntersect(bot_player.position - side * radius, bot_player.GetHeading(), result.solution,
+                                 nearby_radius,
                                  &dist, &norm);
     if (rHit1 || rHit2) {
       rHit = true;
     }
 
   } else {
-    rHit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
+    rHit = FloatingRayBoxIntersect(bot_player.position, bot_player.GetHeading(), result.solution, nearby_radius, &dist,
+                                   &norm);
   }
 
-  ctx.blackboard.Set<Vector2f>("shot_position", solution);
+  ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
 
   if (rHit) {
-    if (CanShootGun(game, game.GetMap(), game.GetPosition(), solution)) {
+    if (CanShootGun(game, game.GetMap(), game.GetPosition(), result.solution)) {
       ctx.blackboard.Set<bool>("bullet_shot", true);
       return behavior::ExecuteResult::Success;
     }
@@ -592,11 +598,13 @@ behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) 
   float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BombSpeed / 10.0f / 16.0f;
   bool has_shot = false;
 
-  Vector2f solution;
+  ShotResult result = ctx.bot->GetShooter().CalculateShot(game.GetPosition(), target.position, bot_player.velocity,
+                                                          target.velocity, proj_speed);
 
-  if (!CalculateShot(game.GetPosition(), target.position, bot_player.velocity, target.velocity, proj_speed,
-                     &solution)) {
-    ctx.blackboard.Set<Vector2f>("shot_position", solution);
+
+
+  if (!result.hit) {
+    ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
     ctx.blackboard.Set<bool>("bomb_shot", false);
     return behavior::ExecuteResult::Failure;
   }
@@ -618,17 +626,18 @@ behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) 
 
   float nearby_radius = target_radius * radius_multiplier;
 
-  Vector2f box_min = solution - Vector2f(nearby_radius, nearby_radius);
+  Vector2f box_min = result.solution - Vector2f(nearby_radius, nearby_radius);
   Vector2f box_extent(nearby_radius * 1.2f, nearby_radius * 1.2f);
   float dist;
   Vector2f norm;
 
-  bool hit = RayBoxIntersect(bot_player.position, bot_player.GetHeading(), box_min, box_extent, &dist, &norm);
+  bool hit = FloatingRayBoxIntersect(bot_player.position, bot_player.GetHeading(), result.solution, nearby_radius,
+                                     &dist, &norm);
 
-  ctx.blackboard.Set<Vector2f>("shot_position", solution);
+  ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
 
   if (hit) {
-    if (CanShootBomb(game, game.GetMap(), game.GetPosition(), solution)) {
+    if (CanShootBomb(game, game.GetMap(), game.GetPosition(), result.solution)) {
       ctx.blackboard.Set<bool>("bomb_shot", true);
       return behavior::ExecuteResult::Success;
     }
@@ -709,9 +718,9 @@ bool MoveToEnemyNode::IsAimingAt(GameProxy& game, const Player& shooter, const P
   Vector2f directions[2] = {shoot_direction, shooter.GetHeading()};
 
   for (Vector2f direction : directions) {
-    if (RayBoxIntersect(shooter.position, direction, box_pos, extent, &distance, nullptr) ||
-        RayBoxIntersect(shooter.position + side, direction, box_pos, extent, &distance, nullptr) ||
-        RayBoxIntersect(shooter.position - side, direction, box_pos, extent, &distance, nullptr)) {
+    if (FloatingRayBoxIntersect(shooter.position, direction, target.position, radius, &distance, nullptr) ||
+        FloatingRayBoxIntersect(shooter.position + side, direction, target.position, radius, &distance, nullptr) ||
+        FloatingRayBoxIntersect(shooter.position - side, direction, target.position, radius, &distance, nullptr)) {
 #if 0
                     Vector2f hit = shooter.position + shoot_direction * distance;
 

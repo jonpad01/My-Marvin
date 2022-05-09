@@ -19,18 +19,36 @@ float BoxPointDistance(Vector2f box_pos, Vector2f box_extent, Vector2f p) {
 
 bool LineBoxIntersect(Vector2f point, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist,
                       Vector2f* norm) {
-  if (RayBoxIntersect(point, direction, box_pos, box_extent, dist, norm)) {
+  if (TiledRayBoxIntersect(point, direction, box_pos, box_extent, dist, norm)) {
     return true;
   }
 
-  return RayBoxIntersect(point, -direction, box_pos, box_extent, dist, norm);
+  return TiledRayBoxIntersect(point, -direction, box_pos, box_extent, dist, norm);
 }
 
-bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist,
-                     Vector2f* norm) {
-  Vector2f recip(1.0f / direction.x, 1.0f / direction.y);
+bool TiledRayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, Vector2f box_extent, float* dist,
+                      Vector2f* norm) {
   Vector2f lb = box_pos + Vector2f(0, box_extent.y);
   Vector2f rt = box_pos + Vector2f(box_extent.x, 0);
+  if (RayBoxIntersect(origin, direction, lb, rt, dist, norm)) {
+    return true;
+  }
+  return false;
+}
+
+bool FloatingRayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos, float box_size, float* dist,
+                      Vector2f* norm) {
+  Vector2f lb = box_pos + Vector2f(-box_size, box_size);
+  Vector2f rt = box_pos + Vector2f(box_size, -box_size);
+  if (RayBoxIntersect(origin, direction, lb, rt, dist, norm)) {
+    return true;
+  }
+  return false;
+}
+
+bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f lb, Vector2f rt, float* dist,
+                     Vector2f* norm) {
+  Vector2f recip(1.0f / direction.x, 1.0f / direction.y);
 
   float t1 = (float)((lb.x - origin.x) * recip.x);
   float t2 = (float)((rt.x - origin.x) * recip.x);

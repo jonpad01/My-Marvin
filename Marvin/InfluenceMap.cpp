@@ -22,6 +22,9 @@ void InfluenceMap::AddValue(uint16_t x, uint16_t y, float value) {
 }
 
 void InfluenceMap::SetValue(uint16_t x, uint16_t y, float value) {
+  if (value > maximum_value_) {
+    value = maximum_value_;
+  }
   tiles[y * 1024 + x] = value;
 }
 
@@ -31,11 +34,31 @@ void InfluenceMap::Clear() {
   }
 }
 
-void InfluenceMap::Decay(float dt) {
-  for (size_t i = 0; i < 1024 * 1024; ++i) {
-    tiles[i] = tiles[i] - dt;
-    if (tiles[i] < 0) {
-      tiles[i] = 0;
+void InfluenceMap::Decay(const Vector2f& position, float max_speed, float dt, float decay_multiplier) {
+/* 
+* The maximum_value is how many seconds a tile will take to decay (default 1 second),
+* max speed is in tiles per second. 
+*
+* Concept: If the ship is moving at a max speed of 17 tiles per second and the maximum decay time
+* is 1 second then the decay function only needs to decay at a 17 tile distance.
+* 
+* This is pretty restrictive but it could still be used to watch heat areas around other players
+* (such as protecting a team anchor) by feeding it that players position and the max speed for that
+* players ship.
+*/
+  float padding = 5.0f;
+  float decay_distance = (maximum_value_ * max_speed) / decay_multiplier + padding;
+
+  for (float y = position.y - decay_distance; y <= position.y + decay_distance; ++y) {
+    for (float x = position.x - decay_distance; x <= position.x + decay_distance; ++x) {
+        // check if position isnt pushed off the edge of the map
+      if (IsValidPosition(Vector2f(x, y))) {
+        std::size_t index = (std::size_t)y * 1024 + (std::size_t)x;
+        tiles[index] = tiles[index] - dt * decay_multiplier;
+        if (tiles[index] < 0.0f) {
+          tiles[index] = 0.0f;
+        }
+      }
     }
   }
 }
@@ -48,24 +71,14 @@ void InfluenceMap::DebugUpdate(const Vector2f& position) {
     for (i32 x = -50; x < 50; ++x) {
       Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
 
-      if (check.x > 1023.0f) {
-        check.x = 1023.0f;
-      }
-      if (check.x < 1.0f) {
-        check.x = 1.0f;
-      }
-      if (check.y > 1023.0f) {
-        check.y = 1023.0f;
-      }
-      if (check.y < 1.0f) {
-        check.y = 1.0f;
-      }
-      float value = GetValue(check);
+      if (IsValidPosition(check)) {
+        float value = GetValue(check);
 
-      if (value >= 0.1f) {
-        int r = (int)(std::min(value * (255 / kInfluenceValue), 255.0f));
-        RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(r, 100, 100));
-        RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(r, 100, 100));
+        if (value >= 0.1f) {
+          int r = (int)(std::min(value * (255 / kInfluenceValue), 255.0f));
+          RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(r, 100, 100));
+          RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(r, 100, 100));
+        }
       }
     }
   }
@@ -73,17 +86,24 @@ void InfluenceMap::DebugUpdate(const Vector2f& position) {
 
 
 void InfluenceMap::CastWeapons(Bot& bot) {
-GameProxy& game = bot.GetGame();
+  GameProxy& game = bot.GetGame();
+  Vector2f position = game.GetPosition();
+
+  Vector2f resolution(1920, 1080);
+  Vector2f view_min_ = position - resolution / 2.0f / 16.0f;
+  Vector2f view_max_ = position + resolution / 2.0f / 16.0f;
+
   for (Weapon* weapon : game.GetWeapons()) {
-    CastWeapon(game.GetMap(), weapon, bot);
+    if (InRect(weapon->GetPosition(), view_min_, view_max_)) {
+      CastWeapon(game.GetMap(), weapon, bot);
+    }
   }
 }
 
 void InfluenceMap::CastWeapon(const Map& map, Weapon* weapon, Bot& bot) {
+  GameProxy& game = bot.GetGame();
 
-GameProxy& game = bot.GetGame();
-
-if (game.GetMap().IsSolid(weapon->GetPosition())) return;
+  if (game.GetMap().IsSolid(weapon->GetPosition())) return;
 
   const Player* player = game.GetPlayerById(weapon->GetPlayerId());
 
@@ -105,17 +125,15 @@ if (game.GetMap().IsSolid(weapon->GetPosition())) return;
 
   u32 damage = 0;
 
-  u32 bullet_damage = (game.GetSettings().BulletDamageLevel + (game.GetSettings().BulletDamageUpgrade * weapon->GetData().level)) / 1000;
+  u32 bullet_damage =
+      (game.GetSettings().BulletDamageLevel + (game.GetSettings().BulletDamageUpgrade * weapon->GetData().level)) /
+      1000;
   u32 bomb_damage = game.GetSettings().BombDamageLevel / 1000;
   u32 burst_damage = game.GetSettings().BurstDamageLevel / 1000;
-
- 
- 
 
   switch (weapon->GetData().type) {
     case WeaponType::Bomb: {
       bounces_remaining = weapon->GetRemainingBounces();
-      width = RayWidth::Three;
       damage = bomb_damage;
     } break;
     case WeaponType::ProximityBomb: {
@@ -123,6 +141,10 @@ if (game.GetMap().IsSolid(weapon->GetPosition())) return;
       bounces_remaining = weapon->GetRemainingBounces();
       u32 prox_tiles = game.GetSettings().ProximityDistance + weapon->GetData().level;
       switch (prox_tiles) {
+        case 2:
+        case 3: {
+          width = RayWidth::Three;
+        }
         case 4:
         case 5: {
           width = RayWidth::Five;
@@ -138,6 +160,10 @@ if (game.GetMap().IsSolid(weapon->GetPosition())) return;
       damage = bomb_damage;
       u32 prox_tiles = game.GetSettings().ProximityDistance + weapon->GetData().level;
       switch (prox_tiles) {
+        case 2:
+        case 3: {
+          width = RayWidth::Three;
+        }
         case 4:
         case 5: {
           width = RayWidth::Five;
@@ -160,25 +186,24 @@ if (game.GetMap().IsSolid(weapon->GetPosition())) return;
     } break;
   }
 
-     // g_RenderState.RenderDebugText("  DAMAGE: %f", (float)damage);
-      // Calculate a value for the weapon being casted into the influence map.
-      // Value ranges from 0 to 1.0 depending on how much damage it does.
-      // compare damage against highest damge weapon
-      float value = (float)damage / (float)bomb_damage;
+  // g_RenderState.RenderDebugText("  DAMAGE: %f", (float)damage);
+  
+  // Calculate a value for the weapon being casted into the influence map.
+  // Value ranges from 0 to 1.0 depending on how much damage it does.
+  // compare damage against highest damge weapon
+  float value = (float)damage / (float)bomb_damage;
+  CastResult result;
 
-      CastResult result = CastInfluence(map, position, direction, influence_length, width, value, perform_collision);
-      bounces_remaining--;
+  do {
+    result = CastInfluence(map, position, direction, influence_length, width, value, perform_collision);
+    bounces_remaining--;
 
-      while (result.hit && bounces_remaining >= 0) {
-        position = result.position;
-        direction = Vector2f(direction.x * result.normal.x, direction.y * result.normal.y);
-        value = value * ((influence_length - result.distance) / influence_length);
-        influence_length -= result.distance;
-
-        result = CastInfluence(map, position, direction, influence_length, width, value, perform_collision);
-        bounces_remaining--;
-      }
-  }
+    position = result.position;
+    direction = Vector2f(direction.x * result.normal.x, direction.y * result.normal.y);
+    value = value * ((influence_length - result.distance) / influence_length);
+    influence_length -= result.distance;
+  } while (result.hit && bounces_remaining >= 0);
+}
 
 
 void InfluenceMap::CastPlayer(const Map& map, const Player& player, Bot& bot) {
@@ -221,7 +246,9 @@ void InfluenceMap::CastPlayer(const Map& map, const Player& player, Bot& bot) {
 }
 
 void InfluenceMap::FloodFillInfluence(const Map& map, GameProxy& game, const Player& player, float radius) {
-  if (!player.active || !IsValidPosition(player.position)) { return; }
+  if (!player.active || !IsValidPosition(player.position)) {
+    return;
+  }
 
   const float influence_multiplier = 1.0f;
   // a range of 0 - 2 (0 = flying backwards, 2 = flying forwards, 1 = sideways or stopped)
@@ -229,13 +256,6 @@ void InfluenceMap::FloodFillInfluence(const Map& map, GameProxy& game, const Pla
 
   if (rotation_multiplier < 1.0f) {
     rotation_multiplier = 1.0f;
-  }
-  float speed = player.velocity.Length();
-
-  float max_distance = (speed * rotation_multiplier * influence_multiplier) + 40.0f;
-
-  if (max_distance > 80.0f) {
-    max_distance = 80.0f;
   }
 
   struct VisitState {
@@ -248,38 +268,45 @@ void InfluenceMap::FloodFillInfluence(const Map& map, GameProxy& game, const Pla
   std::queue<VisitState> queue;
   std::unordered_set<MapCoord> visited;
 
-    // Start at the player's position and flood fill forward
+  // Start at the player's position and flood fill forward
   const Vector2f& start = player.position;
+
+#if 1
+  Vector2f direction = Normalize(player.velocity);
+#else
+  Vector2f direction = player.GetHeading();
+#endif
 
   queue.emplace(start, 0.0f);
   visited.insert(start);
 
-   Vector2f direction = Normalize(player.velocity);
+  constexpr float max_distance = 60.0f;
+
+  // Create a barrier along the ship's side to stop backwards travel
+  // These nodes will be considered visited so the queue nodes will not attempt to travel backwards
+  {
     Vector2f side = Perpendicular(direction);
 
-  for (float i = 0; i < 1024; ++i) {
-    for (float j = 0; j < 3; ++j) {
-      Vector2f current = start - direction * j + side * i;
+    for (float i = 0; i < 1024; ++i) {
+      for (float j = 0; j < 3; ++j) {
+        Vector2f current = start - direction * j + side * i;
 
-      if (map.IsSolid(current)) break;
-      if (RayCastHit(map, player.position, current)) break;
+        if (map.IsSolid(current)) break;
 
-      visited.insert(current);
+        visited.insert(current);
+      }
+    }
+
+    for (float i = 0; i < 1024; ++i) {
+      for (float j = 0; j < 3; ++j) {
+        Vector2f current = start - direction * j - side * i;
+
+        if (map.IsSolid(current)) break;
+
+        visited.insert(current);
+      }
     }
   }
-
-  for (float i = 0; i < 1024; ++i) {
-    for (float j = 0; j < 3; ++j) {
-      Vector2f current = start - direction * j - side * i;
-
-      if (map.IsSolid(current)) break;
-      if (RayCastHit(map, player.position, current)) break;
-
-      visited.insert(current);
-    }
-  }
-
-
 
   while (!queue.empty()) {
     // Grab the next tile from the queue
@@ -322,6 +349,7 @@ void InfluenceMap::FloodFillInfluence(const Map& map, GameProxy& game, const Pla
     }
   }
 }
+
 
 CastResult InfluenceMap::CastInfluence(const Map& map, Vector2f from, Vector2f direction, float max_length, RayWidth width, float value, bool perform_collision) {
   CastResult result;

@@ -126,9 +126,10 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
   
   
-
+    // behavior nodes
   auto DEVA_debug = std::make_unique<deva::DevaDebugNode>();
   auto is_anchor = std::make_unique<bot::IsAnchorNode>();
+  auto cast_weapon_influence = std::make_unique<bot::CastWeaponInfluenceNode>();
   auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
   auto DEVA_repel_enemy = std::make_unique<deva::DevaRepelEnemyNode>();
   auto DEVA_burst_enemy = std::make_unique<deva::DevaBurstEnemyNode>();
@@ -146,6 +147,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto team_sort = std::make_unique<bot::SortBaseTeams>();
   auto DEVA_set_region = std::make_unique<deva::DevaSetRegionNode>();
 
+  // logic nodes
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(DEVA_move_to_enemy.get());
   auto los_weapon_selector =
       std::make_unique<behavior::SelectorNode>(DEVA_burst_enemy.get(), DEVA_repel_enemy.get(), shoot_enemy_.get());
@@ -159,7 +161,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto anchor_los_parallel =
       std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), TvsT_base_path_sequence.get());
-  auto anchor_los_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
+  auto anchor_los_sequence =
+      std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
   auto anchor_los_selector =
       std::make_unique<behavior::SelectorNode>(anchor_los_sequence.get(), parallel_shoot_enemy.get());
 
@@ -182,11 +185,15 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto patrol_selector =
       std::make_unique<behavior::SelectorNode>(patrol_center_sequence.get(), patrol_base_sequence.get());
 
-  auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
+  auto rusher_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
+  auto anchor_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), cast_weapon_influence.get(),
+                                                                  rusher_selector.get());
+  auto role_selector = std::make_unique<behavior::SelectorNode>(anchor_sequence.get(), rusher_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      DEVA_debug.get(), commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), team_sort.get(),
+      DEVA_debug.get(), commands_.get(), set_ship_.get(), set_freq_.get(),
+      ship_check_.get(), team_sort.get(),
       DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check_.get(),
-      DEVA_toggle_status.get(), action_selector.get());
+      DEVA_toggle_status.get(), role_selector.get());
 
   engine_->PushRoot(std::move(root_sequence));
 
@@ -218,20 +225,27 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(patrol_center_sequence));
   engine_->PushNode(std::move(patrol_selector));
   engine_->PushNode(std::move(DEVA_toggle_status));
+  engine_->PushNode(std::move(cast_weapon_influence));
   engine_->PushNode(std::move(DEVA_attach));
   engine_->PushNode(std::move(DEVA_warp));
   engine_->PushNode(std::move(DEVA_freqman));
   engine_->PushNode(std::move(team_sort));
   engine_->PushNode(std::move(DEVA_set_region));
   engine_->PushNode(std::move(DEVA_debug));
-  engine_->PushNode(std::move(action_selector));
+  engine_->PushNode(std::move(rusher_selector));
+  engine_->PushNode(std::move(anchor_sequence));
+  engine_->PushNode(std::move(role_selector));
 }
 
 behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
+
+  auto& bb = ctx.bot->GetBlackboard();
+  auto& game = ctx.bot->GetGame();
+
 #if DEBUG_RENDER_BASE_PATHS
 
-  auto& game = ctx.bot->GetGame();
+  
   Vector2f position = game.GetPosition();
   std::vector<std::vector<Vector2f>> base_paths = ctx.bot->GetBasePaths();
 
@@ -242,6 +256,25 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   #endif
+
+    #if DEBUG_RENDER_FIND_ENEMY_IN_BASE_NODE
+  const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  Path base_path = ctx.bot->GetBasePath();
+
+  if (target) {
+    float r = game.GetShipSettings(target->ship).GetRadius();
+
+    Vector2f box_start = target->position - Vector2f(r, r);
+    Vector2f box_end = target->position + Vector2f(r, r);
+
+    RenderWorldBox(game.GetPosition(), box_start, box_end, RGB(255, 0, 0));
+
+    //box_start = base_path[target_node] - Vector2f(r, r);
+    //box_end = base_path[target_node] + Vector2f(r, r);
+
+    //RenderWorldBox(game.GetPosition(), box_start, box_end, RGB(0, 255, 0));
+  }
+#endif
 
   #if DEBUG_DISABLE_BEHAVIOR
   g_RenderState.RenderDebugText("  DevaDebugNode(fail): %llu", timer.GetElapsedTime());
@@ -775,9 +808,10 @@ bool DevaMoveToEnemyNode::IsAimingAt(GameProxy& game, const Player& shooter, con
   Vector2f directions[2] = {shoot_direction, shooter.GetHeading()};
 
   for (Vector2f direction : directions) {
-    if (RayBoxIntersect(shooter.position, direction, box_pos, extent, &distance, nullptr) ||
-        RayBoxIntersect(shooter.position + side, direction, box_pos, extent, &distance, nullptr) ||
-        RayBoxIntersect(shooter.position - side, direction, box_pos, extent, &distance, nullptr)) {
+    if (FloatingRayBoxIntersect(shooter.position, direction, target.position, radius, &distance, nullptr) ||
+        FloatingRayBoxIntersect(shooter.position + side, direction, target.position, radius, &distance, nullptr) ||
+        FloatingRayBoxIntersect(shooter.position - side, direction, target.position, radius, &distance,
+                                               nullptr)) {
 #if 0
                     Vector2f hit = shooter.position + shoot_direction * distance;
 

@@ -8,20 +8,40 @@ namespace marvin {
 
 class Bot;
 
-bool CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f vShooter, Vector2f vTarget, float sProjectile,
-                   Vector2f* Solution);
+struct ShotResult {
+  bool hit;
+  Vector2f solution;
+  Vector2f final_position;
+};
 
-bool BounceShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius, Vector2f direction,
-                bool* bomb_hit, Vector2f* wall_pos);
+class Shooter {
+public:
+  void DebugUpdate(GameProxy& game);
 
-void LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time,
-                     uint8_t bounces);
+  ShotResult CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f vShooter, Vector2f vTarget, float sProjectile);
+
+  ShotResult BouncingBulletShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius);
+
+  ShotResult BouncingBombShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius);
+
+  ShotResult BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarget, float rTarget, Vector2f pShooter,
+                        Vector2f vShooter, Vector2f dShooter, float proj_speed, float alive_time, float bounces);
+
+  void LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time,
+                       uint8_t bounces);
+
+ private:
+  ShotResult cShotResult_;
+  ShotResult bShotResult_;
+};
+
+
 
 bool CanShoot(GameProxy& game, Vector2f player_pos, Vector2f solution, Vector2f weapon_velocity, float alive_time);
 
 bool CanShootGun(GameProxy& game, const Map& map, Vector2f player, Vector2f target);
 bool CanShootBomb(GameProxy& game, const Map& map, Vector2f player, Vector2f target);
 
-bool IsValidTarget(Bot& bot, const Player& target);
+bool IsValidTarget(Bot& bot, const Player& target, bool anchoring);
 
 }  // namespace marvin

@@ -1,0 +1,17 @@
+
+
+NORMALIZED DIRECTION    =	 X and Y values range from -1 to 1. a 0 value of X means pointing directily up or down, -X points to left of screen, +X point to right
+
+VELOCITY				=	 speed in the X direction, speed in the Y direction, -X velocity is moving left, -Y velocity is moving up
+
+MAP COORDINATES		    =	(0, 0) = top left of map, (1023, 1023) = bottom right of map
+
+
+
+WEAPON VELOCITY from player heading, velocity, and bullet speed    =      enemy heading * weapon speed + enemy velocity
+
+WEAPON TRAVEL DISTANCE											   =      weapon velocity.Length() * alive_time / 100.0f
+
+
+
+COMPARE DIRECTIONS	=	direction1.Dot(direction2) yields a range of -1 to 1 depending on if the directions are alliged or opposite       

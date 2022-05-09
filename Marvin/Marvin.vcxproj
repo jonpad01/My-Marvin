@@ -222,6 +222,9 @@
     <ClInclude Include="Vector2f.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="MathCheatSheet.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
