@@ -159,7 +159,12 @@ class PatrolNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
-class TvsTBasePathNode : public behavior::BehaviorNode {
+class RusherBasePathNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class AnchorBasePathNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 

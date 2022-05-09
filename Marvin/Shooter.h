@@ -9,6 +9,7 @@ namespace marvin {
 class Bot;
 
 struct ShotResult {
+  ShotResult() : hit(false) {}
   bool hit;
   Vector2f solution;
   Vector2f final_position;
@@ -29,10 +30,6 @@ public:
 
   void LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time,
                        uint8_t bounces);
-
- private:
-  ShotResult cShotResult_;
-  ShotResult bShotResult_;
 };
 
 

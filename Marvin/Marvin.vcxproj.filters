@@ -63,22 +63,7 @@
     <ClCompile Include="Debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="zones\Hyperspace.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="zones\Devastation.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="zones\ExtremeGames.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="zones\GalaxySports.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="zones\Hockey.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="zones\PowerBall.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Common.cpp">
@@ -168,21 +153,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zones\Devastation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="zones\Hyperspace.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="zones\ExtremeGames.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="zones\GalaxySports.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="zones\Hockey.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="zones\PowerBall.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">

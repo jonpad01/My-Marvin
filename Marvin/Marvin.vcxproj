@@ -154,10 +154,6 @@
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="zones\Devastation.cpp" />
-    <ClCompile Include="zones\ExtremeGames.cpp" />
-    <ClCompile Include="zones\GalaxySports.cpp" />
-    <ClCompile Include="zones\Hockey.cpp" />
-    <ClCompile Include="zones\Hyperspace.cpp" />
     <ClCompile Include="InfluenceMap.cpp" />
     <ClCompile Include="KeyController.cpp" />
     <ClCompile Include="Map.cpp" />
@@ -166,7 +162,6 @@
     <ClCompile Include="platform\ContinuumGameProxy.cpp" />
     <ClCompile Include="platform\ExeProcess.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="zones\PowerBall.cpp" />
     <ClCompile Include="RayCaster.cpp" />
     <ClCompile Include="RegionRegistry.cpp" />
     <ClCompile Include="Shooter.cpp" />
@@ -195,11 +190,7 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="zones\Devastation.h" />
-    <ClInclude Include="zones\ExtremeGames.h" />
-    <ClInclude Include="zones\GalaxySports.h" />
     <ClInclude Include="Hash.h" />
-    <ClInclude Include="zones\Hockey.h" />
-    <ClInclude Include="zones\Hyperspace.h" />
     <ClInclude Include="InfluenceMap.h" />
     <ClInclude Include="KeyController.h" />
     <ClInclude Include="Map.h" />
@@ -212,7 +203,6 @@
     <ClInclude Include="GameProxy.h" />
     <ClInclude Include="platform\Platform.h" />
     <ClInclude Include="Player.h" />
-    <ClInclude Include="zones\PowerBall.h" />
     <ClInclude Include="RayCaster.h" />
     <ClInclude Include="RegionRegistry.h" />
     <ClInclude Include="Shooter.h" />

@@ -14,4 +14,4 @@ WEAPON TRAVEL DISTANCE											   =      weapon velocity.Length() * alive_time
 
 
 
-COMPARE DIRECTIONS	=	direction1.Dot(direction2) yields a range of -1 to 1 depending on if the directions are alliged or opposite       
+COMPARE NORMALIZED DIRECTIONS	=	direction1.Dot(direction2) yields a range of -1 to 1 depending on if the directions are alliged or opposite       

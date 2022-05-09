@@ -13,7 +13,8 @@ namespace marvin {
 
 ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f vShooter, Vector2f vTarget, float sProjectile) {
 
-   cShotResult_.hit = true;
+   ShotResult result;
+   result.hit = true;
   // directional vector poiting to target from shooter
   Vector2f totarget = pTarget - pShooter;
   Vector2f v = vTarget - vShooter;
@@ -42,11 +43,11 @@ ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f 
     // this shouldnt happen, but im pretty sure it does sometimes
     if (t < 0.0f) {
       t = 0.0f;
-      cShotResult_.hit = false;
+      result.hit = false;
     }
 
   } else {
-    cShotResult_.hit = false;
+    result.hit = false;
   }
 
   // the solution is basically the directional vector from the shooter to this position
@@ -58,13 +59,13 @@ ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f 
   // check if shot is within map boundries, i think this happens with bouncing shots
   if (!IsValidPosition(solution)) {
     solution = pTarget;
-    cShotResult_.hit = false;
+    result.hit = false;
   }
 
   // this solution is used for bouncing shots, determining hover distance, and bullet travel time to target
   
-  cShotResult_.solution = solution;
-  return cShotResult_;
+  result.solution = solution;
+  return result;
 }
 
 ShotResult Shooter::BouncingBombShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius) {
@@ -73,7 +74,7 @@ ShotResult Shooter::BouncingBombShot(GameProxy& game, Vector2f target_pos, Vecto
   float alive_time = (float)game.GetSettings().BombAliveTime / 100.0f;
   float bounces = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombBounceCount;
 
-  ShotResult result = BounceShot(game, target_pos, target_vel, target_radius, game.GetPosition(), game.GetPlayer().velocity,
+  ShotResult result = BounceShot(game, target_pos, target_vel, 2.0f, game.GetPosition(), game.GetPlayer().velocity,
                  game.GetPlayer().GetHeading(), proj_speed, alive_time, bounces);
 
   return result;
@@ -81,7 +82,7 @@ ShotResult Shooter::BouncingBombShot(GameProxy& game, Vector2f target_pos, Vecto
 
 ShotResult Shooter::BouncingBulletShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius) {
 
-    ShotResult shot_result;
+  ShotResult result;
 
   Vector2f direction = game.GetPlayer().GetHeading();
   Vector2f position = game.GetPosition();
@@ -129,10 +130,10 @@ ShotResult Shooter::BouncingBulletShot(GameProxy& game, Vector2f target_pos, Vec
                alive_time, 100.0f);
 
    if (i == 0 || current_result.hit) {
-     shot_result = current_result;
+     result = current_result;
    }
   }
-  return shot_result;
+  return result;
 }
 
 /*
@@ -145,7 +146,7 @@ calculate a new solution and check again, until it runs out of bounces or reache
 ShotResult Shooter::BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarget, float rTarget, Vector2f pShooter,
                                Vector2f vShooter, Vector2f dShooter, float proj_speed, float alive_time,
                                float bounces) {
-  bShotResult_.hit = false;
+  ShotResult result;
   float traveled_dist = 0.0f;
   float total_travel_time = 0.0f;
 
@@ -171,7 +172,7 @@ ShotResult Shooter::BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarg
 
     // the shot solution, calculated at the wall, travel time is included by reducing the bullet speed
     ShotResult cResult = CalculateShot(pShooter, pTarget, vShooter, vTarget, reduced_proj_speed);
-    bShotResult_.solution = cResult.solution;
+    result.solution = cResult.solution;
 
     if (cResult.hit) {
       // check if the solution is in line of sight of the current shooting position
@@ -180,18 +181,16 @@ ShotResult Shooter::BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarg
         // check if the solution is in line of sight of the targets position
         Vector2f t2shot = cResult.solution - pTarget;
         if (!RayCast(game.GetMap(), pTarget, Normalize(t2shot), t2shot.Length()).hit) {
-          float box_size = (traveled_dist / (traveled_dist + proj_travel) * 2.5f) + rTarget * 1.5f;
-          if (box_size > 2.5f) box_size = 2.5f;
-          if (FloatingRayBoxIntersect(pShooter, sDirection, cResult.solution, box_size, nullptr, nullptr)) {
+          if (FloatingRayBoxIntersect(pShooter, sDirection, cResult.solution, rTarget, nullptr, nullptr)) {
             if (pShooter.Distance(cResult.solution) <= proj_travel) {
 #if DEBUG_RENDER_SHOOTER
               RenderWorldLine(game.GetPosition(), pShooter, cResult.solution, RGB(100, 0, 0));              
               RenderWorldBox(game.GetPosition(), cResult.solution - Vector2f(1, 1), cResult.solution + Vector2f(1, 1),
                              RGB(0, 0, 255));
 #endif
-              bShotResult_.hit = true;
-              bShotResult_.final_position = cResult.solution;
-              return bShotResult_;
+              result.hit = true;
+              result.final_position = cResult.solution;
+              return result;
             }
           }
         }
@@ -216,20 +215,20 @@ ShotResult Shooter::BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarg
 
       proj_travel -= wall_line.distance;
       traveled_dist += wall_line.distance;
-      bShotResult_.final_position = wall_line.position;
+      result.final_position = wall_line.position;
 
     } else {
-      bShotResult_.final_position = pShooter + sDirection * proj_travel;
+      result.final_position = pShooter + sDirection * proj_travel;
 #if DEBUG_RENDER_SHOOTER
       RenderWorldLine(game.GetPosition(), pShooter, pShooter + sDirection * proj_travel, RGB(0, 100, 100));
-      RenderWorldBox(game.GetPosition(), bShotResult_.final_position - Vector2f(1.0f, 1.0f),
-                     bShotResult_.final_position + Vector2f(1.0f, 1.0f), RGB(0, 0, 255));
+      RenderWorldBox(game.GetPosition(), result.final_position - Vector2f(1.0f, 1.0f),
+                     result.final_position + Vector2f(1.0f, 1.0f), RGB(0, 0, 255));
 #endif
       break;
     }
   }
 
-  return bShotResult_;
+  return result;
 }
 
 void Shooter::LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time,

@@ -78,19 +78,19 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string na
       }
     } break;
     case Zone::ExtremeGames: {
-      builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
+      //builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
     } break;
     case Zone::GalaxySports: {
-      builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
+      //builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
     } break;
     case Zone::Hockey: {
-      builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+     // builder = std::make_unique<hz::HockeyBehaviorBuilder>();
     } break;
     case Zone::Hyperspace: {
-      builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+     // builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
     } break;
     case Zone::PowerBall: {
-      builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
+      //builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
     } break;
     default: {
       builder = std::make_unique<DefaultBehaviorBuilder>();
@@ -715,7 +715,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
   return behavior::ExecuteResult::Failure;
 }
 
-behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx) {
+behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
@@ -725,15 +725,71 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
   bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
   bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
 
-  if (in_center) {
-    g_RenderState.RenderDebugText("  TvsTBasePathNode(fail): %llu", timer.GetElapsedTime());
+  if (in_center || is_anchor || last_in_base) {
+    g_RenderState.RenderDebugText("  RusherPathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
 
   if (!enemy) {
-    g_RenderState.RenderDebugText("  TvsTBasePathNode(fail): %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  RusherBasePathNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  Vector2f position = game.GetPosition();
+  float radius = game.GetShipSettings().GetRadius();
+
+  Path base_path = ctx.bot->GetBasePath();
+  Path path = bb.ValueOr<Path>("Path", Path());
+
+  Vector2f desired_position;
+
+  // std::size_t bot_node = FindPathIndex(base_path, position);
+  // std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
+
+  auto search = path::PathNodeSearch::Create(game.GetMap(), base_path, 30);
+
+  size_t bot_node = search->FindNearestNodeBFS(position, game.GetShipSettings().GetRadius());
+  size_t enemy_node = search->FindNearestNodeBFS(enemy->position, game.GetShipSettings(enemy->ship).GetRadius());
+
+  if (RadiusRayCastHit(game.GetMap(), enemy->position, base_path[enemy_node],
+                       game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
+    desired_position = enemy->position;
+  } else if (bot_node > enemy_node) {
+    desired_position =
+        LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+  } else {
+    desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
+                                   game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+  }
+  path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
+  bb.Set<Path>("Path", path);
+
+  g_RenderState.RenderDebugText("  RusherBasePathNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
+
+
+behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  bool in_center = bb.ValueOr<bool>("InCenter", true);
+  bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
+  bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
+
+  if (in_center || (!is_anchor && !last_in_base)) {
+    g_RenderState.RenderDebugText("  AnchorBasePathNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+
+  if (!enemy) {
+    g_RenderState.RenderDebugText("  AnchorBasePathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -863,11 +919,11 @@ behavior::ExecuteResult TvsTBasePathNode::Execute(behavior::ExecuteContext& ctx)
   path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
   bb.Set<Path>("Path", path);
 
-  g_RenderState.RenderDebugText("  TvsTBasePathNode(success): %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  AnchorBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
-bool TvsTBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
+bool AnchorBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
   float radius = game.GetShipSettings().GetRadius();
@@ -914,7 +970,7 @@ bool TvsTBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
 }
 
 // Always stays behind a corner and maintains the desired distance beyond that.
-Vector2f TvsTBasePathNode::MaintainObstructedDistance(const Map& map, std::size_t current_index, std::size_t enemy_index,
+Vector2f AnchorBasePathNode::MaintainObstructedDistance(const Map& map, std::size_t current_index, std::size_t enemy_index,
                                     float desired_distance, bool count_down, const std::vector<Vector2f>& path,
                                     float ship_radius) {
   Vector2f position;
@@ -1073,6 +1129,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
+  bool in_sight = false;
 
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
 
@@ -1085,10 +1142,12 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
     // the ship is viewable.
     if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target_front, game.GetShipSettings().GetRadius())) {
       g_RenderState.RenderDebugText("  InLineOfSightNode (success): %llu", timer.GetElapsedTime());
+      bb.Set<bool>("TargetInSight", true);
       return behavior::ExecuteResult::Success;
     }
   }
 
+  bb.Set<bool>("TargetInSight", false);
   g_RenderState.RenderDebugText("  InLineOfSightNode (fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
@@ -1113,7 +1172,9 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
   auto& bb = ctx.blackboard;
 
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
-  if (!target) {
+  bool in_sight = bb.ValueOr<bool>("TargetInSight", false);
+
+  if (!target || in_sight) {
     g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -1130,9 +1191,16 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
   ShotResult bResult = ctx.bot->GetShooter().BouncingBombShot(game, target->position, target->velocity, target_radius);
   ShotResult gResult = ctx.bot->GetShooter().BouncingBulletShot(game, target->position, target->velocity, target_radius);
 
+  float bomb_delay = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombFireDelay / 100.0f;
+  float bomb_timer = bb.ValueOr<float>("BombTimer", 0.0f);
+  bomb_timer -= ctx.dt;
+  if (bomb_timer < 0.0f) bomb_timer = 0.0f;
+  bb.Set<float>("BombTimer", bomb_timer);
+
     if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
-      if (bResult.hit) {
+    if (bResult.hit && bomb_timer == 0.0f) {
         ctx.bot->GetKeys().Press(VK_TAB);
+        bb.Set<float>("BombTimer", bomb_delay);
       } else if (gResult.hit) {
         ctx.bot->GetKeys().Press(VK_CONTROL);
       }

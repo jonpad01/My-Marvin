@@ -136,7 +136,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto patrol_base = std::make_unique<deva::DevaPatrolBaseNode>();
   auto patrol_center = std::make_unique<bot::PatrolNode>();
   auto DEVA_move_to_enemy = std::make_unique<deva::DevaMoveToEnemyNode>();
-  auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
+  auto anchor_base_path = std::make_unique<bot::AnchorBasePathNode>();
+  auto rusher_base_path = std::make_unique<bot::RusherBasePathNode>();
 
   auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
 
@@ -155,21 +156,24 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
       std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
 
   auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
-  auto TvsT_base_path_sequence = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path_.get());
-  auto enemy_path_logic_selector = std::make_unique<behavior::SelectorNode>(
-      mine_sweeper_.get(), TvsT_base_path_sequence.get(), path_to_enemy_sequence.get());
+  auto rusher_base_path_sequence = std::make_unique<behavior::SequenceNode>(rusher_base_path.get(), follow_path_.get());
+  auto anchor_base_path_sequence = std::make_unique<behavior::SequenceNode>(anchor_base_path.get(), follow_path_.get());
 
-  auto anchor_los_parallel =
-      std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), TvsT_base_path_sequence.get());
+  auto enemy_path_logic_selector = std::make_unique<behavior::SelectorNode>(mine_sweeper_.get(), rusher_base_path_sequence.get(),
+                                               anchor_base_path_sequence.get(), path_to_enemy_sequence.get());
+
+  auto anchor_los_parallel = std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), mine_sweeper_.get(),
+                                                                      anchor_base_path_sequence.get());
   auto anchor_los_sequence =
       std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
-  auto anchor_los_selector =
+  auto los_role_selector =
       std::make_unique<behavior::SelectorNode>(anchor_los_sequence.get(), parallel_shoot_enemy.get());
 
   auto los_shoot_conditional =
-      std::make_unique<behavior::SequenceNode>(target_in_los_.get(), anchor_los_selector.get());
+      std::make_unique<behavior::SequenceNode>(target_in_los_.get(), los_role_selector.get());
   auto bounce_path_parallel =
       std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector.get());
+
   auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(
       DEVA_repel_enemy.get(), los_shoot_conditional.get(), bounce_path_parallel.get());
 
@@ -185,10 +189,11 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto patrol_selector =
       std::make_unique<behavior::SelectorNode>(patrol_center_sequence.get(), patrol_base_sequence.get());
 
-  auto rusher_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
+  auto enemy_or_patrol_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
+
   auto anchor_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), cast_weapon_influence.get(),
-                                                                  rusher_selector.get());
-  auto role_selector = std::make_unique<behavior::SelectorNode>(anchor_sequence.get(), rusher_selector.get());
+                                                                  enemy_or_patrol_selector.get());
+  auto role_selector = std::make_unique<behavior::SelectorNode>(anchor_sequence.get(), enemy_or_patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
       DEVA_debug.get(), commands_.get(), set_ship_.get(), set_freq_.get(),
       ship_check_.get(), team_sort.get(),
@@ -209,11 +214,13 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(is_anchor));
   engine_->PushNode(std::move(anchor_los_parallel));
   engine_->PushNode(std::move(anchor_los_sequence));
-  engine_->PushNode(std::move(anchor_los_selector));
+  engine_->PushNode(std::move(los_role_selector));
   engine_->PushNode(std::move(bouncing_shot));
   engine_->PushNode(std::move(bounce_path_parallel));
-  engine_->PushNode(std::move(TvsT_base_path));
-  engine_->PushNode(std::move(TvsT_base_path_sequence));
+  engine_->PushNode(std::move(anchor_base_path));
+  engine_->PushNode(std::move(rusher_base_path));
+  engine_->PushNode(std::move(anchor_base_path_sequence));
+  engine_->PushNode(std::move(rusher_base_path_sequence));
   engine_->PushNode(std::move(enemy_path_logic_selector));
   engine_->PushNode(std::move(find_enemy_in_base));
   engine_->PushNode(std::move(find_enemy_in_base_sequence));
@@ -232,7 +239,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(team_sort));
   engine_->PushNode(std::move(DEVA_set_region));
   engine_->PushNode(std::move(DEVA_debug));
-  engine_->PushNode(std::move(rusher_selector));
+  engine_->PushNode(std::move(enemy_or_patrol_selector));
   engine_->PushNode(std::move(anchor_sequence));
   engine_->PushNode(std::move(role_selector));
 }
