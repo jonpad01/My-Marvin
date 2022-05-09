@@ -499,6 +499,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
+  auto& pf = ctx.bot->GetPathfinder();
 
   std::vector<Vector2f> path = ctx.bot->GetBasePath();
 
@@ -535,8 +536,8 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
     if (player_in_base) {
       // if (!player_in_center && IsValidPosition(player.position) && player.ship < 8) {
 
-      float distance_to_team = PathLength(path, player.position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()));
-      float distance_to_enemy = PathLength(path, player.position, bb.ValueOr<Vector2f>("EnemySafe", Vector2f()));
+      float distance_to_team = pf.PathLength(path, player.position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()));
+      float distance_to_enemy = pf.PathLength(path, player.position, bb.ValueOr<Vector2f>("EnemySafe", Vector2f()));
 
       if (player.frequency == game.GetPlayer().frequency) {
         // float distance_to_team = ctx.deva->PathLength(player.position, ctx.deva->GetTeamSafe());
@@ -595,7 +596,7 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
 
       float distance_to_enemy_position = 0.0f;
 
-      distance_to_enemy_position = PathLength(path, player.position, closest_enemy_to_team);
+      distance_to_enemy_position = pf.PathLength(path, player.position, closest_enemy_to_team);
 
       // get the closest player
       if (distance_to_enemy_position < closest_distance) {
@@ -682,11 +683,8 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
   auto& bb = ctx.blackboard;
 
   Vector2f enemy_safe = bb.ValueOr<Vector2f>("EnemySafe", Vector2f());
-  Path path = bb.ValueOr<Path>("Path", Path());
 
-  path = ctx.bot->GetPathfinder().CreatePath(path, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
-
-  bb.Set<Path>("Path", path);
+  ctx.bot->GetPathfinder().CreatePath(game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
 
   g_RenderState.RenderDebugText("  DevaPatrolBaseNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

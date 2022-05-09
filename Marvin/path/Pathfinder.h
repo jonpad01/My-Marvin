@@ -12,8 +12,8 @@
 
 namespace marvin {
 
-float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2);
-std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position);
+
+
 Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius);
 
 namespace path {
@@ -57,9 +57,15 @@ struct Pathfinder {
   std::vector<Vector2f> FindPath(const Map& map, const std::vector<Vector2f>& mines, const Vector2f& from, const Vector2f& to,
                                  float radius);
 
+  const std::vector<Vector2f>& GetPath() { return path_; }
+  void SetPath(std::vector<Vector2f> path) { path_ = path; }
+
   std::vector<Vector2f> SmoothPath(const std::vector<Vector2f>& path, const Map& map, float ship_radius);
 
-  std::vector<Vector2f> CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius);
+  std::vector<Vector2f> CreatePath(Vector2f from, Vector2f to, float radius);
+
+  std::size_t GetPathIndex(const std::vector<Vector2f>& path, Vector2f position);
+  float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2);
 
   void CreateMapWeights(const Map& map);
   void SetPathableNodes(const Map& map, float radius);
@@ -71,6 +77,8 @@ struct Pathfinder {
     bool operator()(const Node* lhs, const Node* rhs) const { return lhs->f > rhs->f; }
   };
 
+
+  std::vector<Vector2f> path_;
   std::unique_ptr<NodeProcessor> processor_;
   RegionRegistry& regions_;
   PriorityQueue<Node*, NodeCompare> openset_;

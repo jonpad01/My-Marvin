@@ -189,7 +189,8 @@ void Bot::Update(float dt) {
 
 
   //#if 0 // Test wall avoidance. This should be moved somewhere in the behavior tree
-  std::vector<Vector2f> path = ctx_.blackboard.ValueOr<std::vector<Vector2f>>("Path", std::vector<Vector2f>());
+  //std::vector<Vector2f> path = ctx_.blackboard.ValueOr<std::vector<Vector2f>>("Path", std::vector<Vector2f>());
+  const std::vector<Vector2f>& path = pathfinder_->GetPath();
   constexpr float kNearbyTurn = 20.0f;
   constexpr float kMaxAvoidDistance = 35.0f;
 
@@ -672,12 +673,10 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
     return behavior::ExecuteResult::Failure;
   }
 
-  Path path = bb.ValueOr<Path>("Path", Path());
   float radius = game.GetShipSettings().GetRadius();
 
-  path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy->position, radius);
+  ctx.bot->GetPathfinder().CreatePath(bot, enemy->position, radius);
 
-  bb.Set<Path>("Path", path);
   g_RenderState.RenderDebugText("  PathToEnemyNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
@@ -689,7 +688,6 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.blackboard;
 
   Vector2f from = game.GetPosition();
-  Path path = bb.ValueOr<Path>("Path", Path());
   float radius = game.GetShipSettings().GetRadius();
 
   std::vector<Vector2f> nodes = bb.ValueOr<std::vector<Vector2f>>("PatrolNodes", std::vector<Vector2f>());
@@ -704,8 +702,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
       to = nodes.at(index);
     }
 
-    path = ctx.bot->GetPathfinder().CreatePath(path, from, to, radius);
-    bb.Set<Path>("Path", path);
+    ctx.bot->GetPathfinder().CreatePath(from, to, radius);
 
     g_RenderState.RenderDebugText("  PatrolNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
@@ -724,16 +721,10 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
   bool in_center = bb.ValueOr<bool>("InCenter", true);
   bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
   bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
-
-  if (in_center || is_anchor || last_in_base) {
-    g_RenderState.RenderDebugText("  RusherPathNode(fail): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
-  }
-
   const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
 
-  if (!enemy) {
-    g_RenderState.RenderDebugText("  RusherBasePathNode(fail): %llu", timer.GetElapsedTime());
+  if (in_center || is_anchor || last_in_base || !enemy) {
+    g_RenderState.RenderDebugText("  RusherPathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -741,7 +732,6 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
   float radius = game.GetShipSettings().GetRadius();
 
   Path base_path = ctx.bot->GetBasePath();
-  Path path = bb.ValueOr<Path>("Path", Path());
 
   Vector2f desired_position;
 
@@ -763,8 +753,8 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
     desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
   }
-  path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
-  bb.Set<Path>("Path", path);
+
+  ctx.bot->GetPathfinder().CreatePath(position, desired_position, radius);
 
   g_RenderState.RenderDebugText("  RusherBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -780,15 +770,9 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   bool in_center = bb.ValueOr<bool>("InCenter", true);
   bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
   bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
-
-  if (in_center || (!is_anchor && !last_in_base)) {
-    g_RenderState.RenderDebugText("  AnchorBasePathNode(fail): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
-  }
-
   const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
 
-  if (!enemy) {
+  if (!enemy || in_center || (!is_anchor && !last_in_base)) {
     g_RenderState.RenderDebugText("  AnchorBasePathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -797,7 +781,6 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   float radius = game.GetShipSettings().GetRadius();
 
   Path base_path = ctx.bot->GetBasePath();
-  Path path = bb.ValueOr<Path>("Path", Path());
 
   Vector2f desired_position;
 
@@ -863,20 +846,15 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
 
     float threat_range = enemy_speed_offset + bot_speed_offset;
 
-    g_RenderState.RenderDebugText("  BOTSPEEDOFFSET: %F", bot_speed_offset);
-    g_RenderState.RenderDebugText("  ENEMYSPEEDOFFSET: %F", enemy_speed_offset);
-    g_RenderState.RenderDebugText("  BULLETSPEEDOFFSET: %F", bullet_speed_offset);
+    //g_RenderState.RenderDebugText("  BOTSPEEDOFFSET: %F", bot_speed_offset);
 
-    g_RenderState.RenderDebugText("TRAVEL: %f", bullet_travel);
-    g_RenderState.RenderDebugText("VEL X: %f", bullet_velocity.x);
-    g_RenderState.RenderDebugText("VEL Y: %f", bullet_velocity.y);
 
     // this reflects the likelyhood that a player could hit the bot at the bullets travel length
-    float bullet_travel_multiplier = 0.5f;
+    float bullet_travel_multiplier = 0.75f;
 
     // if the bots reference point is in sight of the targets reference point, then its just around the corner
     if (!RadiusRayCastHit(game.GetMap(), bot_ref, Normalize(enemy_ref - bot_ref), bot_ref.Distance(enemy_ref))) {
-      bullet_travel_multiplier = 0.65f;
+      bullet_travel_multiplier = 0.75f;
     }
 
     if (!RadiusRayCastHit(game.GetMap(), position, Normalize(enemy->position - position), enemy->position.Distance(position))) {
@@ -884,10 +862,8 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
     }
 
     //float desired = (30.0f + (enemy_speed + (6.0f / (energy_pct + 0.0001f))));
-    float desired = bullet_travel * bullet_travel_multiplier + threat_range + (1.0F / energy_pct);
-    if (desired < 25.f) {
-      desired = 25.0f;
-    }
+    float desired = bullet_travel * bullet_travel_multiplier + threat_range + (2.0F / energy_pct);
+    if (desired < 25.f) { desired = 25.0f; }
 
     //pathlength = PathLength(ctx.bot->GetBasePath(), position, enemy->position);
 
@@ -916,8 +892,8 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
     }
   }
 
-  path = ctx.bot->GetPathfinder().CreatePath(path, position, desired_position, radius);
-  bb.Set<Path>("Path", path);
+
+  ctx.bot->GetPathfinder().CreatePath(position, desired_position, radius);
 
   g_RenderState.RenderDebugText("  AnchorBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -1044,7 +1020,8 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  Path path = bb.ValueOr<Path>("Path", Path());
+ // Path path = bb.ValueOr<Path>("Path", Path());
+  std::vector<Vector2f> path = ctx.bot->GetPathfinder().GetPath();
 
   size_t path_size = path.size();
 
@@ -1076,7 +1053,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   if (path.size() != path_size) {
-    bb.Set<Path>("Path", path);
+    //bb.Set<Path>("Path", path);
   }
 
   ctx.bot->Move(current, 0.0f);

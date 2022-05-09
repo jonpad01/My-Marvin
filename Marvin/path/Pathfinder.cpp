@@ -55,49 +55,9 @@ Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::ve
   return position;
 }
 
-float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2) {
-  float path_distance = 0.0f;
 
-  if (path.empty()) {
-    return path_distance;
-  }
 
-  std::size_t index1 = FindPathIndex(path, pos1);
-  std::size_t index2 = FindPathIndex(path, pos2);
 
-  if (index1 == index2) {
-    return pos1.Distance(pos2);
-  }
-
-  std::size_t start = std::min(index1, index2);
-  std::size_t end = std::max(index1, index2);
-
-  for (std::size_t i = start; i < end; i++) {
-    path_distance += path[i].Distance(path[i + 1]);
-  }
-
-  return path_distance;
-}
-
-std::size_t FindPathIndex(std::vector<Vector2f> path, Vector2f position) {
-  std::size_t path_index = 0;
-  float closest_distance = std::numeric_limits<float>::max();
-
-  if (path.empty()) {
-    return path_index;
-  }
-
-  for (std::size_t i = 0; i < path.size(); i++) {
-    float distance = position.DistanceSq(path[i]);
-
-    if (closest_distance > distance) {
-      path_index = i;
-      closest_distance = distance;
-    }
-  }
-
-  return path_index;
-}
 
 namespace path {
 
@@ -164,6 +124,49 @@ inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* t
   float dy = static_cast<float>(from_p.y - to_p.y);
 
   return sqrt(dx * dx + dy * dy);
+}
+
+std::size_t Pathfinder::GetPathIndex(const std::vector<Vector2f>& path, Vector2f position) {
+  std::size_t path_index = 0;
+  float closest_distance = std::numeric_limits<float>::max();
+
+  if (path.empty()) {
+    return path_index;
+  }
+
+  for (std::size_t i = 0; i < path.size(); i++) {
+    float distance = position.DistanceSq(path[i]);
+
+    if (closest_distance > distance) {
+      path_index = i;
+      closest_distance = distance;
+    }
+  }
+
+  return path_index;
+}
+float Pathfinder::PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2) {
+  float path_distance = 0.0f;
+
+  if (path.empty()) {
+    return path_distance;
+  }
+
+  std::size_t index1 = GetPathIndex(path, pos1);
+  std::size_t index2 = GetPathIndex(path, pos2);
+
+  if (index1 == index2) {
+    return pos1.Distance(pos2);
+  }
+
+  std::size_t start = std::min(index1, index2);
+  std::size_t end = std::max(index1, index2);
+
+  for (std::size_t i = start; i < end; i++) {
+    path_distance += path[i].Distance(path[i + 1]);
+  }
+
+  return path_distance;
 }
 
 Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
@@ -293,16 +296,14 @@ std::vector<Vector2f> Pathfinder::SmoothPath(const std::vector<Vector2f>& path, 
 
 
 
-std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2f from, Vector2f to, float radius) {
+std::vector<Vector2f> Pathfinder::CreatePath(Vector2f from, Vector2f to, float radius) {
   bool build = true;
 
-  std::vector<Vector2f> new_path = path;
-
-  if (!new_path.empty()) {
+  if (!path_.empty()) {
     // Check if the current destination is the same as the requested one.
-    if (new_path.back().DistanceSq(to) < 3 * 3) {
+    if (path_.back().DistanceSq(to) < 3 * 3) {
       Vector2f pos = processor_->GetGame().GetPosition();
-      Vector2f next = new_path.front();
+      Vector2f next = path_.front();
       Vector2f direction = Normalize(next - pos);
       Vector2f side = Perpendicular(direction);
       float radius = processor_->GetGame().GetShipSettings().GetRadius();
@@ -322,7 +323,7 @@ std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2
 
   if (build) {
     std::vector<Vector2f> mines;
-    new_path.clear();
+    path_.clear();
     //#if 0
     for (Weapon* weapon : processor_->GetGame().GetWeapons()) {
       const Player* weapon_player = processor_->GetGame().GetPlayerById(weapon->GetPlayerId());
@@ -331,11 +332,10 @@ std::vector<Vector2f> Pathfinder::CreatePath(std::vector<Vector2f> path, Vector2
       if (weapon->IsMine()) mines.push_back(weapon->GetPosition());
     }
     //#endif
-    new_path = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);
-   // new_path = SmoothPath(new_path, processor_->GetGame().GetMap(), radius);
+    path_ = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);
   }
 
-  return new_path;
+  return path_;
 }
 
 float Pathfinder::GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
