@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Bot.h"
 #include "Debug.h"
 #include "Player.h"
 #include "RayCaster.h"
 #include "platform/platform.h"
+#include "Vector2f.h"
 
 namespace marvin {
 
@@ -25,7 +27,7 @@ float GetMaxSpeed(GameProxy& game) {
   return speed;
 }
 
-SteeringBehavior::SteeringBehavior(GameProxy& game, KeyController& keys) : game_(game), keys_(keys), rotation_(0.0f) {}
+SteeringBehavior::SteeringBehavior() : rotation_(0.0f) {}
 
 Vector2f SteeringBehavior::GetSteering() {
   return force_;
@@ -40,26 +42,29 @@ void SteeringBehavior::Reset() {
   rotation_ = 0.0f;
 }
 
-void SteeringBehavior::Seek(Vector2f target, float multiplier) {
-  float speed = (game_.GetMaxSpeed() + 5.0f);
+void SteeringBehavior::Seek(Bot& bot, Vector2f target, float multiplier) {
+  auto& game = bot.GetGame();
+  float speed = (game.GetMaxSpeed() + 5.0f);
 
-  Vector2f desired = Normalize(target - game_.GetPosition()) * speed * multiplier;
+  Vector2f desired = Normalize(target - game.GetPosition()) * speed * multiplier;
 
-  force_ += desired - game_.GetPlayer().velocity;
+  force_ += desired - game.GetPlayer().velocity;
 }
 
-void SteeringBehavior::Flee(Vector2f target) {
-  float speed = GetMaxSpeed(game_);
+void SteeringBehavior::Flee(Bot& bot, Vector2f target) {
+  auto& game = bot.GetGame();
+  float speed = GetMaxSpeed(game);
 
-  Vector2f desired = Normalize(game_.GetPosition() - target) * speed;
+  Vector2f desired = Normalize(game.GetPosition() - target) * speed;
 
-  force_ += desired - game_.GetPlayer().velocity;
+  force_ += desired - game.GetPlayer().velocity;
 }
 
-void SteeringBehavior::Arrive(Vector2f target, float deceleration) {
-  float max_speed = GetMaxSpeed(game_);
+void SteeringBehavior::Arrive(Bot& bot, Vector2f target, float deceleration) {
+  auto& game = bot.GetGame();
+  float max_speed = GetMaxSpeed(game);
 
-  Vector2f to_target = target - game_.GetPosition();
+  Vector2f to_target = target - game.GetPosition();
   float distance = to_target.Length();
 
   if (distance > 0) {
@@ -69,58 +74,64 @@ void SteeringBehavior::Arrive(Vector2f target, float deceleration) {
 
     Vector2f desired = to_target * (speed / distance);
 
-    force_ += desired - game_.GetPlayer().velocity;
+    force_ += desired - game.GetPlayer().velocity;
   }
 }
-void SteeringBehavior::AnchorSpeed(Vector2f target) {
-  float speed = GetMaxSpeed(game_);
+void SteeringBehavior::AnchorSpeed(Bot& bot, Vector2f target) {
+  auto& game = bot.GetGame();
+  float speed = GetMaxSpeed(game);
 
-  Vector2f desired = Normalize(target - game_.GetPosition()) * 5;
+  Vector2f desired = Normalize(target - game.GetPosition()) * 5;
 
-  force_ += desired - game_.GetPlayer().velocity;
+  force_ += desired - game.GetPlayer().velocity;
 }
 
-void SteeringBehavior::Stop(Vector2f target) {
-  float speed = GetMaxSpeed(game_);
+void SteeringBehavior::Stop(Bot& bot, Vector2f target) {
+  auto& game = bot.GetGame();
+  float speed = GetMaxSpeed(game);
 
-  Vector2f desired = Normalize(target - game_.GetPosition()) * 5;
+  Vector2f desired = Normalize(target - game.GetPosition()) * 5;
 
-  force_ += desired - game_.GetPlayer().velocity;
+  force_ += desired - game.GetPlayer().velocity;
 }
 
-void SteeringBehavior::Pursue(const Player& enemy) {
-  const Player& player = game_.GetPlayer();
+void SteeringBehavior::Pursue(Bot& bot, const Player& enemy) {
+  auto& game = bot.GetGame();
+  const Player& player = game.GetPlayer();
 
-  float max_speed = GetMaxSpeed(game_);
+  float max_speed = GetMaxSpeed(game);
 
-  Vector2f to_enemy = enemy.position - game_.GetPosition();
+  Vector2f to_enemy = enemy.position - game.GetPosition();
   float dot = player.GetHeading().Dot(enemy.GetHeading());
 
   if (to_enemy.Dot(player.GetHeading()) > 0 && dot < -0.95f) {
-    Seek(enemy.position);
+    Seek(bot, enemy.position);
   } else {
     float t = to_enemy.Length() / (max_speed + enemy.velocity.Length());
 
-    Seek(enemy.position + enemy.velocity * t);
+    Seek(bot, enemy.position + enemy.velocity * t);
   }
 }
 
-void SteeringBehavior::Face(Vector2f target) {
-  Vector2f to_target = target - game_.GetPosition();
+void SteeringBehavior::Face(Bot& bot, Vector2f target) {
+  auto& game = bot.GetGame();
+  Vector2f to_target = target - game.GetPosition();
 
-  Vector2f heading = Rotate(game_.GetPlayer().GetHeading(), rotation_);
+  Vector2f heading = Rotate(game.GetPlayer().GetHeading(), rotation_);
 
   float rotation = std::atan2(heading.y, heading.x) - std::atan2(to_target.y, to_target.x);
 
   rotation_ += WrapToPi(rotation);
 }
 
-void SteeringBehavior::Steer(bool backwards) {
+void SteeringBehavior::Steer(Bot& bot, bool backwards) {
+  auto& game = bot.GetGame();
+  auto& keys = bot.GetKeys();
   Vector2f force = GetSteering();
   float rotation = GetRotation();
   // bool afterburners = GetAfterburnerState();
 
-  Vector2f heading = game_.GetPlayer().GetHeading();
+  Vector2f heading = game.GetPlayer().GetHeading();
   if (backwards) {
     heading = Reverse(heading);
   }
@@ -179,9 +190,9 @@ void SteeringBehavior::Steer(bool backwards) {
 
   if (has_force) {
     if (behind) {
-      keys_.Press(VK_DOWN);
+      keys.Press(VK_DOWN);
     } else {
-      keys_.Press(VK_UP);
+      keys.Press(VK_UP);
     }
   }
 
@@ -189,8 +200,8 @@ void SteeringBehavior::Steer(bool backwards) {
   if (heading.Dot(steering_direction) < 0.996f) {  // 1.0f
 
     // ensure that only one arrow key is pressed at any given time
-    keys_.Set(VK_RIGHT, clockwise);
-    keys_.Set(VK_LEFT, !clockwise);
+    keys.Set(VK_RIGHT, clockwise);
+    keys.Set(VK_LEFT, !clockwise);
   }
 
 #if 0
@@ -210,7 +221,8 @@ void SteeringBehavior::Steer(bool backwards) {
 #endif
 }
 
-void SteeringBehavior::AvoidWalls(float max_look_ahead) {
+void SteeringBehavior::AvoidWalls(Bot& bot, float max_look_ahead) {
+  auto& game = bot.GetGame();
   constexpr float kDegToRad = 3.14159f / 180.0f;
   constexpr size_t kFeelerCount = 29;
 
@@ -218,25 +230,25 @@ void SteeringBehavior::AvoidWalls(float max_look_ahead) {
 
   Vector2f feelers[kFeelerCount];
 
-  feelers[0] = Normalize(game_.GetPlayer().velocity);
+  feelers[0] = Normalize(game.GetPlayer().velocity);
 
   for (size_t i = 1; i < kFeelerCount; i += 2) {
     feelers[i] = Rotate(feelers[0], kDegToRad * (90.0f / kFeelerCount) * i);
     feelers[i + 1] = Rotate(feelers[0], -kDegToRad * (90.0f / kFeelerCount) * i);
   }
 
-  float speed = game_.GetPlayer().velocity.Length();
-  float max_speed = game_.GetMaxSpeed();
+  float speed = game.GetPlayer().velocity.Length();
+  float max_speed = game.GetMaxSpeed();
   float look_ahead = max_look_ahead * (speed / max_speed);
 
   size_t force_count = 0;
   Vector2f force;
 
   for (size_t i = 0; i < kFeelerCount; ++i) {
-    float intensity = feelers[i].Dot(Normalize(game_.GetPlayer().velocity));
+    float intensity = feelers[i].Dot(Normalize(game.GetPlayer().velocity));
     float check_distance = look_ahead * intensity;
     Vector2f check = feelers[i] * intensity;
-    CastResult result = RayCast(game_.GetMap(), game_.GetPlayer().position, Normalize(feelers[i]), check_distance);
+    CastResult result = RayCast(bot, RayBarrier::Solid, game.GetPlayer().position, Normalize(feelers[i]), check_distance);
     COLORREF color = RGB(100, 0, 0);
 
     if (result.hit) {

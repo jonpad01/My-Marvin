@@ -1,9 +1,12 @@
-#include "RayCaster.h"
+
 
 #include <algorithm>
 
+#include "Bot.h"
 #include "Debug.h"
 #include "Map.h"
+#include "RegionRegistry.h"
+#include "RayCaster.h"
 
 namespace marvin {
 
@@ -94,7 +97,27 @@ bool RayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f lb, Vector2f 
   return intersected;
 }
 
-CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_length) {
+bool IsBarrier(Bot& bot, const Vector2f& position, RayBarrier barrier) {
+  auto& map = bot.GetGame().GetMap();
+  auto& registry = bot.GetRegions();
+
+  switch (barrier) {
+    case RayBarrier::Solid: {
+      if (map.IsSolid(position)) {
+        return true;
+      }
+    } break;
+    case RayBarrier::Edge: {
+      if (registry.IsEdge(position)) {
+        return true;
+      }
+    } break;
+  }
+  return false;
+}
+
+CastResult RayCast(Bot& bot, RayBarrier barrier, Vector2f from, Vector2f direction, float max_length) {
+  auto& map = bot.GetGame().GetMap();
   Vector2f vMapSize = {1024.0f, 1024.0f};
 
   CastResult result;
@@ -161,7 +184,8 @@ CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_
 
     // Test tile at new test point
     if (vMapCheck.x >= 0 && vMapCheck.x < vMapSize.x && vMapCheck.y >= 0 && vMapCheck.y < vMapSize.y) {
-      if (map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
+      //if (map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
+      if (IsBarrier(bot, vMapCheck, barrier)) {
         bool skipFirstCheck = cornered && fDistance == 0.0f;
 
         if (!skipFirstCheck) {
@@ -280,36 +304,62 @@ CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_
 
   return result;
 }
-
-bool RadiusRayCastHit(const Map& map, Vector2f from, Vector2f to, float radius) {
-  bool result = true;
+// return hit if any cast line hits a solid tile
+bool DiameterRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius) {
+  bool result = false;
 
   Vector2f to_target = to - from;
-  CastResult center = RayCast(map, from, Normalize(to_target), to_target.Length());
+  Vector2f direction = Normalize(to_target);
+  Vector2f side = Perpendicular(direction);
 
-  if (!center.hit) {
-    Vector2f direction = Normalize(to_target);
-    Vector2f side = Perpendicular(direction);
+  CastResult center = RayCast(bot, RayBarrier::Solid, from, direction, to_target.Length());
+  CastResult side1 = RayCast(bot, RayBarrier::Solid, from + side * radius, direction, to_target.Length());
+  CastResult side2 = RayCast(bot, RayBarrier::Solid, from - side * radius, direction, to_target.Length());
 
-    CastResult side1 = RayCast(map, from + side * radius, direction, to_target.Length());
-
-    if (!side1.hit) {
-      CastResult side2 = RayCast(map, from - side * radius, direction, to_target.Length());
-
-      if (!side2.hit) {
-        result = false;
-      }
-    }
+  if (center.hit || side1.hit || side2.hit) {
+    result = true;
   }
   return result;
 }
 
-bool RayCastHit(const Map& map, Vector2f from, Vector2f to) {
+/* 
+Return false if only leftside or rightside is a hit.  Good for line of sight checks where a single raycast can trigger line of
+sight through holes the ship cant path through, and a diameter raycast makes the ship slower to respond when
+meeting an enemy right around a corner
+*/
+bool RadiusRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius) {
+  bool result = false;
 
   Vector2f to_target = to - from;
-  CastResult center = RayCast(map, from, Normalize(to_target), to_target.Length());
+  Vector2f direction = Normalize(to_target);
+  Vector2f side = Perpendicular(direction);
 
-  return center.hit;
+  CastResult center = RayCast(bot, RayBarrier::Solid, from, direction, to_target.Length());
+  CastResult side1 = RayCast(bot, RayBarrier::Solid, from + side * radius, direction, to_target.Length());
+  CastResult side2 = RayCast(bot, RayBarrier::Solid, from - side * radius, direction, to_target.Length());
+
+  if (center.hit) {
+    result = true;
+  } else if (side1.hit && side2.hit) {
+  result = true;
+  }
+  return result;
+}
+
+// call the raycaster for common use, stops on solid tiles
+CastResult SolidRayCast(Bot& bot, Vector2f from, Vector2f to) {
+  Vector2f to_target = to - from;
+  CastResult result = RayCast(bot, RayBarrier::Solid, from, Normalize(to_target), to_target.Length());
+
+  return result;
+}
+
+// call the raycaster for region use, stops on edges calculated by the region registry (useful for bases)
+CastResult EdgeRayCast(Bot& bot, const RegionRegistry& registry, Vector2f from, Vector2f to) {
+  Vector2f to_target = to - from;
+  CastResult result = RayCast(bot, RayBarrier::Edge, from, Normalize(to_target), to_target.Length());
+
+  return result;
 }
 
 }  // namespace marvin

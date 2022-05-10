@@ -2,6 +2,7 @@
 
 #include  <queue>
 #include "Bot.h"
+#include "RayCaster.h"
 #include "Debug.h"
 #include "Map.h"
 #include "Vector2f.h"

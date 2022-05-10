@@ -6,9 +6,9 @@
 
 namespace marvin {
 
-    void Shooter::DebugUpdate(GameProxy& game) {
-      BouncingBombShot(game, Vector2f(0, 0), Vector2f(0, 0), 0.0f);
-      BouncingBulletShot(game, Vector2f(0, 0), Vector2f(0, 0), 0.0f);
+    void Shooter::DebugUpdate(Bot& bot) {
+      BouncingBombShot(bot, Vector2f(0, 0), Vector2f(0, 0), 0.0f);
+      BouncingBulletShot(bot, Vector2f(0, 0), Vector2f(0, 0), 0.0f);
     }
 
 ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f vShooter, Vector2f vTarget, float sProjectile) {
@@ -68,20 +68,21 @@ ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f 
   return result;
 }
 
-ShotResult Shooter::BouncingBombShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius) {
+ShotResult Shooter::BouncingBombShot(Bot& bot, Vector2f target_pos, Vector2f target_vel, float target_radius) {
+  auto& game = bot.GetGame();
 
   float proj_speed = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
   float alive_time = (float)game.GetSettings().BombAliveTime / 100.0f;
   float bounces = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombBounceCount;
 
-  ShotResult result = BounceShot(game, target_pos, target_vel, 2.0f, game.GetPosition(), game.GetPlayer().velocity,
+  ShotResult result = BounceShot(bot, target_pos, target_vel, 2.0f, game.GetPosition(), game.GetPlayer().velocity,
                  game.GetPlayer().GetHeading(), proj_speed, alive_time, bounces);
 
   return result;
 }
 
-ShotResult Shooter::BouncingBulletShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius) {
-
+ShotResult Shooter::BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f target_vel, float target_radius) {
+  auto& game = bot.GetGame();
   ShotResult result;
 
   Vector2f direction = game.GetPlayer().GetHeading();
@@ -126,7 +127,7 @@ ShotResult Shooter::BouncingBulletShot(GameProxy& game, Vector2f target_pos, Vec
         direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, false);
       }
     }
-   ShotResult current_result = BounceShot(game, target_pos, target_vel, target_radius, position, game.GetPlayer().velocity, direction, proj_speed,
+   ShotResult current_result = BounceShot(bot, target_pos, target_vel, target_radius, position, game.GetPlayer().velocity, direction, proj_speed,
                alive_time, 100.0f);
 
    if (i == 0 || current_result.hit) {
@@ -143,9 +144,10 @@ calculated bullet trajectory is in line with the solution return true.  If not u
 calculate a new solution and check again, until it runs out of bounces or reaches the projectiles maximum travel distance.
 */
 
-ShotResult Shooter::BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarget, float rTarget, Vector2f pShooter,
+ShotResult Shooter::BounceShot(Bot& bot, Vector2f pTarget, Vector2f vTarget, float rTarget, Vector2f pShooter,
                                Vector2f vShooter, Vector2f dShooter, float proj_speed, float alive_time,
                                float bounces) {
+  auto& game = bot.GetGame();
   ShotResult result;
   float traveled_dist = 0.0f;
   float total_travel_time = 0.0f;
@@ -176,11 +178,11 @@ ShotResult Shooter::BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarg
 
     if (cResult.hit) {
       // check if the solution is in line of sight of the current shooting position
-      Vector2f tosPosition = cResult.solution - pShooter;
-      if (!RayCast(game.GetMap(), pShooter, Normalize(tosPosition), tosPosition.Length()).hit) {
+      //Vector2f tosPosition = cResult.solution - pShooter;
+      if (!SolidRayCast(bot, pShooter, cResult.solution).hit) {
         // check if the solution is in line of sight of the targets position
-        Vector2f t2shot = cResult.solution - pTarget;
-        if (!RayCast(game.GetMap(), pTarget, Normalize(t2shot), t2shot.Length()).hit) {
+        //Vector2f t2shot = cResult.solution - pTarget;
+        if (!SolidRayCast(bot, pTarget, cResult.solution).hit) {
           if (FloatingRayBoxIntersect(pShooter, sDirection, cResult.solution, rTarget, nullptr, nullptr)) {
             if (pShooter.Distance(cResult.solution) <= proj_travel) {
 #if DEBUG_RENDER_SHOOTER
@@ -197,7 +199,7 @@ ShotResult Shooter::BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarg
       }
     }
     // if the calculate shot didnt return true, cast a line to the wall and calculate a new direction and position
-    CastResult wall_line = RayCast(game.GetMap(), pShooter, sDirection, proj_travel);
+    CastResult wall_line = RayCast(bot, RayBarrier::Solid, pShooter, sDirection, proj_travel);
 
     if (wall_line.hit) {
 #if DEBUG_RENDER_SHOOTER

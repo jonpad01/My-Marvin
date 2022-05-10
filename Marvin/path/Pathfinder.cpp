@@ -19,7 +19,7 @@ namespace marvin {
 
     
 
-Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius) {
+Vector2f LastLOSNode(Bot& bot, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius) {
   Vector2f position;
 
   if (path.empty()) {
@@ -32,7 +32,7 @@ Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::ve
     for (std::size_t i = index; i > 0; i--) {
       Vector2f current = path[i];
 
-      if (!RadiusRayCastHit(map, path[index], current, radius)) {
+      if (!DiameterRayCastHit(bot, path[index], current, radius)) {
         position = current;
       } else {
         break;
@@ -44,7 +44,7 @@ Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::ve
     for (std::size_t i = index; i < path.size(); i++) {
       Vector2f current = path[i];
 
-      if (!RadiusRayCastHit(map, path[index], current, radius)) {
+      if (!DiameterRayCastHit(bot, path[index], current, radius)) {
         position = current;
       } else {
         break;
@@ -73,7 +73,7 @@ namespace path {
         }
       }
     }
-
+#if 0
 bool IsPassablePath(const Map& map, Vector2f from, Vector2f to, float radius) {
   const Vector2f direction = Normalize(to - from);
   const Vector2f side = Perpendicular(direction) * radius;
@@ -85,6 +85,7 @@ bool IsPassablePath(const Map& map, Vector2f from, Vector2f to, float radius) {
 
   return !cast_center.hit && !cast_side1.hit && !cast_side2.hit;
 }
+#endif
 
 NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
   NodePoint np;
@@ -271,7 +272,7 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vec
   return path;
 }
 
-std::vector<Vector2f> Pathfinder::SmoothPath(const std::vector<Vector2f>& path, const Map& map, float ship_radius) {
+std::vector<Vector2f> Pathfinder::SmoothPath(Bot& bot, const std::vector<Vector2f>& path, float ship_radius) {
   std::vector<Vector2f> result = path;
   return result;
 
@@ -283,7 +284,7 @@ std::vector<Vector2f> Pathfinder::SmoothPath(const std::vector<Vector2f>& path, 
       return result;
     }
 
-    bool hit = RadiusRayCastHit(map, result[i], result[next], 3.0f);
+    bool hit = DiameterRayCastHit(bot, result[i], result[next], 3.0f);
 
     if (!hit) {
       result.erase(result.begin() + next);
@@ -296,7 +297,7 @@ std::vector<Vector2f> Pathfinder::SmoothPath(const std::vector<Vector2f>& path, 
 
 
 
-std::vector<Vector2f> Pathfinder::CreatePath(Vector2f from, Vector2f to, float radius) {
+std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius) {
   bool build = true;
 
   if (!path_.empty()) {
@@ -310,13 +311,10 @@ std::vector<Vector2f> Pathfinder::CreatePath(Vector2f from, Vector2f to, float r
 
       float distance = next.Distance(pos);
 
-      // Rebuild the path if the bot isn't in line of sight of its next node.
-      CastResult center = RayCast(processor_->GetGame().GetMap(), pos, direction, distance);
-      CastResult side1 = RayCast(processor_->GetGame().GetMap(), pos + side * radius, direction, distance);
-      CastResult side2 = RayCast(processor_->GetGame().GetMap(), pos - side * radius, direction, distance);
 
-      if (!center.hit && !side1.hit && !side2.hit) {
-        build = false;
+      // Rebuild the path if the bot isn't in line of sight of its next node.
+      if (!DiameterRayCastHit(bot, pos, next, radius)) {
+       build = false;
       }
     }
   }

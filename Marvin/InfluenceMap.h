@@ -1,18 +1,16 @@
 #pragma once
 
 #include "GameProxy.h"
-#include "RayCaster.h"
 
 namespace marvin {
 
 class Vector2f;
 class Bot;
+struct CastResult;
 
 enum class RayWidth : short { One, Three, Five , Seven };
 
 namespace triangle {
-
-
 
 struct Triangle {
   Vector2f vertices[3];

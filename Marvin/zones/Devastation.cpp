@@ -684,7 +684,7 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
 
   Vector2f enemy_safe = bb.ValueOr<Vector2f>("EnemySafe", Vector2f());
 
-  ctx.bot->GetPathfinder().CreatePath(game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
 
   g_RenderState.RenderDebugText("  DevaPatrolBaseNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -786,7 +786,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 
   ctx.bot->Move(shot_position, hover_distance);
 
-  ctx.bot->GetSteering().Face(shot_position);
+  ctx.bot->GetSteering().Face(*ctx.bot, shot_position);
 
   g_RenderState.RenderDebugText("  DevaMoveToEnemyNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

@@ -39,7 +39,7 @@ class Bot {
   RegionRegistry& GetRegions() { return *regions_; }
   Shooter& GetShooter() { return shooter_; }
   SteeringBehavior& GetSteering() { return steering_; }
-  InfluenceMap& GetInfluenceMap() { return influence_map_; }
+  InfluenceMap& GetInfluenceMap() { return *influence_map_; }
   CommandSystem& GetCommandSystem() { return command_system_; }
 
   const std::vector<Vector2f>& GetBasePath() {
@@ -72,7 +72,7 @@ class Bot {
   std::unique_ptr<RegionRegistry> regions_;
   behavior::ExecuteContext ctx_;
   SteeringBehavior steering_;
-  InfluenceMap influence_map_;
+  std::unique_ptr<InfluenceMap> influence_map_;
   CommandSystem command_system_;
   Shooter shooter_;
 
@@ -169,7 +169,7 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
-  Vector2f MaintainObstructedDistance(const Map& map, std::size_t current_index, std::size_t enemy_index,
+  Vector2f MaintainObstructedDistance(Bot& bot, std::size_t current_index, std::size_t enemy_index,
                                       float desired_distance, bool count_down, const std::vector<Vector2f>& path,
                                       float ship_radius);
   bool AvoidInfluence(behavior::ExecuteContext& ctx);
@@ -178,9 +178,6 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
 class FollowPathNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-
- private:
-  bool CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to);
 };
 
 class MineSweeperNode : public behavior::BehaviorNode {

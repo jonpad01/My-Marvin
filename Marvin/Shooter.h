@@ -17,15 +17,15 @@ struct ShotResult {
 
 class Shooter {
 public:
-  void DebugUpdate(GameProxy& game);
+  void DebugUpdate(Bot& bot);
 
   ShotResult CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f vShooter, Vector2f vTarget, float sProjectile);
 
-  ShotResult BouncingBulletShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius);
+  ShotResult BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f target_vel, float target_radius);
 
-  ShotResult BouncingBombShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float target_radius);
+  ShotResult BouncingBombShot(Bot& bot, Vector2f target_pos, Vector2f target_vel, float target_radius);
 
-  ShotResult BounceShot(GameProxy& game, Vector2f pTarget, Vector2f vTarget, float rTarget, Vector2f pShooter,
+  ShotResult BounceShot(Bot& bot, Vector2f pTarget, Vector2f vTarget, float rTarget, Vector2f pShooter,
                         Vector2f vShooter, Vector2f dShooter, float proj_speed, float alive_time, float bounces);
 
   void LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time,

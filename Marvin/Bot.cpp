@@ -100,7 +100,7 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string na
   return builder;
 }
 
-Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), steering_(*game_, keys_), time_(*game_) {
+Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time_(*game_) {
   LoadBot();
 }
 
@@ -110,7 +110,7 @@ void Bot::LoadBot() {
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
   marvin::debug_log << "proccessor created" << std::endl;
   
-  //regions_ = RegionRegistry::Create(game_->GetMap());
+  influence_map_ = std::make_unique<InfluenceMap>();
   regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
   marvin::debug_log << "regions created" << std::endl;
   
@@ -169,7 +169,7 @@ void Bot::Update(float dt) {
 #endif
 
   #if DEBUG_RENDER_SHOOTER
-  shooter_.DebugUpdate(*game_);
+  shooter_.DebugUpdate(*this);
 #endif
 
   #if DEBUG_RENDER_REGION_REGISTRY
@@ -195,12 +195,12 @@ void Bot::Update(float dt) {
   constexpr float kMaxAvoidDistance = 35.0f;
 
   if (!path.empty() && path[0].DistanceSq(game_->GetPosition()) < kNearbyTurn * kNearbyTurn) {
-    steering_.AvoidWalls(kMaxAvoidDistance);
+    steering_.AvoidWalls(*this, kMaxAvoidDistance);
   }
   //#endif
 
   if (ship != 8) {
-    steering_.Steer(ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
+    steering_.Steer(*this, ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
     ctx_.blackboard.Set<bool>("SteerBackwards", false);
   }
 
@@ -212,13 +212,13 @@ void Bot::Move(const Vector2f& target, float target_distance) {
   float distance = bot_player.position.Distance(target);
 
   if (distance > target_distance) {
-    steering_.Seek(target);
+    steering_.Seek(*this, target);
   }
 
   else if (distance <= target_distance) {
     Vector2f to_target = target - bot_player.position;
 
-    steering_.Seek(target - Normalize(to_target) * target_distance);
+    steering_.Seek(*this, target - Normalize(to_target) * target_distance);
   }
 }
 
@@ -675,7 +675,7 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   float radius = game.GetShipSettings().GetRadius();
 
-  ctx.bot->GetPathfinder().CreatePath(bot, enemy->position, radius);
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, bot, enemy->position, radius);
 
   g_RenderState.RenderDebugText("  PathToEnemyNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -702,7 +702,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
       to = nodes.at(index);
     }
 
-    ctx.bot->GetPathfinder().CreatePath(from, to, radius);
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, to, radius);
 
     g_RenderState.RenderDebugText("  PatrolNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
@@ -743,18 +743,19 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
   size_t bot_node = search->FindNearestNodeBFS(position, game.GetShipSettings().GetRadius());
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position, game.GetShipSettings(enemy->ship).GetRadius());
 
-  if (RadiusRayCastHit(game.GetMap(), enemy->position, base_path[enemy_node],
+  if (RadiusRayCastHit(*ctx.bot, enemy->position, base_path[enemy_node],
                        game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
     desired_position = enemy->position;
   } else if (bot_node > enemy_node) {
     desired_position =
-        LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+        LastLOSNode(*ctx.bot, bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
   } else {
-    desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
+    desired_position =
+        LastLOSNode(*ctx.bot, bot_node, false, base_path,
                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
   }
 
-  ctx.bot->GetPathfinder().CreatePath(position, desired_position, radius);
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
 
   g_RenderState.RenderDebugText("  RusherBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -792,18 +793,6 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   size_t bot_node = search->FindNearestNodeBFS(position, game.GetShipSettings().GetRadius());
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position, game.GetShipSettings(enemy->ship).GetRadius());
 
-  if (RadiusRayCastHit(game.GetMap(), enemy->position, base_path[enemy_node],
-                       game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
-    desired_position = enemy->position;
-  } else if (bot_node > enemy_node) {
-    desired_position =
-        LastLOSNode(game.GetMap(), bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-  } else {
-    desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
-                                   game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-  }
-
-  if (is_anchor || last_in_base) {
     float energy_pct = ((float)game.GetPlayer().energy / game.GetMaxEnergy());
     float enemy_speed = 1.0f;
     float pathlength = 0.0f;
@@ -811,15 +800,18 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
     Vector2f enemy_ref;
     Vector2f bot_ref;
     if (bot_node > enemy_node) {
-      enemy_ref = LastLOSNode(game.GetMap(), enemy_node, false, base_path,
+      enemy_ref = LastLOSNode(*ctx.bot, enemy_node, false, base_path,
                         game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      bot_ref = LastLOSNode(game.GetMap(), bot_node, true, base_path, radius);
+      bot_ref = LastLOSNode(*ctx.bot, bot_node, true, base_path, radius);
 
     } else {
-      enemy_ref = LastLOSNode(game.GetMap(), enemy_node, true, base_path,
+      enemy_ref =
+          LastLOSNode(*ctx.bot, enemy_node, true, base_path,
                         game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      bot_ref = LastLOSNode(game.GetMap(), bot_node, false, base_path, radius);
+      bot_ref = LastLOSNode(*ctx.bot, bot_node, false, base_path, radius);
     }
+
+    desired_position = bot_ref;
 
     RenderWorldBox(game.GetPosition(), bot_ref - Vector2f(1, 1), bot_ref + Vector2f(1, 1), RGB(0, 0, 255));
     RenderWorldBox(game.GetPosition(), enemy_ref - Vector2f(1, 1), enemy_ref + Vector2f(1, 1), RGB(255, 0, 0));
@@ -853,11 +845,11 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
     float bullet_travel_multiplier = 0.75f;
 
     // if the bots reference point is in sight of the targets reference point, then its just around the corner
-    if (!RadiusRayCastHit(game.GetMap(), bot_ref, Normalize(enemy_ref - bot_ref), bot_ref.Distance(enemy_ref))) {
+    if (!RadiusRayCastHit(*ctx.bot, bot_ref, Normalize(enemy_ref - bot_ref), bot_ref.Distance(enemy_ref))) {
       bullet_travel_multiplier = 0.75f;
     }
 
-    if (!RadiusRayCastHit(game.GetMap(), position, Normalize(enemy->position - position), enemy->position.Distance(position))) {
+    if (!RadiusRayCastHit(*ctx.bot, position, Normalize(enemy->position - position), enemy->position.Distance(position))) {
       bullet_travel_multiplier = 1.0f;
     }
 
@@ -877,12 +869,12 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
     if (bot_node > enemy_node) {
        // desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
                           //             game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      desired_position = MaintainObstructedDistance(game.GetMap(), bot_node, enemy_node, desired, false, base_path,
+      desired_position = MaintainObstructedDistance(*ctx.bot, bot_node, enemy_node, desired, false, base_path,
                                                     game.GetSettings().ShipSettings[enemy->ship].GetRadius());
     } else {
        // desired_position = LastLOSNode(game.GetMap(), bot_node, true, base_path,
                               //         game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      desired_position = MaintainObstructedDistance(game.GetMap(), bot_node, enemy_node, desired, true, base_path,
+      desired_position = MaintainObstructedDistance(*ctx.bot, bot_node, enemy_node, desired, true, base_path,
                                                     game.GetSettings().ShipSettings[enemy->ship].GetRadius());
     }
 
@@ -890,10 +882,8 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
       // radius);
       bb.Set<bool>("SteerBackwards", true);
     }
-  }
 
-
-  ctx.bot->GetPathfinder().CreatePath(position, desired_position, radius);
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
 
   g_RenderState.RenderDebugText("  AnchorBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -946,7 +936,7 @@ bool AnchorBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
 }
 
 // Always stays behind a corner and maintains the desired distance beyond that.
-Vector2f AnchorBasePathNode::MaintainObstructedDistance(const Map& map, std::size_t current_index, std::size_t enemy_index,
+Vector2f AnchorBasePathNode::MaintainObstructedDistance(Bot& bot, std::size_t current_index, std::size_t enemy_index,
                                     float desired_distance, bool count_down, const std::vector<Vector2f>& path,
                                     float ship_radius) {
   Vector2f position;
@@ -974,7 +964,7 @@ Vector2f AnchorBasePathNode::MaintainObstructedDistance(const Map& map, std::siz
       distance_acc += current.Distance(previous);
       previous = current;
 
-      if (!is_obstructed && RadiusRayCastHit(map, path[current_index], current, ship_radius)) {
+      if (!is_obstructed && RadiusRayCastHit(bot, path[current_index], current, ship_radius)) {
         is_obstructed = true;
       }
 
@@ -1000,7 +990,7 @@ Vector2f AnchorBasePathNode::MaintainObstructedDistance(const Map& map, std::siz
       distance_acc += current.Distance(previous);
       previous = current;
 
-      if (!is_obstructed && RadiusRayCastHit(map, path[current_index], current, ship_radius)) {
+      if (!is_obstructed && RadiusRayCastHit(bot, path[current_index], current, ship_radius)) {
         is_obstructed = true;
       }
 
@@ -1020,14 +1010,14 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
- // Path path = bb.ValueOr<Path>("Path", Path());
+  float radius = game.GetShipSettings().GetRadius();
   std::vector<Vector2f> path = ctx.bot->GetPathfinder().GetPath();
 
   size_t path_size = path.size();
 
   if (path.empty()) {
-    g_RenderState.RenderDebugText("  FollowPathNode(fail): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
+    g_RenderState.RenderDebugText("  FollowPathNode(empty): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
   }
 
   Vector2f current = path.front();
@@ -1043,9 +1033,15 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
-  while (path.size() > 1 && CanMoveBetween(game, game.GetPosition(), path.at(1))) {
-    path.erase(path.begin());
-    current = path.front();
+  // this is an easy place to create out of bounds access violations
+  // always check/test the result when changing this part
+  while (path.size() > 1) {
+    if (!DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[1], radius)) {
+      path.erase(path.begin());
+      current = path.front();
+    } else {
+      break;
+    }
   }
 
   if (path.size() == 1 && path.front().DistanceSq(game.GetPosition()) < 2.0f * 2.0f) {
@@ -1053,27 +1049,12 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   if (path.size() != path_size) {
-    //bb.Set<Path>("Path", path);
+    ctx.bot->GetPathfinder().SetPath(path); 
   }
 
   ctx.bot->Move(current, 0.0f);
   g_RenderState.RenderDebugText("  FollowPathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
-}
-
-bool FollowPathNode::CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to) {
-  Vector2f trajectory = to - from;
-  Vector2f direction = Normalize(trajectory);
-  Vector2f side = Perpendicular(direction);
-
-  float distance = from.Distance(to);
-  float radius = game.GetShipSettings().GetRadius();
-
-  CastResult center = RayCast(game.GetMap(), from, direction, distance);
-  CastResult side1 = RayCast(game.GetMap(), from + side * radius, direction, distance);
-  CastResult side2 = RayCast(game.GetMap(), from - side * radius, direction, distance);
-
-  return !center.hit && !side1.hit && !side2.hit;
 }
 
 behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) {
@@ -1117,7 +1098,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
 
     // This probably shouldn't be a radius ray cast because they are still in line of sight even if just one piece of
     // the ship is viewable.
-    if (!RadiusRayCastHit(game.GetMap(), game.GetPosition(), target_front, game.GetShipSettings().GetRadius())) {
+    if (!RadiusRayCastHit(*ctx.bot, game.GetPosition(), target_front, game.GetShipSettings().GetRadius())) {
       g_RenderState.RenderDebugText("  InLineOfSightNode (success): %llu", timer.GetElapsedTime());
       bb.Set<bool>("TargetInSight", true);
       return behavior::ExecuteResult::Success;
@@ -1165,8 +1146,10 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
 
   float target_radius = game.GetSettings().ShipSettings[target->ship].GetRadius();
 
-  ShotResult bResult = ctx.bot->GetShooter().BouncingBombShot(game, target->position, target->velocity, target_radius);
-  ShotResult gResult = ctx.bot->GetShooter().BouncingBulletShot(game, target->position, target->velocity, target_radius);
+  ShotResult bResult =
+      ctx.bot->GetShooter().BouncingBombShot(*ctx.bot, target->position, target->velocity, target_radius);
+  ShotResult gResult =
+      ctx.bot->GetShooter().BouncingBulletShot(*ctx.bot, target->position, target->velocity, target_radius);
 
   float bomb_delay = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombFireDelay / 100.0f;
   float bomb_timer = bb.ValueOr<float>("BombTimer", 0.0f);
@@ -1360,7 +1343,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   ctx.bot->Move(position, hover_distance);
 
-  ctx.bot->GetSteering().Face(position);
+  ctx.bot->GetSteering().Face(*ctx.bot, position);
 
   g_RenderState.RenderDebugText("  MoveToEnemyNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

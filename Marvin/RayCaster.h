@@ -1,10 +1,15 @@
 #pragma once
 
 #include "Vector2f.h"
+//#include "Bot.h"
 
 namespace marvin {
 
 class Map;
+class Bot;
+
+
+enum class RayBarrier { Solid, Edge };
 
 struct CastResult {
   CastResult() : hit(false), distance(0.0f), position(Vector2f()), normal(Vector2f()) {}
@@ -24,9 +29,12 @@ bool TiledRayBoxIntersect(Vector2f origin, Vector2f direction, Vector2f box_pos,
                          Vector2f* norm);
 float BoxPointDistance(Vector2f box_pos, Vector2f box_extent, Vector2f point);
 
-CastResult RayCast(const Map& map, Vector2f from, Vector2f direction, float max_length);
+CastResult SolidRayCast(Bot& bot, Vector2f from, Vector2f to);
+CastResult EdgeRayCast(Bot& bot, Vector2f from, Vector2f to);
 
-bool RadiusRayCastHit(const Map& map, Vector2f from, Vector2f to, float radius);
-bool RayCastHit(const Map& map, Vector2f from, Vector2f to);
+CastResult RayCast(Bot& bot, RayBarrier barrier, Vector2f from, Vector2f direction, float max_length);
+
+bool DiameterRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
+bool RadiusRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 
 }  // namespace marvin

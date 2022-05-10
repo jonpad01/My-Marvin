@@ -12,9 +12,9 @@
 
 namespace marvin {
 
+class Bot;
 
-
-Vector2f LastLOSNode(const Map& map, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius);
+Vector2f LastLOSNode(Bot& bot, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius);
 
 namespace path {
 
@@ -60,9 +60,9 @@ struct Pathfinder {
   const std::vector<Vector2f>& GetPath() { return path_; }
   void SetPath(std::vector<Vector2f> path) { path_ = path; }
 
-  std::vector<Vector2f> SmoothPath(const std::vector<Vector2f>& path, const Map& map, float ship_radius);
+  std::vector<Vector2f> SmoothPath(Bot& bot, const std::vector<Vector2f>& path, float ship_radius);
 
-  std::vector<Vector2f> CreatePath(Vector2f from, Vector2f to, float radius);
+  std::vector<Vector2f> CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius);
 
   std::size_t GetPathIndex(const std::vector<Vector2f>& path, Vector2f position);
   float PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2);
