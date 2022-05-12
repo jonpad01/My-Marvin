@@ -73,19 +73,6 @@ namespace path {
         }
       }
     }
-#if 0
-bool IsPassablePath(const Map& map, Vector2f from, Vector2f to, float radius) {
-  const Vector2f direction = Normalize(to - from);
-  const Vector2f side = Perpendicular(direction) * radius;
-  const float distance = from.Distance(to);
-
-  CastResult cast_center = RayCast(map, from, direction, distance);
-  CastResult cast_side1 = RayCast(map, from + side, direction, distance);
-  CastResult cast_side2 = RayCast(map, from - side, direction, distance);
-
-  return !cast_center.hit && !cast_side1.hit && !cast_side2.hit;
-}
-#endif
 
 NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
   NodePoint np;
@@ -125,49 +112,6 @@ inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* t
   float dy = static_cast<float>(from_p.y - to_p.y);
 
   return sqrt(dx * dx + dy * dy);
-}
-
-std::size_t Pathfinder::GetPathIndex(const std::vector<Vector2f>& path, Vector2f position) {
-  std::size_t path_index = 0;
-  float closest_distance = std::numeric_limits<float>::max();
-
-  if (path.empty()) {
-    return path_index;
-  }
-
-  for (std::size_t i = 0; i < path.size(); i++) {
-    float distance = position.DistanceSq(path[i]);
-
-    if (closest_distance > distance) {
-      path_index = i;
-      closest_distance = distance;
-    }
-  }
-
-  return path_index;
-}
-float Pathfinder::PathLength(std::vector<Vector2f> path, Vector2f pos1, Vector2f pos2) {
-  float path_distance = 0.0f;
-
-  if (path.empty()) {
-    return path_distance;
-  }
-
-  std::size_t index1 = GetPathIndex(path, pos1);
-  std::size_t index2 = GetPathIndex(path, pos2);
-
-  if (index1 == index2) {
-    return pos1.Distance(pos2);
-  }
-
-  std::size_t start = std::min(index1, index2);
-  std::size_t end = std::max(index1, index2);
-
-  for (std::size_t i = start; i < end; i++) {
-    path_distance += path[i].Distance(path[i + 1]);
-  }
-
-  return path_distance;
 }
 
 Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
@@ -401,6 +345,134 @@ void Pathfinder::SetPathableNodes(const Map& map, float radius) {
     }
   }
 }
+
+  // Use breadth first search to find the nearest node index.
+ // use region registry to search through solid tiles that are not connected to the regions barrier
+ // to get a more accurate result
+size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
+  if (path.empty()) return 0;
+
+  MapCoord start_coord = start;
+
+  queue.Clear();
+  queue.Push(VisitState(start_coord, 0.0f));
+
+  visited.reset();
+  visited[start_coord.y * 1024 + start_coord.x] = 1;
+
+  // Loop over full neighbor set to improve traversable tile lookups.
+  // This isn't done on every iteration for performance. It would have to check a bunch of tiles that were already
+  // visited.
+  for (i16 y = -1; y <= 1; ++y) {
+    for (i16 x = -1; x <= 1; ++x) {
+      if (x == 0 && y == 0) continue;
+
+      MapCoord check(start_coord.x + x, start_coord.y + y);
+
+      if (!visited[check.y * 1024 + check.x] && !registry.IsEdge(check)) {
+        queue.Push(VisitState(check, 1.0f));
+        visited[check.y * 1024 + check.x] = true;
+      }
+    }
+  }
+
+  while (!queue.Empty()) {
+    // Grab the next tile from the queue
+    VisitState* next = queue.Pop();
+
+    if (next == nullptr) break;
+
+    VisitState state = *next;
+    const MapCoord& coord = state.coord;
+
+    if (state.distance > search_range) continue;
+
+    // Check if the current tile is within the path set and return that index if it is.
+    if (path_set[coord.y * 1024 + coord.x]) {
+      for (size_t i = 0; i < path.size(); ++i) {
+        MapCoord check = path[i];
+
+        if (check == coord) {
+          return i;
+        }
+      }
+
+      // Something broke if it got here. The coord in the path set should always be found.
+      break;
+    }
+
+    const MapCoord west(coord.x - 1, coord.y);
+    const MapCoord east(coord.x + 1, coord.y);
+    const MapCoord north(coord.x, coord.y - 1);
+    const MapCoord south(coord.x, coord.y + 1);
+
+    // Check if each neighbor tile was visited and push it into the queue if it wasn't.
+
+    if (!visited[west.y * 1024 + west.x] && !registry.IsEdge(west)) {
+      queue.Push(VisitState(west, state.distance + 1.0f));
+      visited[west.y * 1024 + west.x] = true;
+    }
+
+    if (!visited[east.y * 1024 + east.x] && !registry.IsEdge(east)) {
+      queue.Push(VisitState(east, state.distance + 1.0f));
+      visited[east.y * 1024 + east.x] = true;
+    }
+
+    if (!visited[north.y * 1024 + north.x] && !registry.IsEdge(north)) {
+      queue.Push(VisitState(north, state.distance + 1.0f));
+      visited[north.y * 1024 + north.x] = true;
+    }
+
+    if (!visited[south.y * 1024 + south.x] && !registry.IsEdge(south)) {
+      queue.Push(VisitState(south, state.distance + 1.0f));
+      visited[south.y * 1024 + south.x] = true;
+    }
+  }
+
+  // This method failed, so get nearest node by distance.
+  return FindNearestNodeByDistance(start);
+}
+
+std::size_t PathNodeSearch::FindNearestNodeByDistance(const Vector2f& position) const {
+  float closest_distance_sq = std::numeric_limits<float>::max();
+  std::size_t path_index = 0;
+
+  if (path.empty()) {
+    return path_index;
+  }
+
+  for (std::size_t i = 0; i < path.size(); i++) {
+    float distance_sq = position.DistanceSq(path[i]);
+
+    if (closest_distance_sq > distance_sq) {
+      path_index = i;
+      closest_distance_sq = distance_sq;
+    }
+  }
+
+  return path_index;
+}
+
+float PathNodeSearch::GetPathDistance(const Vector2f& pos1, const Vector2f& pos2) {
+  size_t first_index = FindNearestNodeBFS(pos1);
+  size_t second_index = FindNearestNodeBFS(pos2);
+
+  return GetPathDistance(first_index, second_index);
+}
+
+  float PathNodeSearch::GetPathDistance(std::size_t index1, std::size_t index2) {
+    if (index1 == index2) return 0.0f;
+
+    float distance = 0.0f;
+
+    size_t start = std::min(index1, index2);
+    size_t end = std::max(index1, index2);
+
+    for (size_t i = start; i < end; i++) {
+      distance += path[i].Distance(path[i + 1]);
+    }
+    return distance;
+  }
 
 }  // namespace path
 }  // namespace marvin

@@ -620,8 +620,9 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
 
   //int bot_node = (int)FindPathIndex(base_path, game.GetPosition());
 
-   auto search = path::PathNodeSearch::Create(game.GetMap(), base_path, 30);
-  int bot_node = (int)search->FindNearestNodeBFS(game.GetPosition(), game.GetShipSettings().GetRadius());
+   auto search = path::PathNodeSearch::Create(ctx.bot->GetRegions(), base_path, 30);
+
+  int bot_node = (int)search->FindNearestNodeBFS(game.GetPosition());
   int target_node = bot_node;
 
   int closest_distance = std::numeric_limits<int>::max();
@@ -636,7 +637,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     }
 
     //int player_node = (int)FindPathIndex(base_path, player.position);
-    int player_node = (int)search->FindNearestNodeBFS(player.position, game.GetShipSettings(player.ship).GetRadius());
+    int player_node = (int)search->FindNearestNodeBFS(player.position);
 
     int distance = std::abs(bot_node - player_node);
 
@@ -735,13 +736,10 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
   Vector2f desired_position;
 
-  // std::size_t bot_node = FindPathIndex(base_path, position);
-  // std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
+  auto search = path::PathNodeSearch::Create(ctx.bot->GetRegions(), base_path, 30);
 
-  auto search = path::PathNodeSearch::Create(game.GetMap(), base_path, 30);
-
-  size_t bot_node = search->FindNearestNodeBFS(position, game.GetShipSettings().GetRadius());
-  size_t enemy_node = search->FindNearestNodeBFS(enemy->position, game.GetShipSettings(enemy->ship).GetRadius());
+  size_t bot_node = search->FindNearestNodeBFS(position);
+  size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
 
   if (RadiusRayCastHit(*ctx.bot, enemy->position, base_path[enemy_node],
                        game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
@@ -788,10 +786,10 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   //std::size_t bot_node = FindPathIndex(base_path, position);
   //std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
 
-    auto search = path::PathNodeSearch::Create(game.GetMap(), base_path, 30);
+    auto search = path::PathNodeSearch::Create(ctx.bot->GetRegions(), base_path, 30);
 
-  size_t bot_node = search->FindNearestNodeBFS(position, game.GetShipSettings().GetRadius());
-  size_t enemy_node = search->FindNearestNodeBFS(enemy->position, game.GetShipSettings(enemy->ship).GetRadius());
+  size_t bot_node = search->FindNearestNodeBFS(position);
+  size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
 
     float energy_pct = ((float)game.GetPlayer().energy / game.GetMaxEnergy());
     float enemy_speed = 1.0f;

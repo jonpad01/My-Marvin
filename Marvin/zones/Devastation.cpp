@@ -502,6 +502,7 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   auto& pf = ctx.bot->GetPathfinder();
 
   std::vector<Vector2f> path = ctx.bot->GetBasePath();
+  auto ns = path::PathNodeSearch::Create(ctx.bot->GetRegions(), path, 30);
 
   std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
   std::vector<Player> combined_list = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>());
@@ -536,8 +537,8 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
     if (player_in_base) {
       // if (!player_in_center && IsValidPosition(player.position) && player.ship < 8) {
 
-      float distance_to_team = pf.PathLength(path, player.position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()));
-      float distance_to_enemy = pf.PathLength(path, player.position, bb.ValueOr<Vector2f>("EnemySafe", Vector2f()));
+      float distance_to_team = ns->GetPathDistance(player.position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()));
+      float distance_to_enemy = ns->GetPathDistance(player.position, bb.ValueOr<Vector2f>("EnemySafe", Vector2f()));
 
       if (player.frequency == game.GetPlayer().frequency) {
         // float distance_to_team = ctx.deva->PathLength(player.position, ctx.deva->GetTeamSafe());
@@ -596,7 +597,7 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
 
       float distance_to_enemy_position = 0.0f;
 
-      distance_to_enemy_position = pf.PathLength(path, player.position, closest_enemy_to_team);
+      distance_to_enemy_position = ns->GetPathDistance(player.position, closest_enemy_to_team);
 
       // get the closest player
       if (distance_to_enemy_position < closest_distance) {
