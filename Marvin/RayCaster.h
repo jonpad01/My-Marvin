@@ -32,8 +32,11 @@ float BoxPointDistance(Vector2f box_pos, Vector2f box_extent, Vector2f point);
 CastResult SolidRayCast(Bot& bot, Vector2f from, Vector2f to);
 CastResult EdgeRayCast(Bot& bot, Vector2f from, Vector2f to);
 
+
 CastResult RayCast(Bot& bot, RayBarrier barrier, Vector2f from, Vector2f direction, float max_length);
 
+bool DiameterEdgeRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
+bool RadiusEdgeRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 bool DiameterRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 bool RadiusRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 

@@ -534,6 +534,10 @@ const float ContinuumGameProxy::GetMaxEnergy() {
   return (float)ship_status_.max_energy;
 }
 
+const float ContinuumGameProxy::GetMaxThrust() {
+  return (float)ship_status_.thrust;
+}
+
 const float ContinuumGameProxy::GetMaxSpeed() {
 
   float speed = (float)ship_status_.speed / 10.0f / 16.0f;

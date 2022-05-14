@@ -182,9 +182,7 @@ CastResult RayCast(Bot& bot, RayBarrier barrier, Vector2f from, Vector2f directi
       reflection = Vector2f(1, -1);
     }
 
-    // Test tile at new test point
-    if (vMapCheck.x >= 0 && vMapCheck.x < vMapSize.x && vMapCheck.y >= 0 && vMapCheck.y < vMapSize.y) {
-      //if (map.IsSolid((unsigned short)vMapCheck.x, (unsigned short)vMapCheck.y)) {
+    if (IsValidPosition(vMapCheck)) {
       if (IsBarrier(bot, vMapCheck, barrier)) {
         bool skipFirstCheck = cornered && fDistance == 0.0f;
 
@@ -359,6 +357,42 @@ CastResult EdgeRayCast(Bot& bot, const RegionRegistry& registry, Vector2f from, 
   Vector2f to_target = to - from;
   CastResult result = RayCast(bot, RayBarrier::Edge, from, Normalize(to_target), to_target.Length());
 
+  return result;
+}
+
+bool DiameterEdgeRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius) {
+  bool result = false;
+
+  Vector2f to_target = to - from;
+  Vector2f direction = Normalize(to_target);
+  Vector2f side = Perpendicular(direction);
+
+  CastResult center = RayCast(bot, RayBarrier::Edge, from, direction, to_target.Length());
+  CastResult side1 = RayCast(bot, RayBarrier::Edge, from + side * radius, direction, to_target.Length());
+  CastResult side2 = RayCast(bot, RayBarrier::Edge, from - side * radius, direction, to_target.Length());
+
+  if (center.hit || side1.hit || side2.hit) {
+    result = true;
+  }
+  return result;
+}
+
+bool RadiusEdgeRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius) {
+  bool result = false;
+
+  Vector2f to_target = to - from;
+  Vector2f direction = Normalize(to_target);
+  Vector2f side = Perpendicular(direction);
+
+  CastResult center = RayCast(bot, RayBarrier::Edge, from, direction, to_target.Length());
+  CastResult side1 = RayCast(bot, RayBarrier::Edge, from + side * radius, direction, to_target.Length());
+  CastResult side2 = RayCast(bot, RayBarrier::Edge, from - side * radius, direction, to_target.Length());
+
+  if (center.hit) {
+    result = true;
+  } else if (side1.hit && side2.hit) {
+    result = true;
+  }
   return result;
 }
 

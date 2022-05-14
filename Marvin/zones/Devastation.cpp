@@ -114,6 +114,10 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
       ship = 1;
     }
 
+    if (ship == 2) {
+      bot.GetBlackboard().Set<bool>("IsAnchor", true);
+    }
+
     std::vector<Vector2f> patrol_nodes = {Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454),
                                    Vector2f(568, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568),
                                    Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454)};
@@ -502,7 +506,7 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   auto& pf = ctx.bot->GetPathfinder();
 
   std::vector<Vector2f> path = ctx.bot->GetBasePath();
-  auto ns = path::PathNodeSearch::Create(ctx.bot->GetRegions(), path, 30);
+  auto ns = path::PathNodeSearch::Create(*ctx.bot, path, 30);
 
   std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
   std::vector<Player> combined_list = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>());

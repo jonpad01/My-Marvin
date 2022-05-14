@@ -131,7 +131,31 @@ void Bot::Update(float dt) {
   g_RenderState.debug_y = 30.0f;
 
   keys_.ReleaseAll();
+#if 0
+  float thrust = game_->GetMaxThrust();
+  float Sthrust = game_->GetShipSettings().InitialThrust;
+  float speed = game_->GetMaxSpeed();
 
+  float current_speed = game_->GetPlayer().velocity.Length();
+
+  g_RenderState.RenderDebugText("MAXSPEED %f", speed);
+  g_RenderState.RenderDebugText("CURRENTSPEED %f", current_speed);
+  g_RenderState.RenderDebugText("THRUST %f", thrust);
+  g_RenderState.RenderDebugText("INITIALTHRUST %f", Sthrust);
+
+
+  if (current_speed == 0.0f) {
+    g_RenderState.RenderDebugText("SPEEDZERO %f", 0.0f);
+    ctx_.blackboard.Set<float>("stimer", 0.0f);
+  } else if (current_speed > 0.0f && current_speed < speed) {
+    g_RenderState.RenderDebugText("SPEEDMIDDLE %f", 0.0f);
+    float ctime = ctx_.blackboard.ValueOr<float>("stimer", 0.0f);
+    ctx_.blackboard.Set<float>("stimer", ctime + ctx_.dt);
+  } else if (current_speed == speed) {
+    float ctime = ctx_.blackboard.ValueOr<float>("stimer", 0.0f);
+    g_RenderState.RenderDebugText("FINISHTIME %f", ctime);
+  }
+  #endif
   float radius = game_->GetShipSettings().GetRadius();
   int ship = game_->GetPlayer().ship;
   PerformanceTimer timer;
@@ -620,7 +644,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
 
   //int bot_node = (int)FindPathIndex(base_path, game.GetPosition());
 
-   auto search = path::PathNodeSearch::Create(ctx.bot->GetRegions(), base_path, 30);
+   auto search = path::PathNodeSearch::Create(*ctx.bot, base_path, 30);
 
   int bot_node = (int)search->FindNearestNodeBFS(game.GetPosition());
   int target_node = bot_node;
@@ -736,21 +760,16 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
   Vector2f desired_position;
 
-  auto search = path::PathNodeSearch::Create(ctx.bot->GetRegions(), base_path, 30);
+  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path, 30);
 
   size_t bot_node = search->FindNearestNodeBFS(position);
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
 
-  if (RadiusRayCastHit(*ctx.bot, enemy->position, base_path[enemy_node],
-                       game.GetSettings().ShipSettings[enemy->ship].GetRadius())) {
-    desired_position = enemy->position;
-  } else if (bot_node > enemy_node) {
-    desired_position =
-        LastLOSNode(*ctx.bot, bot_node, true, base_path, game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+  // use the last path node that is in line of sight of the bot as a guide to path to
+  if (bot_node > enemy_node) {
+    desired_position = search->LastLOSNode(*ctx.bot, position, bot_node, radius, true);
   } else {
-    desired_position =
-        LastLOSNode(*ctx.bot, bot_node, false, base_path,
-                                   game.GetSettings().ShipSettings[enemy->ship].GetRadius());
+    desired_position = search->LastLOSNode(*ctx.bot, position, bot_node, radius, false);
   }
 
   ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
@@ -776,108 +795,83 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
     return behavior::ExecuteResult::Failure;
   }
 
+  float bullet_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
+  float alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
+  Vector2f bullet_velocity = enemy->GetHeading() * bullet_speed + enemy->velocity;
+  float bullet_travel = bullet_velocity.Length() * alive_time;
+
   Vector2f position = game.GetPosition();
   float radius = game.GetShipSettings().GetRadius();
+  float thrust = game.GetShipSettings().InitialThrust;
+  float enemy_radius = game.GetSettings().ShipSettings[enemy->ship].GetRadius();
 
   Path base_path = ctx.bot->GetBasePath();
 
-  Vector2f desired_position;
-
-  //std::size_t bot_node = FindPathIndex(base_path, position);
-  //std::size_t enemy_node = FindPathIndex(base_path, enemy->position);
-
-    auto search = path::PathNodeSearch::Create(ctx.bot->GetRegions(), base_path, 30);
-
+  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path, 30);
   size_t bot_node = search->FindNearestNodeBFS(position);
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
 
     float energy_pct = ((float)game.GetPlayer().energy / game.GetMaxEnergy());
-    float enemy_speed = 1.0f;
-    float pathlength = 0.0f;
 
-    Vector2f enemy_ref;
-    Vector2f bot_ref;
+    Vector2f enemy_fore;
+    Vector2f bot_fore;
+    Vector2f bot_aft;
+
     if (bot_node > enemy_node) {
-      enemy_ref = LastLOSNode(*ctx.bot, enemy_node, false, base_path,
-                        game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      bot_ref = LastLOSNode(*ctx.bot, bot_node, true, base_path, radius);
+      enemy_fore = search->LastLOSNode(*ctx.bot, enemy->position, enemy_node, enemy_radius, false);
+      bot_fore = search->LastLOSNode(*ctx.bot, position, bot_node, radius, true);
+      bot_aft = search->LastLOSNode(*ctx.bot, position, bot_node, radius, false);
 
     } else {
-      enemy_ref =
-          LastLOSNode(*ctx.bot, enemy_node, true, base_path,
-                        game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      bot_ref = LastLOSNode(*ctx.bot, bot_node, false, base_path, radius);
+      enemy_fore = search->LastLOSNode(*ctx.bot, enemy->position, enemy_node, enemy_radius, true);
+      bot_fore = search->LastLOSNode(*ctx.bot, position, bot_node, radius, false);
+      bot_aft = search->LastLOSNode(*ctx.bot, position, bot_node, radius, true);
     }
 
-    desired_position = bot_ref;
+    Vector2f desired_position = bot_fore;
 
-    RenderWorldBox(game.GetPosition(), bot_ref - Vector2f(1, 1), bot_ref + Vector2f(1, 1), RGB(0, 0, 255));
-    RenderWorldBox(game.GetPosition(), enemy_ref - Vector2f(1, 1), enemy_ref + Vector2f(1, 1), RGB(255, 0, 0));
+    Vector2f to_anchor = Normalize(enemy_fore - enemy->position);
+    Vector2f to_enemy = Normalize(bot_fore - game.GetPosition());
 
-    Vector2f to_anchor = enemy_ref - enemy->position;
-    Vector2f to_enemy = bot_ref - game.GetPosition();
-    //enemy_speed = enemy->velocity.Dot(Normalize(to_bot));
-
-    float bullet_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
-    float alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
-    //float bullet_travel = (bullet_speed + (enemy->velocity * enemy->GetHeading())) * alive_time;
-
-    // the bullets expected velocity when fired
-    Vector2f bullet_velocity = enemy->GetHeading() * bullet_speed + enemy->velocity;
-    // the total distance the bullet will travel
-    float bullet_travel = bullet_velocity.Length() * alive_time;
-    if (!enemy->active) {
-     // bullet_travel = bullet_speed * alive_time;
-    }
     // the speed that the enemy is moving toward or away from the anchor
-    float enemy_speed_offset = (Normalize(enemy->velocity).Dot(Normalize(to_anchor))) * enemy->velocity.Length();
-    float bullet_speed_offset = (Normalize(bullet_velocity).Dot(Normalize(to_anchor))) * bullet_velocity.Length();
-    float bot_speed_offset = (Normalize(to_enemy).Dot(Normalize(game.GetPlayer().velocity))) * game.GetPlayer().velocity.Length();
+    float enemy_speed_offset = (Normalize(enemy->velocity).Dot(to_anchor)) * enemy->velocity.Length();
+    float bot_speed_offset = (to_enemy.Dot(Normalize(game.GetPlayer().velocity))) * game.GetPlayer().velocity.Length();
 
-    float threat_range = enemy_speed_offset + bot_speed_offset;
+    // how fast the bot/enemy are moving towards/away from each other 
+    float initial_speed = enemy_speed_offset + bot_speed_offset;
+    // the desired relative speed the bot wants to achieve
+    float final_speed = 0.0f;
+    // how long it takes the bot to reduce this speed to 0 given the ships thrust
+    float time_to_zero = (initial_speed - final_speed) / thrust;
+    // how many tiles it needs to travel to adjust to this speed
+    float braking_distance = ((initial_speed + final_speed) / 2.0f) * time_to_zero;
 
-    //g_RenderState.RenderDebugText("  BOTSPEEDOFFSET: %F", bot_speed_offset);
-
+    g_RenderState.RenderDebugText("  THRUST: %f", thrust);
+    g_RenderState.RenderDebugText("  X: %f", game.GetPlayer().velocity.x);
 
     // this reflects the likelyhood that a player could hit the bot at the bullets travel length
-    float bullet_travel_multiplier = 0.75f;
+    float bullet_travel_multiplier = 0.5f;
 
     // if the bots reference point is in sight of the targets reference point, then its just around the corner
-    if (!RadiusRayCastHit(*ctx.bot, bot_ref, Normalize(enemy_ref - bot_ref), bot_ref.Distance(enemy_ref))) {
+    if (!RadiusRayCastHit(*ctx.bot, bot_fore, enemy_fore, radius)) {
+      bullet_travel_multiplier = 0.65f;
+    }
+
+    if (!RadiusRayCastHit(*ctx.bot, position, enemy_fore, radius)) {
       bullet_travel_multiplier = 0.75f;
     }
 
-    if (!RadiusRayCastHit(*ctx.bot, position, Normalize(enemy->position - position), enemy->position.Distance(position))) {
+    if (!RadiusRayCastHit(*ctx.bot, position, enemy->position, radius)) {
       bullet_travel_multiplier = 1.0f;
     }
 
-    //float desired = (30.0f + (enemy_speed + (6.0f / (energy_pct + 0.0001f))));
-    float desired = bullet_travel * bullet_travel_multiplier + threat_range + (2.0F / energy_pct);
+    float desired = bullet_travel * bullet_travel_multiplier + braking_distance + (4.0f - 4.0F / energy_pct);
     if (desired < 25.f) { desired = 25.0f; }
 
-    //pathlength = PathLength(ctx.bot->GetBasePath(), position, enemy->position);
+    float pathlength = search->GetPathDistance(bot_node, enemy_node);
 
-    pathlength = search->GetPathDistance(position, enemy->position);
-
-   // Vector2f to_enemy = enemy->position - game.GetPosition();
-   // bool enemy_visible = !RayCast(game.GetMap(), game.GetPosition(), Normalize(to_enemy), to_enemy.Length()).hit;
-
-    //if (pathlength < desired || bb.ValueOr<bool>("TargetInSight", false) || AvoidInfluence(ctx)) {
     if (pathlength < desired || AvoidInfluence(ctx)) {
-    if (bot_node > enemy_node) {
-       // desired_position = LastLOSNode(game.GetMap(), bot_node, false, base_path,
-                          //             game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      desired_position = MaintainObstructedDistance(*ctx.bot, bot_node, enemy_node, desired, false, base_path,
-                                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-    } else {
-       // desired_position = LastLOSNode(game.GetMap(), bot_node, true, base_path,
-                              //         game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-      desired_position = MaintainObstructedDistance(*ctx.bot, bot_node, enemy_node, desired, true, base_path,
-                                                    game.GetSettings().ShipSettings[enemy->ship].GetRadius());
-    }
-
-      // path = ctx.bot->GetPathfinder().CreatePath(path, position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()),
-      // radius);
+      desired_position = bot_aft;
       bb.Set<bool>("SteerBackwards", true);
     }
 

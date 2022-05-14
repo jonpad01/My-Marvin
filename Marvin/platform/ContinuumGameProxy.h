@@ -82,6 +82,7 @@ class ContinuumGameProxy : public GameProxy {
   const ShipSettings& GetShipSettings(int ship) const override;
 
   const float GetMaxEnergy() override;
+  const float GetMaxThrust() override;
   const float GetRotation() override;
   const float GetMaxSpeed() override;
 

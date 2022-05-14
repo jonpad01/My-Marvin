@@ -99,6 +99,7 @@ class GameProxy {
   virtual const float GetMaxEnergy() = 0;
   virtual const float GetRotation() = 0;
   virtual const float GetMaxSpeed() = 0;
+  virtual const float GetMaxThrust() = 0;
 
   virtual const Zone GetZone() = 0;
   virtual const std::string GetMapFile() const = 0;

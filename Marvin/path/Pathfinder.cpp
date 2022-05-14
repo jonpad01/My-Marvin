@@ -16,49 +16,6 @@ or 5 tiles with a weight of 2, and so on. If a tile has a weight of 9, the pathf
 9 tiles with a weight of 1 before stepping into that tile. */
 
 namespace marvin {
-
-    
-
-Vector2f LastLOSNode(Bot& bot, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius) {
-  Vector2f position;
-
-  if (path.empty()) {
-    return position;
-  }
-
-  if (count_down) {
-    // position = path.back();
-
-    for (std::size_t i = index; i > 0; i--) {
-      Vector2f current = path[i];
-
-      if (!DiameterRayCastHit(bot, path[index], current, radius)) {
-        position = current;
-      } else {
-        break;
-      }
-    }
-  } else {
-    //  position = path.front();
-
-    for (std::size_t i = index; i < path.size(); i++) {
-      Vector2f current = path[i];
-
-      if (!DiameterRayCastHit(bot, path[index], current, radius)) {
-        position = current;
-      } else {
-        break;
-      }
-    }
-  }
-
-  return position;
-}
-
-
-
-
-
 namespace path {
 
     void Pathfinder::DebugUpdate(const Vector2f& position) {   
@@ -350,7 +307,9 @@ void Pathfinder::SetPathableNodes(const Map& map, float radius) {
  // use region registry to search through solid tiles that are not connected to the regions barrier
  // to get a more accurate result
 size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
-  if (path.empty()) return 0;
+  if (path.empty() || !IsValidPosition(start)) return 0;
+
+  auto& registry = bot.GetRegions();
 
   MapCoord start_coord = start;
 
@@ -368,6 +327,8 @@ size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
       if (x == 0 && y == 0) continue;
 
       MapCoord check(start_coord.x + x, start_coord.y + y);
+
+      if (!IsValidPosition(Vector2f(check.x, check.y))) continue;
 
       if (!visited[check.y * 1024 + check.x] && !registry.IsEdge(check)) {
         queue.Push(VisitState(check, 1.0f));
@@ -393,6 +354,11 @@ size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
         MapCoord check = path[i];
 
         if (check == coord) {
+#if DEBUG_RENDER_PATHNODESEARCH
+          Vector2f debug_pos = Vector2f(check.x, check.y);
+          RenderWorldBox(bot.GetGame().GetPosition(), debug_pos - Vector2f(1, 1), debug_pos + Vector2f(1, 1),
+                         RGB(0, 255, 0));
+#endif
           return i;
         }
       }
@@ -408,22 +374,22 @@ size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
 
     // Check if each neighbor tile was visited and push it into the queue if it wasn't.
 
-    if (!visited[west.y * 1024 + west.x] && !registry.IsEdge(west)) {
+    if (IsValidPosition(Vector2f(west.x, west.y)) && !visited[west.y * 1024 + west.x] && !registry.IsEdge(west)) {
       queue.Push(VisitState(west, state.distance + 1.0f));
       visited[west.y * 1024 + west.x] = true;
     }
 
-    if (!visited[east.y * 1024 + east.x] && !registry.IsEdge(east)) {
+    if (IsValidPosition(Vector2f(east.x, east.y)) && !visited[east.y * 1024 + east.x] && !registry.IsEdge(east)) {
       queue.Push(VisitState(east, state.distance + 1.0f));
       visited[east.y * 1024 + east.x] = true;
     }
 
-    if (!visited[north.y * 1024 + north.x] && !registry.IsEdge(north)) {
+    if (IsValidPosition(Vector2f(north.x, north.y)) && !visited[north.y * 1024 + north.x] && !registry.IsEdge(north)) {
       queue.Push(VisitState(north, state.distance + 1.0f));
       visited[north.y * 1024 + north.x] = true;
     }
 
-    if (!visited[south.y * 1024 + south.x] && !registry.IsEdge(south)) {
+    if (IsValidPosition(Vector2f(south.x, south.y)) && !visited[south.y * 1024 + south.x] && !registry.IsEdge(south)) {
       queue.Push(VisitState(south, state.distance + 1.0f));
       visited[south.y * 1024 + south.x] = true;
     }
@@ -437,10 +403,6 @@ std::size_t PathNodeSearch::FindNearestNodeByDistance(const Vector2f& position) 
   float closest_distance_sq = std::numeric_limits<float>::max();
   std::size_t path_index = 0;
 
-  if (path.empty()) {
-    return path_index;
-  }
-
   for (std::size_t i = 0; i < path.size(); i++) {
     float distance_sq = position.DistanceSq(path[i]);
 
@@ -451,6 +413,43 @@ std::size_t PathNodeSearch::FindNearestNodeByDistance(const Vector2f& position) 
   }
 
   return path_index;
+}
+// Use the player position and path index to calculate the last path node the bot is 
+// still in line of sight of.  Use edge raycast to ignore solids that arent a part 
+// of the basees barrier.
+Vector2f PathNodeSearch::LastLOSNode(Bot& bot, Vector2f position, std::size_t index,
+                                     float radius, bool count_down) {
+  // this function should never be used on an empty path so this return is useless if it ever happens
+    if (path.empty()) return position;
+    
+  // return this if the loop fails its pretest (probably in a corner where it can't see any path nodes)
+  Vector2f final_pos = path[index];
+  // count_down is used to determine which direction to look in
+  if (count_down) {
+    for (std::size_t i = index; i > 0; i--) {
+      Vector2f current = path[i];
+
+      if (!RadiusEdgeRayCastHit(bot, position, current, radius)) {
+        final_pos = current;
+      } else {
+        break;
+      }
+    }
+  } else {
+    for (std::size_t i = index; i < path.size(); i++) {
+      Vector2f current = path[i];
+
+      if (!RadiusEdgeRayCastHit(bot, position, current, radius)) {
+        final_pos = current;
+      } else {
+        break;
+      }
+    }
+  }
+#if DEBUG_RENDER_PATHNODESEARCH
+  RenderWorldBox(bot.GetGame().GetPosition(), final_pos - Vector2f(1, 1), final_pos + Vector2f(1, 1), RGB(0, 0, 255));
+#endif
+  return final_pos;
 }
 
 float PathNodeSearch::GetPathDistance(const Vector2f& pos1, const Vector2f& pos2) {

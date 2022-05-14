@@ -14,8 +14,6 @@ namespace marvin {
 
 class Bot;
 
-Vector2f LastLOSNode(Bot& bot, std::size_t index, bool count_down, std::vector<Vector2f> path, float radius);
-
 namespace path {
 
 template <typename T, typename Compare, typename Container = std::vector<T>>
@@ -159,29 +157,32 @@ struct PathNodeSearch {
     VisitState(MapCoord coord, float distance) : coord(coord), distance(distance) {}
   };
 
-  const RegionRegistry& registry;
+  Bot& bot;
   CircularQueue<VisitState> queue;
   std::bitset<1024 * 1024> visited;
   std::bitset<1024 * 1024> path_set;
   size_t search_range;
   const std::vector<Vector2f>& path;
 
-  static std::unique_ptr<PathNodeSearch> Create(const RegionRegistry& registry, const std::vector<Vector2f>& path,
+  static std::unique_ptr<PathNodeSearch> Create(Bot& bot, const std::vector<Vector2f>& path,
                                                 size_t search_range) {
-    return std::unique_ptr<PathNodeSearch>(new PathNodeSearch(registry, path, search_range));
+    return std::unique_ptr<PathNodeSearch>(new PathNodeSearch(bot, path, search_range));
   }
 
   size_t FindNearestNodeBFS(const Vector2f& start);
 
   std::size_t FindNearestNodeByDistance(const Vector2f& position) const;
 
+ Vector2f LastLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius,
+                                       bool count_down);
+
   float GetPathDistance(const Vector2f& pos1, const Vector2f& pos2);
   float GetPathDistance(std::size_t index1, std::size_t index2);
 
  private:
   // Private constructor to ensure it's allocated on the heap.
-  PathNodeSearch(const RegionRegistry& registry, const std::vector<Vector2f>& path, size_t search_range)
-      : registry(registry), path(path), search_range(search_range), queue(GetQueueSize(search_range)) {
+  PathNodeSearch(Bot& bot, const std::vector<Vector2f>& path, size_t search_range)
+      : bot(bot), path(path), search_range(search_range), queue(GetQueueSize(search_range)) {
     for (MapCoord coord : path) {
       path_set[coord.y * 1024 + coord.x] = 1;
     }
