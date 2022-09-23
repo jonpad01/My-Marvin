@@ -218,10 +218,11 @@ void ContinuumGameProxy::FetchPlayers() {
 
 void ContinuumGameProxy::SortPlayers() {
   team_.clear();
-  enemys_.clear();
+  enemies_.clear();
   enemy_team_.clear();
 
-  for (Player player : players_) {
+  for (std::size_t i = 0; i < players_.size(); i++) {
+    Player player = players_[i];
     // sort into groups depending on team, include specced players
     if (player.id != player_id_) {
       if (player.frequency == player_->frequency) {
@@ -229,14 +230,14 @@ void ContinuumGameProxy::SortPlayers() {
       } else {
         // sort as an enemy, ignore specced players
         if (player.ship != 8) {
-          enemys_.emplace_back(player);
+          enemies_.emplace_back(player);
         }
         // sort on to an enemy team for zone specific team games, include specced players
         // note that for not included zones, this list will be empty
-        bool common_teams = zone_ == Zone::ExtremeGames || zone_ == Zone::Devastation || zone_ == Zone::PowerBall;
+        bool common_team_zone = zone_ == Zone::ExtremeGames || zone_ == Zone::Devastation || zone_ == Zone::PowerBall;
         if (zone_ == Zone::Hyperspace && (player.frequency == 90 || player.frequency == 91)) {
           enemy_team_.emplace_back(player);
-        } else if (common_teams && (player.frequency == 00 || player.frequency == 01)) {
+        } else if (common_team_zone && (player.frequency == 00 || player.frequency == 01)) {
           enemy_team_.emplace_back(player);
         }
       }
@@ -498,8 +499,8 @@ const std::vector<Player>& ContinuumGameProxy::GetTeam() const {
   return team_;
 }
 
-const std::vector<Player>& ContinuumGameProxy::GetEnemys() const {
-  return enemys_;
+const std::vector<Player>& ContinuumGameProxy::GetEnemies() const {
+  return enemies_;
 }
 
 const std::vector<Player>& ContinuumGameProxy::GetEnemyTeam() const {
@@ -534,8 +535,8 @@ const float ContinuumGameProxy::GetMaxEnergy() {
   return (float)ship_status_.max_energy;
 }
 
-const float ContinuumGameProxy::GetMaxThrust() {
-  return (float)ship_status_.thrust;
+const float ContinuumGameProxy::GetThrust() {
+  return (float)ship_status_.thrust * 10.0f / 16.0f;
 }
 
 const float ContinuumGameProxy::GetMaxSpeed() {
@@ -544,6 +545,19 @@ const float ContinuumGameProxy::GetMaxSpeed() {
 
   if (player_->velocity.Length() > speed) {
     speed = std::abs(speed + GetShipSettings().GravityTopSpeed);
+  }
+  return speed;
+}
+
+const float ContinuumGameProxy::GetMaxSpeed(u16 ship) {
+  float speed = 0.0f;
+  switch (zone_) {
+    case Zone::Devastation: {
+      speed = GetSettings().ShipSettings[ship].MaximumSpeed / 10.0f / 16.0f;
+      break;
+    }
+    default:
+      speed = GetSettings().ShipSettings[ship].MaximumSpeed / 10.0f / 16.0f;
   }
   return speed;
 }
@@ -558,6 +572,10 @@ const float ContinuumGameProxy::GetRotation() {
   //float rotation = (float)ship_status_.rotation / 200.0f;
 
   return rotation;
+}
+
+const uint64_t ContinuumGameProxy::GetRespawnTime() {
+  return (uint64_t)GetSettings().EnterDelay * 10;
 }
 
 // TODO: Find level data or level name in memory

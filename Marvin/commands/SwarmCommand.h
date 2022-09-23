@@ -20,7 +20,7 @@ class SwarmCommand : public CommandExecutor {
     bb.Set<bool>("Swarm", true);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"swarm", "s"}; }
   std::string GetDescription() {
@@ -44,7 +44,7 @@ class SwarmOffCommand : public CommandExecutor {
     bb.Set<bool>("Swarm", false);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"swarmoff", "so"}; }
   std::string GetDescription() { return "Sets swarm off"; }

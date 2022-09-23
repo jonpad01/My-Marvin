@@ -6,6 +6,10 @@ VELOCITY				=	 speed in the X direction, speed in the Y direction, -X velocity i
 
 MAP COORDINATES		    =	(0, 0) = top left of map, (1023, 1023) = bottom right of map
 
+SPEED CONVERSION		=   Speed is stored in units of pixels / second and multiplied by 10.  Get tiles / sec by dividing the values: / 10.0f / 16.0f
+
+THRUST CONVERSION		=	Thrust is stored in units of pixels/sec/sec and divided by 10.  Get tiles/sec/sec by mulltiplying by 10 then dividing by 16:  * 10.0f / 16.0f
+
 
 
 WEAPON VELOCITY from player heading, velocity, and bullet speed    =      enemy heading * weapon speed + enemy velocity

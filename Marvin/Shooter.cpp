@@ -321,8 +321,6 @@ bool IsValidTarget(Bot& bot, const Player& target, bool anchoring) {
     return false;
   }
 
-  
-
   MapCoord bot_coord(bot_player.position);
   MapCoord target_coord(target.position);
 

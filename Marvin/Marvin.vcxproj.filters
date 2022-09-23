@@ -194,19 +194,22 @@
     <ClInclude Include="commands\LockFreqCommand.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="commands\AnchorCommand.h">
+    <ClInclude Include="commands\FightingRoleCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\SwarmCommand.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="commands\MultiCommand.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="commands\RepelCommand.h">
+    <ClInclude Include="commands\ConsumableCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\DelimiterCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\StatusCommands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\BaseDuelCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

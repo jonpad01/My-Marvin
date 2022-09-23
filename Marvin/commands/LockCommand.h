@@ -20,7 +20,7 @@ class LockCommand : public CommandExecutor {
     bb.Set<bool>("CmdLock", true);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"lockmarv", "lm", "lock"}; }
   std::string GetDescription() { return "Locks marv so only mods can make changes"; }
@@ -42,7 +42,7 @@ class UnlockCommand : public CommandExecutor {
     bb.Set<bool>("CmdLock", false);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"unlockmarv", "um", "unlock"}; }
   std::string GetDescription() { return "Unlocks marv so players can make changes"; }

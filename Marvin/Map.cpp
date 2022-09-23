@@ -118,6 +118,39 @@ bool Map::CanPathOn(const Vector2f& position, float radius) const {
   return true;
 }
 
+/* 
+the start_corner is the ships orientation on the position its checking
+0,0 = top left, 0,1 = bottom left, 1,0 = top right, 1,1 = bottom right
+this method only allows checks at the ships corners
+*/
+bool Map::CornerPointCheck(const Vector2f& start, bool right_corner_check, bool bottom_corner_check,
+                           float radius) const {
+  u16 diameter = (u16)((radius + 0.5f) * 2.0f);
+
+  u16 start_x = (u16)start.x;
+  u16 start_y = (u16)start.y;
+
+  if (right_corner_check == true) {
+    start_x -= (diameter - 1);
+  }
+
+  if (bottom_corner_check == true) {
+    start_y -= (diameter - 1);
+  }
+
+  u16 end_x = start_x + (diameter - 1);
+  u16 end_y = start_y + (diameter - 1);
+
+  for (u16 y = start_y; y <= end_y; ++y) {
+    for (u16 x = start_x; x <= end_x; ++x) {
+      if (IsSolid(x, y)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 bool Map::CornerPointCheck(int sX, int sY, int diameter) const {
 
   for (int y = 0; y < diameter; ++y) {
@@ -132,6 +165,49 @@ bool Map::CornerPointCheck(int sX, int sY, int diameter) const {
   return true;
 }
 
+/* 
+look at the starting tile and see if the ship can step into the ending tile
+orientation is the ships current orientation on the start tile
+if the ship is a 2x2 tile square, then an orientation of 0,0 would mean the ship is oriented
+so its top left corner is occupying the start tile
+
+this works with a flood fill method where a north/south/east/west lookup would increment
+the orientation of the ship tile before calling the function, and the function does bounds checking
+to make sure the orientation stays with in the ships diameter
+*/
+bool Map::CanStepInto(const Vector2f& start, const Vector2f& end, Vector2f* orientation, float radius) const {
+  int diameter = (int)((radius + 0.5f) * 2.0f);
+
+  Vector2f offset = *orientation;
+
+  if (offset.x > diameter) {
+    offset.x = diameter;
+  }
+  if (offset.x < 0) {
+    offset.x = 0;
+  }
+  if (offset.y > diameter) {
+    offset.y = diameter;
+  }
+  if (offset.y < 0) {
+    offset.y = 0;
+  }
+
+  *orientation = offset;
+
+  Vector2f direction = end - start;
+  int offset_x = start.x - offset.x;
+  int offset_y = start.y - offset.y;
+
+  for (int x = offset_x; x < offset_x + diameter; x++) {
+    for (int y = offset_y; y < offset_y + diameter; y++) {
+      if (IsSolid(u16(x + direction.x), u16(y + direction.y))) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
 
 bool Map::CanOccupy(const Vector2f& position, float radius) const {
     /* Convert the ship into a tiled grid and put each tile of the ship on the test 

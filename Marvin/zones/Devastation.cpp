@@ -104,7 +104,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   BaseSpawns spawn;
   float radius = bot.GetGame().GetSettings().ShipSettings[0].GetRadius();
  
-  bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), spawn.t0);
+  bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), spawn.t0, radius);
   bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);
@@ -126,6 +126,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().Set<uint16_t>("Freq", 999);
     bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
     bot.GetBlackboard().Set<uint16_t>("PubTeam1", 01);
+    bot.GetBlackboard().Set<uint16_t>(BB::PubTeam0, 00);
+    bot.GetBlackboard().Set<uint16_t>(BB::PubTeam1, 01);
     bot.GetBlackboard().Set<uint16_t>("Ship", ship);
     bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
   
@@ -150,6 +152,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto DEVA_warp = std::make_unique<deva::DevaWarpNode>();
   auto DEVA_freqman = std::make_unique<deva::DevaFreqMan>();
   auto team_sort = std::make_unique<bot::SortBaseTeams>();
+  auto DEVA_runBD = std::make_unique<deva::DevaRunBDNode>();
   auto DEVA_set_region = std::make_unique<deva::DevaSetRegionNode>();
 
   // logic nodes
@@ -199,8 +202,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
                                                                   enemy_or_patrol_selector.get());
   auto role_selector = std::make_unique<behavior::SelectorNode>(anchor_sequence.get(), enemy_or_patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      DEVA_debug.get(), commands_.get(), set_ship_.get(), set_freq_.get(),
-      ship_check_.get(), team_sort.get(),
+      DEVA_debug.get(), commands_.get(), set_ship_.get(), set_freq_.get(),DEVA_runBD.get(), ship_check_.get(), team_sort.get(),
       DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check_.get(),
       DEVA_toggle_status.get(), role_selector.get());
 
@@ -241,6 +243,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(DEVA_warp));
   engine_->PushNode(std::move(DEVA_freqman));
   engine_->PushNode(std::move(team_sort));
+  engine_->PushNode(std::move(DEVA_runBD));
   engine_->PushNode(std::move(DEVA_set_region));
   engine_->PushNode(std::move(DEVA_debug));
   engine_->PushNode(std::move(enemy_or_patrol_selector));
@@ -334,6 +337,239 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
   }
   g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  BaseSpawns spawn;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  uint64_t respawn_time = game.GetRespawnTime();
+  
+  uint64_t current_time = ctx.bot->GetTime().GetTime();
+  uint64_t warp_time = bb.ValueOr<uint64_t>("BDWarpCooldown", 0);
+
+  // wait a second after warping players to base
+  if (current_time - warp_time < 1000) {
+    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  // check if the bot wants to warp players to center
+  if (bb.ValueOr<bool>("BDWarpToCenter", false)) {
+    if (ctx.bot->GetTime().TimedActionDelay("BDWarpToCenter", 5000)) {
+      WarpAllToCenter(ctx);
+      bb.Set<bool>("BDWarpToCenter", false);
+    }
+    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  // check if the bot wants to warp players to a base
+  if (bb.ValueOr<bool>("BDWarpToBase", false)) {
+    if (ctx.bot->GetTime().TimedActionDelay("BDWarpToBase", 5000)) {
+      WarpAllToBase(ctx);
+      bb.Set<bool>("BDWarpToBase", false);
+    }
+    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  // check if the runBD flag is true
+  if (!bb.ValueOr<bool>("RunBD", false)) {
+    // check if the game was manually stopped
+    if (bb.ValueOr<bool>("BDManualStop", false)) {
+      PrintFinalScore(ctx);
+      ClearScore(ctx);
+      bb.Set<bool>("BDManualStop", false);
+      bb.Set<bool>("BDWarpToCenter", true);
+    }
+    g_RenderState.RenderDebugText("  DevaRunDBNode(success): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  // check the score for win conditions
+  int team0_score = bb.ValueOr<int>("Team0Score", 0);
+  int team1_score = bb.ValueOr<int>("Team1Score", 0);
+
+  bool end_condition =
+      (team0_score >= 5 && (team0_score - team1_score) >= 2) || (team1_score >= 5 && (team1_score - team0_score) >= 2);
+
+  if (end_condition) {
+    PrintFinalScore(ctx);
+    ClearScore(ctx);
+    bb.Set<bool>("RunBD", false);
+    bb.Set<bool>("BDWarpToCenter", true);
+    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  // set conditions for scoring points
+  bool team0_dead = true;
+  bool team1_dead = true;
+  bool team0_on_safe = false;
+  bool team1_on_safe = false;
+
+  std::size_t base_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+
+     bool on_safe_tile = game.GetMap().GetTileId(player.position) == kSafeTileId;
+
+    if (player.frequency == 00) {
+       Vector2f enemy_safe = spawn.t1[base_index];
+       float dist_to_safe = player.position.Distance(enemy_safe);
+       bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
+
+       // kind of hacky could be better
+       if (on_safe_tile && dist_to_safe < 5.0f) {
+         team0_on_safe = true;
+       }
+       if (in_base && IsValidPosition(player.position)) {      
+           team0_dead = false;
+       }
+    }
+
+    if (player.frequency == 01) {
+      Vector2f enemy_safe = spawn.t0[base_index];
+      float dist_to_safe = player.position.Distance(enemy_safe);
+      bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
+
+      // kind of hacky could be better
+      if (on_safe_tile && dist_to_safe < 5.0f) {
+        team1_on_safe = true;
+      }
+      if (in_base && IsValidPosition(player.position)) {
+        team1_dead = false;
+      }
+    }
+  }
+
+  // look at flags and determine score increment
+  if (team0_on_safe && team1_on_safe) {
+    game.SendChatMessage("Both teams have reached the safe tile at the same time!");
+    PrintCurrentScore(ctx);
+    bb.Set<bool>("BDWarpToBase", true);
+  }
+  else if (team0_on_safe) {
+    game.SendChatMessage("Team 0 is on team 1's safe!");
+    bb.Set<int>("Team0Score", ++team0_score);
+    PrintCurrentScore(ctx);
+    bb.Set<bool>("BDWarpToBase", true);
+  } else if (team1_on_safe) {
+    game.SendChatMessage("Team 1 is on team 0's safe!");
+    bb.Set<int>("Team1Score", ++team1_score);
+    PrintCurrentScore(ctx);
+    bb.Set<bool>("BDWarpToBase", true);
+  } else if (team0_dead && team1_dead) {
+    game.SendChatMessage("All Dead!");
+    PrintCurrentScore(ctx);
+    bb.Set<bool>("BDWarpToBase", true);
+  } else if (team0_dead) {
+    if (ctx.bot->GetTime().TimedActionDelay("Team0Dead", respawn_time)) {
+      game.SendChatMessage("Team 0 dead!");
+      bb.Set<int>("Team1Score", ++team1_score);
+      PrintCurrentScore(ctx);
+      bb.Set<bool>("BDWarpToBase", true);
+    }
+  } else if (team1_dead) {
+    if (ctx.bot->GetTime().TimedActionDelay("Team1Dead", respawn_time)) {
+      game.SendChatMessage("Team 1 dead!");
+      bb.Set<int>("Team0Score", ++team0_score);
+      PrintCurrentScore(ctx);
+      bb.Set<bool>("BDWarpToBase", true);
+    }
+  }
+  g_RenderState.RenderDebugText("  DevaRunDBNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
+
+void DevaRunBDNode::PrintCurrentScore(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  int team0_score = bb.ValueOr<int>("Team0Score", 0);
+  int team1_score = bb.ValueOr<int>("Team1Score", 0);
+
+  std::string msg = "Team 0 score: " + std::to_string(team0_score);
+  msg += "   Team 1 score: " + std::to_string(team1_score);
+
+  game.SendChatMessage(msg);
+}
+
+void DevaRunBDNode::PrintFinalScore(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  int team0_score = bb.ValueOr<int>("Team0Score", 0);
+  int team1_score = bb.ValueOr<int>("Team1Score", 0);
+
+  if (team0_score > team1_score) {
+    game.SendChatMessage("Team 0 Wins!  Game Over!");
+  } else {
+    game.SendChatMessage("Team 1 Wins!  Game Over!");
+  }
+
+  PrintCurrentScore(ctx);
+}
+
+void DevaRunBDNode::ClearScore(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  bb.Set<int>("Team0Score", 0);
+  bb.Set<int>("Team1Score", 0);
+}
+
+void DevaRunBDNode::WarpAllToCenter(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+
+    if (player.frequency == 00 || player.frequency == 01) {
+      game.SendPrivateMessage(player.name, "?warpto 512 512");
+    }
+  }
+}
+
+void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  BaseSpawns spawn;
+
+  std::size_t random_index = rand() % spawn.t0.size();
+  std::size_t previous_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
+
+  while (random_index == previous_index) {
+    random_index = rand() % spawn.t0.size();
+  }
+
+  bb.Set<std::size_t>("BDBaseIndex", random_index);
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+
+    if (player.frequency == 00) {
+      int team_safe_x = (int)spawn.t0[random_index].x;
+      int team_safe_y = (int)spawn.t0[random_index].y;
+      std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
+      game.SendPrivateMessage(player.name, warp_msg);
+    }
+
+    if (player.frequency == 01) {
+      int team_safe_x = (int)spawn.t1[random_index].x;
+      int team_safe_y = (int)spawn.t1[random_index].y;
+      std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
+      game.SendPrivateMessage(player.name, warp_msg);
+    }
+  }
+  bb.Set<uint64_t>("BDWarpCooldown", ctx.bot->GetTime().GetTime());
 }
 
 behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {

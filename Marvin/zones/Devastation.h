@@ -38,6 +38,18 @@ class DevaSetRegionNode : public behavior::BehaviorNode {
  private:
 };
 
+class DevaRunBDNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+  void PrintCurrentScore(behavior::ExecuteContext& ctx);
+  void PrintFinalScore(behavior::ExecuteContext& ctx);
+  void ClearScore(behavior::ExecuteContext& ctx);
+  void WarpAllToCenter(behavior::ExecuteContext& ctx);
+  void WarpAllToBase(behavior::ExecuteContext& ctx);
+};
+
 class DevaFreqMan : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);

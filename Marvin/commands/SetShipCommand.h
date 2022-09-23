@@ -31,11 +31,8 @@ class SetShipCommand : public CommandExecutor {
       bb.Set<uint16_t>("Ship", number - 1);
 
       if (number == 9) {
-        bb.Set<bool>("FreqLock", false);
-        bb.Set<bool>("IsAnchor", false);
-        bb.Set<bool>("Swarm", false);
-        bb.Set<bool>("UseMultiFire", false);
-        bb.Set<bool>("UseRepel", false);
+        bb.Clear();
+        bb.Set<uint16_t>("Ship", 8);
 
         game.SendPrivateMessage(sender, "My behaviors are also reset when sent to spec");
       } else {
@@ -50,7 +47,7 @@ class SetShipCommand : public CommandExecutor {
     game.SendPrivateMessage(sender, "Invalid selection. !setship [shipNumber]");
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"setship", "ss"}; }
   std::string GetDescription() { return "Sets the ship (9 = spec)"; }

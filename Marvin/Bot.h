@@ -48,6 +48,21 @@ class Bot {
   const std::vector<std::vector<Vector2f>>& GetBasePaths() {
     return base_paths_;
   }
+  const std::size_t GetTeamSafeIndex(uint16_t freq) {
+    uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam0, 999);
+    uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam1, 999);
+
+    if (freq == low_index_team) {
+      return 0;
+    } else if (freq == high_index_team) {
+      return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)].size() - 1;
+    }
+    return 0;
+  }
+
+  const Vector2f GetTeamSafePosition(uint16_t freq) {
+    return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)][GetTeamSafeIndex(freq)];
+  }
 
   void Move(const Vector2f& target, float target_distance);
 
@@ -169,10 +184,45 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
-  Vector2f MaintainObstructedDistance(Bot& bot, std::size_t current_index, std::size_t enemy_index,
-                                      float desired_distance, bool count_down, const std::vector<Vector2f>& path,
-                                      float ship_radius);
   bool AvoidInfluence(behavior::ExecuteContext& ctx);
+  const Player* SelectBaseBuddy(behavior::ExecuteContext& ctx);
+  void SetEnemyLineUp(behavior::ExecuteContext& ctx, const Player* enemy);
+  void SetTeamLineUp(behavior::ExecuteContext& ctx);
+  float GetTeamEnergy(behavior::ExecuteContext& ctx);
+
+  std::unique_ptr<path::PathNodeSearch> search_;
+  bool bot_on_high_side_;
+  Path base_path_;
+
+  bool is_anchor_;
+  bool enemy_is_leaker_;
+  float enemy_bullet_speed_;
+  float alive_time_;
+  Vector2f position_;
+  float radius_;
+  float enemy_radius_;
+  size_t bot_node_;
+  size_t enemy_node_;
+  size_t team_safe_node_;
+  size_t enemy_safe_node_;
+
+  Vector2f enemy_fore_;
+  Vector2f enemy_aft_;
+  Vector2f bot_fore_;
+  Vector2f bot_aft_;
+
+  Vector2f enemy_to_bot_;
+  Vector2f bot_to_enemy_;
+
+  float enemy_team_threat_;
+  float team_threat_;
+
+  float max_enemy_speed_;
+  float max_net_enemy_bullet_travel_;
+  float min_enemy_time_to_bot_;
+
+  Vector2f desired_position_;
+
 };
 
 class FollowPathNode : public behavior::BehaviorNode {

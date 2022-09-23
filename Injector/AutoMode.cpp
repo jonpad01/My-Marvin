@@ -9,15 +9,19 @@ namespace marvin {
 
 
 AutoBot::AutoBot() : pids_() {
-  int bots = 0;
+  int numBots = 0;
 
   std::cout << "How Many Bots?" << std::endl;
-  
-  do {
-    std::cin.clear();
-    std::cin.ignore();
-    std::cin >> bots;
-  } while (bots < 1 || bots > 50 || std::cin.fail());
+  std::cin >> numBots;
+
+ while (numBots < 1 || numBots > 50 || !std::cin) {
+    if (!std::cin) {
+      std::cin.clear();
+      std::cin.ignore(10000, '\n');
+    }
+    std::cout << "Input is range 1-50" << std::endl;
+    std::cin >> numBots;
+ }
 
   window_state_ = 6;
 
@@ -40,7 +44,7 @@ AutoBot::AutoBot() : pids_() {
     }
   }
 
-  StartBot(bots);
+  StartBot(numBots);
 
   std::cout << "Bot starting loop has finished, this process will monitor and restart bots that get disconected." << std::endl;
 };
@@ -233,11 +237,6 @@ void AutoBot::MonitorBots() {
 
     CloseHandle(handle);
 
-
-
-
-
-
     FetchWindows();
     for (WindowInfo window : windows_) {
       IsErrorWindow(window.title, window.pid, window.hwnd);
@@ -271,13 +270,11 @@ void AutoBot::MonitorBots() {
 
 int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
 
-    int found = 0;
-
+    int result = 0;
 
       std::size_t memory_error = title.find(" - Application Error");
 
       bool load_error = title == "Error";
-
       bool information = title == "Information";
 
       if (memory_error != std::string::npos) {
@@ -291,7 +288,7 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         
         Sleep(1000);
         PostMessage(hwnd, WM_SYSCOMMAND, (WPARAM)(SC_CLOSE), 0);
-        found = 1;
+        result = 1;
       }
 
       if (load_error) {
@@ -300,7 +297,7 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         Sleep(1000);
         PostMessage(hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
         PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-        found = 2;
+        result = 2;
       }
 
       if (information) {
@@ -309,10 +306,10 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         Sleep(1000);
         PostMessage(hwnd, WM_KEYDOWN, (WPARAM)(VK_RETURN), 0);
         PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
-        found = 2;
+        result = 2;
       }
 
-  return found;
+  return result;
 }
 
 
@@ -321,7 +318,7 @@ bool AutoBot::WaitForWindowState(HWND hwnd, std::string title, int state, int ti
   wp.length = sizeof(wp);
 
   bool result = false;
-  int max_trys = timeout / 100;
+  int max_trys = (timeout / 100) + 1;
 
   for (int trys = 0; trys != max_trys; trys++) {
     Sleep(100);   
@@ -345,7 +342,7 @@ bool AutoBot::FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pi
   bool result = false;
   int error_level = 0;
 
-  for (int trys = 0; trys != max_trys; trys++) {
+  for (int trys = 0; trys <= max_trys; trys++) {
     Sleep(100);
     FetchWindows();
     for (WindowInfo window : windows_) {

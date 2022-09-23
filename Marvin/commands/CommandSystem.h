@@ -31,7 +31,7 @@ class CommandSystem;
 class CommandExecutor {
  public:
   virtual void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) = 0;
-  virtual CommandAccessFlags GetAccess() = 0;
+  virtual CommandAccessFlags GetAccess(Bot& bot) = 0;
   virtual CommandFlags GetFlags() { return 0; }
   virtual std::vector<std::string> GetAliases() = 0;
   virtual std::string GetDescription() = 0;

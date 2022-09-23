@@ -38,16 +38,16 @@ namespace marvin {
 class RegionRegistry {
  public:
   RegionRegistry(const Map& map) : region_count_(0) { 
-	memset(coord_regions2_, 0xFF, sizeof(coord_regions2_));
-    memset(unordered_solids2_, 0xFF, sizeof(unordered_solids2_));
-    memset(outside_edges2_, 0xFF, sizeof(outside_edges2_));
+	memset(coord_regions_, 0xFF, sizeof(coord_regions_));
+    memset(unordered_solids_, 0xFF, sizeof(unordered_solids_));
+    memset(outside_edges_, 0xFF, sizeof(outside_edges_));
   }
 
   bool IsConnected(MapCoord a, MapCoord b) const;
   bool IsEdge(MapCoord coord) const;
 
-  void CreateAll(const Map& map);
-  void CreateRegions(const Map& map, std::vector<Vector2f> seed_points);
+  void CreateAll(const Map& map, float radius);
+  void CreateRegions(const Map& map, std::vector<Vector2f> seed_points, float radius);
 
   void DebugUpdate(Vector2f position);
 
@@ -58,17 +58,15 @@ class RegionRegistry {
 
   RegionIndex CreateRegion();
 
-  void FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, bool store_solids);
+  void FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, float radius);
+  void FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, bool right_corner_check,
+                            bool bottom_corner_check, float radius);
   void FloodFillSolidRegion(const Map& map, const MapCoord& coord, RegionIndex region_index);
 
-  std::unordered_map<MapCoord, RegionIndex> coord_regions_;
   RegionIndex region_count_;
-  std::unordered_map<MapCoord, RegionIndex> unordered_solids_;
-  std::unordered_map<MapCoord, RegionIndex> outside_edges_;
 
-  RegionIndex coord_regions2_[1024 * 1024];
-  RegionIndex unordered_solids2_[1024 * 1024];
-  RegionIndex outside_edges2_[1024 * 1024];
+  RegionIndex coord_regions_[1024 * 1024];
+  RegionIndex unordered_solids_[1024 * 1024];
+  RegionIndex outside_edges_[1024 * 1024];
 };
-
 }  // namespace marvin

@@ -2,15 +2,16 @@
 
 #include "../Bot.h"
 #include "../Common.h"
-#include "AnchorCommand.h"
+#include "BaseDuelCommands.h"
+#include "FightingRoleCommands.h"
 #include "CommandsCommand.h"
 #include "DelimiterCommand.h"
 #include "HelpCommand.h"
 #include "LockCommand.h"
 #include "LockFreqCommand.h"
 #include "ModListCommand.h"
-#include "MultiCommand.h"
-#include "RepelCommand.h"
+#include "StatusCommands.h"
+#include "ConsumableCommands.h"
 #include "SetFreqCommand.h"
 #include "SetShipCommand.h"
 #include "SwarmCommand.h"
@@ -31,6 +32,13 @@ CommandSystem::CommandSystem() {
   RegisterCommand(std::make_shared<LockCommand>());
   RegisterCommand(std::make_shared<UnlockCommand>());
 
+  RegisterCommand(std::make_shared<BDPublicCommand>());
+  RegisterCommand(std::make_shared<BDPrivateCommand>());
+  RegisterCommand(std::make_shared<StartBDCommand>());
+  RegisterCommand(std::make_shared<StopBDCommand>());
+  RegisterCommand(std::make_shared<HoldBDCommand>());
+  RegisterCommand(std::make_shared<ResumeBDCommand>());
+
   RegisterCommand(std::make_shared<SetShipCommand>());
   RegisterCommand(std::make_shared<SetFreqCommand>());
 
@@ -45,9 +53,30 @@ CommandSystem::CommandSystem() {
 
   RegisterCommand(std::make_shared<MultiCommand>());
   RegisterCommand(std::make_shared<MultiOffCommand>());
+  RegisterCommand(std::make_shared<CloakCommand>());
+  RegisterCommand(std::make_shared<CloakOffCommand>());
+  RegisterCommand(std::make_shared<StealthCommand>());
+  RegisterCommand(std::make_shared<StealthOffCommand>());
+  RegisterCommand(std::make_shared<XRadarCommand>());
+  RegisterCommand(std::make_shared<XRadarOffCommand>());
+  RegisterCommand(std::make_shared<AntiWarpCommand>());
+  RegisterCommand(std::make_shared<AntiWarpOffCommand>());
+
 
   RegisterCommand(std::make_shared<RepelCommand>());
   RegisterCommand(std::make_shared<RepelOffCommand>());
+  RegisterCommand(std::make_shared<BurstCommand>());
+  RegisterCommand(std::make_shared<BurstOffCommand>());
+  RegisterCommand(std::make_shared<DecoyCommand>());
+  RegisterCommand(std::make_shared<DecoyOffCommand>());
+  RegisterCommand(std::make_shared<RocketCommand>());
+  RegisterCommand(std::make_shared<RocketOffCommand>());
+  RegisterCommand(std::make_shared<BrickCommand>());
+  RegisterCommand(std::make_shared<BrickOffCommand>());
+  RegisterCommand(std::make_shared<PortalCommand>());
+  RegisterCommand(std::make_shared<PortalOffCommand>());
+  RegisterCommand(std::make_shared<ThorCommand>());
+  RegisterCommand(std::make_shared<ThorOffCommand>());
 }
 
 int CommandSystem::GetSecurityLevel(const std::string& player) {
@@ -85,7 +114,7 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
       CommandExecutor& command = *iter->second;
       u32 access_request = (1 << chat.type);
 
-      if (access_request & command.GetAccess()) {
+      if (access_request & command.GetAccess(bot)) {
         int security_level = 0;
 
         if (chat.type == 0) {

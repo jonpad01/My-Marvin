@@ -20,7 +20,7 @@ class LockFreqCommand : public CommandExecutor {
     bb.Set<bool>("FreqLock", true);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"lockfreq", "lf"}; }
   std::string GetDescription() { return "Locks frequency"; }
@@ -42,7 +42,7 @@ class UnlockFreqCommand : public CommandExecutor {
     bb.Set<bool>("FreqLock", false);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"unlockfreq", "uf"}; }
   std::string GetDescription() { return "Unlocks frequency"; }

@@ -25,7 +25,7 @@ class ModListCommand : public CommandExecutor {
     bot.GetGame().SendPrivateMessage(sender, output);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
   std::vector<std::string> GetAliases() { return {"modlist", "ml"}; }
   std::string GetDescription() { return "See who can lock marv"; }
   int GetSecurityLevel() { return 0; }

@@ -28,7 +28,9 @@ class Map {
 
   bool CanOccupy(const Vector2f& position, float radius) const;
   bool CanOccupyRadius(const Vector2f& position, float radius) const;
+  bool CanStepInto(const Vector2f& start, const Vector2f& end, Vector2f* orientation, float radius) const;
   bool CornerPointCheck(int sX, int sY, int diameter) const;
+  bool CornerPointCheck(const Vector2f& start, bool right_corner_check, bool bottom_corner_check, float radius) const;
   bool CanPathOn(const Vector2f& position, float radius) const;
   void SetTileId(u16 x, u16 y, TileId id);
   void SetTileId(const Vector2f& position, TileId id);

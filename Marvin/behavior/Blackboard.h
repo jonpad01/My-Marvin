@@ -9,7 +9,7 @@
 
 namespace marvin {
 
-    enum class Var : short { Ship };
+    enum class BB : short { Ship, PubTeam0, PubTeam1, EnemyNetBulletTravel };
 
 namespace behavior {
 
@@ -40,7 +40,7 @@ class Blackboard {
 
   bool Has(const std::string& key) { return data_.find(key) != data_.end(); }
 
-  bool Has(const Var& key) { return data2_.find(key) != data2_.end(); }
+  bool Has(const BB& key) { return data2_.find(key) != data2_.end(); }
 
   template <typename T>
   void Set(const std::string& key, const T& value) {
@@ -48,7 +48,7 @@ class Blackboard {
   }
 
   template <typename T>
-  void Set(const Var& key, const T& value) {
+  void Set(const BB& key, const T& value) {
     data2_[key] = std::any(value);
   }
 
@@ -70,7 +70,7 @@ class Blackboard {
   }
 
   template <typename T>
-  std::optional<T> Value(const Var& key) {
+  std::optional<T> Value(const BB& key) {
     auto iter = data2_.find(key);
 
     if (iter == data2_.end()) {
@@ -92,7 +92,7 @@ class Blackboard {
   }
 
   template <typename T>
-  T ValueOr(const Var& key, const T& or_result) {
+  T ValueOr(const BB& key, const T& or_result) {
     return Value<T>(key).value_or(or_result);
   }
 
@@ -101,7 +101,7 @@ class Blackboard {
     data2_.clear();
   }
   void Erase(const std::string& key) { data_.erase(key); }
-  void Erase(const Var& key) { data2_.erase(key); }
+  void Erase(const BB& key) { data2_.erase(key); }
 
 #if 0
         void SetPubTeam0(uint16_t freq) { pubteam0_ = freq; }

@@ -39,7 +39,7 @@ class SetFreqCommand : public CommandExecutor {
     game.SendPrivateMessage(sender, "Invalid selection. !setfreq [freq]");
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"setfreq", "sf"}; }
   std::string GetDescription() { return "Sets the bot to a public frequency"; }

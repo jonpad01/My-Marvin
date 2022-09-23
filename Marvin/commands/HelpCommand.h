@@ -15,7 +15,7 @@ class HelpCommand : public CommandExecutor {
     bot.GetGame().SendPrivateMessage(sender, "!modlist {.ml} -- see who can lock marv (pm)");
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
   std::vector<std::string> GetAliases() { return {"help", "h"}; }
   std::string GetDescription() { return "Helps"; }
   int GetSecurityLevel() { return 0; }

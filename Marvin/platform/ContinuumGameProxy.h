@@ -74,7 +74,7 @@ class ContinuumGameProxy : public GameProxy {
    const Player& GetPlayer() const override;
   const std::vector<Player>& GetPlayers() const override;
   const std::vector<Player>& GetTeam() const override;
-  const std::vector<Player>& GetEnemys() const override;
+  const std::vector<Player>& GetEnemies() const override;
   const std::vector<Player>& GetEnemyTeam() const override;
 
   const ClientSettings& GetSettings() const override;
@@ -82,9 +82,11 @@ class ContinuumGameProxy : public GameProxy {
   const ShipSettings& GetShipSettings(int ship) const override;
 
   const float GetMaxEnergy() override;
-  const float GetMaxThrust() override;
+  const float GetThrust() override;
   const float GetRotation() override;
   const float GetMaxSpeed() override;
+  const float GetMaxSpeed(u16 ship) override;
+  const uint64_t GetRespawnTime() override;
 
   const Zone GetZone() override;
   const std::string GetMapFile() const override;
@@ -160,7 +162,7 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Player> players_;
   std::vector<Player> team_;
   std::vector<Player> enemy_team_;
-  std::vector<Player> enemys_;
+  std::vector<Player> enemies_;
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_;

@@ -20,7 +20,7 @@ class AnchorCommand : public CommandExecutor {
     bb.Set<bool>("IsAnchor", true);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"anchor", "a"}; }
   std::string GetDescription() { return "Enable anchor behavior when basing"; }
@@ -42,7 +42,7 @@ class RushCommand : public CommandExecutor {
     bb.Set<bool>("IsAnchor", false);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"rush", "r"}; }
   std::string GetDescription() { return "Enable rush behavior when basing"; }

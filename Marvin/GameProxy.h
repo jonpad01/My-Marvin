@@ -89,7 +89,7 @@ class GameProxy {
   virtual const Player& GetPlayer() const = 0;
   virtual const std::vector<Player>& GetPlayers() const = 0;
   virtual const std::vector<Player>& GetTeam() const = 0;
-  virtual const std::vector<Player>& GetEnemys() const = 0;
+  virtual const std::vector<Player>& GetEnemies() const = 0;
   virtual const std::vector<Player>& GetEnemyTeam() const = 0;
 
   virtual const ClientSettings& GetSettings() const = 0;
@@ -99,7 +99,9 @@ class GameProxy {
   virtual const float GetMaxEnergy() = 0;
   virtual const float GetRotation() = 0;
   virtual const float GetMaxSpeed() = 0;
-  virtual const float GetMaxThrust() = 0;
+  virtual const float GetMaxSpeed(u16 ship) = 0;
+  virtual const float GetThrust() = 0;
+  virtual const uint64_t GetRespawnTime() = 0;
 
   virtual const Zone GetZone() = 0;
   virtual const std::string GetMapFile() const = 0;

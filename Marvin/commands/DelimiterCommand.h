@@ -18,7 +18,7 @@ class DelimiterCommand : public CommandExecutor {
     bot.GetGame().SendPrivateMessage(sender, "The command prefix '.' or '!' is only used once at the beginning.");
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
   std::vector<std::string> GetAliases() { return {"delimiter", "d"}; }
   std::string GetDescription() { return "Delimiter usage"; }
   int GetSecurityLevel() { return 0; }

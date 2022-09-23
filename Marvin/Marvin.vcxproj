@@ -174,7 +174,9 @@
     <ClInclude Include="behavior\Blackboard.h" />
     <ClInclude Include="Bot.h" />
     <ClInclude Include="ClientSettings.h" />
-    <ClInclude Include="commands\AnchorCommand.h" />
+    <ClInclude Include="commands\BaseDuelCommands.h" />
+    <ClInclude Include="commands\FightingRoleCommands.h" />
+    <ClInclude Include="commands\StatusCommands.h" />
     <ClInclude Include="commands\CommandsCommand.h" />
     <ClInclude Include="commands\CommandSystem.h" />
     <ClInclude Include="commands\DelimiterCommand.h" />
@@ -182,8 +184,7 @@
     <ClInclude Include="commands\LockCommand.h" />
     <ClInclude Include="commands\LockFreqCommand.h" />
     <ClInclude Include="commands\ModListCommand.h" />
-    <ClInclude Include="commands\MultiCommand.h" />
-    <ClInclude Include="commands\RepelCommand.h" />
+    <ClInclude Include="commands\ConsumableCommands.h" />
     <ClInclude Include="commands\SetFreqCommand.h" />
     <ClInclude Include="commands\SetShipCommand.h" />
     <ClInclude Include="commands\SwarmCommand.h" />

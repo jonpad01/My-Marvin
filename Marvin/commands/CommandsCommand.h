@@ -69,7 +69,7 @@ class CommandsCommand : public CommandExecutor {
     }
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
   std::vector<std::string> GetAliases() { return {"commands", "c"}; }
   std::string GetDescription() { return "Shows available commands"; }
   int GetSecurityLevel() { return 0; }

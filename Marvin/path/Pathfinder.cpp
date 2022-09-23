@@ -307,7 +307,11 @@ void Pathfinder::SetPathableNodes(const Map& map, float radius) {
  // use region registry to search through solid tiles that are not connected to the regions barrier
  // to get a more accurate result
 size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
-  if (path.empty() || !IsValidPosition(start)) return 0;
+
+  // this may happen when targets die
+  if (path.empty() || !IsValidPosition(start)) {
+    return 0;
+  }
 
   auto& registry = bot.GetRegions();
 
@@ -417,8 +421,7 @@ std::size_t PathNodeSearch::FindNearestNodeByDistance(const Vector2f& position) 
 // Use the player position and path index to calculate the last path node the bot is 
 // still in line of sight of.  Use edge raycast to ignore solids that arent a part 
 // of the basees barrier.
-Vector2f PathNodeSearch::LastLOSNode(Bot& bot, Vector2f position, std::size_t index,
-                                     float radius, bool count_down) {
+Vector2f PathNodeSearch::LastLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool count_down) {
   // this function should never be used on an empty path so this return is useless if it ever happens
     if (path.empty()) return position;
     
