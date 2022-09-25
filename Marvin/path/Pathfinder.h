@@ -173,7 +173,9 @@ struct PathNodeSearch {
 
   std::size_t FindNearestNodeByDistance(const Vector2f& position) const;
 
- Vector2f LastLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool count_down);
+ Vector2f FindLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool count_down);
+ Vector2f FindForwardLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool high_side);
+ Vector2f FindRearLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool high_side);
 
   float GetPathDistance(const Vector2f& pos1, const Vector2f& pos2);
   float GetPathDistance(std::size_t index1, std::size_t index2);

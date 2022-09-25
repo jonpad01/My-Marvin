@@ -632,13 +632,13 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     float player_bullet_speed = game.GetSettings().ShipSettings[player.ship].BulletSpeed / 10.0f / 16.0f;
 
     int player_node = (int)search->FindNearestNodeBFS(player.position);
-    bool bot_on_high_side = bot_node > player_node;
+    bool high_side = bot_node > player_node;
 
-    Vector2f player_fore = search->LastLOSNode(*ctx.bot, player.position, player_node, 0.8f, !bot_on_high_side);
+    Vector2f player_fore = search->FindForwardLOSNode(*ctx.bot, player.position, player_node, 0.8f, high_side);
     Vector2f player_to_bot = Normalize(player_fore - player.position);
 
     // if the player can see the bot then use the bot as the direction to point towards
-    if (!RadiusEdgeRayCastHit(*ctx.bot, player.position, game.GetPosition(), 0.8f)) {
+    if (!DiameterRayCastHit(*ctx.bot, player.position, game.GetPosition(), 0.8f)) {
       player_to_bot = Normalize(game.GetPosition() - player.position);
     }
 
@@ -753,13 +753,9 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
   size_t bot_node = search->FindNearestNodeBFS(position);
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
+  bool high_side = bot_node > enemy_node;
 
-  // use the last path node that is in line of sight of the bot as a guide to path to
-  if (bot_node > enemy_node) {
-    desired_position = search->LastLOSNode(*ctx.bot, position, bot_node, radius, true);
-  } else {
-    desired_position = search->LastLOSNode(*ctx.bot, position, bot_node, radius, false);
-  }
+  desired_position = search->FindForwardLOSNode(*ctx.bot, position, bot_node, radius, high_side);
 
   ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
 
@@ -797,15 +793,15 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   team_safe_node_ = ctx.bot->GetTeamSafeIndex(game.GetPlayer().frequency);
   enemy_safe_node_ = ctx.bot->GetTeamSafeIndex(enemy->frequency);
   // this flag is important as it allows the bot to switch reference points even if the enemy target leaked past the team
-  bot_on_high_side_ = bot_node_ > enemy_node_;
+  high_side_ = bot_node_ > enemy_node_;
 
   // the enemy target is player with the highest net bullet travell in the direction of the bot
   // use the target found in find enemy node to get the front most node for reference
   // use the los_decrement flag to determine which direction in the base path the refernce nodes should be calculated 
-  enemy_fore_ = search_->LastLOSNode(*ctx.bot, enemy->position, enemy_node_, enemy_radius_, !bot_on_high_side_);
-  enemy_aft_ = search_->LastLOSNode(*ctx.bot, enemy->position, enemy_node_, enemy_radius_, bot_on_high_side_);
-  bot_fore_ = search_->LastLOSNode(*ctx.bot, position_, bot_node_, radius_, bot_on_high_side_);
-  bot_aft_ = search_->LastLOSNode(*ctx.bot, position_, bot_node_, radius_, !bot_on_high_side_);
+  enemy_fore_ = search_->FindForwardLOSNode(*ctx.bot, enemy->position, enemy_node_, enemy_radius_, high_side_);
+  enemy_aft_ = search_->FindRearLOSNode(*ctx.bot, enemy->position, enemy_node_, enemy_radius_, high_side_);
+  bot_fore_ = search_->FindForwardLOSNode(*ctx.bot, position_, bot_node_, radius_, high_side_);
+  bot_aft_ = search_->FindRearLOSNode(*ctx.bot, position_, bot_node_, radius_, high_side_);
 
   enemy_team_threat_ = 0.0f;
   team_threat_ = 0.0f;
@@ -831,39 +827,21 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   max_net_enemy_bullet_travel_ = bb.ValueOr<float>(BB::EnemyNetBulletTravel, 0.0f);
   min_enemy_time_to_bot_ = enemy_pathlength_to_bot / max_enemy_speed_;
 
+  CalculateEnemyThreat(ctx, enemy);
+  CalculateTeamThreat(ctx, enemy);
+
   // assume player is always facing its direction of travel and ignore its heading
   //Vector2f enemy_bullet_velocity = Normalize(enemy->velocity) * enemy_bullet_speed_ + enemy->velocity;
   // float max_bullet_travel = enemy_bullet_velocity.Length() * alive_time;
 
-  
-
-
-
-  // get the total energy of players on the front line
-  for (std::size_t i = 0; i < game.GetTeam().size(); i++) {
-    const Player& current = game.GetTeam()[i];
-
-    if (!current.active || !ctx.bot->GetRegions().IsConnected(current.position, position)) continue;
-
-    float current_radius = game.GetSettings().ShipSettings[current.ship].GetRadius();
-
-    // check if team player is on the front line with the anchor
-    if (!RadiusEdgeRayCastHit(*ctx.bot, current.position, enemy_aft, current_radius) ||
-        !RadiusEdgeRayCastHit(*ctx.bot, current.position, bot_fore, current_radius) ||
-        !RadiusEdgeRayCastHit(*ctx.bot, current.position, enemy_fore, current_radius) ||
-        !RadiusEdgeRayCastHit(*ctx.bot, current.position, enemy->position, current_radius)) {
-      team_energy += current.energy;
-    }
-  }
-
-  g_RenderState.RenderDebugText("  MAXENEMYSPEED: %f", max_enemy_speed);
-  g_RenderState.RenderDebugText("  MAXTRAVEL: %f", max_bullet_travel);
+  //g_RenderState.RenderDebugText("  MAXENEMYSPEED: %f", max_enemy_speed);
+  //g_RenderState.RenderDebugText("  MAXTRAVEL: %f", max_bullet_travel);
 
   // bug fixed here where i was using the player heading instead of normalized velocity
-  float bot_speed_offset = (Normalize(game.GetPlayer().velocity).Dot(to_enemy)) * game.GetPlayer().velocity.Length();
+  float bot_speed_offset = (Normalize(game.GetPlayer().velocity).Dot(bot_to_enemy_)) * game.GetPlayer().velocity.Length();
 
   // how fast the bot/enemy are moving towards/away from each other
-  float initial_speed = max_enemy_speed + bot_speed_offset;
+  float initial_speed = max_enemy_speed_ + bot_speed_offset;
   // the desired relative speed the bot wants to achieve
   float final_speed = 0.0f;
   // how long it takes the bot to reduce this speed to 0 given the ships thrust
@@ -873,17 +851,20 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
 
   // this reflects the likelyhood that a player could hit the bot at the bullets travel length
   float bullet_travel_multiplier = 1.0f;
-  // range of 0 to enemy bullet travel
-  float team_energy_modifier = max_bullet_travel * (1.0f - (team_energy / (opposing_energy + team_energy)));
+  
   // range of 0 to 10
   float energy_modifier = 10.0f * (1.0f - energy_pct);
 
-  max_bullet_travel *= bullet_travel_multiplier;
+  //max_bullet_travel *= bullet_travel_multiplier;
 
-  float desired = max_bullet_travel + braking_distance + energy_modifier;
+  float desired = max_enemy_bullet_travel_ + braking_distance + energy_modifier;
 
-  float sitting_bullet_travel = enemy_bullet_speed * alive_time;
-  float full_speed_bullet_travel = (game.GetMaxSpeed(enemy->ship) + enemy_bullet_speed) * alive_time;
+  // adjust desired range based on team threat balance
+  // will range from 0 to desired
+  desired = desired * (1.0f - (team_threat_ / (team_threat_ + enemy_team_threat_)));
+
+  float sitting_bullet_travel = enemy_bullet_speed_ * alive_time_;
+  float full_speed_bullet_travel = (game.GetMaxSpeed(enemy->ship) + enemy_bullet_speed_) * alive_time_;
 
   // cap the distance so it doesnt get too close
   if (desired < sitting_bullet_travel) {
@@ -895,35 +876,21 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   }
 
   // get the distance to the enemy
-  float pathlength = search->GetPathDistance(bot_node, enemy_node);
-
-  // get the distance to the front most team mate
-  const Player* team_mate = GetFrontLineTeamMate(ctx);
-
-  if (team_mate) {
-    
-    int team_node = (int)search->FindNearestNodeBFS(team_mate->position);
-    pathlength = search->GetPathDistance(bot_node, team_node);
-    desired = team_energy_modifier + braking_distance + energy_modifier;
-    desired_position = team_mate->position;
-    g_RenderState.RenderDebugText("  PATHLENGTH: %f", pathlength);
-    g_RenderState.RenderDebugText("  DESIRED: %f", desired);
-    RenderWorldBox(position, team_mate->position, team_mate->position + Vector2f(1, 1), RGB(255, 255, 255));
-  }
+  float pathlength = search_->GetPathDistance(bot_node_, enemy_node_);
   
   if (pathlength < desired || AvoidInfluence(ctx)) {
-    desired_position = bot_aft;
+    desired_position_ = bot_aft_;
     bb.Set<bool>("SteerBackwards", true);
   }
 
-  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position_, desired_position_, radius_);
 
   g_RenderState.RenderDebugText("  AnchorBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 // note: the enemy argument is always the closest enemy to the bot in a base
-void AnchorBasePathNode::SetEnemyLineUp(behavior::ExecuteContext& ctx, const Player* enemy) {
+void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, const Player* enemy) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
@@ -938,7 +905,7 @@ void AnchorBasePathNode::SetEnemyLineUp(behavior::ExecuteContext& ctx, const Pla
 
     // players closest path node
     size_t player_node = search_->FindNearestNodeBFS(player.position);
-    bool bot_on_high_side = bot_node_ > player_node;
+    bool high_side = bot_node_ > player_node;
 
     /* 
     If the player is not on the same side of the base as the enemy target, then one or the other has leaked past the anchor bot.
@@ -950,12 +917,12 @@ void AnchorBasePathNode::SetEnemyLineUp(behavior::ExecuteContext& ctx, const Pla
     if it attepmts to back pedal into the enemies behind it. 
     */
 
-    if (bot_on_high_side != bot_on_high_side_) {
+    if (high_side != high_side_) {
       continue;
     }
  
     // players forward most path node that is in line of sight
-    Vector2f player_fore = search_->LastLOSNode(*ctx.bot, player.position, player_node, 0.8f, !bot_on_high_side_);
+    Vector2f player_fore = search_->FindForwardLOSNode(*ctx.bot, player.position, player_node, 0.8f, high_side);
     // the direction from the player position to the player_fore
     Vector2f player_to_anchor = Normalize(player_fore - player.position);
 
@@ -973,16 +940,20 @@ void AnchorBasePathNode::SetEnemyLineUp(behavior::ExecuteContext& ctx, const Pla
     // get the current enemy bullet travel
     float player_bullet_travel = (player_speed + player_bullet_speed) * alive_time_;
     // how far the current enemy bullets will travel past the target enemy
-   // float net_player_bullet_travel = player_bullet_travel - player_pathlength_to_bot;
+    float net_player_bullet_travel = player_bullet_travel - player_pathlength_to_bot;
 
-    if (player.active) {
-      enemy_team_threat_ += player.energy * (player_bullet_travel / player_pathlength_to_bot);
+    if (net_player_bullet_travel < 0.0f) {
+      net_player_bullet_travel = 0.0f;
     }
 
-    // get the net bullet travel distance 
-   // if (net_player_bullet_travel > max_net_enemy_bullet_travel_) {
-     // max_net_enemy_bullet_travel_ = net_player_bullet_travel;
-  //  }
+    if (player.active) {
+      enemy_team_threat_ += player.energy * (net_player_bullet_travel / player_bullet_travel);
+    }
+
+    // get the bullet travel distance 
+    if (net_player_bullet_travel > max_net_enemy_bullet_travel_) {
+      max_enemy_bullet_travel_ = player_bullet_travel;
+    }
     if (player_time_to_bot < min_enemy_time_to_bot_) {
       min_enemy_time_to_bot_ = player_time_to_bot;
       max_enemy_speed_ = player_speed;
@@ -990,7 +961,46 @@ void AnchorBasePathNode::SetEnemyLineUp(behavior::ExecuteContext& ctx, const Pla
   }
 }
 
-void AnchorBasePathNode::SetFrontLineEnergy(behavior::ExecuteContext& ctx) {
+void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, const Player* enemy) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  // calculate team threat based on the players energy, bullet travel, and distance to the enemy target
+  for (std::size_t i = 0; i < game.GetTeam().size(); i++) {
+    const Player& player = game.GetTeam()[i];
+
+    if (!player.active || !ctx.bot->GetRegions().IsConnected(player.position, position_)) continue;
+
+    float player_bullet_speed = game.GetSettings().ShipSettings[player.ship].BulletSpeed / 10.0f / 16.0f;
+    float player_radius = game.GetSettings().ShipSettings[player.ship].GetRadius();
+
+    size_t player_node = search_->FindNearestNodeBFS(player.position);
+    // use the enemy target for high side comparison
+    bool high_side = player_node > enemy_node_;
+
+    // if the team player leaked past the enemy target this will switch the fore back towards the enemy target
+    // so that the team threat is established as team players rushing towards the enemy target
+    Vector2f player_fore =
+        search_->FindForwardLOSNode(*ctx.bot, player.position, player_node, player_radius, high_side);
+    // the direction from the player position to the player_fore
+    Vector2f player_to_enemy = Normalize(player_fore - enemy->position);
+
+    // the speed that the enemy is moving toward or away from its forward path node
+    float player_speed = (Normalize(player.velocity).Dot(player_to_enemy)) * player.velocity.Length();
+
+    float player_pathlength_to_enemy = search_->GetPathDistance(enemy_node_, player_node);
+    float player_time_to_enemy = player_pathlength_to_enemy / player_speed;
+    float player_bullet_travel = (player_speed + player_bullet_speed) * alive_time_;
+    float net_player_bullet_travel = player_bullet_travel - player_pathlength_to_enemy;
+
+    // ignore players that arent in bullet travel range, treat them as 0
+    if (net_player_bullet_travel < 0.0f) {
+      net_player_bullet_travel = 0.0f;
+    }
+
+    // a range of 0 to player energy in a linear scale
+    team_threat_ += player.energy * (net_player_bullet_travel / player_bullet_travel);
+  }
 }
 
 bool AnchorBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
@@ -1037,60 +1047,6 @@ bool AnchorBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
     }
   }
   return false;
-}
-
-/* 
-group team mates by who is in sight with the enemy
-find the rear most team mate in sight with the enemy
-note: the enemy target is always the closest player to the bot in a base 
- */
-const Player* AnchorBasePathNode::GetFrontLineTeamMate(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
-
-  Path base_path = ctx.bot->GetBasePath();
-
-  if (base_path.empty()) {
-    return nullptr;
-  }
-
-  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path, 100);
-  const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
-
-  if (!enemy) {
-    return nullptr;
-  }
-
-  int enemy_node = (int)search->FindNearestNodeBFS(enemy->position);
-  int closest_distance = 0;
-
-  const Player* team_mate = nullptr;
-
-  for (std::size_t i = 0; i < game.GetTeam().size(); ++i) {
-    const Player& player = game.GetTeam()[i];
-
-    bool connected = ctx.bot->GetRegions().IsConnected(player.position, game.GetPosition());
-
-    if (!connected || !player.active || player.name == game.GetName()) {
-      continue;
-    }
-
-    // check if player is in sight of the enemy target
-    bool in_sight = !RadiusEdgeRayCastHit(*ctx.bot, player.position, enemy->position, 0.8f);
-
-    if (!in_sight) {
-      continue;
-    }
-
-    int player_node = (int)search->FindNearestNodeBFS(player.position);
-    int distance = std::abs(enemy_node - player_node);
-
-     if (distance > closest_distance) {
-      closest_distance = distance;
-      team_mate = &game.GetTeam()[i];
-     }
-  }
-  return team_mate;
 }
 
 

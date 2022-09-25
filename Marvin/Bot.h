@@ -185,13 +185,11 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
 
  private:
   bool AvoidInfluence(behavior::ExecuteContext& ctx);
-  const Player* SelectBaseBuddy(behavior::ExecuteContext& ctx);
-  void SetEnemyLineUp(behavior::ExecuteContext& ctx, const Player* enemy);
-  void SetTeamLineUp(behavior::ExecuteContext& ctx);
-  float GetTeamEnergy(behavior::ExecuteContext& ctx);
+  void CalculateEnemyThreat(behavior::ExecuteContext& ctx, const Player* enemy);
+  void CalculateTeamThreat(behavior::ExecuteContext& ctx, const Player* enemy);
 
   std::unique_ptr<path::PathNodeSearch> search_;
-  bool bot_on_high_side_;
+  bool high_side_;
   Path base_path_;
 
   bool is_anchor_;
@@ -218,6 +216,7 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
   float team_threat_;
 
   float max_enemy_speed_;
+  float max_enemy_bullet_travel_;
   float max_net_enemy_bullet_travel_;
   float min_enemy_time_to_bot_;
 

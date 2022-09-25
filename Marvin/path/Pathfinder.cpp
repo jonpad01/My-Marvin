@@ -418,10 +418,27 @@ std::size_t PathNodeSearch::FindNearestNodeByDistance(const Vector2f& position) 
 
   return path_index;
 }
-// Use the player position and path index to calculate the last path node the bot is 
+
+Vector2f PathNodeSearch::FindForwardLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool high_side) {
+  if (high_side) {
+   return FindLOSNode(bot, position, index, radius, true);
+  } else {
+    return FindLOSNode(bot, position, index, radius, false);
+  }
+}
+
+Vector2f PathNodeSearch::FindRearLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool high_side) {
+  if (high_side) {
+    return FindLOSNode(bot, position, index, radius, false);
+  } else {
+    return FindLOSNode(bot, position, index, radius, true);
+  }
+}
+
+  // Use the player position and path index to calculate the last path node the bot is 
 // still in line of sight of.  Use edge raycast to ignore solids that arent a part 
 // of the basees barrier.
-Vector2f PathNodeSearch::LastLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool count_down) {
+Vector2f PathNodeSearch::FindLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool count_down) {
   // this function should never be used on an empty path so this return is useless if it ever happens
     if (path.empty()) return position;
     
@@ -429,7 +446,7 @@ Vector2f PathNodeSearch::LastLOSNode(Bot& bot, Vector2f position, std::size_t in
   Vector2f final_pos = path[index];
   // count_down is used to determine which direction to look in
   if (count_down) {
-    for (std::size_t i = index; i > 0; i--) {
+    for (std::size_t i = index; i >= 0; i--) {
       Vector2f current = path[i];
 
       if (!RadiusEdgeRayCastHit(bot, position, current, radius)) {

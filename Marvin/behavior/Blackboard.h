@@ -231,7 +231,7 @@ class Blackboard {
 
  
   std::unordered_map<std::string, std::any> data_;
-  std::unordered_map<Var, std::any> data2_;
+  std::unordered_map<BB, std::any> data2_;
 };
 
 }  // namespace behavior
