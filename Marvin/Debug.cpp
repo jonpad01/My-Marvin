@@ -40,6 +40,17 @@ void RenderLine(Vector2f from, Vector2f to, COLORREF color) {
   g_RenderState.renderable_lines.push_back(renderable);
 }
 
+void RenderDirection(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f direction, float length) {
+  Vector2f to = from + (direction * length);
+  RenderWorldLine(screenCenterWorldPosition, from, to, RGB(255, 0, 0));
+  RenderWorldBox(screenCenterWorldPosition, to, 0.25f);
+}
+
+void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f position, float size) {
+  RenderWorldBox(screenCenterWorldPosition, Vector2f(position.x - size, position.y - size),
+                 Vector2f(position.x + size, position.y + size), RGB(255, 0, 0));
+}
+
 void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
                     COLORREF color) {
   Vector2f diff = box_bottom_right - box_top_left;
@@ -160,8 +171,10 @@ void RenderPath(Vector2f position, std::vector<Vector2f> path) {
 
 void RenderState::Render() {}
 
-void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to, COLORREF color) {}
-void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
+void RenderDirection(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f direction, float length) {}
+  void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to, COLORREF color) {}
+void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f position, float size) {}
+  void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
                     COLORREF color) {}
 void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text, const Vector2f& at, TextColor color,
                      int flags) {}

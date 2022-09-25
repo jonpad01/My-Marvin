@@ -35,9 +35,10 @@ void RegionRegistry::FloodFillEmptyRegion(const Map& map, const MapCoord& coord,
   }
 }
 
-void RegionRegistry::FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, bool right_corner_check, bool bottom_corner_check, float radius) {
+void RegionRegistry::FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index,
+                                          bool right_corner_check, bool bottom_corner_check, float radius) {
 
-  if (!map.CanOccupy(Vector2f(coord.x, coord.y), radius)) return;
+  if (!map.CornerPointCheck(Vector2f(coord.x, coord.y), right_corner_check, bottom_corner_check, radius)) return;
 
   coord_regions_[coord.y * 1024 + coord.x] = region_index;
 
@@ -54,42 +55,38 @@ void RegionRegistry::FloodFillEmptyRegion(const Map& map, const MapCoord& coord,
     const MapCoord north(current.x, current.y - 1);
     const MapCoord south(current.x, current.y + 1);
 
- 
     if (map.CornerPointCheck(Vector2f(west.x, west.y), right_corner_check, bottom_corner_check, radius)) {
       if (coord_regions_[west.y * 1024 + west.x] != region_index) {
         coord_regions_[west.y * 1024 + west.x] = region_index;
         stack.push_back(west);
       }
-    }
-    //if (IsValidPosition(Vector2f(west.x, west.y)) && !map.CanOccupyRadius(Vector2f(west.x, west.y), 0.8f)) {
-      else if (unordered_solids_[west.y * 1024 + west.x] == kUndefinedRegion) {
+    } else if (IsValidPosition(Vector2f(west.x, west.y))) {
+      if (unordered_solids_[west.y * 1024 + west.x] == kUndefinedRegion) {
         unordered_solids_[west.y * 1024 + west.x] = region_index;
       }
-    //}
+    }
 
     if (map.CornerPointCheck(Vector2f(east.x, east.y), right_corner_check, bottom_corner_check, radius)) {
       if (coord_regions_[east.y * 1024 + east.x] != region_index) {
         coord_regions_[east.y * 1024 + east.x] = region_index;
         stack.push_back(east);
       }
-    }
-    //if (IsValidPosition(Vector2f(east.x, east.y)) && !map.CanOccupyRadius(Vector2f(east.x, east.y), 0.8f)) {
-    else if (unordered_solids_[east.y * 1024 + east.x] == kUndefinedRegion) {
+    } else if (IsValidPosition(Vector2f(east.x, east.y))) {
+      if (unordered_solids_[east.y * 1024 + east.x] == kUndefinedRegion) {
         unordered_solids_[east.y * 1024 + east.x] = region_index;
       }
-   // }
+    }
 
     if (map.CornerPointCheck(Vector2f(north.x, north.y), right_corner_check, bottom_corner_check, radius)) {
       if (coord_regions_[north.y * 1024 + north.x] != region_index) {
         coord_regions_[north.y * 1024 + north.x] = region_index;
         stack.push_back(north);
       }
-    }
-    //if (IsValidPosition(Vector2f(north.x, north.y)) && !map.CanOccupyRadius(Vector2f(north.x, north.y), 0.8f)) {
-      else if (unordered_solids_[north.y * 1024 + north.x] == kUndefinedRegion) {
+    } else if (IsValidPosition(Vector2f(north.x, north.y))) {
+      if (unordered_solids_[north.y * 1024 + north.x] == kUndefinedRegion) {
         unordered_solids_[north.y * 1024 + north.x] = region_index;
       }
-   // }
+    }
 
     if (map.CornerPointCheck(Vector2f(south.x, south.y), right_corner_check, bottom_corner_check, radius)) {
       if (coord_regions_[south.y * 1024 + south.x] != region_index) {
@@ -97,11 +94,11 @@ void RegionRegistry::FloodFillEmptyRegion(const Map& map, const MapCoord& coord,
         stack.push_back(south);
       }
     }   
-    //if (IsValidPosition(Vector2f(south.x, south.y)) && !map.CanOccupyRadius(Vector2f(south.x, south.y), 0.8f)) {
-    else if (unordered_solids_[south.y * 1024 + south.x] == kUndefinedRegion) {
+    else if (IsValidPosition(Vector2f(south.x, south.y))) {
+      if (unordered_solids_[south.y * 1024 + south.x] == kUndefinedRegion) {
         unordered_solids_[south.y * 1024 + south.x] = region_index;
       }
-    //}
+    }
   }
 }
 
@@ -260,13 +257,14 @@ void RegionRegistry::DebugUpdate(Vector2f position) {
   }
 }
 
+// this method is not working at least for Extreme Games
 void RegionRegistry::CreateAll(const Map& map, float radius) {
   for (uint16_t y = 0; y < 1024; ++y) {
     for (uint16_t x = 0; x < 1024; ++x) {
       MapCoord coord(x, y);
 
-      if (map.CanOccupy(Vector2f(x, y), 0.8f)) {
-        // if (!map.IsSolid(x, y)) {
+      if (map.CanOccupyRadius(Vector2f(x, y), radius)) {
+         //if (!map.IsSolid(x, y)) {
         // If the current coord is empty and hasn't been inserted into region
         // map then create a new region and flood fill it
         if (!IsRegistered(coord)) {

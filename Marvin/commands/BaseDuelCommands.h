@@ -28,7 +28,7 @@ class BDPublicCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdpublic"}; }
   std::string GetDescription() { return "Allow the bot to accept public baseduel commands."; }
-  int GetSecurityLevel() { return 0; }
+  int GetSecurityLevel() { return 1; }
 };
 
 class BDPrivateCommand : public CommandExecutor {
@@ -54,7 +54,7 @@ class BDPrivateCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdprivate"}; }
   std::string GetDescription() { return "Set the bot to only allow private baseduel commands."; }
-  int GetSecurityLevel() { return 0; }
+  int GetSecurityLevel() { return 1; }
 };
 
 
@@ -128,7 +128,7 @@ class StopBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdstop"}; }
   std::string GetDescription() { return "Stop a base duel game (resets score)."; }
-  int GetSecurityLevel() { return 0; }
+  int GetSecurityLevel() { return 1; }
 };
 
 class HoldBDCommand : public CommandExecutor {
@@ -161,7 +161,7 @@ class HoldBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdhold"}; }
   std::string GetDescription() { return "Hold a base duel game (score is saved)"; }
-  int GetSecurityLevel() { return 0; }
+  int GetSecurityLevel() { return 1; }
 };
 
 class ResumeBDCommand : public CommandExecutor {
@@ -194,7 +194,7 @@ class ResumeBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdresume"}; }
   std::string GetDescription() { return "Resume a base duel game"; }
-  int GetSecurityLevel() { return 0; }
+  int GetSecurityLevel() { return 1; }
 };
 
 }  // namespace marvin

@@ -18,6 +18,12 @@ namespace eg {
 
 void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
 
+    Path seed_point{Vector2f(512, 512)};
+
+    // only create a region for center because the other method wasnt working
+    bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), seed_point, 0.875f);
+    marvin::debug_log << "regions created" << std::endl;
+
   uint16_t ship = bot.GetGame().GetPlayer().ship;
 
     if (ship == 8) {
@@ -40,7 +46,7 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto shoot_bomb = std::make_unique<eg::ShootBombNode>();
   auto path_to_enemy = std::make_unique<eg::PathToEnemyNode>();
   auto move_to_enemy = std::make_unique<eg::MoveToEnemyNode>();
-  auto follow_path = std::make_unique<eg::FollowPathNode>();
+  //auto follow_path = std::make_unique<eg::FollowPathNode>();
   auto patrol = std::make_unique<eg::PatrolNode>();
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
@@ -51,8 +57,8 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
       std::make_unique<behavior::ParallelNode>(bomb_gun_sequence.get(), move_method_selector.get());
   auto los_shoot_conditional =
       std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy.get());
-  auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());
-  auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path.get());
+  auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path_.get());
+  auto patrol_path_sequence = std::make_unique<behavior::SequenceNode>(patrol.get(), follow_path_.get());
   auto path_or_shoot_selector =
       std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
   auto handle_enemy = std::make_unique<behavior::SequenceNode>(find_enemy.get(), path_or_shoot_selector.get());
@@ -70,7 +76,7 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
    engine_->PushNode(std::move(shoot_bomb));
   engine_->PushNode(std::move(path_to_enemy));
    engine_->PushNode(std::move(move_to_enemy));
-  engine_->PushNode(std::move(follow_path));
+ // engine_->PushNode(std::move(follow_path));
    engine_->PushNode(std::move(patrol));
 
    engine_->PushNode(std::move(move_method_selector));
@@ -89,6 +95,8 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
 
 
 behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
 
   bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
@@ -126,6 +134,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
       ctx.blackboard.Set("!PCheck", time + 3000);
       ctx.blackboard.Set("ChatWait", time + 200);
 
+      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     } else if (chat.message == "!l" && no_p) {
       game.L();
@@ -133,6 +142,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
       ctx.blackboard.Set("!PCheck", time + 3000);
       ctx.blackboard.Set("ChatWait", time + 200);
 
+      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     } else if (chat.message == "!r" && no_p) {
       game.R();
@@ -140,12 +150,14 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
       ctx.blackboard.Set("!PCheck", time + 3000);
       ctx.blackboard.Set("ChatWait", time + 200);
 
+      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
   }
 
   // bot needs to halt so eg can process chat input, i guess
   if (!chat_wait) {
+    g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
@@ -166,6 +178,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
 
       if (player.id == selected_player.id && IsValidPosition(player.position)) {
         if (CheckStatus(ctx)) game.F7();
+        g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Success;
       }
     }
@@ -184,6 +197,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
     else if (ticker >= game.GetPlayers().size() - 1)
       ctx.blackboard.Set("UpDown", true);
 
+    g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
@@ -195,6 +209,8 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
     if (player.position == bot_position && no_f7_spam && !in_center) {
       game.F7();
       ctx.blackboard.Set("F7SpamCheck", time + 150);
+
+      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
   }
@@ -233,6 +249,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
             }
 //#endif
 #endif
+  g_RenderState.RenderDebugText("FreqWarpAttachNode(fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -253,11 +270,12 @@ bool FreqWarpAttachNode::CheckStatus(behavior::ExecuteContext& ctx) {
 }
 
 behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
   float closest_cost = std::numeric_limits<float>::max();
   float cost = 0;
   auto& game = ctx.bot->GetGame();
-  std::vector<Player> players = game.GetPlayers();
   const Player* target = nullptr;
   const Player& bot = ctx.bot->GetGame().GetPlayer();
 
@@ -269,15 +287,15 @@ behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   // this loop checks every player and finds the closest one based on a cost formula
   // if this does not succeed then there is no target, it will go into patrol mode
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
-    const Player& player = players[i];
+    const Player& player = game.GetPlayers()[i];
 
     if (!IsValidTarget(ctx, player)) continue;
     auto to_target = player.position - position;
-    CastResult in_sight = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
+    bool in_sight = !RadiusRayCastHit(*ctx.bot, game.GetPosition(), Normalize(to_target), to_target.Length());
 
     // make players in line of sight high priority
 
-    if (!in_sight.hit) {
+    if (in_sight) {
       cost = CalculateCost(game, bot, player) / 100;
     } else {
       cost = CalculateCost(game, bot, player);
@@ -307,7 +325,13 @@ behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
   // and this sets the current_target for the next loop
   ctx.blackboard.Set("target_player", target);
-
+  
+  if (result == behavior::ExecuteResult::Success) {
+    g_RenderState.RenderDebugText("FindEnemyNode(success): %llu", timer.GetElapsedTime());
+  } else {
+    g_RenderState.RenderDebugText("FindEnemyNode(fail): %llu", timer.GetElapsedTime());
+  }
+  
   return result;
 }
 
@@ -365,6 +389,8 @@ bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& t
 }
 
 behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
 
   std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
@@ -372,13 +398,17 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   Vector2f bot = game.GetPosition();
   Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-  path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
+  path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, bot, enemy, game.GetShipSettings().GetRadius());
 
   ctx.blackboard.Set("path", path);
+
+  g_RenderState.RenderDebugText("PathToEnemyNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   Vector2f from = game.GetPosition();
 
@@ -395,19 +425,25 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
     to = nodes.at(index);
   }
 
-  path = ctx.bot->GetPathfinder().CreatePath(path, from, to, game.GetShipSettings().GetRadius());
+  path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, to, game.GetShipSettings().GetRadius());
   ctx.blackboard.Set("path", path);
 
+  g_RenderState.RenderDebugText("PatrolNode(Success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
 
   size_t path_size = path.size();
   auto& game = ctx.bot->GetGame();
 
-  if (path.empty()) return behavior::ExecuteResult::Failure;
+  if (path.empty()) {
+    g_RenderState.RenderDebugText("FollowPathNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
 
   Vector2f current = path.front();
   Vector2f from = game.GetPosition();
@@ -422,7 +458,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
-  while (path.size() > 1 && CanMoveBetween(game, game.GetPosition(), path.at(1))) {
+  while (path.size() > 1 && CanMoveBetween(*ctx.bot, game, game.GetPosition(), path.at(1))) {
     path.erase(path.begin());
     current = path.front();
   }
@@ -437,10 +473,11 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
 
   ctx.bot->Move(current, 0.0f);
 
+  g_RenderState.RenderDebugText("FollowPathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
-bool FollowPathNode::CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to) {
+bool FollowPathNode::CanMoveBetween(Bot& bot, GameProxy& game, Vector2f from, Vector2f to) {
   Vector2f trajectory = to - from;
   Vector2f direction = Normalize(trajectory);
   Vector2f side = Perpendicular(direction);
@@ -448,11 +485,9 @@ bool FollowPathNode::CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to)
   float distance = from.Distance(to);
   float radius = game.GetShipSettings().GetRadius();
 
-  CastResult center = RayCast(game.GetMap(), from, direction, distance);
-  CastResult side1 = RayCast(game.GetMap(), from + side * radius, direction, distance);
-  CastResult side2 = RayCast(game.GetMap(), from - side * radius, direction, distance);
+  bool hit = DiameterRayCastHit(bot, from, to, 0.875f);
 
-  return !center.hit && !side1.hit && !side2.hit;
+  return !hit;
 }
 
 behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
@@ -470,11 +505,13 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
   Vector2f side = Perpendicular(direction);
   float radius = game.GetShipSettings().GetRadius();
 
-  CastResult center = RayCast(game.GetMap(), game.GetPosition(), direction, to_target.Length());
+  CastResult center = RayCast(*ctx.bot, RayBarrier::Solid, game.GetPosition(), direction, to_target.Length());
 
   if (!center.hit) {
-    CastResult side1 = RayCast(game.GetMap(), game.GetPosition() + side * radius, direction, to_target.Length());
-    CastResult side2 = RayCast(game.GetMap(), game.GetPosition() - side * radius, direction, to_target.Length());
+    CastResult side1 =
+        RayCast(*ctx.bot, RayBarrier::Solid, game.GetPosition() + side * radius, direction, to_target.Length());
+    CastResult side2 =
+        RayCast(*ctx.bot, RayBarrier::Solid, game.GetPosition() - side * radius, direction, to_target.Length());
 
     if (!side1.hit && !side2.hit) {
       result = behavior::ExecuteResult::Success;
@@ -492,9 +529,9 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
     Vector2f wall_pos;
 
     ShotResult bResult =
-        ctx.bot->GetShooter().BouncingBombShot(game, target_player->position, target_player->velocity, target_radius);
+        ctx.bot->GetShooter().BouncingBombShot(*ctx.bot, target_player->position, target_player->velocity, target_radius);
     ShotResult gResult =
-        ctx.bot->GetShooter().BouncingBulletShot(game, target_player->position, target_player->velocity, target_radius);
+        ctx.bot->GetShooter().BouncingBulletShot(*ctx.bot, target_player->position, target_player->velocity, target_radius);
 
       if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
       if (bResult.hit) {
@@ -692,7 +729,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   ctx.bot->Move(target_position, hover_distance);
 
-  ctx.bot->GetSteering().Face(target_position);
+  ctx.bot->GetSteering().Face(*ctx.bot, target_position);
 
   return behavior::ExecuteResult::Success;
 }

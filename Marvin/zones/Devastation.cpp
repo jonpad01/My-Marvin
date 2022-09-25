@@ -682,7 +682,8 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
   // if dueling then run checks for attaching
   if (game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01) {
     if (bb.ValueOr<bool>("TeamInBase", false)) {
-      if (bb.ValueOr<bool>("GetSwarm", false)) {
+
+      if (bb.ValueOr<bool>("Swarm", false)) {
         if (!game.GetPlayer().active) {
           if (ctx.bot->GetTime().TimedActionDelay("respawn", 300)) {
             int ship = 1;

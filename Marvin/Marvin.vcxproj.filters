@@ -81,6 +81,9 @@
     <ClCompile Include="InfluenceMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="zones\ExtremeGames.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameProxy.h">
@@ -210,6 +213,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\BaseDuelCommands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\ExtremeGames.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

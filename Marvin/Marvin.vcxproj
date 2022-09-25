@@ -167,6 +167,7 @@
     <ClCompile Include="Shooter.cpp" />
     <ClCompile Include="Steering.cpp" />
     <ClCompile Include="Time.cpp" />
+    <ClCompile Include="zones\ExtremeGames.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="behavior\BehaviorEngine.h" />
@@ -211,6 +212,7 @@
     <ClInclude Include="Time.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="Vector2f.h" />
+    <ClInclude Include="zones\ExtremeGames.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <ItemGroup>

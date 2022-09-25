@@ -22,7 +22,7 @@ class SwarmCommand : public CommandExecutor {
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"swarm", "s"}; }
+  std::vector<std::string> GetAliases() { return {"swarm"}; }
   std::string GetDescription() {
     return "Enable swarm behavior. Bots will respawn quickly with low health when basing";
   }
@@ -46,7 +46,7 @@ class SwarmOffCommand : public CommandExecutor {
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"swarmoff", "so"}; }
+  std::vector<std::string> GetAliases() { return {"swarmoff"}; }
   std::string GetDescription() { return "Sets swarm off"; }
   int GetSecurityLevel() { return 0; }
 };
