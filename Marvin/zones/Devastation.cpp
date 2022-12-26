@@ -122,6 +122,22 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
                                    Vector2f(568, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568),
                                    Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454)};
 
+    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseMultiFire, false);
+    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseStealth, true);
+    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseCloak, true);
+    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseXRadar, true);
+    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseDecoy, true);
+    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseRepel, true);
+    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseBurst, true);
+
+    bot.GetBlackboard().Set<bool>(BB::UseMultiFire, false);
+    bot.GetBlackboard().Set<bool>(BB::UseStealth, true);
+    bot.GetBlackboard().Set<bool>(BB::UseCloak, true);
+    bot.GetBlackboard().Set<bool>(BB::UseXRadar, true);
+    bot.GetBlackboard().Set<bool>(BB::UseDecoy, true);
+    bot.GetBlackboard().Set<bool>(BB::UseRepel, true);
+    bot.GetBlackboard().Set<bool>(BB::UseBurst, true);
+
     bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
     bot.GetBlackboard().Set<uint16_t>("Freq", 999);
     bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
@@ -855,63 +871,66 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  if (bb.ValueOr<bool>("UseMultiFire", false)) {
-    if (!game.GetPlayer().multifire_status) {
-      game.MultiFire();
-
-      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
-    }
-  } else {
-    if (game.GetPlayer().multifire_status) {
-      game.MultiFire();
-
-      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
-    }
-  }
-
   // RenderText(text.c_str(), GetWindowCenter() - Vector2f(0, 200), RGB(100, 100, 100), RenderText_Centered);
 
   bool x_active = (game.GetPlayer().status & 4) != 0;
   bool stealthing = (game.GetPlayer().status & 1) != 0;
   bool cloaking = (game.GetPlayer().status & 2) != 0;
+  bool multi_on = game.GetPlayer().multifire_status;
 
   bool has_xradar = (game.GetShipSettings().XRadarStatus & 3) != 0;
   bool has_stealth = (game.GetShipSettings().StealthStatus & 1) != 0;
   bool has_cloak = (game.GetShipSettings().CloakStatus & 3) != 0;
 
+  bool use_xradar = bb.ValueOr<bool>(BB::UseXRadar, true);
+  bool use_stealth = bb.ValueOr<bool>(BB::UseStealth, true);
+  bool use_cloak = bb.ValueOr<bool>(BB::UseCloak, true);
+  bool use_multi = bb.ValueOr<bool>(BB::UseMultiFire, false);
+
+  if (multi_on && !use_multi || !multi_on && use_multi) {
+      game.MultiFire();
+
+      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
+  }
+
   // in deva these are free so just turn them on
-  if (!x_active && has_xradar) {
-    if (ctx.bot->GetTime().TimedActionDelay("xradar", 800)) {
-      game.XRadar();
+  if (has_xradar) {
+    if (!x_active && use_xradar || x_active && !use_xradar) {
+      if (ctx.bot->GetTime().TimedActionDelay("xradar", 800)) {
+        game.XRadar();
 
-      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
+        g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Failure;
+      }
+
+      return behavior::ExecuteResult::Success;
     }
-
-    return behavior::ExecuteResult::Success;
   }
-  if (!stealthing && has_stealth) {
-    if (ctx.bot->GetTime().TimedActionDelay("stealth", 800)) {
-      game.Stealth();
+  if (has_stealth) {
+    if (!stealthing && use_stealth || stealthing && !use_stealth) {
+      if (ctx.bot->GetTime().TimedActionDelay("stealth", 800)) {
+        game.Stealth();
 
-      g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
+        g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Failure;
+      }
+
+      return behavior::ExecuteResult::Success;
     }
-
-    return behavior::ExecuteResult::Success;
   }
-  if (!cloaking && has_cloak) {
-    if (ctx.bot->GetTime().TimedActionDelay("cloak", 800)) {
-      game.Cloak(ctx.bot->GetKeys());
+  if (has_cloak) {
+    if (!cloaking && use_cloak || cloaking && !use_cloak) {
+      if (ctx.bot->GetTime().TimedActionDelay("cloak", 800)) {
+        game.Cloak(ctx.bot->GetKeys());
+
+        g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Failure;
+      }
 
       g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
+      return behavior::ExecuteResult::Success;
     }
-
-    g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Success;
   }
 
   g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());

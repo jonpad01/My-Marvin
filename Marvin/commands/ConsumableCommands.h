@@ -11,18 +11,18 @@ class RepelCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseRepel", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseRepel, false) == true) {
       game.SendPrivateMessage(sender, "Already using repels.");
     } else {
       game.SendPrivateMessage(sender, "Turning repels on.");
     }
 
-    bb.Set<bool>("UseRepels", true);
+    bb.Set<bool>(BB::UseRepel, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"repel", "rep"}; }
+  std::vector<std::string> GetAliases() { return {"repel"}; }
   std::string GetDescription() { return "Sets repels on"; }
   int GetSecurityLevel() { return 0; }
 };
@@ -33,18 +33,18 @@ class RepelOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseRepel", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseRepel, false) == false) {
       game.SendPrivateMessage(sender, "Repels were already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning repels off.");
     }
 
-    bb.Set<bool>("UseRepel", false);
+    bb.Set<bool>(BB::UseRepel, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"repeloff", "ro"}; }
+  std::vector<std::string> GetAliases() { return {"repeloff"}; }
   std::string GetDescription() { return "Sets repels off"; }
   int GetSecurityLevel() { return 0; }
 };
@@ -55,13 +55,13 @@ class BurstCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseBurst", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseBurst, false) == true) {
       game.SendPrivateMessage(sender, "Already using burst.");
     } else {
       game.SendPrivateMessage(sender, "Using burst.");
     }
 
-    bb.Set<bool>("UseBurst", true);
+    bb.Set<bool>(BB::UseBurst, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -77,13 +77,13 @@ class BurstOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseBurst", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseBurst, false) == false) {
       game.SendPrivateMessage(sender, "Burst were already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning bursts off.");
     }
 
-    bb.Set<bool>("UseBurst", false);
+    bb.Set<bool>(BB::UseBurst, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -99,13 +99,13 @@ class DecoyCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseDecoy", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseDecoy, false) == true) {
       game.SendPrivateMessage(sender, "Already using decoys.");
     } else {
       game.SendPrivateMessage(sender, "Using decoys.");
     }
 
-    bb.Set<bool>("UseDecoy", true);
+    bb.Set<bool>(BB::UseDecoy, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -121,13 +121,13 @@ class DecoyOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseDecoy", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseDecoy, false) == false) {
       game.SendPrivateMessage(sender, "Decoys were already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning decoys off.");
     }
 
-    bb.Set<bool>("UseDecoy", false);
+    bb.Set<bool>(BB::UseDecoy, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -143,13 +143,13 @@ class RocketCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseRocket", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseRocket, false) == true) {
       game.SendPrivateMessage(sender, "Already using rockets.");
     } else {
       game.SendPrivateMessage(sender, "Using rockets.");
     }
 
-    bb.Set<bool>("UseRocket", true);
+    bb.Set<bool>(BB::UseRocket, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -165,13 +165,13 @@ class RocketOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseRocket", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseRocket, false) == false) {
       game.SendPrivateMessage(sender, "Rockets were already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning rockets off.");
     }
 
-    bb.Set<bool>("UseRocket", false);
+    bb.Set<bool>(BB::UseRocket, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -187,13 +187,13 @@ class BrickCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseBrick", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseBrick, false) == true) {
       game.SendPrivateMessage(sender, "Already using bricks.");
     } else {
       game.SendPrivateMessage(sender, "Using bricks.");
     }
 
-    bb.Set<bool>("UseBrick", true);
+    bb.Set<bool>(BB::UseBrick, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -209,13 +209,13 @@ class BrickOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseBrick", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseBrick, false) == false) {
       game.SendPrivateMessage(sender, "Bricks were already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning bricks off.");
     }
 
-    bb.Set<bool>("UseBrick", false);
+    bb.Set<bool>(BB::UseBrick, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -231,13 +231,13 @@ class PortalCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UsePortal", false) == true) {
+    if (bb.ValueOr<bool>(BB::UsePortal, false) == true) {
       game.SendPrivateMessage(sender, "Already using portals.");
     } else {
       game.SendPrivateMessage(sender, "Using portals.");
     }
 
-    bb.Set<bool>("UsePortal", true);
+    bb.Set<bool>(BB::UsePortal, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -253,13 +253,13 @@ class PortalOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UsePortal", false) == false) {
+    if (bb.ValueOr<bool>(BB::UsePortal, false) == false) {
       game.SendPrivateMessage(sender, "Portals were already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning portals off.");
     }
 
-    bb.Set<bool>("UsePortal", false);
+    bb.Set<bool>(BB::UsePortal, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -275,13 +275,13 @@ class ThorCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseThor", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseThor, false) == true) {
       game.SendPrivateMessage(sender, "Already using thors.");
     } else {
       game.SendPrivateMessage(sender, "Using thors.");
     }
 
-    bb.Set<bool>("UseThor", true);
+    bb.Set<bool>(BB::UseThor, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -297,13 +297,13 @@ class ThorOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseThor", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseThor, false) == false) {
       game.SendPrivateMessage(sender, "Thors were already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning thors off.");
     }
 
-    bb.Set<bool>("UseThor", false);
+    bb.Set<bool>(BB::UseThor, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }

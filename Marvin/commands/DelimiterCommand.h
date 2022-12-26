@@ -19,7 +19,7 @@ class DelimiterCommand : public CommandExecutor {
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
-  std::vector<std::string> GetAliases() { return {"delimiter", "d"}; }
+  std::vector<std::string> GetAliases() { return {"delimiter"}; }
   std::string GetDescription() { return "Delimiter usage"; }
   int GetSecurityLevel() { return 0; }
 };

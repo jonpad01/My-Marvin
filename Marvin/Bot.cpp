@@ -864,8 +864,9 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   float desired_distance = max_enemy_bullet_travel_ + braking_distance + energy_modifier;
 
   // adjust desired range based on team threat balance
-  // will range from 0.5 * desired to -0.5 * desired
-  desired_distance += desired_distance * (0.5f - (team_threat_ / (team_threat_ + enemy_team_threat_)));
+  // will range from 0.25 * desired to -0.25 * desired
+  float threat_adjustment = desired_distance * 0.5f * (0.5f - (team_threat_ / (team_threat_ + enemy_team_threat_)));
+  desired_distance += threat_adjustment;
 
   // get the distance to the enemy
   float pathlength = search_->GetPathDistance(bot_node_, enemy_node_);

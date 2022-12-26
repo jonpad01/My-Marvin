@@ -9,7 +9,11 @@
 
 namespace marvin {
 
-    enum class BB : short { Ship, PubTeam0, PubTeam1, EnemyNetBulletTravel };
+    enum class BB : short { 
+        UseRepel, UseBurst, UseDecoy, UseRocket, UseThor, UseBrick, UsePortal,
+        UseMultiFire, UseCloak, UseStealth, UseXRadar, UseAntiWarp,
+        PubTeam0, PubTeam1, EnemyNetBulletTravel, 
+        End };
 
 namespace behavior {
 
@@ -50,6 +54,34 @@ class Blackboard {
   template <typename T>
   void Set(const BB& key, const T& value) {
     data2_[key] = std::any(value);
+  }
+
+    template <typename T>
+  void SetDefaultValue(const BB& key, const T& value) {
+    data2_default_[key] = std::any(value);
+  }
+
+  void SetToDefault(const BB& key) { 
+      auto iter = data2_default_.find(key);
+
+    if (iter == data2_default_.end()) {
+      return;
+    }
+
+    data2_[key] = iter->second;
+  }
+
+  void SetAllToDefault() {
+
+    for (short key = 0; key != (short)BB::End; ++key) {
+      auto iter = data2_default_.find((BB)key);
+
+      if (iter == data2_default_.end()) {
+        continue;
+      }
+
+      data2_[(BB)key] = iter->second;
+    }
   }
 
   template <typename T>
@@ -232,6 +264,7 @@ class Blackboard {
  
   std::unordered_map<std::string, std::any> data_;
   std::unordered_map<BB, std::any> data2_;
+  std::unordered_map<BB, std::any> data2_default_;
 };
 
 }  // namespace behavior

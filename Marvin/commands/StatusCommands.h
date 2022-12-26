@@ -12,13 +12,13 @@ class MultiCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseMultiFire", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseMultiFire, false) == true) {
       game.SendPrivateMessage(sender, "Multifire is already on.");
     } else {
       game.SendPrivateMessage(sender, "Turning on multifire.");
     }
 
-    bb.Set<bool>("UseMultiFire", true);
+    bb.Set<bool>(BB::UseMultiFire, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -34,13 +34,13 @@ class MultiOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseMultiFire", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseMultiFire, false) == false) {
       game.SendPrivateMessage(sender, "Multifire is already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning off multifire.");
     }
 
-    bb.Set<bool>("UseMultiFire", false);
+    bb.Set<bool>(BB::UseMultiFire, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -56,13 +56,13 @@ class CloakCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseCloak", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseCloak, false) == true) {
       game.SendPrivateMessage(sender, "Cloaking is already on.");
     } else {
       game.SendPrivateMessage(sender, "Now cloaking.");
     }
 
-    bb.Set<bool>("UseCloak", true);
+    bb.Set<bool>(BB::UseCloak, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -78,13 +78,13 @@ class CloakOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseCloak", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseCloak, false) == false) {
       game.SendPrivateMessage(sender, "Cloaking is already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning off cloaking.");
     }
 
-    bb.Set<bool>("UseCloak", false);
+    bb.Set<bool>(BB::UseCloak, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -100,13 +100,13 @@ class StealthCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseStealth", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseStealth, false) == true) {
       game.SendPrivateMessage(sender, "Stealth is already on.");
     } else {
       game.SendPrivateMessage(sender, "Now using stealth.");
     }
 
-    bb.Set<bool>("UseStealth", true);
+    bb.Set<bool>(BB::UseStealth, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -122,13 +122,13 @@ class StealthOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseStealth", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseStealth, false) == false) {
       game.SendPrivateMessage(sender, "Stealth is already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning off stealth.");
     }
 
-    bb.Set<bool>("UseStealth", false);
+    bb.Set<bool>(BB::UseStealth, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -144,13 +144,13 @@ class XRadarCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseXRadar", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseXRadar, false) == true) {
       game.SendPrivateMessage(sender, "XRadar is already on.");
     } else {
       game.SendPrivateMessage(sender, "Now using XRadar.");
     }
 
-    bb.Set<bool>("UseXRadar", true);
+    bb.Set<bool>(BB::UseXRadar, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -166,13 +166,13 @@ class XRadarOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseXRadar", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseXRadar, false) == false) {
       game.SendPrivateMessage(sender, "XRadar is already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning off XRadar.");
     }
 
-    bb.Set<bool>("UseXRadar", false);
+    bb.Set<bool>(BB::UseXRadar, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -188,13 +188,13 @@ class AntiWarpCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseAntiWarp", false) == true) {
+    if (bb.ValueOr<bool>(BB::UseAntiWarp, false) == true) {
       game.SendPrivateMessage(sender, "AntiWarp is already on.");
     } else {
       game.SendPrivateMessage(sender, "Now using AntiWarp.");
     }
 
-    bb.Set<bool>("UseAntiWarp", true);
+    bb.Set<bool>(BB::UseAntiWarp, true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -210,13 +210,13 @@ class AntiWarpOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("UseAntiWarp", false) == false) {
+    if (bb.ValueOr<bool>(BB::UseAntiWarp, false) == false) {
       game.SendPrivateMessage(sender, "AntiWarp is already off.");
     } else {
       game.SendPrivateMessage(sender, "Turning off AntiWarp.");
     }
 
-    bb.Set<bool>("UseAntiWarp", false);
+    bb.Set<bool>(BB::UseAntiWarp, false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }

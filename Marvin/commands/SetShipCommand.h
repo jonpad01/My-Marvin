@@ -31,8 +31,9 @@ class SetShipCommand : public CommandExecutor {
       bb.Set<uint16_t>("Ship", number - 1);
 
       if (number == 9) {
-        bb.Clear();
-        bb.Set<uint16_t>("Ship", 8);
+        bb.SetAllToDefault();
+        bb.Set<bool>("IsAnchor", false);
+        bb.Set<bool>("Swarm", false);
 
         game.SendPrivateMessage(sender, "My behaviors are also reset when sent to spec");
       } else {
