@@ -113,6 +113,7 @@ void Bot::LoadBot() {
   
   influence_map_ = std::make_unique<InfluenceMap>();
   regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
+  regions_->CreateAll(game_->GetMap(), radius_);
   
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   marvin::debug_log << "pathfinder created" << std::endl;
@@ -149,14 +150,13 @@ void Bot::Update(float dt) {
 
   if (game_->GetZone() == Zone::Devastation) {
     if (game_->GetPlayer().name == "FrogBot") {
-      if (game_->GetMapFile() != "#frog.lvl") {
+      if (game_->GetMapFile() != "bdelite.lvl") {
         if (GetTime().TimedActionDelay("arenachange", 200)) {
-          game_->SendChatMessage("?go #Frog");
+          game_->SendChatMessage("?go BDElite");
         }
         return;
       }
     }
-
   }
 
   #if DEBUG_RENDER_PATHFINDER

@@ -104,7 +104,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   BaseSpawns spawn;
   float radius = bot.GetGame().GetSettings().ShipSettings[0].GetRadius();
  
-  bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), spawn.t0, radius);
+  //bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), spawn.t0, radius);
+  //bot.GetRegions().CreateAll(bot.GetGame().GetMap(), radius);
   bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);

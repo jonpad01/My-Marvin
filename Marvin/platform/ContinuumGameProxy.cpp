@@ -50,7 +50,7 @@ void ContinuumGameProxy::LoadGame() {
   SetZone();
   marvin::debug_log << "fetching players." << std::endl;
   FetchPlayers();
-  marvin::debug_log << "players fetched." << std::endl;
+  marvin::debug_log << "players fetched." << std::endl; 
   LogMemoryLocations();
  
 

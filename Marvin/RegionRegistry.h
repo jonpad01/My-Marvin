@@ -29,6 +29,8 @@ struct MapCoord {
   bool operator==(const MapCoord& other) const { return x == other.x && y == other.y; }
 };
 
+bool IsValidPosition(MapCoord coord);
+
 }  // namespace marvin
 
 MAKE_HASHABLE(marvin::MapCoord, t.x, t.y);
@@ -58,7 +60,7 @@ class RegionRegistry {
 
   RegionIndex CreateRegion();
 
-  void FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, float radius);
+  void FloodFillRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, float radius);
   void FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, bool right_corner_check,
                             bool bottom_corner_check, float radius);
   void FloodFillSolidRegion(const Map& map, const MapCoord& coord, RegionIndex region_index);
