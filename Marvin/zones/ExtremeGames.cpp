@@ -21,7 +21,8 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
     Path seed_point{Vector2f(512, 512)};
 
     // only create a region for center because the other method wasnt working
-    bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), seed_point, 0.875f);
+    //bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), seed_point, 0.875f);
+    bot.GetRegions().CreateAll(bot.GetGame().GetMap(), 0.875f);
     marvin::debug_log << "regions created" << std::endl;
 
   uint16_t ship = bot.GetGame().GetPlayer().ship;

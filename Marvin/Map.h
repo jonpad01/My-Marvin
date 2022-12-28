@@ -26,6 +26,10 @@ class Map {
   TileId GetTileId(u16 x, u16 y) const;
   TileId GetTileId(const Vector2f& position) const;
 
+  // Checks if the ship can go from one tile directly to another.
+  bool CanTraverse(const Vector2f& start, const Vector2f& end, float radius) const;
+  bool CanOverlapTile(const Vector2f& position, float radius) const;
+
   bool CanOccupy(const Vector2f& position, float radius) const;
   bool CanOccupyRadius(const Vector2f& position, float radius) const;
   bool CanStepInto(const Vector2f& start, const Vector2f& end, Vector2f* orientation, float radius) const;

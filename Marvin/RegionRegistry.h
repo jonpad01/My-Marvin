@@ -5,11 +5,10 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "Hash.h"
 #include "Vector2f.h"
-
-
 
 namespace marvin {
 
@@ -37,19 +36,78 @@ MAKE_HASHABLE(marvin::MapCoord, t.x, t.y);
 
 namespace marvin {
 
+struct SharedRegionOwnership {
+  static constexpr size_t kMaxOwners = 4;
+
+  RegionIndex owners[kMaxOwners];
+  size_t count;
+
+  SharedRegionOwnership() : count(0) {}
+
+  bool AddOwner(RegionIndex index) {
+    if (count >= kMaxOwners) return false;
+    if (HasOwner(index)) return false;
+
+    owners[count++] = index;
+
+    return true;
+  }
+
+  bool HasOwner(RegionIndex index) const {
+    for (size_t i = 0; i < kMaxOwners; ++i) {
+      if (owners[i] == index) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+};
+
+struct RegionFiller {
+ public:
+  RegionFiller(const Map& map, float radius, RegionIndex* coord_regions, SharedRegionOwnership* edges);
+
+  void Fill(RegionIndex index, const MapCoord& coord) {
+    this->region_index = index;
+
+    FillEmpty(coord);
+    FillSolid();
+
+    highest_coord = MapCoord(9999, 9999);
+  }
+
+ private:
+  void FillEmpty(const MapCoord& coord);
+  void TraverseEmpty(const Vector2f& from, MapCoord to);
+
+  void FillSolid();
+  void TraverseSolid(const Vector2f& from, MapCoord to);
+
+  const Map& map;
+  RegionIndex region_index;
+  float radius;
+
+  RegionIndex* coord_regions;
+  SharedRegionOwnership* edges;
+
+  MapCoord highest_coord;
+
+  std::vector<RegionIndex> potential_edges;
+
+  std::vector<MapCoord> stack;
+};
+
 class RegionRegistry {
  public:
   RegionRegistry(const Map& map) : region_count_(0) { 
-	memset(coord_regions_, 0xFF, sizeof(coord_regions_));
-    memset(unordered_solids_, 0xFF, sizeof(unordered_solids_));
-    memset(outside_edges_, 0xFF, sizeof(outside_edges_));
+    memset(coord_regions_, 0xFF, sizeof(coord_regions_));
   }
 
   bool IsConnected(MapCoord a, MapCoord b) const;
   bool IsEdge(MapCoord coord) const;
 
   void CreateAll(const Map& map, float radius);
-  void CreateRegions(const Map& map, std::vector<Vector2f> seed_points, float radius);
 
   void DebugUpdate(Vector2f position);
 
@@ -60,15 +118,10 @@ class RegionRegistry {
 
   RegionIndex CreateRegion();
 
-  void FloodFillRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, float radius);
-  void FloodFillEmptyRegion(const Map& map, const MapCoord& coord, RegionIndex region_index, bool right_corner_check,
-                            bool bottom_corner_check, float radius);
-  void FloodFillSolidRegion(const Map& map, const MapCoord& coord, RegionIndex region_index);
-
   RegionIndex region_count_;
 
   RegionIndex coord_regions_[1024 * 1024];
-  RegionIndex unordered_solids_[1024 * 1024];
-  RegionIndex outside_edges_[1024 * 1024];
+  SharedRegionOwnership outside_edges_[1024 * 1024];
 };
+
 }  // namespace marvin

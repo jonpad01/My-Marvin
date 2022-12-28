@@ -56,7 +56,7 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
   LPDIRECTDRAWSURFACE back_surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
 
   // Check if flipping. I guess there's a full screen blit instead of flip when running without vsync?
-  if (surface == primary_surface && next_surface == back_surface && fx == 0) {
+  if (surface == primary_surface && next_surface == back_surface && fx == 0 && g_Enabled) {
     marvin::g_RenderState.Render();
   }
 
