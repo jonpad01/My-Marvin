@@ -340,12 +340,12 @@ void RegionRegistry::CreateRegions(const Map& map, std::vector<Vector2f> seed_po
 void RegionRegistry::UpdateCycledFill(const Map& map, float radius) {
     // start the loop at the last saved position
   for (uint16_t y = lastCheck_.y; y < 1024; ++y) {
-    for (uint16_t x = lastCheck_.x; x < 1024; ++x) {
+      for (uint16_t x = lastCheck_.x; x < 1024; ++x) {
       MapCoord coord(x, y);
 
       // when the loop gets here set the flag to stop calling this function
       if (x >= 1023 && y >= 1023) {
-        build_ == false;
+        build_ = false;
       }
 
       if (map.CanOccupyRadius(Vector2f(x, y), radius)) {
@@ -393,8 +393,8 @@ void RegionRegistry::DebugUpdate(Vector2f position) {
     for (uint16_t x = 0; x < 1024; ++x) {
       if (index != -1 && coord_regions_ [y * 1024 + x] == index) {
         Vector2f check = Vector2f(x,y);
-        //RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 255, 255));
-        //RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 255, 255));
+       // RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 255, 255));
+       // RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 255, 255));
       }
     }
   }
