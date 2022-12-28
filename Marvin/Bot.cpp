@@ -113,7 +113,6 @@ void Bot::LoadBot() {
   
   influence_map_ = std::make_unique<InfluenceMap>();
   regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
-  regions_->CreateAll(game_->GetMap(), radius_);
   
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   marvin::debug_log << "pathfinder created" << std::endl;
@@ -132,6 +131,12 @@ void Bot::Update(float dt) {
   g_RenderState.debug_y = 30.0f;
 
   keys_.ReleaseAll();
+
+  // force the bot to wait until the regions are built
+  if (regions_->GetBuild() == true) {
+    regions_->UpdateCycledFill(game_->GetMap(), radius_);
+    return;
+  }
 
   float radius = game_->GetShipSettings().GetRadius();
   int ship = game_->GetPlayer().ship;

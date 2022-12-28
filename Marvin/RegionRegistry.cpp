@@ -336,11 +336,17 @@ void RegionRegistry::CreateRegions(const Map& map, std::vector<Vector2f> seed_po
   }
 }
 
-// this method is not working at least for Extreme Games
-void RegionRegistry::CreateAll(const Map& map, float radius) {
-  for (uint16_t y = 0; y < 1024; ++y) {
-    for (uint16_t x = 0; x < 1024; ++x) {
+
+void RegionRegistry::UpdateCycledFill(const Map& map, float radius) {
+    // start the loop at the last saved position
+  for (uint16_t y = lastCheck_.y; y < 1024; ++y) {
+    for (uint16_t x = lastCheck_.x; x < 1024; ++x) {
       MapCoord coord(x, y);
+
+      // when the loop gets here set the flag to stop calling this function
+      if (x >= 1023 && y >= 1023) {
+        build_ == false;
+      }
 
       if (map.CanOccupyRadius(Vector2f(x, y), radius)) {
         // if (!map.IsSolid(x, y)) {
@@ -350,8 +356,10 @@ void RegionRegistry::CreateAll(const Map& map, float radius) {
         {
           auto region_index = CreateRegion();
           FloodFillRegion(map, coord, region_index, radius);
-
-          
+          // save the last position in the loop
+          lastCheck_ = MapCoord(x, y); 
+          // build only one region then return
+          return;
         }
       }
     }

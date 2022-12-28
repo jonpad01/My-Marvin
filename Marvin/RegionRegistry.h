@@ -39,16 +39,17 @@ namespace marvin {
 
 class RegionRegistry {
  public:
-  RegionRegistry(const Map& map) : region_count_(0) { 
+  RegionRegistry(const Map& map) : region_count_(0), build_(true), lastCheck_(0, 0) { 
 	memset(coord_regions_, 0xFF, sizeof(coord_regions_));
     memset(unordered_solids_, 0xFF, sizeof(unordered_solids_));
     memset(outside_edges_, 0xFF, sizeof(outside_edges_));
   }
 
+  bool GetBuild() { return build_; }
   bool IsConnected(MapCoord a, MapCoord b) const;
   bool IsEdge(MapCoord coord) const;
 
-  void CreateAll(const Map& map, float radius);
+  void UpdateCycledFill(const Map& map, float radius);
   void CreateRegions(const Map& map, std::vector<Vector2f> seed_points, float radius);
 
   void DebugUpdate(Vector2f position);
@@ -70,5 +71,8 @@ class RegionRegistry {
   RegionIndex coord_regions_[1024 * 1024];
   RegionIndex unordered_solids_[1024 * 1024];
   RegionIndex outside_edges_[1024 * 1024];
+
+  bool build_;
+  MapCoord lastCheck_;
 };
 }  // namespace marvin
