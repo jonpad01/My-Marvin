@@ -54,7 +54,7 @@ struct SharedRegionOwnership {
   }
 
   bool HasOwner(RegionIndex index) const {
-    for (size_t i = 0; i < kMaxOwners; ++i) {
+    for (size_t i = 0; i < count; ++i) {
       if (owners[i] == index) {
         return true;
       }
