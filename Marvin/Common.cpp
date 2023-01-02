@@ -15,7 +15,6 @@ std::string Lowercase(const std::string& str) {
   //remove "^" that gets placed on names when biller is down
   if (!name.empty() && name[0] == '^') {
     name.erase(0, 1);
-    marvin::debug_log << "name changed to " << name << std::endl;
   }
 
   result.resize(name.size());

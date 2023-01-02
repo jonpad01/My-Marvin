@@ -122,7 +122,7 @@ void InfluenceMap::CastWeapon(const Map& map, Weapon* weapon, Bot& bot) {
   Vector2f position = weapon->GetPosition();
   RayWidth width = RayWidth::One;
   bool perform_collision = true;
-  float influence_length = (velocity * (weapon->GetRemainingTicks() / 100.0f)).Length();
+  float influence_length = (velocity * weapon->GetRemainingMilliSeconds()).Length();
 
   u32 damage = 0;
 

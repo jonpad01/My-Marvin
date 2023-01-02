@@ -71,9 +71,9 @@ ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f 
 ShotResult Shooter::BouncingBombShot(Bot& bot, Vector2f target_pos, Vector2f target_vel, float target_radius) {
   auto& game = bot.GetGame();
 
-  float proj_speed = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
-  float alive_time = (float)game.GetSettings().BombAliveTime / 100.0f;
-  float bounces = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombBounceCount;
+  float proj_speed = game.GetShipSettings().GetBombSpeed();
+  float alive_time = game.GetSettings().GetBombAliveTime();
+  float bounces = (float)game.GetShipSettings().BombBounceCount;
 
   ShotResult result = BounceShot(bot, target_pos, target_vel, 2.0f, game.GetPosition(), game.GetPlayer().velocity,
                  game.GetPlayer().GetHeading(), proj_speed, alive_time, bounces);
@@ -90,8 +90,8 @@ ShotResult Shooter::BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f t
   float radius = game.GetShipSettings().GetRadius();
   Vector2f side = Perpendicular(game.GetPlayer().GetHeading());
 
-  float proj_speed = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
-  float alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
+  float proj_speed = game.GetShipSettings().GetBulletSpeed();
+  float alive_time = game.GetSettings().GetBulletAliveTime();
 
   bool double_barrel = (game.GetShipSettings().DoubleBarrel & 1) != 0;
   bool multi_enabled = game.GetPlayer().multifire_status;
@@ -122,9 +122,9 @@ ShotResult Shooter::BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f t
 
     if (game.GetPlayer().multifire_status) {
       if (i == (pos_adjust.size() - 2)) {
-        direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, true);
+        direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), true);
       } else if (i == (pos_adjust.size() - 3)) {
-        direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, false);
+        direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), false);
       }
     }
    ShotResult current_result = BounceShot(bot, target_pos, target_vel, target_radius, position, game.GetPlayer().velocity, direction, proj_speed,
@@ -267,8 +267,8 @@ bool CanShoot(GameProxy& game, Vector2f player_pos, Vector2f target, Vector2f we
 
 bool CanShootGun(GameProxy& game, const Map& map, Vector2f player, Vector2f target) {
 
-  float bullet_alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
-  float bullet_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BulletSpeed / 10.0f / 16.0f;
+  float bullet_alive_time = game.GetSettings().GetBulletAliveTime();
+  float bullet_speed = game.GetShipSettings().GetBulletSpeed();
 
   Vector2f adjusted_bullet_velocity = game.GetPlayer().GetHeading() * bullet_speed + game.GetPlayer().velocity;
   float bullet_travel = adjusted_bullet_velocity.Length() * bullet_alive_time;
@@ -284,8 +284,8 @@ bool CanShootGun(GameProxy& game, const Map& map, Vector2f player, Vector2f targ
 
 bool CanShootBomb(GameProxy& game, const Map& map, Vector2f player, Vector2f target) {
 
-  float bomb_alive_time = (float)game.GetSettings().BombAliveTime / 100.0f;
-  float bomb_speed = game.GetSettings().ShipSettings[game.GetPlayer().ship].BombSpeed / 10.0f / 16.0f;
+  float bomb_alive_time = game.GetSettings().GetBombAliveTime();
+  float bomb_speed = game.GetShipSettings().GetBombSpeed();
 
   Vector2f adjusted_bomb_velocity = game.GetPlayer().GetHeading() * bomb_speed + game.GetPlayer().velocity;
   float bomb_travel = adjusted_bomb_velocity.Length() * bomb_alive_time;

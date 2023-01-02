@@ -122,6 +122,17 @@ PerformanceTimer::PerformanceTimer() {
   begin_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now())
                    .time_since_epoch()
                    .count();
+  last_update_time = begin_time;
+}
+
+u64 PerformanceTimer::TimeSinceConstruction() {
+  u64 now = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now())
+                .time_since_epoch()
+                .count();
+
+  u64 elapsed = now - begin_time;
+
+  return elapsed;
 }
 
 u64 PerformanceTimer::GetElapsedTime() {
@@ -129,9 +140,9 @@ u64 PerformanceTimer::GetElapsedTime() {
     .time_since_epoch()
     .count();
 
-  u64 elapsed = now - begin_time;
+  u64 elapsed = now - last_update_time;
 
-  begin_time = now;
+  last_update_time = now;
 
   return elapsed;
 }

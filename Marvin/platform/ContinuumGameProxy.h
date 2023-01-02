@@ -36,7 +36,8 @@ static_assert(offsetof(WeaponMemory, data) == 0xA7);
 // In memory weapon data
 class ContinuumWeapon : public Weapon {
  public:
-  ContinuumWeapon(WeaponMemory* data, u32 remaining_ticks) : weapon_(data), remaining_ticks_(remaining_ticks) {}
+  ContinuumWeapon(WeaponMemory* data, float remaining_milliseconds_)
+      : weapon_(data), remaining_milliseconds_(remaining_milliseconds_) {}
 
   u16 GetPlayerId() const { return weapon_->pid; }
 
@@ -48,13 +49,13 @@ class ContinuumWeapon : public Weapon {
 
   WeaponData GetData() const { return weapon_->data; }
 
-  u32 GetAliveTicks() const { return weapon_->alive_ticks; }
-  u32 GetRemainingTicks() const { return remaining_ticks_; }
+  float GetAliveMilliSeconds() const { return weapon_->alive_ticks / 100.0f; }
+  float GetRemainingMilliSeconds() const { return remaining_milliseconds_; }
   s32 GetRemainingBounces() const { return weapon_->remaining_bounces; }
 
  private:
   WeaponMemory* weapon_;
-  u32 remaining_ticks_;
+  float remaining_milliseconds_;
 };
 
 class ContinuumGameProxy : public GameProxy {
@@ -77,13 +78,10 @@ class ContinuumGameProxy : public GameProxy {
   const std::vector<Player>& GetEnemies() const override;
   const std::vector<Player>& GetEnemyTeam() const override;
 
-  const ClientSettings& GetSettings() const override;
-  const ShipSettings& GetShipSettings() const override;
-  const ShipSettings& GetShipSettings(int ship) const override;
-
   const float GetMaxEnergy() override;
   const float GetThrust() override;
   const float GetRotation() override;
+  const float GetRadius() override;
   const float GetMaxSpeed() override;
   const float GetMaxSpeed(u16 ship) override;
   const uint64_t GetRespawnTime() override;
@@ -132,6 +130,11 @@ class ContinuumGameProxy : public GameProxy {
   ExeProcess& GetProcess();
 
  private:
+
+  const ClientSettings& GetSettings() const override;
+  const ShipSettings& GetShipSettings() const override;
+  const ShipSettings& GetShipSettings(int ship) const override;
+
   std::string GetServerFolder();
   void SetZone();
   void FetchChat();
@@ -141,7 +144,6 @@ class ContinuumGameProxy : public GameProxy {
   void FetchGreens();
   void FetchWeapons();
   void SendKey(int vKey);
-  void LogMemoryLocations();
 
   
   std::vector<BallData> balls_;

@@ -8,7 +8,46 @@ namespace marvin {
 
 #pragma pack(push, 1)
 // Per-ship settings
-struct ShipSettings {
+class ShipSettings {
+ public:
+
+  float GetRadius() const {
+    int r = Radius == 0 ? 14 : Radius;
+
+    return r / 16.0f;
+  }
+
+  float GetMultiFireAngle() const { return MultiFireAngle / (40000.0f / 360.0f); }
+
+  float GetBulletSpeed() const { return BulletSpeed / 10.0f / 16.0f; }
+
+  float GetBulletFireDelay() const { return BulletFireDelay / 100.0f; }
+
+  float GetMultiFireDelay() const { return MultiFireDelay / 100.0f; }
+
+  // gets the gun level
+  float GetMaxGuns() const { return (float)(MaxGuns & 3); }
+
+  float GetBombSpeed() const { return BombSpeed / 10.0f / 16.0f; }
+
+  float GetBombFireDelay() const { return BombFireDelay / 100.0f; }
+
+  float GetLandmineFireDelay() const { return LandmineFireDelay / 100.0f; }
+
+  // gets the bomb level
+  float GetMaxBombs() const { return (float)(MaxBombs & 3); }
+
+  bool HasDoubleBarrel() const { return (DoubleBarrel & 1) != 0; }
+
+  float GetInitialSpeed() const { return InitialSpeed / 10.0f / 16.0f; }
+  float GetMaximumSpeed() const { return MaximumSpeed / 10.0f / 16.0f; }
+
+  float GetInitialThrust() const { return InitialThrust * 10.0f / 16.0f; }
+  float GetMaximumThrust() const { return MaximumThrust * 10.0f / 16.0f; }
+
+  float GetInitialRotation() const { return InitialRotation / 200.0f; }
+  float GetMaximumRotation() const { return MaximumRotation / 200.0f; }
+
   // How long Super lasts on the ship (in ticks)
   uint32_t SuperTime;
   // How long Super lasts on the ship (in ticks)
@@ -33,10 +72,13 @@ struct ShipSettings {
   // Extra amount of energy it takes to place an upgraded landmine.
   // i.e. L2 = LandmineFireEnergy + LandmineFireEnergyUpgrade
   uint16_t LandmineFireEnergyUpgrade;
+
+ private:
   // How fast bullets travel
   uint16_t BulletSpeed;
   // How fast bombs travel
   uint16_t BombSpeed;
+
   struct {
     // If ship can see bombs on radar(0 = Disabled, 1 = All, 2 = L2 and up,
     // 3 = L3 and up, 4 = L4 bombs only)
@@ -53,6 +95,8 @@ struct ShipSettings {
   // conversion to degrees would be 40000 / 360
   // range is a number between 0 and 39999
   uint16_t MultiFireAngle;
+
+ public:
   // Amount of energy required to have 'Cloak' activated (thousanths per tick)
   uint16_t CloakEnergy;
   // Amount of energy required to have 'Stealth' activated (thousanths per tick)
@@ -62,6 +106,8 @@ struct ShipSettings {
   uint16_t AntiWarpEnergy;
   // Amount of energy required to have 'X-Radar' activated (thousanths per tick)
   uint16_t XRadarEnergy;
+
+ private:
   // Maximum rotation rate of the ship (0 = can't rotate, 400 = full rotation in
   // 1 second)
   uint16_t MaximumRotation;
@@ -69,17 +115,23 @@ struct ShipSettings {
   uint16_t MaximumThrust;
   // Maximum speed of ship (0 = can't move)
   uint16_t MaximumSpeed;
+
+ public:
   // Maximum recharge rate, or how quickly this ship recharges its energy
   uint16_t MaximumRecharge;
   // Maximum amount of energy that the ship can have
   uint16_t MaximumEnergy;
   // Initial rotation rate of the ship (0 = can't rotate, 400 = full rotation in
   // 1 second)
+
+ private:
   uint16_t InitialRotation;
   // Initial thrust of ship (0 = none)
   uint16_t InitialThrust;
   // Initial speed of ship (0 = can't move)
   uint16_t InitialSpeed;
+
+ public:
   // Initial recharge rate, or how quickly this ship recharges its energy
   uint16_t InitialRecharge;
   // Initial amount of energy that the ship can have
@@ -104,6 +156,8 @@ struct ShipSettings {
   int16_t TurretThrustPenalty;
   // Amount the ship's speed is decreased with a turret riding
   int16_t TurretSpeedPenalty;
+
+ private:
   // Delay that ship waits after a bullet is fired until another
   // weapon may be fired(in ticks)
   uint16_t BulletFireDelay;
@@ -116,6 +170,8 @@ struct ShipSettings {
   // Delay that ship waits after a mine is fired until another weapon
   // may be fired(in ticks)
   uint16_t LandmineFireDelay;
+
+ public:
   // How long a Rocket lasts (in ticks)
   uint16_t RocketTime;
   // Number of 'Greens' given to ships when they start
@@ -190,12 +246,6 @@ struct ShipSettings {
     uint32_t padding2 : 3;
   };
   unsigned char _padding[16];
-
-  float GetRadius() const {
-    int r = Radius == 0 ? 14 : Radius;
-
-    return r / 16.0f;
-  }
 };
 
 // Structure to define the starting coordinates for teams 0-3
@@ -255,7 +305,21 @@ struct PrizeWeightSettings {
   unsigned char Portal;
 };
 
-struct ClientSettings {
+class ClientSettings {
+ public:
+
+     float GetBulletAliveTime() const { return BulletAliveTime / 100.0f; }
+
+     float GetBombAliveTime() const { return BombAliveTime / 100.0f; }
+
+     float GetDecoyAliveTime() const { return DecoyAliveTime / 100.0f; }
+
+     float GetMineAliveTime() const { return MineAliveTime / 100.0f; }
+
+     float GetRepelTime() const { return RepelTime / 100.0f; }
+
+     float GetBombExplodePixels() const { return BombExplodePixels / 16.0f; }
+
   struct {
     unsigned int Type : 8;
     // Whether to use exact bullet damage
@@ -282,12 +346,16 @@ struct ClientSettings {
   int BulletDamageLevel;
   // Amount of damage a bomb causes at its center point (for all bomb levels)
   int BombDamageLevel;
+
+ private:
   // How long bullets live before disappearing (in ticks)
   int BulletAliveTime;
   // Time bomb is alive (in ticks)
   int BombAliveTime;
   // Time a decoy is alive (in ticks)
   int DecoyAliveTime;
+
+ public:
   // Amount of time that can be spent in the safe zone (in ticks)
   int SafetyLimit;
   // Amount of random frequency shift applied to sounds in the game
@@ -297,7 +365,11 @@ struct ClientSettings {
   // Speed at which players are repelled
   int RepelSpeed;
   // Time that mines are active (in ticks)
+
+ private:
   int MineAliveTime;
+
+ public:
   // Maximum amount of damage caused by a single burst bullet
   int BurstDamageLevel;
   // Amount of extra damage each bullet level will cause
@@ -330,8 +402,12 @@ struct ClientSettings {
   short SendPositionDelay;
   // Blast radius in pixels for an L1 bomb (L2 bombs double this, L3 bombs
   // triple this)
+
+ private:
   short BombExplodePixels;
   // How long the prize exists that appears after killing somebody
+
+ public:
   short DeathPrizeTime;
   // How long the screen jitters from a bomb hit (in ticks)
   short JitterTime;
@@ -355,8 +431,12 @@ struct ClientSettings {
   short MaxPenalty;
   //
   short RewardBase;
+
+ private:
   // Time players are affected by the repel (in ticks)
   short RepelTime;
+
+ public:
   // Number of pixels from the player that are affected by a repel
   short RepelDistance;
   // Amount of time between ticker help messages

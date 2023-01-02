@@ -61,13 +61,13 @@ struct Player {
     return Vector2f(x, y);
   }
 
-  Vector2f MultiFireDirection(uint16_t angle, bool leftside) const {
+  Vector2f MultiFireDirection(float angle, bool leftside) const {
     const float kToRads = (static_cast<float>(M_PI) / 180.0f);
 
     float rads = 0.0f;
 
     float headingrads = (((40 - (discrete_rotation + 30)) % 40) * 9.0f) * kToRads;
-    float multirads = ((float)angle / 111.1111111f) * kToRads;
+    float multirads = angle * kToRads;
 
     if (leftside) {
       rads = headingrads + multirads;

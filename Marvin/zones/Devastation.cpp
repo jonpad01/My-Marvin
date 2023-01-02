@@ -102,10 +102,8 @@ struct BaseSpawns {
 
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   BaseSpawns spawn;
-  float radius = bot.GetGame().GetSettings().ShipSettings[0].GetRadius();
+  float radius = bot.GetGame().GetShipSettings().GetRadius();
  
-  //bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), spawn.t0, radius);
-  //bot.GetRegions().CreateAll(bot.GetGame().GetMap(), radius);
   bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);
@@ -644,9 +642,8 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
           const Player& player = game.GetPlayers()[i];
 
           if (player.frequency > 01 && player.frequency < 100) {
-            float energy_pct =
-                (player.energy / (float)game.GetSettings().ShipSettings[player.ship].MaximumEnergy) * 100.0f;
-            if (energy_pct != 100.0f) {
+            float energy_pct = player.energy / game.GetShipSettings(player.ship).MaximumEnergy * 100.0f;
+            if (energy_pct < 100.0f) {
               g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
               return behavior::ExecuteResult::Failure;
             }
@@ -1055,7 +1052,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 }
 
 bool DevaMoveToEnemyNode::IsAimingAt(GameProxy& game, const Player& shooter, const Player& target, Vector2f* dodge) {
-  float proj_speed = game.GetShipSettings(shooter.ship).BulletSpeed / 10.0f / 16.0f;
+  float proj_speed = game.GetShipSettings(shooter.ship).GetBulletSpeed();
   float radius = game.GetShipSettings(target.ship).GetRadius() * 1.5f;
   Vector2f box_pos = target.position - Vector2f(radius, radius);
 

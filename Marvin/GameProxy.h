@@ -32,8 +32,8 @@ class Weapon {
   virtual Vector2f GetPosition() const = 0;
   virtual Vector2f GetVelocity() const = 0;
   virtual WeaponData GetData() const = 0;
-  virtual u32 GetAliveTicks() const = 0;
-  virtual u32 GetRemainingTicks() const = 0;
+  virtual float GetAliveMilliSeconds() const = 0;
+  virtual float GetRemainingMilliSeconds() const = 0;
   virtual s32 GetRemainingBounces() const = 0;
 
  inline bool IsMine() {
@@ -98,6 +98,7 @@ class GameProxy {
 
   virtual const float GetMaxEnergy() = 0;
   virtual const float GetRotation() = 0;
+  virtual const float GetRadius() = 0;
   virtual const float GetMaxSpeed() = 0;
   virtual const float GetMaxSpeed(u16 ship) = 0;
   virtual const float GetThrust() = 0;

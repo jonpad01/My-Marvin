@@ -4,6 +4,7 @@
 #include <cstring>
 #include <limits>
 
+#include "GlobalConstants.h"
 #include "Debug.h"
 #include "GameProxy.h"
 #include "Map.h"
@@ -65,16 +66,17 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
   }
 };
 
-std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string name) {
+std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string mapFile) {
   std::unique_ptr<BehaviorBuilder> builder;
 
   switch (zone) {
     case Zone::Devastation: {
-      marvin::debug_log << "Building Deva Bot" << std::endl;
-      if (name == "FrogBot") {
-        builder = std::make_unique<DefaultBehaviorBuilder>();
+      if (mapFile == DEVA_PUB_MAP) {
+        log.Write("Building Devastation behavior tree.");
+        builder = std::make_unique<deva::DevastationBehaviorBuilder>(); 
       } else {
-        builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+        log.Write("Building default behavior tree.");
+        builder = std::make_unique<DefaultBehaviorBuilder>();
       }
     } break;
     case Zone::ExtremeGames: {
@@ -105,52 +107,58 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time
 }
 
 void Bot::LoadBot() {
+  PerformanceTimer timer;
+  log.Write("LOADING BOT", timer.GetElapsedTime());
+
   srand((unsigned int)time_.GetTime());
-  radius_ = game_->GetShipSettings().GetRadius();
+  radius_ = game_->GetRadius();
+  log.Write("Ship Radius: " + std::to_string(radius_));
 
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
-  marvin::debug_log << "proccessor created" << std::endl;
-  
+  log.Write("Processor created", timer.GetElapsedTime());
+ 
   influence_map_ = std::make_unique<InfluenceMap>();
+  log.Write("Influence Map created", timer.GetElapsedTime());
   regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
-  
+  regions_->CreateAll(game_->GetMap(), radius_);
+  log.Write("Regions created", timer.GetElapsedTime());
+
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  marvin::debug_log << "pathfinder created" << std::endl;
+  log.Write("Pathfinder created", timer.GetElapsedTime());
+
   pathfinder_->CreateMapWeights(game_->GetMap());
+  log.Write("Map Weights created", timer.GetElapsedTime());
   pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
+  log.Write("Pathable Nodes created", timer.GetElapsedTime());
   Zone zone = game_->GetZone();
-  marvin::debug_log << "Zone " << game_->GetMapFile() << " found" << std::endl;
-  auto builder = CreateBehaviorBuilder(zone, game_->GetPlayer().name);
+  log.Write("Map " + game_->GetMapFile() + " found", timer.GetElapsedTime());
+  auto builder = CreateBehaviorBuilder(zone, game_->GetMapFile());
+  log.Write("Behavior Selected", timer.GetElapsedTime());
 
   ctx_.bot = this;
 
   this->behavior_ = builder->Build(*this);
+  log.Write("Behavior Built", timer.GetElapsedTime());
+  log.Write("BOT LOADED - TOTAL TIME", timer.TimeSinceConstruction());
 }
 
 void Bot::Update(float dt) {
+  PerformanceTimer timer;
   g_RenderState.debug_y = 30.0f;
 
   keys_.ReleaseAll();
 
-  // force the bot to wait until the regions are built
-  if (regions_->GetBuild() == true) {
-    regions_->UpdateCycledFill(game_->GetMap(), radius_);
-    return;
-  }
-
-  float radius = game_->GetShipSettings().GetRadius();
+  float radius = game_->GetRadius();
   int ship = game_->GetPlayer().ship;
-  PerformanceTimer timer;
-
-  if (game_->Update(dt) == NEW_MAP_DETECTED) {
+  
+  if (game_->Update(dt) == NEW_MAP_DETECTED || radius != radius_) {
     LoadBot();
     return;
   }
-
+ 
   g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
   steering_.Reset();
-
   ctx_.dt = dt;
 
   if (game_->GetZone() == Zone::Devastation) {
@@ -249,7 +257,6 @@ void Bot::FindPowerBallGoal() {
   powerball_goal_path_;
 
   float closest_distance = std::numeric_limits<float>::max();
-  int alive_time = game_->GetSettings().BombAliveTime;
 
   // player is in original
   if (game_->GetMapFile() == "powerlg.lvl") {
@@ -631,8 +638,8 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     }
 
     // TODO: look at target bomb speed and bouncing status
-    float alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
-    float player_bullet_speed = game.GetSettings().ShipSettings[player.ship].BulletSpeed / 10.0f / 16.0f;
+    float alive_time = game.GetSettings().GetBulletAliveTime();
+    float player_bullet_speed = game.GetShipSettings(player.ship).GetBulletSpeed();
 
     int player_node = (int)search->FindNearestNodeBFS(player.position);
     bool high_side = bot_node < player_node;
@@ -784,12 +791,12 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
     return behavior::ExecuteResult::Failure;
   }
 
-  enemy_bullet_speed_ = game.GetSettings().ShipSettings[enemy->ship].BulletSpeed / 10.0f / 16.0f;
-  alive_time_ = (float)game.GetSettings().BulletAliveTime / 100.0f;
+  enemy_bullet_speed_ = game.GetShipSettings(enemy->ship).GetBulletSpeed();
+  alive_time_ = game.GetSettings().GetBulletAliveTime();
   position_ = game.GetPosition();
   radius_ = game.GetShipSettings().GetRadius();
   float thrust = game.GetThrust();
-  enemy_radius_ = game.GetSettings().ShipSettings[enemy->ship].GetRadius();
+  enemy_radius_ = game.GetShipSettings(enemy->ship).GetRadius();
 
   base_path_ = ctx.bot->GetBasePath();
   search_ = path::PathNodeSearch::Create(*ctx.bot, base_path_, 100);
@@ -901,8 +908,8 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
 
     if (!IsValidTarget(*ctx.bot, player, is_anchor_)) continue;
 
-    float player_bullet_speed = game.GetSettings().ShipSettings[player.ship].BulletSpeed / 10.0f / 16.0f;
-    float player_radius = game.GetSettings().ShipSettings[player.ship].GetRadius();
+    float player_bullet_speed = game.GetShipSettings(player.ship).GetBulletSpeed();
+    float player_radius = game.GetShipSettings(player.ship).GetRadius();
 
     // players closest path node
     size_t player_node = search_->FindNearestNodeBFS(player.position);
@@ -976,8 +983,8 @@ void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, cons
 
     if (!player.active || !ctx.bot->GetRegions().IsConnected(player.position, position_)) continue;
 
-    float player_bullet_speed = game.GetSettings().ShipSettings[player.ship].BulletSpeed / 10.0f / 16.0f;
-    float player_radius = game.GetSettings().ShipSettings[player.ship].GetRadius();
+    float player_bullet_speed = game.GetShipSettings(player.ship).GetBulletSpeed();
+    float player_radius = game.GetShipSettings(player.ship).GetRadius();
 
     size_t player_node = search_->FindNearestNodeBFS(player.position);
     // use the enemy target for high side comparison
@@ -1191,14 +1198,14 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
     return behavior::ExecuteResult::Failure;
   }
 
-  float target_radius = game.GetSettings().ShipSettings[target->ship].GetRadius();
+  float target_radius = game.GetShipSettings(target->ship).GetRadius();
 
   ShotResult bResult =
       ctx.bot->GetShooter().BouncingBombShot(*ctx.bot, target->position, target->velocity, target_radius);
   ShotResult gResult =
       ctx.bot->GetShooter().BouncingBulletShot(*ctx.bot, target->position, target->velocity, target_radius);
 
-  float bomb_delay = (float)game.GetSettings().ShipSettings[game.GetPlayer().ship].BombFireDelay / 100.0f;
+  float bomb_delay = game.GetShipSettings().GetBombFireDelay();
   float bomb_timer = bb.ValueOr<float>("BombTimer", 0.0f);
   bomb_timer -= ctx.dt;
   if (bomb_timer < 0.0f) bomb_timer = 0.0f;
@@ -1232,12 +1239,12 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   const Player& target = *target_player;
   const Player& bot = game.GetPlayer();
 
-  float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
+  float target_radius = game.GetShipSettings(target.ship).GetRadius();
   float radius = game.GetShipSettings().GetRadius();
   Vector2f side = Perpendicular(bot.GetHeading());
 
-  float proj_speed = (float)game.GetSettings().ShipSettings[bot.ship].BulletSpeed / 10.0f / 16.0f;
-  float alive_time = (float)game.GetSettings().BulletAliveTime / 100.0f;
+  float proj_speed = (float)game.GetShipSettings(bot.ship).GetBulletSpeed();
+  float alive_time = (float)game.GetSettings().GetBulletAliveTime();
 
   Vector2f solution = target.position;
   bb.Set<Vector2f>("Solution", solution);
@@ -1251,7 +1258,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
   std::vector<Vector2f> positions;
 
-  if ((game.GetShipSettings().DoubleBarrel & 1) != 0) {
+  if (game.GetShipSettings().HasDoubleBarrel()) {
     positions.push_back(bot.position + side * radius * 0.8f);
     positions.push_back(bot.position - side * radius * 0.8f);
   } else {
@@ -1274,13 +1281,13 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
     if (onBomb) {
       // safe bomb distance
       if (bot.position.Distance(target.position) <
-          ((((float)game.GetSettings().BombExplodePixels * (float)(game.GetShipSettings().MaxBombs & 3)) / 16.0f) +
+          (((game.GetSettings().GetBombExplodePixels() * game.GetShipSettings().GetMaxBombs())) +
            target_radius)) {
         continue;
       }
       weapon_key = VK_TAB;
-      proj_speed = game.GetSettings().ShipSettings[bot.ship].BombSpeed / 10.0f / 16.0f;
-      alive_time = ((float)game.GetSettings().BombAliveTime / 100.0f);
+      proj_speed = game.GetShipSettings(bot.ship).GetBombSpeed();
+      alive_time = game.GetSettings().GetBombAliveTime();
       radius_multiplier = 1.0f;
     }
 
@@ -1331,9 +1338,9 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
         if (game.GetPlayer().multifire_status) {
           if (i == iSize - 2) {
-            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, true);
+            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), true);
           } else if (i == iSize - 3) {
-            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().MultiFireAngle, false);
+            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), false);
           }
         }
 
@@ -1358,13 +1365,12 @@ bool ShootEnemyNode::PreferGuns(behavior::ExecuteContext& ctx) {
 
   bool use_guns = false;
 
-  float bomb_dps = ((float)game.GetShipSettings().BombFireDelay / 100.0f) * (float)game.GetSettings().BombDamageLevel;
+  float bomb_dps = game.GetShipSettings().GetBombFireDelay() * game.GetSettings().BombDamageLevel;
 
-  float gun_damage = ((float)game.GetSettings().BulletDamageLevel +
-                      ((float)(game.GetShipSettings().MaxGuns & 3) * ((float)game.GetSettings().BulletDamageUpgrade)));
-  float gun_dps = ((float)game.GetShipSettings().BulletFireDelay / 100.0f) * gun_damage;
+  float gun_damage = game.GetSettings().BulletDamageLevel + game.GetShipSettings().GetMaxGuns() * game.GetSettings().BulletDamageUpgrade;
+  float gun_dps = game.GetShipSettings().GetBulletFireDelay() * gun_damage;
 
-  if (game.GetShipSettings().DoubleBarrel == 1 || bomb_dps < gun_dps) {
+  if (game.GetShipSettings().HasDoubleBarrel() || bomb_dps < gun_dps) {
     use_guns = true;
   }
   return use_guns;

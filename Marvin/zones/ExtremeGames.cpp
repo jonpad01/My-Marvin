@@ -18,12 +18,6 @@ namespace eg {
 
 void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
 
-    Path seed_point{Vector2f(512, 512)};
-
-    // only create a region for center because the other method wasnt working
-    bot.GetRegions().CreateRegions(bot.GetGame().GetMap(), seed_point, 0.875f);
-    marvin::debug_log << "regions created" << std::endl;
-
   uint16_t ship = bot.GetGame().GetPlayer().ship;
 
     if (ship == 8) {
@@ -338,8 +332,8 @@ behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 float FindEnemyNode::CalculateCost(GameProxy& game, const Player& bot_player, const Player& target) {
   float dist = bot_player.position.Distance(target.position);
   // How many seconds it takes to rotate 180 degrees
-  float rotate_speed = game.GetShipSettings().InitialRotation / 200.0f;            // MaximumRotation
-  float move_cost = dist / (game.GetShipSettings().InitialSpeed / 10.0f / 16.0f);  // MaximumSpeed
+  float rotate_speed = game.GetShipSettings().GetInitialRotation();       // MaximumRotation
+  float move_cost = dist / game.GetShipSettings().GetInitialSpeed();  // MaximumSpeed
   Vector2f direction = Normalize(target.position - bot_player.position);
   float dot = std::abs(bot_player.GetHeading().Dot(direction) - 1.0f) / 2.0f;
   float rotate_cost = std::abs(dot) * rotate_speed;
@@ -523,7 +517,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
       }
     }
   } else {
-    float target_radius = game.GetSettings().ShipSettings[target_player->ship].GetRadius();
+    float target_radius = game.GetShipSettings(target_player->ship).GetRadius();
     bool shoot = false;
     bool bomb_hit = false;
     Vector2f wall_pos;
@@ -558,9 +552,9 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
 
   const Player& bot_player = game.GetPlayer();
 
-  float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
+  float target_radius = game.GetShipSettings(target.ship).GetRadius();
   float radius = game.GetShipSettings().GetRadius();
-  float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
+  float proj_speed = game.GetShipSettings(bot_player.ship).GetBulletSpeed();
 
   ShotResult result = ctx.bot->GetShooter().CalculateShot(game.GetPosition(), target.position, bot_player.velocity,
                                                           target.velocity, proj_speed);
@@ -592,7 +586,7 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
   Vector2f norm;
   bool rHit = false;
 
-  if ((game.GetShipSettings().DoubleBarrel & 1) != 0) {
+  if (game.GetShipSettings().HasDoubleBarrel()) {
     Vector2f side = Perpendicular(bot_player.GetHeading());
 
     bool rHit1 = FloatingRayBoxIntersect(bot_player.position + side * radius, bot_player.GetHeading(), result.solution,
@@ -632,7 +626,7 @@ behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) 
   auto& game = ctx.bot->GetGame();
   const Player& bot_player = game.GetPlayer();
 
-  float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BombSpeed / 10.0f / 16.0f;
+  float proj_speed = game.GetShipSettings(bot_player.ship).GetBombSpeed();
   bool has_shot = false;
 
   ShotResult result = ctx.bot->GetShooter().CalculateShot(game.GetPosition(), target.position, bot_player.velocity,
@@ -650,7 +644,7 @@ behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) 
   //  RenderText("bomb speed  " + std::to_string(proj_speed), GetWindowCenter() - Vector2f(0, 60), RGB(100, 100, 100),
   //  RenderText_Centered);
 
-  float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
+  float target_radius = game.GetShipSettings(target.ship).GetRadius();
 
   float radius_multiplier = 1.0f;
 
@@ -735,7 +729,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 }
 
 bool MoveToEnemyNode::IsAimingAt(GameProxy& game, const Player& shooter, const Player& target, Vector2f* dodge) {
-  float proj_speed = game.GetShipSettings(shooter.ship).BulletSpeed / 10.0f / 16.0f;
+  float proj_speed = game.GetShipSettings(shooter.ship).GetBulletSpeed();
   float radius = game.GetShipSettings(target.ship).GetRadius() * 1.5f;
   Vector2f box_pos = target.position - Vector2f(radius, radius);
 

@@ -10,6 +10,7 @@
 #include "platform/ContinuumGameProxy.h"
 #include "Bot.h"
 #include "Debug.h"
+#include "Time.h"
 #include "KeyController.h"
 
 
@@ -180,26 +181,21 @@ std::string CreateBot() {
   // create pointer to game and pass the window handle
   game = std::make_shared<marvin::ContinuumGameProxy>(g_hWnd);
   auto game2(game);
-
-  marvin::debug_log << "Starting Marvin." << std::endl;
  
   bot = std::make_unique<marvin::Bot>(std::move(game2));
-
-  marvin::debug_log << "Bot created." << std::endl;
   
   return game->GetName();
 }
 
 /* there are limitations on what win32 calls/actions can be made inside of this funcion call (DLLMain) */
 extern "C" __declspec(dllexport) void InitializeMarvin() {
+  marvin::PerformanceTimer timer; 
   
-
  std::string name = CreateBot();
+ marvin::log.Write("INITIALIZE MARVIN - NEW TIMER", timer.GetElapsedTime());
 
  kEnabledText = kEnabledText + name; 
- kDisabledText = kDisabledText + name;
-
-  marvin::debug_log << "Bot Created." << std::endl;
+ kDisabledText = kDisabledText + name; 
 
   u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
   LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
@@ -220,16 +216,16 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 #endif
   DetourTransactionCommit();
 
-   marvin::debug_log << "Detours attached." << std::endl;
+  marvin::log.Write("Detours attached.", timer.GetElapsedTime());
 
      SafeSetWindowText(g_hWnd, kEnabledText.c_str());
 
-     marvin::debug_log << "Window Text changed." << std::endl;
 
-  marvin::debug_log << "Marvin started successfully." << std::endl;
+  marvin::log.Write("FINISH INITIALIZE MARVIN - TOTAL TIME", timer.TimeSinceConstruction());
 }
 
 extern "C" __declspec(dllexport) void CleanupMarvin() {
+  marvin::log.Write("CLEANUP MARVIN.");
   DetourTransactionBegin();
   DetourUpdateThread(GetCurrentThread());
   DetourDetach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
@@ -241,14 +237,8 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourTransactionCommit();
 
   SafeSetWindowText(g_hWnd, "Continuum");
-
-  marvin::debug_log << "Shutting down Marvin." << std::endl;
-
   bot = nullptr;
-
-  marvin::debug_log.close();
-  marvin::memory_log.close();
-  marvin::error_log.close();
+  marvin::log.Write("CLEANUP MARVIN FINISHED.");
 }
 
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {

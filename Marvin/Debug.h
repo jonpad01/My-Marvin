@@ -8,14 +8,14 @@
 #include "platform/Platform.h"
 
 #define DEBUG_RENDER 1
-#define DEBUG_USER_CONTROL 1
+#define DEBUG_USER_CONTROL 0
 
 #define DEBUG_RENDER_BASE_PATHS 0
 
 #define DEBUG_RENDER_INFLUENCE 0
 #define DEBUG_RENDER_INFLUENCE_TEXT 0
 
-#define DEBUG_RENDER_REGION_REGISTRY 1
+#define DEBUG_RENDER_REGION_REGISTRY 0
 #define DEBUG_RENDER_PATHFINDER 0
 #define DEBUG_RENDER_PATHNODESEARCH 0
 
@@ -29,9 +29,33 @@ extern HWND g_hWnd;
 
 namespace marvin {
 
-extern std::ofstream debug_log;
-extern std::ofstream error_log;
-extern std::ofstream memory_log;
+class LogFile {
+ public:
+     ~LogFile() { 
+         log.close(); 
+     }
+  void Open(const std::string& name) {
+    if (!log.is_open()) {
+      log.open(name + ".log", std::ios::out | std::ios::trunc);
+    }
+  }
+  void Write(const std::string& msg, uint64_t timer) {
+    if (log.is_open()) {
+      log << msg << " - Time: " << timer << std::endl;
+    }
+  }
+  void Write(const std::string& msg) {
+    if (log.is_open()) {
+      log << msg << std::endl;
+    } 
+  }
+
+ private:
+  std::ofstream log;
+};
+
+//extern std::ofstream debug_log;
+extern LogFile log;
 
 enum class TextColor { White, Green, Blue, Red, Yellow, Fuchsia, DarkRed, Pink };
 

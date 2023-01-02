@@ -45,11 +45,14 @@ class Time {
 
 struct PerformanceTimer {
   u64 begin_time;
+  u64 last_update_time;
 
   PerformanceTimer();
 
   // Returns elapsed time and resets begin time
   u64 GetElapsedTime();
+  // Returns elapsed time since this timer was created
+  u64 TimeSinceConstruction();
 };
 
 }  // namespace marvin

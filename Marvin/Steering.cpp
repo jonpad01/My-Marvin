@@ -18,7 +18,7 @@ float GetCurrentSpeed(GameProxy& game) {
 
 // Context sensitive max speed to handle wormhole increases
 float GetMaxSpeed(GameProxy& game) {
-  float speed = game.GetShipSettings().InitialSpeed / 10.0f / 16.0f;
+  float speed = game.GetShipSettings().GetInitialSpeed();
 
   if (GetCurrentSpeed(game) > speed) {
     speed = std::abs(speed + game.GetShipSettings().GravityTopSpeed);

@@ -16,6 +16,15 @@ using TileData = std::vector<TileId>;
 
 constexpr TileId kSafeTileId = 171;
 
+struct OccupyRect {
+  bool occupy;
+
+  u16 start_x;
+  u16 start_y;
+  u16 end_x;
+  u16 end_y;
+};
+
 class Map {
  public:
   Map(const TileData& tile_data);
@@ -25,6 +34,12 @@ class Map {
   bool IsSolid(const Vector2f& position) const;
   TileId GetTileId(u16 x, u16 y) const;
   TileId GetTileId(const Vector2f& position) const;
+
+  // Checks if the ship can go from one tile directly to another.
+  bool CanTraverse(const Vector2f& start, const Vector2f& end, float radius) const;
+  bool CanOverlapTile(const Vector2f& position, float radius) const;
+  // Returns a possible rect that creates an occupiable area that contains the tested position.
+  OccupyRect GetPossibleOccupyRect(const Vector2f& position, float radius) const;
 
   bool CanOccupy(const Vector2f& position, float radius) const;
   bool CanOccupyRadius(const Vector2f& position, float radius) const;

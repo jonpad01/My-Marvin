@@ -17,42 +17,30 @@ Last fix:  reading multifire status and item counts on other players was not the
 namespace marvin {
 
 ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
-  LoadGame();
-}
-
-void ContinuumGameProxy::LoadGame() {
 
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
   module_base_menu_ = process_.GetModuleBase("menu040.dll");
   player_id_ = 0xFFFF;
-
-  //these files probably get opened again if the LoadGame member ever gets called multiple times, need a better method
-  marvin::debug_log.open(GetName() + ".log", std::ios::out | std::ios::trunc);
-  marvin::memory_log.open(GetName() + " memory list.log", std::ios::out | std::ios::trunc);
-  marvin::error_log.open(GetName() + " error list.log", std::ios::out | std::ios::app);
-
-  marvin::debug_log << "Log file created." << std::endl;
-
   game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
 
-  marvin::debug_log << "Game address read." << std::endl;
+  log.Open(GetName());
+  log.Write("Log file created.");
 
+  LoadGame();
+}
+
+void ContinuumGameProxy::LoadGame() {
+  PerformanceTimer timer;
+  log.Write("LOADING GAME.", timer.GetElapsedTime());
   position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
 
   mapfile_path_ = GetServerFolder() + "\\" + GetMapFile();
-
-  marvin::debug_log << "Server folder found." << std::endl;
-
   map_ = Map::Load(mapfile_path_);
-
-  marvin::debug_log << "Map loaded." << std::endl;
+  log.Write("Map loaded: " + mapfile_path_, timer.GetElapsedTime());
 
   SetZone();
-  marvin::debug_log << "fetching players." << std::endl;
   FetchPlayers();
-  marvin::debug_log << "players fetched." << std::endl; 
-  LogMemoryLocations();
- 
+  log.Write("Players fetched.", timer.GetElapsedTime());
 
   // Skip over existing messages on load
   u32 chat_base_addr = game_addr_ + 0x2DD08;
@@ -64,6 +52,7 @@ void ContinuumGameProxy::LoadGame() {
       player_ = &player;
     }
   }
+  log.Write("Game Loaded. TOTAL TIME", timer.TimeSinceConstruction());
 }
 
 bool ContinuumGameProxy::Update(float dt) {
@@ -74,6 +63,8 @@ bool ContinuumGameProxy::Update(float dt) {
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
   if (mapfile_path_ != map_file_path) {
+    log.Write("New map file detected.");
+    log.Write("Old map - " + mapfile_path_ + "  New map - " + map_file_path);
     LoadGame();
     return false;
   }
@@ -345,36 +336,36 @@ void ContinuumGameProxy::FetchWeapons() {
     WeaponMemory* data = (WeaponMemory*)(weapon_data);
     WeaponType type = data->data.type;
 
-    u32 total_ticks = 0;
+    float total_milliseconds = 0.0f;
 
     switch (type) {
       case WeaponType::Bomb:
       case WeaponType::ProximityBomb:
       case WeaponType::Thor: {
-        total_ticks = this->GetSettings().BombAliveTime;
+        total_milliseconds = this->GetSettings().GetBombAliveTime();
         if (data->data.alternate) {
-          total_ticks = this->GetSettings().MineAliveTime;
+          total_milliseconds = this->GetSettings().GetMineAliveTime();
         }
       } break;
       case WeaponType::Burst:
       case WeaponType::Bullet:
       case WeaponType::BouncingBullet: {
-        total_ticks = this->GetSettings().BulletAliveTime;
+        total_milliseconds = this->GetSettings().GetBulletAliveTime();
       } break;
       case WeaponType::Repel: {
-        total_ticks = this->GetSettings().RepelTime;
+        total_milliseconds = this->GetSettings().GetRepelTime();
       } break;
       case WeaponType::Decoy: {
-        total_ticks = this->GetSettings().DecoyAliveTime;
+        total_milliseconds = this->GetSettings().GetDecoyAliveTime();
       } break;
       default: {
-        total_ticks = this->GetSettings().BulletAliveTime;
+        total_milliseconds = this->GetSettings().GetBulletAliveTime();
       } break;
     }
-    u32 alive_ticks = data->alive_ticks;
-    if (alive_ticks > total_ticks) alive_ticks = total_ticks;
+    float alive_milliseconds = data->alive_ticks / 100.0f;
+    if (alive_milliseconds > total_milliseconds) alive_milliseconds = total_milliseconds;
 
-    weapons_.emplace_back(data, total_ticks - alive_ticks);
+    weapons_.emplace_back(data, total_milliseconds - alive_milliseconds);
   }
 }
 
@@ -448,11 +439,22 @@ const ClientSettings& ContinuumGameProxy::GetSettings() const {
   return *reinterpret_cast<ClientSettings*>(addr);
 }
 
+// there are no ship settings for spectators
 const ShipSettings& ContinuumGameProxy::GetShipSettings() const {
-  return GetSettings().ShipSettings[player_->ship];
+  int ship = player_->ship;
+
+  if (ship < 0 || ship > 7) {
+    ship = 0;
+  }
+  return GetSettings().ShipSettings[ship];
 }
 
+// there are no ship settings for spectators
 const ShipSettings& ContinuumGameProxy::GetShipSettings(int ship) const {
+  if (ship < 0 || ship > 7) {
+    ship = 0;
+  }
+
   return GetSettings().ShipSettings[ship];
 }
 
@@ -553,25 +555,29 @@ const float ContinuumGameProxy::GetMaxSpeed(u16 ship) {
   float speed = 0.0f;
   switch (zone_) {
     case Zone::Devastation: {
-      speed = GetSettings().ShipSettings[ship].MaximumSpeed / 10.0f / 16.0f;
+      speed = GetShipSettings(ship).GetMaximumSpeed();
       break;
     }
     default:
-      speed = GetSettings().ShipSettings[ship].MaximumSpeed / 10.0f / 16.0f;
+      speed = GetShipSettings(ship).GetMaximumSpeed();
   }
   return speed;
 }
 
 const float ContinuumGameProxy::GetRotation() {
-  float rotation = (float)GetShipSettings().InitialRotation / 200.0f;
+  float rotation = GetShipSettings().GetInitialRotation();
 
   if (zone_ == Zone::Devastation) {
-    rotation = (float)GetShipSettings().MaximumRotation / 200.0f;
+    rotation = GetShipSettings().GetMaximumRotation();
   }
 
   //float rotation = (float)ship_status_.rotation / 200.0f;
 
   return rotation;
+}
+
+const float ContinuumGameProxy::GetRadius() {
+  return GetShipSettings().GetRadius();
 }
 
 const uint64_t ContinuumGameProxy::GetRespawnTime() {
@@ -776,35 +782,4 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
   }
   #endif
 }
-
-void ContinuumGameProxy::LogMemoryLocations() {
-  
-    marvin::memory_log << "A list of memory addresses read by Marvin." << std::endl;
-
-
-  marvin::memory_log << "Module Base: - " << module_base_continuum_ << std::endl;
-  marvin::memory_log << "Module Base Menu: - " << module_base_menu_ << std::endl;
-  marvin::memory_log << "Game Address: - " << game_addr_ << std::endl;
-  marvin::memory_log << "Position Data: - " << game_addr_ + 0x126BC << std::endl;
-
-  std::size_t base_addr = game_addr_ + 0x127EC;
-  marvin::memory_log << "Base Address: - " << game_addr_ << std::endl;
-  std::size_t players_addr = base_addr + 0x884;
-  marvin::memory_log << "Players Address: - " << players_addr << std::endl;
-  std::size_t count_addr = base_addr + 0x1884;
-  marvin::memory_log << "Count Address: - " << count_addr << std::endl;
-
-  std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
-
-  for (std::size_t i = 0; i < count; ++i) {
-    std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
-    if (!player_addr) continue;
-    marvin::memory_log << "Player Address: - " << player_addr << std::endl;
-    for (std::size_t i = 0; i < offsets_.size(); i++) {
-      marvin::memory_log << offset_titles_[i] << " - " << player_addr + offsets_[i] << std::endl;
-    }
-  }
-
-}
-
 }  // namespace marvin
