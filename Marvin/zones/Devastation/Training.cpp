@@ -62,7 +62,7 @@ namespace training {
 
   behavior::ExecuteResult TemplateNode::Execute(behavior::ExecuteContext& ctx) {
 
-      if (ctx.bot->GetTime().TimedActionDelay("templatenode", 1000)) {
+      if (ctx.bot->GetTime().TimedActionDelay("templatenode", 6000)) {
       ctx.bot->GetGame().SendChatMessage("Template node is running");
       }
 
