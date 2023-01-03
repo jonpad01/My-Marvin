@@ -19,6 +19,9 @@ namespace training {
 
 
   void TrainingBehaviorBuilder::CreateBehavior(Bot& bot) {
+
+    auto template_node = std::make_unique<TemplateNode>();
+
     auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
 
     auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
@@ -40,11 +43,12 @@ namespace training {
     auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get());
 
     auto root_sequence =
-        std::make_unique<behavior::SequenceNode>(respawn_check_.get(), commands_.get(), set_ship_.get(),
+        std::make_unique<behavior::SequenceNode>(template_node, respawn_check_.get(), commands_.get(), set_ship_.get(),
                                                  set_freq_.get(), ship_check_.get(), action_selector.get());
 
     engine_->PushRoot(std::move(root_sequence));
 
+    engine_->PushNode(std::move(template_node));
     engine_->PushNode(std::move(move_to_enemy));
     engine_->PushNode(std::move(move_method_selector));
     engine_->PushNode(std::move(los_weapon_selector));
@@ -55,5 +59,17 @@ namespace training {
     engine_->PushNode(std::move(find_enemy_in_center_sequence));
     engine_->PushNode(std::move(action_selector));
   }
+
+  behavior::ExecuteResult TemplateNode::Execute(behavior::ExecuteContext& ctx) {
+
+      if (ctx.bot->GetTime().TimedActionDelay("templatenode", 1000)) {
+      ctx.bot->GetGame().SendChatMessage("Template node is running");
+      }
+
+    return behavior::ExecuteResult::Success;
+    return behavior::ExecuteResult::Failure;
+  }
+
+
 }  // namespace training
 }  // namespace marvin

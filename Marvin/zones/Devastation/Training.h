@@ -22,5 +22,13 @@ class TrainingBehaviorBuilder : public BehaviorBuilder {
  public:
   void CreateBehavior(Bot& bot);
 };
+
+class TemplateNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+};
+
 }  // namespace training
 }  // namespace marvin
