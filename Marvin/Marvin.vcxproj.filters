@@ -63,7 +63,7 @@
     <ClCompile Include="Debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="zones\Devastation.cpp">
+    <ClCompile Include="zones\Devastation\Devastation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Common.cpp">
@@ -82,6 +82,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="zones\ExtremeGames.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="zones\Devastation\Training.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -155,7 +158,7 @@
     <ClInclude Include="Debug.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="zones\Devastation.h">
+    <ClInclude Include="zones\Devastation\Devastation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">
@@ -219,6 +222,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GlobalConstants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Devastation\Training.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

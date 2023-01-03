@@ -153,7 +153,7 @@
     <ClCompile Include="commands\CommandSystem.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
-    <ClCompile Include="zones\Devastation.cpp" />
+    <ClCompile Include="zones\Devastation\Devastation.cpp" />
     <ClCompile Include="InfluenceMap.cpp" />
     <ClCompile Include="KeyController.cpp" />
     <ClCompile Include="Map.cpp" />
@@ -168,6 +168,7 @@
     <ClCompile Include="Steering.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="zones\ExtremeGames.cpp" />
+    <ClCompile Include="zones\Devastation\Training.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="behavior\BehaviorEngine.h" />
@@ -192,7 +193,7 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="GlobalConstants.h" />
-    <ClInclude Include="zones\Devastation.h" />
+    <ClInclude Include="zones\Devastation\Devastation.h" />
     <ClInclude Include="Hash.h" />
     <ClInclude Include="InfluenceMap.h" />
     <ClInclude Include="KeyController.h" />
@@ -214,6 +215,7 @@
     <ClInclude Include="Types.h" />
     <ClInclude Include="Vector2f.h" />
     <ClInclude Include="zones\ExtremeGames.h" />
+    <ClInclude Include="zones\Devastation\Training.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <ItemGroup>

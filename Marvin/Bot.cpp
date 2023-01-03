@@ -14,12 +14,13 @@
 #include "platform/ContinuumGameProxy.h"
 #include "platform/Platform.h"
 
-#include "zones/Devastation.h"
+#include "zones/Devastation/Devastation.h"
 #include "zones/ExtremeGames.h"
 #include "zones/GalaxySports.h"
 #include "zones/Hockey.h"
 #include "zones/Hyperspace.h"
 #include "zones/PowerBall.h"
+#include "zones/Devastation/Training.h"
 
 #define NEW_MAP_DETECTED 0
 
@@ -74,6 +75,9 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string ma
       if (mapFile == DEVA_PUB_MAP) {
         log.Write("Building Devastation behavior tree.");
         builder = std::make_unique<deva::DevastationBehaviorBuilder>(); 
+      } else if (mapFile == TRAINING_MAP) {
+        log.Write("Building Training behavior tree.");
+        builder = std::make_unique<training::TrainingBehaviorBuilder>(); 
       } else {
         log.Write("Building default behavior tree.");
         builder = std::make_unique<DefaultBehaviorBuilder>();

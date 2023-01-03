@@ -4,15 +4,15 @@
 #include <cstring>
 #include <limits>
 
-#include "../Bot.h"
-#include "../Debug.h"
-#include "../GameProxy.h"
-#include "../Map.h"
-#include "../RayCaster.h"
-#include "../RegionRegistry.h"
-#include "../Shooter.h"
-#include "../platform/ContinuumGameProxy.h"
-#include "../platform/Platform.h"
+#include "../../Bot.h"
+#include "../../Debug.h"
+#include "../../GameProxy.h"
+#include "../../Map.h"
+#include "../../RayCaster.h"
+#include "../../RegionRegistry.h"
+#include "../../Shooter.h"
+#include "../../platform/ContinuumGameProxy.h"
+#include "../../platform/Platform.h"
 
 namespace marvin {
 namespace deva {
