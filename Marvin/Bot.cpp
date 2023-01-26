@@ -90,7 +90,7 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string ma
       //builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
     } break;
     case Zone::Hockey: {
-     // builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+      builder = std::make_unique<hz::HockeyBehaviorBuilder>();
     } break;
     case Zone::Hyperspace: {
      // builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();

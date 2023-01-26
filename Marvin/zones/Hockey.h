@@ -62,7 +62,7 @@ class FollowPathNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
-  bool CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to);
+  bool CanMoveBetween(Bot& bot, Vector2f from, Vector2f to);
 };
 
 class InLineOfSightNode : public behavior::BehaviorNode {

@@ -169,6 +169,7 @@
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="zones\ExtremeGames.cpp" />
     <ClCompile Include="zones\Devastation\Training.cpp" />
+    <ClCompile Include="zones\Hockey.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="behavior\BehaviorEngine.h" />
@@ -216,6 +217,7 @@
     <ClInclude Include="Vector2f.h" />
     <ClInclude Include="zones\ExtremeGames.h" />
     <ClInclude Include="zones\Devastation\Training.h" />
+    <ClInclude Include="zones\Hockey.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <ItemGroup>

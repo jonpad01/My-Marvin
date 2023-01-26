@@ -136,8 +136,8 @@ behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 float FindEnemyNode::CalculateCost(GameProxy& game, const Player& bot_player, const Player& target) {
   float dist = bot_player.position.Distance(target.position);
   // How many seconds it takes to rotate 180 degrees
-  float rotate_speed = game.GetShipSettings().InitialRotation / 200.0f;            // MaximumRotation
-  float move_cost = dist / (game.GetShipSettings().InitialSpeed / 10.0f / 16.0f);  // MaximumSpeed
+  float rotate_speed = game.GetShipSettings().GetInitialRotation();       // MaximumRotation
+  float move_cost = dist / game.GetShipSettings().GetInitialSpeed();  // MaximumSpeed
   Vector2f direction = Normalize(target.position - bot_player.position);
   float dot = std::abs(bot_player.GetHeading().Dot(direction) - 1.0f) / 2.0f;
   float rotate_cost = std::abs(dot) * rotate_speed;
@@ -179,7 +179,7 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   Vector2f bot = game.GetPosition();
   Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
 
-  path = ctx.bot->GetPathfinder().CreatePath(path, bot, enemy, game.GetShipSettings().GetRadius());
+  path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, bot, enemy, game.GetShipSettings().GetRadius());
 
   ctx.blackboard.Set("path", path);
   return behavior::ExecuteResult::Success;
@@ -214,7 +214,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
                     else path = CreatePath(ctx, "path", from, goal_0, game.GetShipSettings().GetRadius());
                 }
 #endif
-    path = ctx.bot->GetPathfinder().CreatePath(path, from, goal_0, game.GetShipSettings().GetRadius());
+    path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, goal_0, game.GetShipSettings().GetRadius());
 
     if (game.GetPosition().DistanceSq(goal_1) < 25.0f * 25.0f ||
         game.GetPosition().DistanceSq(goal_0) < 25.0f * 25.0f) {
@@ -222,7 +222,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
     }
 
   } else
-    path = ctx.bot->GetPathfinder().CreatePath(path, from, ball->position, game.GetShipSettings().GetRadius());
+    path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, ball->position, game.GetShipSettings().GetRadius());
 
 #if 0
             std::vector<Vector2f> nodes{ Vector2f(570, 540), Vector2f(455, 540), Vector2f(455, 500), Vector2f(570, 500) };
@@ -262,7 +262,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
-  while (path.size() > 1 && CanMoveBetween(game, game.GetPosition(), path.at(1))) {
+  while (path.size() > 1 && CanMoveBetween(*ctx.bot, game.GetPosition(), path.at(1))) {
     path.erase(path.begin());
     current = path.front();
   }
@@ -280,19 +280,15 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   return behavior::ExecuteResult::Success;
 }
 
-bool FollowPathNode::CanMoveBetween(GameProxy& game, Vector2f from, Vector2f to) {
+bool FollowPathNode::CanMoveBetween(Bot& bot, Vector2f from, Vector2f to) {
   Vector2f trajectory = to - from;
   Vector2f direction = Normalize(trajectory);
   Vector2f side = Perpendicular(direction);
 
   float distance = from.Distance(to);
-  float radius = game.GetShipSettings().GetRadius();
+  float radius = bot.GetGame().GetShipSettings().GetRadius();
 
-  CastResult center = RayCast(game.GetMap(), from, direction, distance);
-  CastResult side1 = RayCast(game.GetMap(), from + side * radius, direction, distance);
-  CastResult side2 = RayCast(game.GetMap(), from - side * radius, direction, distance);
-
-  return !center.hit && !side1.hit && !side2.hit;
+  return !RadiusRayCastHit(bot, from, to, radius);
 }
 
 behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
@@ -304,7 +300,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
   auto& game = ctx.bot->GetGame();
 
   auto to_target = target->position - game.GetPosition();
-  CastResult ray_cast = RayCast(game.GetMap(), game.GetPosition(), Normalize(to_target), to_target.Length());
+  CastResult ray_cast = SolidRayCast(*ctx.bot, game.GetPosition(), target->position);
 
   if (!ray_cast.hit) {
     result = behavior::ExecuteResult::Success;
@@ -327,7 +323,7 @@ behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ct
 
   float target_radius = game.GetSettings().ShipSettings[target.ship].GetRadius();
   float radius = game.GetShipSettings().GetRadius();
-  float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].BulletSpeed / 10.0f / 16.0f;
+  float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].GetBulletSpeed();
 
   ShotResult result = ctx.bot->GetShooter().CalculateShot(game.GetPosition(), target.position, bot_player.velocity,
                                                           target.velocity, proj_speed);
@@ -416,13 +412,13 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   ctx.bot->Move(target_position, hover_distance);
 
-  ctx.bot->GetSteering().Face(target_position);
+  ctx.bot->GetSteering().Face(*ctx.bot, target_position);
 
   return behavior::ExecuteResult::Success;
 }
 
 bool MoveToEnemyNode::IsAimingAt(GameProxy& game, const Player& shooter, const Player& target, Vector2f* dodge) {
-  float proj_speed = game.GetShipSettings(shooter.ship).BulletSpeed / 10.0f / 16.0f;
+  float proj_speed = game.GetShipSettings(shooter.ship).GetBulletSpeed();
   float radius = game.GetShipSettings(target.ship).GetRadius() * 1.5f;
   Vector2f box_pos = target.position - Vector2f(radius, radius);
 
