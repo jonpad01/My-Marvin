@@ -14,17 +14,21 @@
 
 #include <Windows.h>
 
-namespace marvin {
+namespace marvin 
+{
 
- struct WindowInfo {
+ struct WindowInfo 
+ {
   DWORD pid;
   HWND hwnd;
   std::string title;
 };
 
-class AutoBot {
+class AutoBot 
+{
  public:
   AutoBot();
+  AutoBot(int startup_arg);
  
   void StartBot(int bots);
   DWORD StartBot(std::size_t index);
@@ -36,12 +40,15 @@ class AutoBot {
   bool WaitForWindowState(HWND hwnd, std::string title, int state, int timeout);
   bool FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pid, int timeout);
   void FetchWindows();
+  void CloseContinuumWindows();
+  void CloseErrorWindows();
+  void CloseWindow(const char* name);
   void TerminateCont(HANDLE handle);
 
  private:
   std::vector<WindowInfo> windows_;
   std::vector<DWORD> pids_;
-
+  int num_bots_;
   int window_state_;
 };
 

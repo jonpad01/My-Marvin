@@ -5,49 +5,74 @@
 #include "Process.h"
 #include "Debug.h"
 
-namespace marvin {
+namespace marvin 
+{
 
 
-AutoBot::AutoBot() : pids_() {
-  int numBots = 0;
+AutoBot::AutoBot() : pids_() 
+{
+  num_bots_ = 0;
 
   std::cout << "How Many Bots?" << std::endl;
-  std::cin >> numBots;
+  std::cin >> num_bots_;
 
- while (numBots < 1 || numBots > 50 || !std::cin) {
+ while (num_bots_ < 1 || num_bots_ > 50 || !std::cin) 
+ {
     if (!std::cin) {
       std::cin.clear();
       std::cin.ignore(10000, '\n');
     }
     std::cout << "Input is range 1-50" << std::endl;
-    std::cin >> numBots;
+    std::cin >> num_bots_;
  }
 
   window_state_ = 6;
 
+  CloseErrorWindows();
+  CloseContinuumWindows();
+  StartBot(num_bots_);
+
+  std::cout << "Bot starting loop has finished, this process will monitor and restart bots that get disconected." << std::endl;
+};
+
+AutoBot::AutoBot(int startup_arg) : pids_() 
+{
+  num_bots_ = startup_arg;
+  window_state_ = 6;
+  CloseErrorWindows();
+  CloseContinuumWindows();
+  StartBot(num_bots_);
+}
+
+void AutoBot::CloseContinuumWindows()
+{
+  CloseWindow("Continuum");
+}
+
+void AutoBot::CloseWindow(const char* title)
+{
   FetchWindows();
 
-  for (WindowInfo window : windows_) {
-    IsErrorWindow(window.title, window.pid, window.hwnd);
-
-    std::size_t found_pos = window.title.find("Continuum (enabled) - ");
-    if (found_pos == std::string::npos) {
-      found_pos = window.title.find("Continuum (disabled) - ");
-    }
-
-    bool found = window.title == "Continuum" || window.title == "Continuum 0.40";
-
-    if (found || found_pos != std::string::npos) {
+  for (WindowInfo window : windows_) 
+  {
+    std::size_t found_pos = window.title.find(title);
+    if (found_pos != std::string::npos) 
+    {
       HANDLE handle = OpenProcess(PROCESS_ALL_ACCESS, true, window.pid);
       TerminateProcess(handle, 0);
       CloseHandle(handle);
     }
   }
+}
 
-  StartBot(numBots);
+void AutoBot::CloseErrorWindows()
+{
+  FetchWindows();
 
-  std::cout << "Bot starting loop has finished, this process will monitor and restart bots that get disconected." << std::endl;
-};
+  for (WindowInfo window : windows_) {
+    IsErrorWindow(window.title, window.pid, window.hwnd);
+  }
+}
 
 DWORD AutoBot::StartBot(std::size_t index) {
 
