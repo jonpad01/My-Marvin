@@ -1,6 +1,7 @@
 #include "Utility.h"
+#include "Process.h"
 #include <iostream>
-
+#include <filesystem>
 
 void OutputError(const std::string& msg)
 {
@@ -53,4 +54,16 @@ bool IsDigit(const std::string& string) {
     }
   }
   return true;
+}
+
+int RemoveMatchingFiles(const std::string& substring)
+{
+  // search for and delete temporary marvin dll files
+  for (const auto& entry : std::filesystem::directory_iterator(marvin::GetWorkingDirectory())) {
+    std::string path = entry.path().generic_string();
+    std::size_t found = path.find(substring);
+    if (found != std::string::npos) {
+      DeleteFile(path.c_str());
+    }
+  }
 }

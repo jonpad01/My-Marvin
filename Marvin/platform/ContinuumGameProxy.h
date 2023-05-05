@@ -61,9 +61,9 @@ class ContinuumWeapon : public Weapon {
 class ContinuumGameProxy : public GameProxy {
  public:
   ContinuumGameProxy(HWND hwnd);
-  void LoadGame();
+  bool LoadGame();
 
-  bool Update(float dt) override;
+  UpdateState Update(float dt) override;
 
   std::string GetName() const override;
   std::vector<ChatMessage> GetChat() const override;
@@ -168,6 +168,7 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_;
+  bool reloadFlag;
 
 
   std::vector<std::size_t> offsets_{0x04, 0x10, 0x18, 0x20, 0x24,  0x30,  0x34,  0x3C, 0x40,

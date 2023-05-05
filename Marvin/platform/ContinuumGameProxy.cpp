@@ -16,6 +16,8 @@ Last fix:  reading multifire status and item counts on other players was not the
 
 namespace marvin {
 
+    
+
 ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
 
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
@@ -29,13 +31,19 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
   LoadGame();
 }
 
-void ContinuumGameProxy::LoadGame() {
+bool ContinuumGameProxy::LoadGame() {
   PerformanceTimer timer;
   log.Write("LOADING GAME.", timer.GetElapsedTime());
   position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
 
   mapfile_path_ = GetServerFolder() + "\\" + GetMapFile();
   map_ = Map::Load(mapfile_path_);
+
+  // map will be null if downloading a new map file
+  if (map_ == nullptr) {
+    reloadFlag = true;
+    return false;
+  }
   log.Write("Map loaded: " + mapfile_path_, timer.GetElapsedTime());
 
   SetZone();
@@ -53,20 +61,32 @@ void ContinuumGameProxy::LoadGame() {
     }
   }
   log.Write("Game Loaded. TOTAL TIME", timer.TimeSinceConstruction());
+  reloadFlag = false;
+  return true;
 }
 
-bool ContinuumGameProxy::Update(float dt) {
+UpdateState ContinuumGameProxy::Update(float dt) {
   // Continuum stops processing input when it loses focus, so update the memory
   // to make it think it always has focus.
   SetWindowFocus();
 
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
+  if (reloadFlag == true) {
+    if (LoadGame()) {
+      return UpdateState::Reload;
+    } else {
+      return UpdateState::Wait;
+    }
+  }
+
   if (mapfile_path_ != map_file_path) {
     log.Write("New map file detected.");
     log.Write("Old map - " + mapfile_path_ + "  New map - " + map_file_path);
-    LoadGame();
-    return false;
+    if (!LoadGame()) {
+      return UpdateState::Wait;
+    }
+    return UpdateState::Reload;
   }
 
     FetchPlayers();
@@ -76,7 +96,7 @@ bool ContinuumGameProxy::Update(float dt) {
     FetchChat();
     FetchWeapons();
   
-  return true;
+  return UpdateState::Clear;
 }
 
 void ContinuumGameProxy::FetchPlayers() {

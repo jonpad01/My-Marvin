@@ -6,6 +6,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 #include "platform/ContinuumGameProxy.h"
 #include "Bot.h"

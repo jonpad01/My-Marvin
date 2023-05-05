@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstring>
 #include <limits>
+#include <filesystem>
 
 #include "../../Bot.h"
 #include "../../Debug.h"
@@ -13,6 +14,7 @@
 #include "../../Shooter.h"
 #include "../../platform/ContinuumGameProxy.h"
 #include "../../platform/Platform.h"
+#include "BaseDuelSpawnCoords.h"
 
 namespace marvin {
 namespace deva {
@@ -20,7 +22,7 @@ namespace deva {
 const std::vector<std::string> kBotNames = {"LilMarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1", "Marv2", "Marv3", "Marv4", "Marv5", "Marv6",
                                             "Marv7", "Marv8", "FrogBot"};
 
-
+#if 0
 
 std::vector<Vector2f> oldkBaseSafes0 = {
     Vector2f(512, 512),
@@ -98,10 +100,14 @@ struct BaseSpawns {
         Vector2f(484, 900),  Vector2f(476, 1018), Vector2f(602, 917), Vector2f(718, 986)  // 69
   };
 };
-    
+
+#endif
+
+
+
 
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
-  BaseSpawns spawn;
+  const BaseSpawns& spawn = bot.GetBaseDuelSpawns().GetSpawns();
   float radius = bot.GetGame().GetShipSettings().GetRadius();
  
   bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
@@ -315,7 +321,7 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-  BaseSpawns spawn;
+    const BaseSpawns& spawn = ctx.bot->GetBaseDuelSpawns().GetSpawns();
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
@@ -356,7 +362,7 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
 
 behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-  BaseSpawns spawn;
+  const BaseSpawns& spawn = ctx.bot->GetBaseDuelSpawns().GetSpawns();
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
@@ -556,7 +562,7 @@ void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  BaseSpawns spawn;
+  const BaseSpawns& spawn = ctx.bot->GetBaseDuelSpawns().GetSpawns();
 
   std::size_t random_index = rand() % spawn.t0.size();
   std::size_t previous_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);

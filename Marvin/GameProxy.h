@@ -15,6 +15,8 @@ namespace marvin {
 
 class Map;
 
+enum class UpdateState { Clear, Wait, Reload };
+
 enum class WeaponType : short { None, Bullet, BouncingBullet, Bomb, ProximityBomb, Repel, Decoy, Burst, Thor };
 
 struct WeaponData {
@@ -78,7 +80,7 @@ class GameProxy {
  public:
   virtual ~GameProxy() {}
 
-  virtual bool Update(float dt) = 0;
+  virtual UpdateState Update(float dt) = 0;
 
   virtual std::string GetName() const = 0;
   virtual int GetEnergy() const = 0;

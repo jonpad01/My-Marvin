@@ -2,5 +2,5 @@
 #include <fstream>
 
 namespace marvin {
-extern std::ofstream debug_log;
+//extern std::ofstream debug_log;
 }

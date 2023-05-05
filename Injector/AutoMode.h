@@ -38,6 +38,7 @@ class AutoBot
   int IsErrorWindow(std::string title, DWORD pid, HWND hwnd);
   WindowInfo GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, bool show_output, int timeout);
   bool WaitForWindowState(HWND hwnd, std::string title, int state, int timeout);
+  bool WaitForFile(const std::string& filename, int timeout);
   bool FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pid, int timeout);
   void FetchWindows();
   void CloseContinuumWindows();

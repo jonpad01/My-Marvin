@@ -1,9 +1,10 @@
 #include "AutoMode.h"
-
+#include "Utility.h"
 #include "Memory.h"
 #include "Multicont.h"
 #include "Process.h"
 #include "Debug.h"
+#include <filesystem>
 
 namespace marvin 
 {
@@ -210,6 +211,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
 bool AutoBot::InjectContinuum(DWORD pid) {
 
   std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
+  std::string marvin_dll = "Marvin-" + std::to_string(pid) + ".dll";
   auto process = std::make_unique<marvin::Process>(pid);
   HANDLE handle = process->GetHandle();
 
@@ -229,17 +231,9 @@ bool AutoBot::InjectContinuum(DWORD pid) {
   } 
 
   CloseHandle(handle);
+  RemoveMatchingFiles("Marvin-");
   return true;
 }
-
-
-
-
-
-
-
-
-
 
 
 void AutoBot::MonitorBots() {
@@ -307,7 +301,7 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         char text[1024];
         GetWindowTextA(hText, text, 1024);
 
-        marvin::debug_log << title << " - " << text << std::endl;
+       // marvin::debug_log << title << " - " << text << std::endl;
         std::cout << "Application error found for process pid: " << pid << " with window title: " << title
                   << "\n" << std::endl;
         
@@ -474,6 +468,24 @@ BOOL __stdcall GrabWindows(HWND hwnd, LPARAM lParam) {
   }
 
   return TRUE;
+}
+
+bool AutoBot::WaitForFile(const std::string& filename, int timeout)
+{
+  int max_trys = (timeout / 100) + 1;
+
+  for (int trys = 0; trys != max_trys; trys++) {
+    Sleep(100);
+    for (const auto& entry : std::filesystem::directory_iterator(marvin::GetWorkingDirectory())) {
+      std::string path = entry.path().generic_string();
+      std::size_t found = path.find(filename);
+
+      if (found != std::string::npos) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 

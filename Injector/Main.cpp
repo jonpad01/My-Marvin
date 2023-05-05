@@ -7,6 +7,7 @@
 
 
 
+
 int main(int argc, char* argv[]) 
 {
   std::vector<std::string> argsv = CharArrayToStringVector(argc, argv);
@@ -25,6 +26,8 @@ int main(int argc, char* argv[])
     OutputError("Failed to get debug privileges. Try running as Administrator.");
     return EXIT_FAILURE;
   }
+
+  RemoveMatchingFiles("Marvin-");
 
   if (argc > 1) {
     std::string arg;

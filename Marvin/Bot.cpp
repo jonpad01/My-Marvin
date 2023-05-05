@@ -4,7 +4,6 @@
 #include <cstring>
 #include <limits>
 
-#include "GlobalConstants.h"
 #include "Debug.h"
 #include "GameProxy.h"
 #include "Map.h"
@@ -21,8 +20,6 @@
 #include "zones/Hyperspace.h"
 #include "zones/PowerBall.h"
 #include "zones/Devastation/Training.h"
-
-#define NEW_MAP_DETECTED 0
 
 namespace marvin {
 
@@ -67,20 +64,28 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
   }
 };
 
-std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Zone zone, std::string mapFile) {
+std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Bot& bot) {
   std::unique_ptr<BehaviorBuilder> builder;
+
+  Zone zone = bot.GetGame().GetZone();
+  std::string map = bot.GetGame().GetMapFile();
+  deva::BaseDuelSpawnCoords& spawns = bot.GetBaseDuelSpawns();
 
   switch (zone) {
     case Zone::Devastation: {
-      if (mapFile == DEVA_PUB_MAP) {
-        log.Write("Building Devastation behavior tree.");
-        builder = std::make_unique<deva::DevastationBehaviorBuilder>(); 
-      } else if (mapFile == TRAINING_MAP) {
+      if (map == "bdelite.lvl") {
         log.Write("Building Training behavior tree.");
         builder = std::make_unique<training::TrainingBehaviorBuilder>(); 
       } else {
-        log.Write("Building default behavior tree.");
-        builder = std::make_unique<DefaultBehaviorBuilder>();
+        if (spawns.HasCoords()) {
+          log.Write("Building Devastation behavior tree.");
+          builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+        } else {
+          bot.GetGame().SendChatMessage(
+              "Warning: I don't have base duel coords for this arena, using default behavior tree.");
+          log.Write("Building Default behavior tree.");
+          builder = std::make_unique<DefaultBehaviorBuilder>();
+        }
       }
     } break;
     case Zone::ExtremeGames: {
@@ -134,9 +139,9 @@ void Bot::LoadBot() {
   log.Write("Map Weights created", timer.GetElapsedTime());
   pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
   log.Write("Pathable Nodes created", timer.GetElapsedTime());
-  Zone zone = game_->GetZone();
+  spawns_ = std::make_unique<deva::BaseDuelSpawnCoords>(game_->GetMapFile());
   log.Write("Map " + game_->GetMapFile() + " found", timer.GetElapsedTime());
-  auto builder = CreateBehaviorBuilder(zone, game_->GetMapFile());
+  auto builder = CreateBehaviorBuilder(*this);
   log.Write("Behavior Selected", timer.GetElapsedTime());
 
   ctx_.bot = this;
@@ -154,8 +159,14 @@ void Bot::Update(float dt) {
 
   float radius = game_->GetRadius();
   int ship = game_->GetPlayer().ship;
+
+  UpdateState state = game_->Update(dt);
+
+  if (state == UpdateState::Wait) {
+    return;
+  }
   
-  if (game_->Update(dt) == NEW_MAP_DETECTED || radius != radius_) {
+  if (state == UpdateState::Reload || radius != radius_) {
     LoadBot();
     return;
   }

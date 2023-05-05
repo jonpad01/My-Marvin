@@ -11,6 +11,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <filesystem>
 
 typedef void (*InitFunc)();
 typedef void (*CleanupFunc)();
@@ -20,6 +21,7 @@ typedef void (*CleanupFunc)();
 static HMODULE hModule = NULL;
 static std::string g_MarvinPath;
 static std::string g_MarvinDll;
+static std::string g_OldMarvinDll;
 static std::string g_MarvinLoadedPath;
 static FILETIME g_LastTime;
 static std::thread g_MonitorThread;

@@ -90,6 +90,9 @@
     <ClCompile Include="zones\Hockey.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="zones\Devastation\BaseDuelSpawnCoords.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameProxy.h">
@@ -224,13 +227,13 @@
     <ClInclude Include="zones\ExtremeGames.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GlobalConstants.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="zones\Devastation\Training.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zones\Hockey.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Devastation\BaseDuelSpawnCoords.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

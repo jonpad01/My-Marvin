@@ -24,6 +24,16 @@ std::string Lowercase(const std::string& str) {
   return result;
 }
 
+std::string GetWorkingDirectory() {
+  std::string directory;
+
+  directory.resize(GetCurrentDirectory(0, NULL));
+
+  GetCurrentDirectory(directory.size(), &directory[0]);
+
+  return directory.substr(0, directory.size() - 1);
+}
+
 bool CheckStatus(GameProxy& game, KeyController& keys, bool use_max) {
   float max_energy = 0.0f;
 

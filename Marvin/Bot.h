@@ -15,12 +15,18 @@
 #include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
 #include "Shooter.h"
+#include "zones/Devastation/BaseDuelSpawnCoords.h"
+
+
+
+
 
 namespace marvin {
 
 using Path = std::vector<Vector2f>;
 
 class GameProxy;
+class BaseDuelSpawnCoords;
 struct Player;
 
 class Bot {
@@ -41,6 +47,7 @@ class Bot {
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return *influence_map_; }
   CommandSystem& GetCommandSystem() { return command_system_; }
+  deva::BaseDuelSpawnCoords& GetBaseDuelSpawns() { return *spawns_; }
 
   const std::vector<Vector2f>& GetBasePath() {
      return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
@@ -91,6 +98,7 @@ class Bot {
   CommandSystem command_system_;
   Shooter shooter_;
 
+  std::unique_ptr<deva::BaseDuelSpawnCoords> spawns_;
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
 
   // TODO: Action-key map would be more versatile
