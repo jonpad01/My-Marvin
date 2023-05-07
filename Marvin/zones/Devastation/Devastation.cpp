@@ -14,7 +14,7 @@
 #include "../../Shooter.h"
 #include "../../platform/ContinuumGameProxy.h"
 #include "../../platform/Platform.h"
-#include "BaseDuelSpawnCoords.h"
+#include "BaseDuelWarpCoords.h"
 
 namespace marvin {
 namespace deva {
@@ -107,10 +107,10 @@ struct BaseSpawns {
 
 
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
-  const BaseSpawns& spawn = bot.GetBaseDuelSpawns().GetSpawns();
+  //const BaseSpawns& spawn = bot.GetBaseDuelSpawns().GetSpawns();
   float radius = bot.GetGame().GetShipSettings().GetRadius();
  
-  bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
+  //bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);
   uint16_t ship = bot.GetGame().GetPlayer().ship;
@@ -321,7 +321,7 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-    const BaseSpawns& spawn = ctx.bot->GetBaseDuelSpawns().GetSpawns();
+    const BaseWarps& warp = ctx.bot->GetBaseDuelWarps().GetWarps();
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
@@ -336,17 +336,17 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
     bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i].position, Vector2f(512, 512));
     if (!in_center && team_list[i].active) {
       std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
-      bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i].position, spawn.t0[base_index]) == 0;
+      bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i].position, warp.t0[base_index]) == 0;
       if (update_region) {
-        for (std::size_t j = 0; j < spawn.t0.size(); j++) {
-          if (ctx.bot->GetRegions().IsConnected(team_list[i].position, spawn.t0[j])) {
+        for (std::size_t j = 0; j < warp.t0.size(); j++) {
+          if (ctx.bot->GetRegions().IsConnected(team_list[i].position, warp.t0[j])) {
             bb.Set<std::size_t>("BaseIndex", j);
             if (team_list[i].frequency == 00) {
-              bb.Set<Vector2f>("TeamSafe", spawn.t0[j]);
-              bb.Set<Vector2f>("EnemySafe", spawn.t1[j]);
+              bb.Set<MapCoord>("TeamSafe", warp.t0[j]);
+              bb.Set<MapCoord>("EnemySafe", warp.t1[j]);
             } else if (team_list[i].frequency == 01) {
-              bb.Set<Vector2f>("TeamSafe", spawn.t1[j]);
-              bb.Set<Vector2f>("EnemySafe", spawn.t0[j]);
+              bb.Set<MapCoord>("TeamSafe", warp.t1[j]);
+              bb.Set<MapCoord>("EnemySafe", warp.t0[j]);
             }
 
             g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
@@ -362,7 +362,7 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
 
 behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-  const BaseSpawns& spawn = ctx.bot->GetBaseDuelSpawns().GetSpawns();
+  const BaseWarps& warp = ctx.bot->GetBaseDuelWarps().GetWarps();
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
@@ -441,7 +441,7 @@ behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
      bool on_safe_tile = game.GetMap().GetTileId(player.position) == kSafeTileId;
 
     if (player.frequency == 00) {
-       Vector2f enemy_safe = spawn.t1[base_index];
+      MapCoord enemy_safe = warp.t1[base_index];
        float dist_to_safe = player.position.Distance(enemy_safe);
        bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
 
@@ -455,7 +455,7 @@ behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
     }
 
     if (player.frequency == 01) {
-      Vector2f enemy_safe = spawn.t0[base_index];
+       MapCoord enemy_safe = warp.t0[base_index];
       float dist_to_safe = player.position.Distance(enemy_safe);
       bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
 
@@ -562,13 +562,13 @@ void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  const BaseSpawns& spawn = ctx.bot->GetBaseDuelSpawns().GetSpawns();
+  const BaseWarps& warp = ctx.bot->GetBaseDuelWarps().GetWarps();
 
-  std::size_t random_index = rand() % spawn.t0.size();
+  std::size_t random_index = rand() % warp.t0.size();
   std::size_t previous_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
 
   while (random_index == previous_index) {
-    random_index = rand() % spawn.t0.size();
+    random_index = rand() % warp.t0.size();
   }
 
   bb.Set<std::size_t>("BDBaseIndex", random_index);
@@ -577,15 +577,15 @@ void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
     const Player& player = game.GetPlayers()[i];
 
     if (player.frequency == 00) {
-      int team_safe_x = (int)spawn.t0[random_index].x;
-      int team_safe_y = (int)spawn.t0[random_index].y;
+      int team_safe_x = (int)warp.t0[random_index].x;
+      int team_safe_y = (int)warp.t0[random_index].y;
       std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
       game.SendPrivateMessage(player.name, warp_msg);
     }
 
     if (player.frequency == 01) {
-      int team_safe_x = (int)spawn.t1[random_index].x;
-      int team_safe_y = (int)spawn.t1[random_index].y;
+      int team_safe_x = (int)warp.t1[random_index].x;
+      int team_safe_y = (int)warp.t1[random_index].y;
       std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
       game.SendPrivateMessage(player.name, warp_msg);
     }

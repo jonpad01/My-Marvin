@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "RegionRegistry.h"
+#include "MapCoord.h"
 
 namespace marvin {
 

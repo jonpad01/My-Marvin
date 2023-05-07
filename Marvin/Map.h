@@ -9,6 +9,8 @@
 
 namespace marvin {
 
+	struct MapCoord;
+
 constexpr std::size_t kMapExtent = 1024;
 
 using TileId = u8;
@@ -56,5 +58,7 @@ class Map {
  private:
   TileData tile_data_;
 };
+
+bool IsValidPosition(MapCoord coord);
 
 }  // namespace marvin

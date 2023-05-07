@@ -14,14 +14,14 @@
 #include "ConsumableCommands.h"
 #include "SetFreqCommand.h"
 #include "SetShipCommand.h"
+#include "SetArenaCommand.h"
 #include "SwarmCommand.h"
 
 namespace marvin {
 
 constexpr int kArenaSecurityLevel = 5;
 const std::unordered_map<std::string, int> kOperators = {{"tm_master", 10}, {"baked cake", 10}, {"x-demo", 10},
-                                                         {"lyra.", 5},      {"profile", 5},     {"monkey", 5},
-                                                         {"neostar", 5},    {"geekgrrl", 5},    {"sed", 5}};
+                                                         {"lyra.", 5},      {"profile", 5},     {"monkey", 5}, {"neostar", 5},     {"geekgrrl", 5}, {"sed", 5},   {"sk", 5}};
 
 CommandSystem::CommandSystem() {
   RegisterCommand(std::make_shared<HelpCommand>());
@@ -41,6 +41,7 @@ CommandSystem::CommandSystem() {
 
   RegisterCommand(std::make_shared<SetShipCommand>());
   RegisterCommand(std::make_shared<SetFreqCommand>());
+  RegisterCommand(std::make_shared<SetArenaCommand>());
 
   RegisterCommand(std::make_shared<LockFreqCommand>());
   RegisterCommand(std::make_shared<UnlockFreqCommand>());

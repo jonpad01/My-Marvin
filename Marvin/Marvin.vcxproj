@@ -155,7 +155,11 @@
     <ClCompile Include="commands\CommandSystem.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
-    <ClCompile Include="zones\Devastation\BaseDuelSpawnCoords.cpp" />
+    <ClCompile Include="MapCoord.cpp" />
+    <ClCompile Include="Vector2f.cpp" />
+    <ClCompile Include="Vector2i.h" />
+    <ClCompile Include="zones\Devastation\BaseDuelWarpCoords.cpp" />
+    <ClCompile Include="zones\Devastation\BasePaths.cpp" />
     <ClCompile Include="zones\Devastation\Devastation.cpp" />
     <ClCompile Include="InfluenceMap.cpp" />
     <ClCompile Include="KeyController.cpp" />
@@ -182,6 +186,7 @@
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="commands\BaseDuelCommands.h" />
     <ClInclude Include="commands\FightingRoleCommands.h" />
+    <ClInclude Include="commands\SetArenaCommand.h" />
     <ClInclude Include="commands\StatusCommands.h" />
     <ClInclude Include="commands\CommandsCommand.h" />
     <ClInclude Include="commands\CommandSystem.h" />
@@ -196,7 +201,9 @@
     <ClInclude Include="commands\SwarmCommand.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
-    <ClInclude Include="zones\Devastation\BaseDuelSpawnCoords.h" />
+    <ClInclude Include="MapCoord.h" />
+    <ClInclude Include="zones\Devastation\BaseDuelWarpCoords.h" />
+    <ClInclude Include="zones\Devastation\BasePaths.h" />
     <ClInclude Include="zones\Devastation\Devastation.h" />
     <ClInclude Include="Hash.h" />
     <ClInclude Include="InfluenceMap.h" />

@@ -8,6 +8,7 @@
 #include "../Bot.h"
 #include "../Debug.h"
 #include "../RayCaster.h"
+#include "..//RegionRegistry.h"
 
 extern std::unique_ptr<marvin::Bot> bot;
 

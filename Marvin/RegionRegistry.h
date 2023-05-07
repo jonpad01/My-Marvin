@@ -8,6 +8,7 @@
 
 #include "Hash.h"
 #include "Vector2f.h"
+#include "MapCoord.h"
 
 
 
@@ -18,18 +19,6 @@ class Map;
 using RegionIndex = std::size_t;
 
 constexpr static RegionIndex kUndefinedRegion = -1;
-
-struct MapCoord {
-  uint16_t x;
-  uint16_t y;
-
-  MapCoord(uint16_t x, uint16_t y) : x(x), y(y) {}
-  MapCoord(Vector2f vec) : x((uint16_t)vec.x), y((uint16_t)vec.y) {}
-
-  bool operator==(const MapCoord& other) const { return x == other.x && y == other.y; }
-};
-
-bool IsValidPosition(MapCoord coord);
 
 }  // namespace marvin
 

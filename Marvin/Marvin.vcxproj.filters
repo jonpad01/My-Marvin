@@ -90,7 +90,19 @@
     <ClCompile Include="zones\Hockey.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="zones\Devastation\BaseDuelSpawnCoords.cpp">
+    <ClCompile Include="zones\Devastation\BaseDuelWarpCoords.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="zones\Devastation\BasePaths.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Vector2i.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Vector2f.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MapCoord.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -233,7 +245,16 @@
     <ClInclude Include="zones\Hockey.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="zones\Devastation\BaseDuelSpawnCoords.h">
+    <ClInclude Include="zones\Devastation\BaseDuelWarpCoords.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SetArenaCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Devastation\BasePaths.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MapCoord.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -7,6 +7,7 @@
 
 namespace marvin {
 
+    struct MapCoord;
     enum class Direction : short {West, East, North, NorthWest, NorthEast, South, SouthWest, SouthEast, None};
 
 class Vector2f {
@@ -24,12 +25,15 @@ class Vector2f {
   Vector2f(float x, float y) : x(x), y(y) {}
 
   Vector2f(const Vector2f& other) : x(other.x), y(other.y) {}
+  Vector2f(const MapCoord& other);
 
   Vector2f& operator=(const Vector2f& other) {
     x = other.x;
     y = other.y;
     return *this;
   }
+
+  Vector2f operator=(const MapCoord& other);
 
   bool operator==(const Vector2f& other) const noexcept {
     constexpr float epsilon = 0.000001f;
@@ -80,6 +84,8 @@ class Vector2f {
 
   inline Vector2f operator-(const Vector2f& other) const { return Vector2f(x - other.x, y - other.y); }
 
+  Vector2f operator-(const MapCoord& other) const;
+
   inline Vector2f operator+(float v) const { return Vector2f(x + v, y + v); }
 
   inline Vector2f operator-(float v) const { return Vector2f(x - v, y - v); }
@@ -98,6 +104,8 @@ class Vector2f {
     Vector2f to_other = other - *this;
     return to_other.Length();
   }
+
+  float Distance(const MapCoord& other) const;
 
   inline float DistanceSq(const Vector2f& other) const {
     Vector2f to_other = other - *this;

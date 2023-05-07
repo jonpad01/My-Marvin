@@ -1,7 +1,5 @@
 #include "BehaviorEngine.h"
 
-#include "../Bot.h"
-
 namespace marvin {
 namespace behavior {
 

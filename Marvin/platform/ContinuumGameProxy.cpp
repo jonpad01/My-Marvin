@@ -23,8 +23,7 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
   module_base_menu_ = process_.GetModuleBase("menu040.dll");
   player_id_ = 0xFFFF;
-  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
-
+  
   log.Open(GetName());
   log.Write("Log file created.");
 
@@ -34,6 +33,7 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
 bool ContinuumGameProxy::LoadGame() {
   PerformanceTimer timer;
   log.Write("LOADING GAME.", timer.GetElapsedTime());
+  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
   position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
 
   mapfile_path_ = GetServerFolder() + "\\" + GetMapFile();
@@ -666,7 +666,7 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
 
   int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
 
-  bool menu_open = *menu_open_addr;
+  bool menu_open = (*menu_open_addr & 1);
 
 #if !DEBUG_USER_CONTROL
   if (!menu_open) {

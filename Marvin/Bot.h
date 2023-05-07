@@ -11,22 +11,23 @@
 #include "Steering.h"
 #include "Time.h"
 #include "behavior/BehaviorEngine.h"
-#include "common.h"
-#include "path/Pathfinder.h"
+//#include "common.h"
+//#include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
 #include "Shooter.h"
-#include "zones/Devastation/BaseDuelSpawnCoords.h"
+#include "zones/Devastation/BasePaths.h"
+#include "zones/Devastation/BaseDuelWarpCoords.h"
+
 
 
 
 
 
 namespace marvin {
-
-using Path = std::vector<Vector2f>;
-
+    namespace deva {
+    //class BaseDuelWarpCoords;
+    }
 class GameProxy;
-class BaseDuelSpawnCoords;
 struct Player;
 
 class Bot {
@@ -47,14 +48,13 @@ class Bot {
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return *influence_map_; }
   CommandSystem& GetCommandSystem() { return command_system_; }
-  deva::BaseDuelSpawnCoords& GetBaseDuelSpawns() { return *spawns_; }
+  deva::BaseDuelWarpCoords& GetBaseDuelWarps() { return *warps_; }
+  deva::BasePaths& GetBasePaths() { return *base_paths_; }
 
   const std::vector<Vector2f>& GetBasePath() {
-     return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)];
+     return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0));
   }
-  const std::vector<std::vector<Vector2f>>& GetBasePaths() {
-    return base_paths_;
-  }
+
   const std::size_t GetTeamSafeIndex(uint16_t freq) {
     uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam0, 999);
     uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam1, 999);
@@ -62,29 +62,24 @@ class Bot {
     if (freq == low_index_team) {
       return 0;
     } else if (freq == high_index_team) {
-      return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)].size() - 1;
+      return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)).size() - 1;
     }
     return 0;
   }
 
   const Vector2f GetTeamSafePosition(uint16_t freq) {
-    return base_paths_[ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)][GetTeamSafeIndex(freq)];
+    return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0))[GetTeamSafeIndex(freq)];
   }
 
   void Move(const Vector2f& target, float target_distance);
 
   bool MaxEnergyCheck();
-
-  void CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::vector<Vector2f>& end_vector,
-                       float radius);
   void FindPowerBallGoal();
 
  private:
 
   float radius_;
 
-  std::vector<std::vector<Vector2f>> base_paths_;
-  std::vector<std::vector<Vector2f>> base_holes_;
   Vector2f powerball_goal_;
   Vector2f powerball_goal_path_;
   std::string powerball_arena_;
@@ -98,8 +93,9 @@ class Bot {
   CommandSystem command_system_;
   Shooter shooter_;
 
-  std::unique_ptr<deva::BaseDuelSpawnCoords> spawns_;
+  std::unique_ptr<deva::BaseDuelWarpCoords> warps_;
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
+  std::unique_ptr<deva::BasePaths> base_paths_;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;
@@ -198,7 +194,7 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
 
   std::unique_ptr<path::PathNodeSearch> search_;
   bool high_side_;
-  Path base_path_;
+  std::vector<Vector2f> base_path_;
 
   bool is_anchor_;
   bool enemy_is_leaker_;

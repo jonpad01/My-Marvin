@@ -558,8 +558,6 @@ bool RegionRegistry::IsEdge(MapCoord coord) const {
   return outside_edges_[coord.y * 1024 + coord.x].count > 0;
 }
 
-bool IsValidPosition(MapCoord coord) {
-  return coord.x >= 0 && coord.x < 1024 && coord.y >= 0 && coord.y < 1024;
-}
+
 
 }  // namespace marvin

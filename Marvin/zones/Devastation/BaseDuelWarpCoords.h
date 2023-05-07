@@ -6,31 +6,31 @@
 namespace marvin {
 namespace deva {
 
-struct BaseSpawns {
+struct BaseWarps {
   bool empty() { return t0.empty() && t1.empty(); }
   void clear() {
     t0.clear();
     t1.clear();
   }
-  std::vector<Vector2f> t0;
-  std::vector<Vector2f> t1;
+  std::vector<MapCoord> t0;
+  std::vector<MapCoord> t1;
 };
 
-class BaseDuelSpawnCoords {
+class BaseDuelWarpCoords {
  public:
-  BaseDuelSpawnCoords(const std::string& mapName);
+  BaseDuelWarpCoords(const std::string& mapName);
 
   bool FoundMapFiles() { return foundMapFiles; }
-  bool HasCoords() { return !spawns_.empty(); }
+  bool HasCoords() { return !warps_.empty(); }
   std::string TrimExtension(const std::string& mapName);
   bool LoadBaseDuelFile(const std::string& mapName);
   bool LoadFile(std::ifstream& file);
   int GetIntMatch(std::ifstream& file, const std::string& match);
-  const BaseSpawns& GetSpawns() { return spawns_; }
+  const BaseWarps& GetWarps() { return warps_; }
 
  private:
   bool foundMapFiles;
-  BaseSpawns spawns_;
+  BaseWarps warps_;
 };
 
 }  // namespace deva

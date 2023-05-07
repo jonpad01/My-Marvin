@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "RegionRegistry.h"
+#include "MapCoord.h"
 
 namespace marvin {
 
@@ -503,6 +504,10 @@ std::unique_ptr<Map> Map::Load(const char* filename) {
 
 std::unique_ptr<Map> Map::Load(const std::string& filename) {
   return Load(filename.c_str());
+}
+
+bool IsValidPosition(MapCoord coord) {
+  return coord.x >= 0 && coord.x < 1024 && coord.y >= 0 && coord.y < 1024;
 }
 
 }  // namespace marvin

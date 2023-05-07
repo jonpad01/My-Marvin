@@ -7,11 +7,10 @@
 #include "Debug.h"
 #include "GameProxy.h"
 #include "Map.h"
-#include "RayCaster.h"
-#include "RegionRegistry.h"
 #include "Shooter.h"
-#include "platform/ContinuumGameProxy.h"
 #include "platform/Platform.h"
+
+
 
 #include "zones/Devastation/Devastation.h"
 #include "zones/ExtremeGames.h"
@@ -69,7 +68,7 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Bot& bot) {
 
   Zone zone = bot.GetGame().GetZone();
   std::string map = bot.GetGame().GetMapFile();
-  deva::BaseDuelSpawnCoords& spawns = bot.GetBaseDuelSpawns();
+  deva::BaseDuelWarpCoords& warps = bot.GetBaseDuelWarps();
 
   switch (zone) {
     case Zone::Devastation: {
@@ -77,7 +76,7 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Bot& bot) {
         log.Write("Building Training behavior tree.");
         builder = std::make_unique<training::TrainingBehaviorBuilder>(); 
       } else {
-        if (spawns.HasCoords()) {
+        if (warps.HasCoords()) {
           log.Write("Building Devastation behavior tree.");
           builder = std::make_unique<deva::DevastationBehaviorBuilder>();
         } else {
@@ -139,7 +138,8 @@ void Bot::LoadBot() {
   log.Write("Map Weights created", timer.GetElapsedTime());
   pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
   log.Write("Pathable Nodes created", timer.GetElapsedTime());
-  spawns_ = std::make_unique<deva::BaseDuelSpawnCoords>(game_->GetMapFile());
+  warps_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
+  base_paths_ = std::make_unique<deva::BasePaths>(warps_->GetWarps(), radius_, *pathfinder_, game_->GetMap());
   log.Write("Map " + game_->GetMapFile() + " found", timer.GetElapsedTime());
   auto builder = CreateBehaviorBuilder(*this);
   log.Write("Behavior Selected", timer.GetElapsedTime());
@@ -250,9 +250,11 @@ void Bot::Move(const Vector2f& target, float target_distance) {
   }
 }
 
+#if 0
 void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::vector<Vector2f>& end_vector,
                           float radius) {
   PerformanceTimer timer;
+  base_paths_.clear();
 
   for (std::size_t i = 0; i < start_vector.size(); i++) {
     Vector2f position_1 = start_vector[i];
@@ -261,11 +263,12 @@ void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::
     Path base_path = GetPathfinder().FindPath(game_->GetMap(), std::vector<Vector2f>(), position_1, position_2, radius);
 
     base_paths_.push_back(base_path);
-
   }
   
   g_RenderState.RenderDebugText("CreateBasePaths: %llu", timer.GetElapsedTime());
 }
+
+#endif
 
 void Bot::FindPowerBallGoal() {
   powerball_goal_;

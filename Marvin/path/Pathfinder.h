@@ -13,6 +13,7 @@
 namespace marvin {
 
 class Bot;
+class RegionRegistry;
 
 namespace path {
 
