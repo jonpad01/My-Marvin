@@ -52,7 +52,7 @@ class Bot {
   deva::BasePaths& GetBasePaths() { return *base_paths_; }
 
   const std::vector<Vector2f>& GetBasePath() {
-     return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0));
+    return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
   }
 
   const std::size_t GetTeamSafeIndex(uint16_t freq) {
@@ -62,13 +62,13 @@ class Bot {
     if (freq == low_index_team) {
       return 0;
     } else if (freq == high_index_team) {
-      return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0)).size() - 1;
+      return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0)).size() - 1;
     }
     return 0;
   }
 
   const Vector2f GetTeamSafePosition(uint16_t freq) {
-    return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>("BaseIndex", 0))[GetTeamSafeIndex(freq)];
+    return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0))[GetTeamSafeIndex(freq)];
   }
 
   void Move(const Vector2f& target, float target_distance);

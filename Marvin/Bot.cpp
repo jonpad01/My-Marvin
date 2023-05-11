@@ -491,7 +491,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
     const Player& player = game.GetPlayers()[i];
 
-    bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, (MapCoord)Vector2f(512, 512));
+    bool in_center = ctx.bot->GetRegions().IsConnected(player.position, Vector2f(512, 512));
 
     if (player.frequency < 100) fList[player.frequency]++;
 
@@ -570,7 +570,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
     const Player& player = game.GetPlayers()[i];
 
     if (!IsValidTarget(*ctx.bot, player, false)) {
-      g_RenderState.RenderDebugText("  Not Valid %llu", timer.GetElapsedTime());
+     // g_RenderState.RenderDebugText("  Not Valid %llu", timer.GetElapsedTime());
       continue;
     }
 
@@ -635,7 +635,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
 
   bool in_center = bb.ValueOr<bool>("InCenter", false);
   bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
-  Path base_path = ctx.bot->GetBasePath();
+  const Path& base_path = ctx.bot->GetBasePath();
 
   if (base_path.empty() || in_center) {
     g_RenderState.RenderDebugText("  FindEnemyInBaseNode(fail): %llu", timer.GetElapsedTime());

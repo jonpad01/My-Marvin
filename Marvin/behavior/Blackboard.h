@@ -9,10 +9,12 @@
 
 namespace marvin {
 
-    enum class BB : short { 
+    enum class BB { 
         UseRepel, UseBurst, UseDecoy, UseRocket, UseThor, UseBrick, UsePortal,
         UseMultiFire, UseCloak, UseStealth, UseXRadar, UseAntiWarp,
-        PubTeam0, PubTeam1, EnemyNetBulletTravel, 
+        PubTeam0, PubTeam1, 
+        EnemySafe, TeamSafe, BaseIndex,
+        EnemyNetBulletTravel, 
         End };
 
 namespace behavior {

@@ -282,7 +282,7 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
 
   
   Vector2f position = game.GetPosition();
-  std::vector<std::vector<Vector2f>> base_paths = ctx.bot->GetBasePaths();
+  std::vector<std::vector<Vector2f>> base_paths = ctx.bot->GetBasePaths().GetBasePaths();
 
   for (Path path : base_paths) {
     if (!path.empty() && ctx.bot->GetRegions().IsConnected(path[0], position)) {
@@ -326,6 +326,7 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
+  std::size_t base_index = bb.ValueOr<std::size_t>(BB::BaseIndex, 0);
   bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), Vector2f(512, 512));
   bb.Set<bool>("InCenter", in_center);
 
@@ -333,20 +334,19 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
   team_list.push_back(game.GetPlayer());
 
   for (std::size_t i = 0; i < team_list.size(); i++) {
-    bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i].position, Vector2f(512, 512));
+    bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i].position, MapCoord(512, 512));
     if (!in_center && team_list[i].active) {
-      std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
       bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i].position, warp.t0[base_index]) == 0;
       if (update_region) {
         for (std::size_t j = 0; j < warp.t0.size(); j++) {
           if (ctx.bot->GetRegions().IsConnected(team_list[i].position, warp.t0[j])) {
-            bb.Set<std::size_t>("BaseIndex", j);
+            bb.Set<std::size_t>(BB::BaseIndex, j);
             if (team_list[i].frequency == 00) {
-              bb.Set<MapCoord>("TeamSafe", warp.t0[j]);
-              bb.Set<MapCoord>("EnemySafe", warp.t1[j]);
+              bb.Set<MapCoord>(BB::TeamSafe, warp.t0[j]);
+              bb.Set<MapCoord>(BB::EnemySafe, warp.t1[j]);
             } else if (team_list[i].frequency == 01) {
-              bb.Set<MapCoord>("TeamSafe", warp.t1[j]);
-              bb.Set<MapCoord>("EnemySafe", warp.t0[j]);
+              bb.Set<MapCoord>(BB::TeamSafe, warp.t1[j]);
+              bb.Set<MapCoord>(BB::EnemySafe, warp.t0[j]);
             }
 
             g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
@@ -762,7 +762,7 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.blackboard;
   auto& pf = ctx.bot->GetPathfinder();
 
-  std::vector<Vector2f> path = ctx.bot->GetBasePath();
+  const std::vector<Vector2f>& path = ctx.bot->GetBasePath();
   auto ns = path::PathNodeSearch::Create(*ctx.bot, path, 30);
 
   std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
@@ -798,8 +798,8 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
     if (player_in_base) {
       // if (!player_in_center && IsValidPosition(player.position) && player.ship < 8) {
 
-      float distance_to_team = ns->GetPathDistance(player.position, bb.ValueOr<Vector2f>("TeamSafe", Vector2f()));
-      float distance_to_enemy = ns->GetPathDistance(player.position, bb.ValueOr<Vector2f>("EnemySafe", Vector2f()));
+      float distance_to_team = ns->GetPathDistance(player.position, bb.ValueOr<MapCoord>(BB::TeamSafe, MapCoord()));
+      float distance_to_enemy = ns->GetPathDistance(player.position, bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord()));
 
       if (player.frequency == game.GetPlayer().frequency) {
         // float distance_to_team = ctx.deva->PathLength(player.position, ctx.deva->GetTeamSafe());
@@ -947,7 +947,7 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  Vector2f enemy_safe = bb.ValueOr<Vector2f>("EnemySafe", Vector2f());
+  MapCoord enemy_safe = bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord());
 
   ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
 
