@@ -174,9 +174,7 @@
     <ClCompile Include="Shooter.cpp" />
     <ClCompile Include="Steering.cpp" />
     <ClCompile Include="Time.cpp" />
-    <ClCompile Include="zones\ExtremeGames.cpp" />
     <ClCompile Include="zones\Devastation\Training.cpp" />
-    <ClCompile Include="zones\Hockey.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="behavior\BehaviorEngine.h" />
@@ -185,7 +183,7 @@
     <ClInclude Include="Bot.h" />
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="commands\BaseDuelCommands.h" />
-    <ClInclude Include="commands\FightingRoleCommands.h" />
+    <ClInclude Include="commands\CombatRoleCommands.h" />
     <ClInclude Include="commands\SetArenaCommand.h" />
     <ClInclude Include="commands\StatusCommands.h" />
     <ClInclude Include="commands\CommandsCommand.h" />
@@ -225,9 +223,7 @@
     <ClInclude Include="Time.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="Vector2f.h" />
-    <ClInclude Include="zones\ExtremeGames.h" />
     <ClInclude Include="zones\Devastation\Training.h" />
-    <ClInclude Include="zones\Hockey.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <ItemGroup>

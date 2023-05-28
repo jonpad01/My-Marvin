@@ -3,7 +3,7 @@
 #include "../Bot.h"
 #include "../Common.h"
 #include "BaseDuelCommands.h"
-#include "FightingRoleCommands.h"
+#include "CombatRoleCommands.h"
 #include "CommandsCommand.h"
 #include "DelimiterCommand.h"
 #include "HelpCommand.h"
@@ -132,7 +132,8 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
           behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
 
           // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
-          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
+          //if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
+          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock() ||
               security_level > 0) {
               command.Execute(*this, bot, chat.player, arg);
               result = true;

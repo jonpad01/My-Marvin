@@ -39,6 +39,6 @@ bool CanShoot(GameProxy& game, Vector2f player_pos, Vector2f solution, Vector2f 
 bool CanShootGun(GameProxy& game, const Map& map, Vector2f player, Vector2f target);
 bool CanShootBomb(GameProxy& game, const Map& map, Vector2f player, Vector2f target);
 
-bool IsValidTarget(Bot& bot, const Player& target, bool anchoring);
+bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role);
 
 }  // namespace marvin

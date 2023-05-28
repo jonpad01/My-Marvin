@@ -52,23 +52,28 @@ class Bot {
   deva::BasePaths& GetBasePaths() { return *base_paths_; }
 
   const std::vector<Vector2f>& GetBasePath() {
-    return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
+    //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
+    return base_paths_->GetBasePath();
   }
 
-  const std::size_t GetTeamSafeIndex(uint16_t freq) {
-    uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam0, 999);
-    uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam1, 999);
+  std::size_t GetTeamSafeIndex(uint16_t freq) {
+   // uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam0, 999);
+   // uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam1, 999);
+    uint16_t low_index_team = ctx_.blackboard.GetPubTeam0();
+    uint16_t high_index_team = ctx_.blackboard.GetPubTeam1();
 
     if (freq == low_index_team) {
       return 0;
     } else if (freq == high_index_team) {
-      return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0)).size() - 1;
+      //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0)).size() - 1;
+      return base_paths_->GetBasePath().size() - 1;
     }
     return 0;
   }
 
-  const Vector2f GetTeamSafePosition(uint16_t freq) {
-    return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0))[GetTeamSafeIndex(freq)];
+  const Vector2f& GetTeamSafePosition(uint16_t freq) {
+   // return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0))[GetTeamSafeIndex(freq)];
+    return base_paths_->GetBasePath()[GetTeamSafeIndex(freq)];
   }
 
   void Move(const Vector2f& target, float target_distance);
@@ -126,6 +131,13 @@ class SetFreqNode : public behavior::BehaviorNode {
 };
 
 class ShipCheckNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+};
+
+class SetArenaNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
@@ -196,7 +208,7 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
   bool high_side_;
   std::vector<Vector2f> base_path_;
 
-  bool is_anchor_;
+  CombatRole role_;
   bool enemy_is_leaker_;
   float enemy_bullet_speed_;
   float alive_time_;
@@ -303,6 +315,7 @@ class BehaviorBuilder {
     find_enemy_in_center_ = std::make_unique<bot::FindEnemyInCenterNode>();
     set_freq_ = std::make_unique<bot::SetFreqNode>();
     set_ship_ = std::make_unique<bot::SetShipNode>();
+    set_arena_ = std::make_unique<bot::SetArenaNode>();
     commands_ = std::make_unique<bot::CommandNode>();
     ship_check_ = std::make_unique<bot::ShipCheckNode>();
     respawn_check_ = std::make_unique<bot::RespawnCheckNode>();
@@ -317,6 +330,7 @@ class BehaviorBuilder {
     engine_->PushNode(std::move(find_enemy_in_center_));
     engine_->PushNode(std::move(set_freq_));
     engine_->PushNode(std::move(set_ship_));
+    engine_->PushNode(std::move(set_arena_));
     engine_->PushNode(std::move(commands_));
     engine_->PushNode(std::move(ship_check_));
     engine_->PushNode(std::move(respawn_check_));
@@ -332,6 +346,7 @@ class BehaviorBuilder {
   std::unique_ptr<bot::FindEnemyInCenterNode> find_enemy_in_center_;
   std::unique_ptr<bot::SetFreqNode> set_freq_;
   std::unique_ptr<bot::SetShipNode> set_ship_;
+  std::unique_ptr<bot::SetArenaNode> set_arena_;
   std::unique_ptr<bot::CommandNode> commands_;
   std::unique_ptr<bot::ShipCheckNode> ship_check_;
   std::unique_ptr<bot::RespawnCheckNode> respawn_check_;

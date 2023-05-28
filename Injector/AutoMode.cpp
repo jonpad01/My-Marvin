@@ -9,7 +9,6 @@
 namespace marvin 
 {
 
-
 AutoBot::AutoBot() : pids_() 
 {
   num_bots_ = 0;

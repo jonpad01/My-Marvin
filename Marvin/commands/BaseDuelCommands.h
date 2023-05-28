@@ -11,13 +11,15 @@ class BDPublicCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("BDPublic", false) == true) {
+    //if (bb.ValueOr<bool>("BDPublic", false) == true) {
+    if (bb.GetBDChatType() == ChatType::Public) {
       game.SendPrivateMessage(sender, "I am already listening to public baseduel commands.");
       return;
     }
 
     if (game.GetZone() == Zone::Devastation) {
-      bb.Set<bool>("BDPublic", true);
+      //bb.Set<bool>("BDPublic", true);
+      bb.SetBDChatType(ChatType::Public);
       game.SendChatMessage("This bot now only listens to public baseduel commands. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -37,13 +39,15 @@ class BDPrivateCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("BDPublic", false) == false) {
+    //if (bb.ValueOr<bool>("BDPublic", false) == false) {
+      if (bb.GetBDChatType() == ChatType::Private) {
       game.SendPrivateMessage(sender, "I am already set to private baseduel commands.");
       return;
-    }
+      }
 
     if (game.GetZone() == Zone::Devastation) {
-      bb.Set<bool>("BDPublic", false);
+      //bb.Set<bool>("BDPublic", false);
+      bb.SetBDChatType(ChatType::Private);
       game.SendChatMessage("This bot no longer listens to public baseduel commands. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -64,14 +68,25 @@ class StartBDCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("RunBD", false)) {
-      game.SendPrivateMessage(sender, "I am already running a baseduel game.");
+    //if (bb.ValueOr<bool>("RunBD", false)) {
+      if (bb.GetBDState() == BDState::Running) {
+      game.SendPrivateMessage(sender, "I am currently running a baseduel game.");
       return;
-    }
+      }
+      if (bb.GetBDState() == BDState::Paused) {
+      game.SendPrivateMessage(sender, "I am currently paused in the middle of a game.");
+      return;
+      }
+      if (bb.GetBDState() == BDState::Ended) {
+      game.SendPrivateMessage(sender, "I am currently ending a game, please try the command again.");
+      return;
+      }
 
     if (game.GetZone() == Zone::Devastation) {
-      bb.Set<bool>("RunBD", true);
-      bb.Set<bool>("BDWarpToBase", true);
+     // bb.Set<bool>("RunBD", true);
+     // bb.Set<bool>("BDWarpToBase", true);
+      bb.SetBDState(BDState::Running);
+      bb.SetWarpToState(WarpToState::Base);
       game.SendChatMessage("Starting a base duel game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -80,7 +95,8 @@ class StartBDCommand : public CommandExecutor {
 
   CommandAccessFlags GetAccess(Bot& bot) { 
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-    if (bb.ValueOr<bool>("BDPublic", false)) {
+    //if (bb.ValueOr<bool>("BDPublic", false)) {
+    if (bb.GetBDChatType() == ChatType::Public) {
       return CommandAccess_Public;
     }
     return CommandAccess_Private;
@@ -98,18 +114,21 @@ class StopBDCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (!bb.ValueOr<bool>("RunBD", false)) {
-      game.SendPrivateMessage(sender, "No baseduel game was running.");
-      return;
-    }
-
     if (game.GetZone() == Zone::Devastation) {
-      if (bb.ValueOr<bool>("HoldBD", false) == false) {
+      // if (!bb.ValueOr<bool>("RunBD", false)) {
+      if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Ended) {
+        game.SendPrivateMessage(sender, "I am not running a baseduel game.");
+        return;
+      }
+
+      //if (bb.ValueOr<bool>("HoldBD", false) == false) {
+      if (bb.GetBDState() != BDState::Paused) {
         game.SendPrivateMessage(sender, "You must hold the game first before using this command.");
       } else {
-        bb.Set<bool>("RunBD", false);
-        bb.Set<bool>("BDManualStop", true);
-        bb.Set<bool>("HoldBD", false);
+        //bb.Set<bool>("RunBD", false);
+        //bb.Set<bool>("BDManualStop", true);
+        //bb.Set<bool>("HoldBD", false);
+        bb.SetBDState(BDState::Ended);
         game.SendChatMessage("The baseduel game has been stopped. (Command sent by: " + sender + ")");
       }
     } else {
@@ -119,7 +138,8 @@ class StopBDCommand : public CommandExecutor {
 
   CommandAccessFlags GetAccess(Bot& bot) {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-    if (bb.ValueOr<bool>("BDPublic", false) == true) {
+    //if (bb.ValueOr<bool>("BDPublic", false) == true) {
+    if (bb.GetBDChatType() == ChatType::Public) {
       return CommandAccess_Public;
     }
     return CommandAccess_Private;
@@ -137,13 +157,19 @@ class HoldBDCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("HoldBD", false)) {
-      game.SendPrivateMessage(sender, "I am already holding a baseduel game.");
-      return;
-    }
-
     if (game.GetZone() == Zone::Devastation) {
-      bb.Set<bool>("HoldBD", true);
+      // if (bb.ValueOr<bool>("HoldBD", false)) {
+      if (bb.GetBDState() == BDState::Paused) {
+        game.SendPrivateMessage(sender, "I am already holding a baseduel game.");
+        return;
+      }
+      if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Ended) {
+        game.SendPrivateMessage(sender, "I am not running a baseduel game.");
+        return;
+      }
+
+      //bb.Set<bool>("HoldBD", true);
+      bb.SetBDState(BDState::Paused);
       game.SendChatMessage("Holding game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -152,7 +178,8 @@ class HoldBDCommand : public CommandExecutor {
 
   CommandAccessFlags GetAccess(Bot& bot) {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-    if (bb.ValueOr<bool>("BDPublic", false)) {
+   // if (bb.ValueOr<bool>("BDPublic", false)) {
+    if (bb.GetBDChatType() == ChatType::Public) {
       return CommandAccess_Public;
     }
     return CommandAccess_Private;
@@ -170,13 +197,21 @@ class ResumeBDCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (!bb.ValueOr<bool>("HoldBD", false)) {
-      game.SendPrivateMessage(sender, "I was not holding the game.");
-      return;
-    }
-
     if (game.GetZone() == Zone::Devastation) {
-      bb.Set<bool>("HoldBD", false);
+      
+        //if (!bb.ValueOr<bool>("HoldBD", false)) {
+      if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Ended) {
+        game.SendPrivateMessage(sender, "I am not running a baseduel game.");
+        return;
+      }
+
+        if (bb.GetBDState() != BDState::Paused) {
+        game.SendPrivateMessage(sender, "I am not holding a baseduel game. (it's currently running)");
+        return;
+        }
+
+     // bb.Set<bool>("HoldBD", false);
+      bb.SetBDState(BDState::Running);
       game.SendChatMessage("Resuming game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -185,7 +220,8 @@ class ResumeBDCommand : public CommandExecutor {
 
   CommandAccessFlags GetAccess(Bot& bot) {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-    if (bb.ValueOr<bool>("BDPublic", false) == true) {
+    //if (bb.ValueOr<bool>("BDPublic", false) == true) {
+      if (bb.GetBDChatType() == ChatType::Public) {
       return CommandAccess_Public;
     }
     return CommandAccess_Private;

@@ -28,12 +28,15 @@ class SetShipCommand : public CommandExecutor {
     }
 
     if (number >= 1 && number <= 9) {
-      bb.Set<uint16_t>("Ship", number - 1);
+      //bb.Set<uint16_t>("Ship", number - 1);
+      bb.SetShip(number - 1);
+      bb.SetCommandRequest(CommandRequestType::ShipChange);
 
       if (number == 9) {
-        bb.SetAllToDefault();
-        bb.Set<bool>("IsAnchor", false);
-        bb.Set<bool>("Swarm", false);
+        //bb.SetAllToDefault();
+        //bb.Set<bool>("IsAnchor", false);
+        //bb.Set<bool>("Swarm", false);
+        bb.SetToDefaultBehavior();
 
         game.SendPrivateMessage(sender, "My behaviors are also reset when sent to spec");
       } else {

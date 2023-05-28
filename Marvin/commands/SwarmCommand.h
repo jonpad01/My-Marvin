@@ -11,13 +11,15 @@ class SwarmCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("Swarm", false) == true) {
+    //if (bb.ValueOr<bool>("Swarm", false) == true) {
+      if (bb.GetSwarm()) {
       game.SendPrivateMessage(sender, "Marv was already swarming.");
     } else {
       game.SendPrivateMessage(sender, "Switching swarm mode on.");
     }
 
-    bb.Set<bool>("Swarm", true);
+    //bb.Set<bool>("Swarm", true);
+    bb.SetSwarm(true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -35,13 +37,15 @@ class SwarmOffCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("Swarm", false) == false) {
+    //if (bb.ValueOr<bool>("Swarm", false) == false) {
+      if (!bb.GetSwarm()) {
       game.SendPrivateMessage(sender, "Swarm mode was already off.");
     } else {
       game.SendPrivateMessage(sender, "Switching swarm mode off.");
     }
 
-    bb.Set<bool>("Swarm", false);
+    //bb.Set<bool>("Swarm", false);
+    bb.SetSwarm(false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }

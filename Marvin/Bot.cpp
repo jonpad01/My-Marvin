@@ -88,13 +88,13 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Bot& bot) {
       }
     } break;
     case Zone::ExtremeGames: {
-      builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
+     // builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
     } break;
     case Zone::GalaxySports: {
       //builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
     } break;
     case Zone::Hockey: {
-      builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+      //builder = std::make_unique<hz::HockeyBehaviorBuilder>();
     } break;
     case Zone::Hyperspace: {
      // builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
@@ -228,8 +228,10 @@ void Bot::Update(float dt) {
   //#endif
 
   if (ship != 8) {
-    steering_.Steer(*this, ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
-    ctx_.blackboard.Set<bool>("SteerBackwards", false);
+   // steering_.Steer(*this, ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
+   // ctx_.blackboard.Set<bool>("SteerBackwards", false);
+    steering_.Steer(*this, ctx_.blackboard.GetSteerBackwards());
+    ctx_.blackboard.SetSteerBackwards(false);
   }
 
   g_RenderState.RenderDebugText("Steering: %llu", timer.GetElapsedTime());
@@ -366,6 +368,35 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
   return behavior::ExecuteResult::Success;
 }
 
+behavior::ExecuteResult SetArenaNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.blackboard;
+
+  const std::string& arena = bb.GetArena();
+  std::string mapfile = game.GetMapFile();
+  // trim the .lvl extension
+  mapfile = mapfile.substr(0, mapfile.size() - 4);
+
+
+  if (bb.GetCommandRequest() == CommandRequestType::ArenaChange) {
+    if (mapfile != arena) {
+      if (ctx.bot->GetTime().TimedActionDelay("arenachange", 200)) {
+        game.SetEnergy(100.0f);
+        game.SendChatMessage("?go " + arena);
+      }
+      g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
+    } else {
+      bb.SetCommandRequest(CommandRequestType::None);
+    }
+  }
+
+  g_RenderState.RenderDebugText("  SetArenaNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+  }
+
 behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
@@ -373,24 +404,28 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.blackboard;
 
   uint16_t cShip = game.GetPlayer().ship;
-  uint16_t dShip = bb.ValueOr<uint16_t>("Ship", 0);
-  // uint16_t dShip = bb.ValueOr<uint16_t>(Var::Ship, 0);
+  //uint16_t dShip = bb.ValueOr<uint16_t>("Ship", 0);
+  uint16_t dShip = bb.GetShip();
 
   uint64_t ship_cooldown = 200;
   if (cShip == 8) {
     ship_cooldown = 1000;
   }
 
-  if (cShip != dShip) {
-    if (ctx.bot->GetTime().TimedActionDelay("shipchange", ship_cooldown)) {
-      game.SetEnergy(100.0f);
-      if (!game.SetShip(dShip)) {
-        ctx.bot->GetTime().TimedActionDelay("shipchange", 0);
+  if (bb.GetCommandRequest() == CommandRequestType::ShipChange) {
+    if (cShip != dShip) {
+      if (ctx.bot->GetTime().TimedActionDelay("shipchange", ship_cooldown)) {
+        game.SetEnergy(100.0f);
+        if (!game.SetShip(dShip)) {
+          ctx.bot->GetTime().TimedActionDelay("shipchange", 0);
+        }
       }
-    }
 
-    g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
+      g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
+    } else {
+      bb.SetCommandRequest(CommandRequestType::None);
+    }
   }
 
   g_RenderState.RenderDebugText("  SetShipNode(success): %llu", timer.GetElapsedTime());
@@ -405,28 +440,37 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
 
   const char* balancer_msg = "Changing to that team would disrupt the balance between it and your current team.";
 
-  uint16_t freq = bb.ValueOr<uint16_t>("Freq", 999);
+  //uint16_t freq = bb.ValueOr<uint16_t>("Freq", 999);
+  uint16_t freq = bb.GetFreq();
 
-  if (freq != 999) {
-    if (ctx.bot->GetTime().TimedActionDelay("setfreq", 200)) {
-      game.SetEnergy(100.0f);
-      game.SetFreq(freq);
-    }
-
-    for (ChatMessage& chat : game.GetChat()) {
-      if (chat.message == balancer_msg && chat.type == 0) {
-        game.SendChatMessage("The zone balancer has prevented me from joining that team.");
-        bb.Set<uint16_t>("Freq", 999);
-        break;
+  if (bb.GetCommandRequest() == CommandRequestType::FreqChange) {
+    //if (freq != 999) {
+    if (freq != game.GetPlayer().frequency) {
+      if (ctx.bot->GetTime().TimedActionDelay("setfreq", 200)) {
+        game.SetEnergy(100.0f);
+        game.SetFreq(freq);
       }
-    }
 
-    if (freq == int(game.GetPlayer().frequency)) {
-      bb.Set<uint16_t>("Freq", 999);
-    }
+      for (ChatMessage& chat : game.GetChat()) {
+        if (chat.message == balancer_msg && chat.type == 0) {
+          game.SendChatMessage("The zone balancer has prevented me from joining that team.");
+          // bb.Set<uint16_t>("Freq", 999);
+          //bb.SetFreq(999);
+          bb.SetCommandRequest(CommandRequestType::None);
+          break;
+        }
+      }
 
-    g_RenderState.RenderDebugText("  SetFreqNode(fail): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
+     // if (freq == int(game.GetPlayer().frequency)) {
+        // bb.Set<uint16_t>("Freq", 999);
+     //   bb.SetFreq(999);
+    //  }
+
+      g_RenderState.RenderDebugText("  SetFreqNode(fail): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
+    } else {
+      bb.SetCommandRequest(CommandRequestType::None);
+    }
   }
   g_RenderState.RenderDebugText("  SetFreqNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -472,18 +516,29 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
 
   const Player& bot = game.GetPlayer();
 
-  std::vector<Player> team_list;
-  std::vector<Player> enemy_list;
-  std::vector<Player> combined_list;
+ // std::vector<Player> team_list;
+ // std::vector<Player> enemy_list;
+ // std::vector<Player> combined_list;
+  bb.ClearTeamList();
+  bb.ClearEnemyList();
+  bb.ClearCombinedList();
+  bb.ClearFreqList();
 
-  std::vector<uint16_t> fList(100, 0);
+  // a list of player counts for each frequency
+  // where the index is the frequency, and the value is the player count
+  //std::vector<uint16_t> fList(100, 0);
 
-  bool team_in_base = false;
-  bool enemy_in_base = false;
-  bool last_in_base = true;
+  //bool team_in_base = false;
+  //bool enemy_in_base = false;
+  //bool last_in_base = true;
+  bb.SetTeamInBase(false);
+  bb.SetEnemyInBase(false);
+  bb.SetLastInBase(true);
 
-  uint16_t pFreq0 = bb.ValueOr<uint16_t>("PubTeam0", 00);
-  uint16_t pFreq1 = bb.ValueOr<uint16_t>("PubTeam1", 01);
+ // uint16_t pFreq0 = bb.ValueOr<uint16_t>("PubTeam0", 00);
+ // uint16_t pFreq1 = bb.ValueOr<uint16_t>("PubTeam1", 01);
+  uint16_t pFreq0 = bb.GetPubTeam0();
+  uint16_t pFreq1 = bb.GetPubTeam1();
 
   // Vector2f current_base = ctx.blackboard.GetBase[ctx.blackboard.GetRegionIndex()];
 
@@ -491,44 +546,59 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
     const Player& player = game.GetPlayers()[i];
 
-    bool in_center = ctx.bot->GetRegions().IsConnected(player.position, Vector2f(512, 512));
+    bool in_center = ctx.bot->GetRegions().IsConnected(player.position, MapCoord(512, 512));
 
-    if (player.frequency < 100) fList[player.frequency]++;
+    if (player.frequency < 100) {
+      //fList[player.frequency]++;
+      bb.IncrementFreqList(player.frequency);
+    }
 
     if ((player.frequency == pFreq0 || player.frequency == pFreq1) && (player.id != bot.id)) {
-      combined_list.push_back(game.GetPlayers()[i]);
+      //combined_list.push_back(game.GetPlayers()[i]);
+      bb.PushCombinedList(&game.GetPlayers()[i]);
 
       if (player.frequency == bot.frequency) {
-        team_list.push_back(game.GetPlayers()[i]);
+        //team_list.push_back(game.GetPlayers()[i]);
+        bb.PushTeamList(&game.GetPlayers()[i]);
 
         if (!in_center && IsValidPosition(player.position)) {
-          team_in_base = true;
+          //team_in_base = true;
+          bb.SetTeamInBase(true);
         }
         if (!in_center && player.active) {
-          last_in_base = false;
+          //last_in_base = false;
+          bb.SetLastInBase(false);
         }
       } else {
-        enemy_list.push_back(game.GetPlayers()[i]);
+        //enemy_list.push_back(game.GetPlayers()[i]);
+        bb.PushEnemyList(&game.GetPlayers()[i]);
 
         if (!in_center && IsValidPosition(player.position)) {
-          enemy_in_base = true;
+          //enemy_in_base = true;
+          bb.SetEnemyInBase(true);
         }
       }
     }
   }
-  if (team_list.size() == 0) {
-    last_in_base = false;
+
+  // last in base flag should not be set when bot is the only player on the team
+  if (bb.GetTeamList().size() == 0) {
+    //last_in_base = false;
+    bb.SetLastInBase(false);
   }
 
-  bb.Set<std::vector<Player>>("TeamList", team_list);
-  bb.Set<std::vector<Player>>("EnemyList", enemy_list);
-  bb.Set<std::vector<Player>>("CombinedList", combined_list);
+  // push player into team list after checking if team list is 0 
+  bb.PushTeamList(&game.GetPlayer());
 
-  bb.Set<std::vector<uint16_t>>("FreqList", fList);
+  //bb.Set<std::vector<Player>>("TeamList", team_list);
+  //bb.Set<std::vector<Player>>("EnemyList", enemy_list);
+ // bb.Set<std::vector<Player>>("CombinedList", combined_list);
 
-  bb.Set<bool>("TeamInBase", team_in_base);
-  bb.Set<bool>("EnemyInBase", enemy_in_base);
-  bb.Set<bool>("LastInBase", last_in_base);
+  //bb.Set<std::vector<uint16_t>>("FreqList", fList);
+
+ // bb.Set<bool>("TeamInBase", team_in_base);
+  //bb.Set<bool>("EnemyInBase", enemy_in_base);
+  //bb.Set<bool>("LastInBase", last_in_base);
 
   g_RenderState.RenderDebugText("  SortBaseTeams: %llu", timer.GetElapsedTime());
 
@@ -557,7 +627,8 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  if (!bb.ValueOr<bool>("InCenter", true)) {
+  //if (!bb.ValueOr<bool>("InCenter", true)) {
+  if (!bb.GetInCenter()) {
     g_RenderState.RenderDebugText("  FindEnemyInCenterNode(NotInCenter): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -569,7 +640,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
     const Player& player = game.GetPlayers()[i];
 
-    if (!IsValidTarget(*ctx.bot, player, false)) {
+    if (!IsValidTarget(*ctx.bot, player, bb.GetCombatRole())) {
      // g_RenderState.RenderDebugText("  Not Valid %llu", timer.GetElapsedTime());
       continue;
     }
@@ -583,9 +654,10 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
     }
   }
 
-  const Player* current_target = bb.ValueOr<const Player*>("Target", nullptr);
+  //const Player* current_target = bb.ValueOr<const Player*>("Target", nullptr);
+  const Player* current_target = bb.GetTarget();
 
-  if (current_target && IsValidTarget(*ctx.bot, *current_target, false)) {
+  if (current_target && IsValidTarget(*ctx.bot, *current_target, bb.GetCombatRole())) {
     // Calculate the cost to the current target so there's some stickiness
     // between close targets.
     const float kStickiness = 2.5f;
@@ -596,7 +668,8 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
     }
   }
 
-  bb.Set<const Player*>("Target", target);
+  //bb.Set<const Player*>("Target", target);
+  bb.SetTarget(target);
   if (result == behavior::ExecuteResult::Success) {
     g_RenderState.RenderDebugText("  FindEnemyInCenterNode(EnemyFound): %llu", timer.GetElapsedTime());
   } else {
@@ -633,8 +706,10 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  bool in_center = bb.ValueOr<bool>("InCenter", false);
-  bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
+  //bool in_center = bb.ValueOr<bool>("InCenter", false);
+  bool in_center = bb.GetInCenter();
+  //bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
+  CombatRole combat_role = bb.GetCombatRole();
   const Path& base_path = ctx.bot->GetBasePath();
 
   if (base_path.empty() || in_center) {
@@ -651,7 +726,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   for (std::size_t i = 0; i < game.GetEnemies().size(); ++i) {
     const Player& player = game.GetEnemies()[i];
 
-    if (!IsValidTarget(*ctx.bot, player, anchoring)) {
+    if (!IsValidTarget(*ctx.bot, player, combat_role)) {
       continue;
     }
 
@@ -691,10 +766,13 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     }
   }
 
-  bb.Set<float>(BB::EnemyNetBulletTravel, max_net_player_bullet_travel);
-  bb.Set<const Player*>("Target", target);
+  //bb.Set<float>(BB::EnemyNetBulletTravel, max_net_player_bullet_travel);
+  bb.SetEnemyNetBulletTravel(max_net_player_bullet_travel);
+  bb.SetTarget(target);
+  //bb.Set<const Player*>("Target", target);
   if (result == behavior::ExecuteResult::Success) {
-    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(success): %llu", timer.GetElapsedTime());
+    std::string msg = "  FindEnemyInBaseNode(" + target->name + "): %llu";
+    g_RenderState.RenderDebugText(msg.c_str(), timer.GetElapsedTime());
   } else {
     g_RenderState.RenderDebugText("  FindEnemyInBaseNode(fail): %llu", timer.GetElapsedTime());
   }
@@ -710,7 +788,8 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   Vector2f bot = game.GetPosition();
 
-  const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+  //const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+  const Player* enemy = bb.GetTarget();
 
   if (!enemy) {
     g_RenderState.RenderDebugText("  PathToEnemyNode(fail): %llu", timer.GetElapsedTime());
@@ -734,15 +813,19 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
   Vector2f from = game.GetPosition();
   float radius = game.GetShipSettings().GetRadius();
 
-  std::vector<Vector2f> nodes = bb.ValueOr<std::vector<Vector2f>>("PatrolNodes", std::vector<Vector2f>());
-  int index = ctx.blackboard.ValueOr<int>("PatrolIndex", 0);
+  //std::vector<Vector2f> nodes = bb.ValueOr<std::vector<Vector2f>>("PatrolNodes", std::vector<Vector2f>());
+  const std::vector<MapCoord>& nodes = bb.GetPatrolNodes();
+  //int index = ctx.blackboard.ValueOr<int>("PatrolIndex", 0);
+  std::size_t index = bb.GetPatrolIndex();
 
-  if (bb.ValueOr<bool>("InCenter", true)) {
+  //if (bb.ValueOr<bool>("InCenter", true)) {
+  if (bb.GetInCenter()) {
     Vector2f to = nodes.at(index);
 
     if (game.GetPosition().DistanceSq(to) < 5.0f * 5.0f) {
       index = (index + 1) % nodes.size();
-      ctx.blackboard.Set<int>("PatrolIndex", index);
+      //ctx.blackboard.Set<int>("PatrolIndex", index);
+      bb.SetPatrolIndex(index);
       to = nodes.at(index);
     }
 
@@ -762,20 +845,23 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  bool in_center = bb.ValueOr<bool>("InCenter", true);
-  bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
-  bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
-  const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+//  bool in_center = bb.ValueOr<bool>("InCenter", true);
+ // bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
+ // bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
+ // const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+  bool in_center = bb.GetInCenter();
+  CombatRole role = bb.GetCombatRole();
+  bool last_in_base = bb.GetLastInBase();
+  const Player* enemy = bb.GetTarget();
+  const Path& base_path = ctx.bot->GetBasePath();
 
-  if (in_center || is_anchor || last_in_base || !enemy) {
+  if (in_center || role == CombatRole::Anchor || last_in_base || !enemy || base_path.empty()) {
     g_RenderState.RenderDebugText("  RusherPathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   Vector2f position = game.GetPosition();
   float radius = game.GetShipSettings().GetRadius();
-
-  Path base_path = ctx.bot->GetBasePath();
 
   Vector2f desired_position;
 
@@ -799,12 +885,16 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  bool in_center = bb.ValueOr<bool>("InCenter", true);
-  is_anchor_ = bb.ValueOr<bool>("IsAnchor", false);
-  bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
-  const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+  //bool in_center = bb.ValueOr<bool>("InCenter", true);
+  //bool is_anchor_ = bb.ValueOr<bool>("IsAnchor", false);
+  //bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
+ // const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
+  bool in_center = bb.GetInCenter();
+  role_ = bb.GetCombatRole();
+  bool last_in_base = bb.GetLastInBase();
+  const Player* enemy = bb.GetTarget();
 
-  if (!enemy || in_center || (!is_anchor_ && !last_in_base)) {
+  if (!enemy || in_center || (role_ != CombatRole::Anchor && !last_in_base)) {
     g_RenderState.RenderDebugText("  AnchorBasePathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -858,7 +948,8 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   float enemy_pathlength_to_bot = search_->GetPathDistance(enemy_node_, bot_node_);
   //max_net_enemy_bullet_travel_ = enemy_bullet_travel_ - enemy_pathlength_to_bot;
   max_enemy_bullet_travel_ = (max_enemy_speed_ + enemy_bullet_speed_) * alive_time_;
-  max_net_enemy_bullet_travel_ = bb.ValueOr<float>(BB::EnemyNetBulletTravel, 0.0f);
+  //max_net_enemy_bullet_travel_ = bb.ValueOr<float>(BB::EnemyNetBulletTravel, 0.0f);
+  max_net_enemy_bullet_travel_ = bb.GetEnemyNetBulletTravel();
   min_enemy_time_to_bot_ = enemy_pathlength_to_bot / max_enemy_speed_;
 
   CalculateEnemyThreat(ctx, enemy);
@@ -903,7 +994,8 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   
   if (pathlength < desired_distance || AvoidInfluence(ctx)) {
     desired_position_ = bot_aft_;
-    bb.Set<bool>("SteerBackwards", true);
+    //bb.Set<bool>("SteerBackwards", true);
+    bb.SetSteerBackwards(true);
   }
 
   g_RenderState.RenderDebugText("  TEAM THREAT: %f", team_threat_);
@@ -924,7 +1016,7 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
   for (std::size_t i = 0; i < game.GetEnemyTeam().size(); i++) {
     const Player& player = game.GetEnemyTeam()[i];
 
-    if (!IsValidTarget(*ctx.bot, player, is_anchor_)) continue;
+    if (!IsValidTarget(*ctx.bot, player, role_)) continue;
 
     float player_bullet_speed = game.GetShipSettings(player.ship).GetBulletSpeed();
     float player_radius = game.GetShipSettings(player.ship).GetRadius();
@@ -1161,7 +1253,8 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
   auto& bb = ctx.blackboard;
   bool in_sight = false;
 
-  const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  const Player* target = bb.GetTarget();
 
   if (target) {
     // Pull out the radius check to the edge of the target's ship to be more accurate with raycast
@@ -1172,12 +1265,14 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
     // the ship is viewable.
     if (!RadiusRayCastHit(*ctx.bot, game.GetPosition(), target_front, game.GetShipSettings().GetRadius())) {
       g_RenderState.RenderDebugText("  InLineOfSightNode (success): %llu", timer.GetElapsedTime());
-      bb.Set<bool>("TargetInSight", true);
+      //bb.Set<bool>("TargetInSight", true);
+      bb.SetTargetInSight(true);
       return behavior::ExecuteResult::Success;
     }
   }
 
-  bb.Set<bool>("TargetInSight", false);
+  //bb.Set<bool>("TargetInSight", false);
+  bb.SetTargetInSight(false);
   g_RenderState.RenderDebugText("  InLineOfSightNode (fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
@@ -1186,7 +1281,8 @@ behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& bb = ctx.blackboard;
 
-  if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
+  //if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
+  if (bb.GetCombatRole() == CombatRole::Anchor && !bb.GetInCenter()) {
     g_RenderState.RenderDebugText("  IsAnchorNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
@@ -1201,8 +1297,10 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
-  bool in_sight = bb.ValueOr<bool>("TargetInSight", false);
+  //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  //bool in_sight = bb.ValueOr<bool>("TargetInSight", false);
+  const Player* target = bb.GetTarget();
+  bool in_sight = bb.GetTargetInSight();
 
   if (!target || in_sight) {
     g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
@@ -1211,7 +1309,8 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
 
   float energy_pct = (float)game.GetPlayer().energy / game.GetMaxEnergy() * 100.0f;
 
-  if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
+  //if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
+  if (bb.GetCombatRole() == CombatRole::Anchor && energy_pct < 50.0f) {
     g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -1224,19 +1323,21 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
       ctx.bot->GetShooter().BouncingBulletShot(*ctx.bot, target->position, target->velocity, target_radius);
 
   float bomb_delay = game.GetShipSettings().GetBombFireDelay();
-  float bomb_timer = bb.ValueOr<float>("BombTimer", 0.0f);
-  bomb_timer -= ctx.dt;
-  if (bomb_timer < 0.0f) bomb_timer = 0.0f;
-  bb.Set<float>("BombTimer", bomb_timer);
+  //float bomb_timer = bb.ValueOr<float>("BombTimer", 0.0f);
+  float bomb_cooldown = bb.GetBombCooldown();
+  bomb_cooldown -= ctx.dt;
+  //bb.Set<float>("BombTimer", bomb_timer);
+  bb.SetBombCooldown(bomb_cooldown);
 
-    if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
-    if (bResult.hit && bomb_timer == 0.0f) {
-        ctx.bot->GetKeys().Press(VK_TAB);
-        bb.Set<float>("BombTimer", bomb_delay);
-      } else if (gResult.hit) {
-        ctx.bot->GetKeys().Press(VK_CONTROL);
-      }
+  if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
+    if (bResult.hit && bomb_cooldown <= 0.0f) {
+      ctx.bot->GetKeys().Press(VK_TAB);
+      //bb.Set<float>("BombTimer", bomb_delay);
+      bb.SetBombCooldown(bomb_delay);
+    } else if (gResult.hit) {
+      ctx.bot->GetKeys().Press(VK_CONTROL);
     }
+  }
 
   g_RenderState.RenderDebugText("  BouncingShotNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -1248,7 +1349,8 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
+  //const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
+  const Player* target_player = bb.GetTarget();
 
   if (!target_player) {
     g_RenderState.RenderDebugText("  ShootEnemyNode(fail): %llu", timer.GetElapsedTime());
@@ -1265,7 +1367,8 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   float alive_time = (float)game.GetSettings().GetBulletAliveTime();
 
   Vector2f solution = target.position;
-  bb.Set<Vector2f>("Solution", solution);
+  //bb.Set<Vector2f>("Solution", solution);
+  bb.SetSolution(solution);
 
   float radius_multiplier = 1.4f;
 
@@ -1318,7 +1421,8 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
     if (result.hit) {
       if (!onBomb) {
-        bb.Set<Vector2f>("Solution", solution);
+        //bb.Set<Vector2f>("Solution", solution);
+        bb.SetSolution(solution);
       }
 
 
@@ -1400,7 +1504,8 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  Vector2f position = bb.ValueOr<Vector2f>("Solution", Vector2f());
+  //Vector2f position = bb.ValueOr<Vector2f>("Solution", Vector2f());
+  Vector2f position = bb.GetSolution();
 
   bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
 

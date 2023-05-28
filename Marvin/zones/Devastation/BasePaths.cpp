@@ -11,6 +11,8 @@ namespace deva {
 
 BasePaths::BasePaths(const BaseWarps& spawns, float radius, path::Pathfinder& pathfinder, const Map& map) {
 
+    current_index_ = 0;
+
   for (std::size_t i = 0; i < spawns.t0.size(); i++) {
     Vector2f position_1 = spawns.t0[i];
     Vector2f position_2 = spawns.t1[i];

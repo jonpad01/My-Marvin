@@ -109,6 +109,7 @@ struct BaseSpawns {
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   //const BaseSpawns& spawn = bot.GetBaseDuelSpawns().GetSpawns();
   float radius = bot.GetGame().GetShipSettings().GetRadius();
+  bot.GetBlackboard().SetCombatRole(CombatRole::Rusher);
  
   //bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
@@ -120,37 +121,63 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     }
 
     if (ship == 2) {
-      bot.GetBlackboard().Set<bool>("IsAnchor", true);
+      //bot.GetBlackboard().Set<bool>("IsAnchor", true);
+      bot.GetBlackboard().SetCombatRole(CombatRole::Anchor);
     }
 
-    std::vector<Vector2f> patrol_nodes = {Vector2f(568, 568), Vector2f(454, 568), Vector2f(454, 454), Vector2f(568, 454),
-                                   Vector2f(568, 568), Vector2f(454, 454), Vector2f(568, 454), Vector2f(454, 568),
-                                   Vector2f(454, 454), Vector2f(568, 568), Vector2f(454, 568), Vector2f(568, 454)};
+    std::vector<MapCoord> patrol_nodes = {MapCoord(568, 568), MapCoord(454, 568), MapCoord(454, 454),
+                                          MapCoord(568, 454), MapCoord(568, 568), MapCoord(454, 454),
+                                          MapCoord(568, 454), MapCoord(454, 568), MapCoord(454, 454),
+                                          MapCoord(568, 568), MapCoord(454, 568), MapCoord(568, 454)};
 
-    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseMultiFire, false);
-    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseStealth, true);
-    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseCloak, true);
-    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseXRadar, true);
-    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseDecoy, true);
-    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseRepel, true);
-    bot.GetBlackboard().SetDefaultValue<bool>(BB::UseBurst, true);
+   // bot.GetBlackboard().SetDefaultValue<bool>(BB::UseMultiFire, false);
+    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseStealth, true);
+    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseCloak, true);
+    ///bot.GetBlackboard().SetDefaultValue<bool>(BB::UseXRadar, true);
+    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseDecoy, true);
+    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseRepel, true);
+    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseBurst, true);
 
-    bot.GetBlackboard().Set<bool>(BB::UseMultiFire, false);
-    bot.GetBlackboard().Set<bool>(BB::UseStealth, true);
-    bot.GetBlackboard().Set<bool>(BB::UseCloak, true);
-    bot.GetBlackboard().Set<bool>(BB::UseXRadar, true);
-    bot.GetBlackboard().Set<bool>(BB::UseDecoy, true);
-    bot.GetBlackboard().Set<bool>(BB::UseRepel, true);
-    bot.GetBlackboard().Set<bool>(BB::UseBurst, true);
+    bot.GetBlackboard().SetCombatRoleDefault(CombatRole::Rusher);
+    bot.GetBlackboard().SetMultiFireDefault(false);
+    bot.GetBlackboard().SetStealthDefault(true);
+    bot.GetBlackboard().SetCloakDefault(true);
+    bot.GetBlackboard().SetXradarDeufault(true);
+    bot.GetBlackboard().SetDecoyDefault(true);
+    bot.GetBlackboard().SetRepelDefault(true);
+    bot.GetBlackboard().SetBurstDefault(true);
 
-    bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
-    bot.GetBlackboard().Set<uint16_t>("Freq", 999);
-    bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
-    bot.GetBlackboard().Set<uint16_t>("PubTeam1", 01);
-    bot.GetBlackboard().Set<uint16_t>(BB::PubTeam0, 00);
-    bot.GetBlackboard().Set<uint16_t>(BB::PubTeam1, 01);
-    bot.GetBlackboard().Set<uint16_t>("Ship", ship);
-    bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
+   // bot.GetBlackboard().Set<bool>(BB::UseMultiFire, false);
+    //bot.GetBlackboard().Set<bool>(BB::UseStealth, true);
+    //bot.GetBlackboard().Set<bool>(BB::UseCloak, true);
+    //bot.GetBlackboard().Set<bool>(BB::UseXRadar, true);
+    //bot.GetBlackboard().Set<bool>(BB::UseDecoy, true);
+    //bot.GetBlackboard().Set<bool>(BB::UseRepel, true);
+    //bot.GetBlackboard().Set<bool>(BB::UseBurst, true);
+
+    bot.GetBlackboard().SetUseMultiFire(false);
+    bot.GetBlackboard().SetUseStealth(true);
+    bot.GetBlackboard().SetUseCloak(true);
+    bot.GetBlackboard().SetUseXradar(true);
+    bot.GetBlackboard().SetUseDecoy(true);
+    bot.GetBlackboard().SetUseRepel(true);
+    bot.GetBlackboard().SetUseBurst(true);
+
+  //  bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
+   // bot.GetBlackboard().Set<uint16_t>("Freq", 999);
+   // bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
+   // bot.GetBlackboard().Set<uint16_t>("PubTeam1", 01);
+    //bot.GetBlackboard().Set<uint16_t>(BB::PubTeam0, 00);
+    //bot.GetBlackboard().Set<uint16_t>(BB::PubTeam1, 01);
+    //bot.GetBlackboard().Set<uint16_t>("Ship", ship);
+    //bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
+
+    bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
+    bot.GetBlackboard().SetFreq(999);
+    bot.GetBlackboard().SetPubTeam0(00);
+    bot.GetBlackboard().SetPubTeam1(01);
+    bot.GetBlackboard().SetShip(ship);
+    bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   
   
     // behavior nodes
@@ -223,7 +250,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
                                                                   enemy_or_patrol_selector.get());
   auto role_selector = std::make_unique<behavior::SelectorNode>(anchor_sequence.get(), enemy_or_patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      DEVA_debug.get(), commands_.get(), set_ship_.get(), set_freq_.get(),DEVA_runBD.get(), ship_check_.get(), team_sort.get(),
+      DEVA_debug.get(), commands_.get(), set_arena_.get(), set_ship_.get(), set_freq_.get(),DEVA_runBD.get(), ship_check_.get(), team_sort.get(),
       DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check_.get(),
       DEVA_toggle_status.get(), role_selector.get());
 
@@ -326,27 +353,36 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  std::size_t base_index = bb.ValueOr<std::size_t>(BB::BaseIndex, 0);
-  bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), Vector2f(512, 512));
-  bb.Set<bool>("InCenter", in_center);
+  //std::size_t base_index = bb.ValueOr<std::size_t>(BB::BaseIndex, 0);
+  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
+  bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), MapCoord(512, 512));
+  //bb.Set<bool>("InCenter", in_center);
+  bb.SetInCenter(in_center);
 
-  std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
-  team_list.push_back(game.GetPlayer());
+  //std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
+  const std::vector<const Player*>& team_list = bb.GetTeamList();
+
+  //team_list.push_back(game.GetPlayer());
 
   for (std::size_t i = 0; i < team_list.size(); i++) {
-    bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i].position, MapCoord(512, 512));
-    if (!in_center && team_list[i].active) {
-      bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i].position, warp.t0[base_index]) == 0;
+    bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i]->position, MapCoord(512, 512));
+    if (!in_center && team_list[i]->active) {
+      bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i]->position, warp.t0[base_index]) == 0;
       if (update_region) {
         for (std::size_t j = 0; j < warp.t0.size(); j++) {
-          if (ctx.bot->GetRegions().IsConnected(team_list[i].position, warp.t0[j])) {
-            bb.Set<std::size_t>(BB::BaseIndex, j);
-            if (team_list[i].frequency == 00) {
-              bb.Set<MapCoord>(BB::TeamSafe, warp.t0[j]);
-              bb.Set<MapCoord>(BB::EnemySafe, warp.t1[j]);
-            } else if (team_list[i].frequency == 01) {
-              bb.Set<MapCoord>(BB::TeamSafe, warp.t1[j]);
-              bb.Set<MapCoord>(BB::EnemySafe, warp.t0[j]);
+          if (ctx.bot->GetRegions().IsConnected(team_list[i]->position, warp.t0[j])) {
+            //bb.Set<std::size_t>(BB::BaseIndex, j);
+            ctx.bot->GetBasePaths().SetBase(j);
+            if (team_list[i]->frequency == 00) {
+              //bb.Set<MapCoord>(BB::TeamSafe, warp.t0[j]);
+              //bb.Set<MapCoord>(BB::EnemySafe, warp.t1[j]);
+              bb.SetTeamSafe(warp.t0[j]);
+              bb.SetEnemySafe(warp.t1[j]);
+            } else if (team_list[i]->frequency == 01) {
+              //bb.Set<MapCoord>(BB::TeamSafe, warp.t1[j]);
+              //bb.Set<MapCoord>(BB::EnemySafe, warp.t0[j]);
+              bb.SetTeamSafe(warp.t1[j]);
+              bb.SetEnemySafe(warp.t0[j]);
             }
 
             g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
@@ -370,60 +406,73 @@ behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
   uint64_t respawn_time = game.GetRespawnTime();
   
   uint64_t current_time = ctx.bot->GetTime().GetTime();
-  uint64_t warp_time = bb.ValueOr<uint64_t>("BDWarpCooldown", 0);
+  //uint64_t warp_time = bb.ValueOr<uint64_t>("BDWarpCooldown", 0);
+  uint64_t warp_time = bb.GetBDWarpCoolDown();
 
   // wait a second after warping players to base
   if (current_time - warp_time < 1000) {
-    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  DevaRunDBNode(WaitingAfterWarp): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   // check if the bot wants to warp players to center
-  if (bb.ValueOr<bool>("BDWarpToCenter", false)) {
+  //if (bb.ValueOr<bool>("BDWarpToCenter", false)) {
+  if (bb.GetWarpToState() == WarpToState::Center) {
     if (ctx.bot->GetTime().TimedActionDelay("BDWarpToCenter", 5000)) {
       WarpAllToCenter(ctx);
-      bb.Set<bool>("BDWarpToCenter", false);
+      //bb.Set<bool>("BDWarpToCenter", false);
+      bb.SetWarpToState(WarpToState::None);
     }
-    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  DevaRunDBNode(WarpToCenter): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   // check if the bot wants to warp players to a base
-  if (bb.ValueOr<bool>("BDWarpToBase", false)) {
+  //if (bb.ValueOr<bool>("BDWarpToBase", false)) {
+   if (bb.GetWarpToState() == WarpToState::Base) {
     if (ctx.bot->GetTime().TimedActionDelay("BDWarpToBase", 5000)) {
       WarpAllToBase(ctx);
-      bb.Set<bool>("BDWarpToBase", false);
+      //bb.Set<bool>("BDWarpToBase", false);
+      bb.SetWarpToState(WarpToState::None);
     }
-    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  DevaRunDBNode(WarpToBase): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
-  // check if the runBD flag is true
-  if (!bb.ValueOr<bool>("RunBD", false)) {
-    // check if the game was manually stopped
-    if (bb.ValueOr<bool>("BDManualStop", false)) {
-      PrintFinalScore(ctx);
-      ClearScore(ctx);
-      bb.Set<bool>("BDManualStop", false);
-      bb.Set<bool>("BDWarpToCenter", true);
-    }
-    g_RenderState.RenderDebugText("  DevaRunDBNode(success): %llu", timer.GetElapsedTime());
+  if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Paused) {
+    g_RenderState.RenderDebugText("  DevaRunDBNode(Stopped/Paused): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
+  // check if the runBD flag is true
+ // if (!bb.ValueOr<bool>("RunBD", false)) {
+    // check if the game was manually stopped
+   // if (bb.ValueOr<bool>("BDManualStop", false)) {
+  if (bb.GetBDState() == BDState::Ended) {
+      PrintFinalScore(ctx);
+      ClearScore(ctx);
+      //bb.Set<bool>("BDManualStop", false);
+      //bb.Set<bool>("BDWarpToCenter", true);
+      bb.SetWarpToState(WarpToState::Center);
+      bb.SetBDState(BDState::Stopped);
+  }
+
   // check the score for win conditions
-  int team0_score = bb.ValueOr<int>("Team0Score", 0);
-  int team1_score = bb.ValueOr<int>("Team1Score", 0);
+  //int team0_score = bb.ValueOr<int>("Team0Score", 0);
+  //int team1_score = bb.ValueOr<int>("Team1Score", 0);
+   int team0_score = bb.GetTeam0Score();
+   int team1_score = bb.GetTeam1Score();
 
   bool end_condition =
       (team0_score >= 5 && (team0_score - team1_score) >= 2) || (team1_score >= 5 && (team1_score - team0_score) >= 2);
 
   if (end_condition) {
-    PrintFinalScore(ctx);
-    ClearScore(ctx);
-    bb.Set<bool>("RunBD", false);
-    bb.Set<bool>("BDWarpToCenter", true);
-    g_RenderState.RenderDebugText("  DevaRunDBNode(fail): %llu", timer.GetElapsedTime());
+    //PrintFinalScore(ctx);
+    //ClearScore(ctx);
+   // bb.Set<bool>("RunBD", false);
+   // bb.Set<bool>("BDWarpToCenter", true);
+      bb.SetBDState(BDState::Ended);
+    g_RenderState.RenderDebugText("  DevaRunDBNode(Game Ended): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -433,7 +482,8 @@ behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
   bool team0_on_safe = false;
   bool team1_on_safe = false;
 
-  std::size_t base_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
+  //std::size_t base_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
+  std::size_t base_index = bb.GetBDBaseIndex();
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
     const Player& player = game.GetPlayers()[i];
@@ -473,35 +523,45 @@ behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
   if (team0_on_safe && team1_on_safe) {
     game.SendChatMessage("Both teams have reached the safe tile at the same time!");
     PrintCurrentScore(ctx);
-    bb.Set<bool>("BDWarpToBase", true);
+    //bb.Set<bool>("BDWarpToBase", true);
+    bb.SetWarpToState(WarpToState::Base);
   }
   else if (team0_on_safe) {
     game.SendChatMessage("Team 0 is on team 1's safe!");
-    bb.Set<int>("Team0Score", ++team0_score);
+    //bb.Set<int>("Team0Score", ++team0_score);
+    bb.SetTeam0Score(++team0_score);
     PrintCurrentScore(ctx);
-    bb.Set<bool>("BDWarpToBase", true);
+    //bb.Set<bool>("BDWarpToBase", true);
+    bb.SetWarpToState(WarpToState::Base);
   } else if (team1_on_safe) {
     game.SendChatMessage("Team 1 is on team 0's safe!");
-    bb.Set<int>("Team1Score", ++team1_score);
+    //bb.Set<int>("Team1Score", ++team1_score);
+    bb.SetTeam1Score(++team1_score);
     PrintCurrentScore(ctx);
-    bb.Set<bool>("BDWarpToBase", true);
+    //bb.Set<bool>("BDWarpToBase", true);
+    bb.SetWarpToState(WarpToState::Base);
   } else if (team0_dead && team1_dead) {
     game.SendChatMessage("All Dead!");
     PrintCurrentScore(ctx);
-    bb.Set<bool>("BDWarpToBase", true);
+    //bb.Set<bool>("BDWarpToBase", true);
+    bb.SetWarpToState(WarpToState::Base);
   } else if (team0_dead) {
     if (ctx.bot->GetTime().TimedActionDelay("Team0Dead", respawn_time)) {
       game.SendChatMessage("Team 0 dead!");
-      bb.Set<int>("Team1Score", ++team1_score);
+      //bb.Set<int>("Team1Score", ++team1_score);
+      bb.SetTeam1Score(++team1_score);
       PrintCurrentScore(ctx);
-      bb.Set<bool>("BDWarpToBase", true);
+      //bb.Set<bool>("BDWarpToBase", true);
+      bb.SetWarpToState(WarpToState::Base);
     }
   } else if (team1_dead) {
     if (ctx.bot->GetTime().TimedActionDelay("Team1Dead", respawn_time)) {
       game.SendChatMessage("Team 1 dead!");
-      bb.Set<int>("Team0Score", ++team0_score);
+      //bb.Set<int>("Team0Score", ++team0_score);
+      bb.SetTeam0Score(++team0_score);
       PrintCurrentScore(ctx);
-      bb.Set<bool>("BDWarpToBase", true);
+      //bb.Set<bool>("BDWarpToBase", true);
+      bb.SetWarpToState(WarpToState::Base);
     }
   }
   g_RenderState.RenderDebugText("  DevaRunDBNode(success): %llu", timer.GetElapsedTime());
@@ -512,8 +572,10 @@ void DevaRunBDNode::PrintCurrentScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  int team0_score = bb.ValueOr<int>("Team0Score", 0);
-  int team1_score = bb.ValueOr<int>("Team1Score", 0);
+  //int team0_score = bb.ValueOr<int>("Team0Score", 0);
+  //int team1_score = bb.ValueOr<int>("Team1Score", 0);
+  int team0_score = bb.GetTeam0Score();
+  int team1_score = bb.GetTeam1Score();
 
   std::string msg = "Team 0 score: " + std::to_string(team0_score);
   msg += "   Team 1 score: " + std::to_string(team1_score);
@@ -525,8 +587,10 @@ void DevaRunBDNode::PrintFinalScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  int team0_score = bb.ValueOr<int>("Team0Score", 0);
-  int team1_score = bb.ValueOr<int>("Team1Score", 0);
+  //int team0_score = bb.ValueOr<int>("Team0Score", 0);
+ // int team1_score = bb.ValueOr<int>("Team1Score", 0);
+  int team0_score = bb.GetTeam0Score();
+  int team1_score = bb.GetTeam1Score();
 
   if (team0_score > team1_score) {
     game.SendChatMessage("Team 0 Wins!  Game Over!");
@@ -541,8 +605,10 @@ void DevaRunBDNode::ClearScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  bb.Set<int>("Team0Score", 0);
-  bb.Set<int>("Team1Score", 0);
+  //bb.Set<int>("Team0Score", 0);
+  //bb.Set<int>("Team1Score", 0);
+  bb.SetTeam0Score(0);
+  bb.SetTeam1Score(0);
 }
 
 void DevaRunBDNode::WarpAllToCenter(behavior::ExecuteContext& ctx) {
@@ -565,13 +631,15 @@ void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   const BaseWarps& warp = ctx.bot->GetBaseDuelWarps().GetWarps();
 
   std::size_t random_index = rand() % warp.t0.size();
-  std::size_t previous_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
+  //std::size_t previous_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
+  std::size_t previous_index = bb.GetBDBaseIndex();
 
   while (random_index == previous_index) {
     random_index = rand() % warp.t0.size();
   }
 
-  bb.Set<std::size_t>("BDBaseIndex", random_index);
+  //bb.Set<std::size_t>("BDBaseIndex", random_index);
+  bb.SetBDBaseIndex(random_index);
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
     const Player& player = game.GetPlayers()[i];
@@ -590,7 +658,8 @@ void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
       game.SendPrivateMessage(player.name, warp_msg);
     }
   }
-  bb.Set<uint64_t>("BDWarpCooldown", ctx.bot->GetTime().GetTime());
+ // bb.Set<uint64_t>("BDWarpCooldown", ctx.bot->GetTime().GetTime());
+  bb.SetBDWarpCoolDown(ctx.bot->GetTime().GetTime());
 }
 
 behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
@@ -601,25 +670,28 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
 
   bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
 
-  if (bb.ValueOr<bool>("FreqLock", false) || (bb.ValueOr<bool>("IsAnchor", false) && dueling)) {
-    g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
+  //if (bb.ValueOr<bool>("FreqLock", false) || (bb.ValueOr<bool>("IsAnchor", false) && dueling)) {
+  if (bb.GetFreqLock() || (bb.GetCombatRole() == CombatRole::Anchor && dueling)) {
+    g_RenderState.RenderDebugText("  DevaFreqMan:(locked/anchoring) %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
   uint64_t offset = ctx.bot->GetTime().DevaFreqTimer(kBotNames);
   // uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(game.GetPlayer().id);
 
-  std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>("FreqList", std::vector<uint16_t>());
+  //std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>("FreqList", std::vector<uint16_t>());
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
 
   // if player is on a non duel team size greater than 2, breaks the zone balancer
   if (game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01) {
     if (fList[game.GetPlayer().frequency] > 1) {
+      g_RenderState.RenderDebugText("  FList 0: %i", fList[game.GetPlayer().frequency]);
       if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
         game.SetEnergy(100.0f);
         game.SetFreq(FindOpenFreq(fList, 2));
       }
 
-      g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
+      g_RenderState.RenderDebugText("  DevaFreqMan:(jump from oversized team) %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
   }
@@ -636,11 +708,13 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
           game.SetFreq(1);
         }
       }
-
+      g_RenderState.RenderDebugText("  DevaFreqMan:(jump onto dueling team) %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
-    } else if (bb.ValueOr<bool>("InCenter", true) ||
-               bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>()).size() == 0 ||
-               bb.ValueOr<bool>("TeamInBase", false)) {  // bot is on a duel team
+      // } else if (bb.ValueOr<bool>("InCenter", true) ||
+    } else if (bb.GetInCenter() || bb.GetTeamInBase()) {  // bot is on a duel team
+      // bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>()).size() == 0 ||
+      // bb.ValueOr<bool>("TeamInBase", false)) {  // bot is on a duel team
+
       if ((game.GetPlayer().frequency == 00 && fList[0] > fList[1]) ||
           (game.GetPlayer().frequency == 01 && fList[0] < fList[1])) {
         // look for players not on duel team, make bot wait longer to see if the other player will get in
@@ -650,7 +724,7 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
           if (player.frequency > 01 && player.frequency < 100) {
             float energy_pct = player.energy / game.GetShipSettings(player.ship).MaximumEnergy * 100.0f;
             if (energy_pct < 100.0f) {
-              g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
+              g_RenderState.RenderDebugText("  DevaFreqMan:(wait for other players) %llu", timer.GetElapsedTime());
               return behavior::ExecuteResult::Failure;
             }
           }
@@ -661,13 +735,15 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
           game.SetFreq(FindOpenFreq(fList, 2));
         }
 
-        g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
+        g_RenderState.RenderDebugText("  FList 0: %i", fList[0]);
+        g_RenderState.RenderDebugText("  Flist 1: %i", fList[1]);
+        g_RenderState.RenderDebugText("  DevaFreqMan:(jump off dueling team) %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
       }
     }
   }
 
-  g_RenderState.RenderDebugText("  DevaFreqMan: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  DevaFreqMan:(success) %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -680,8 +756,10 @@ behavior::ExecuteResult DevaWarpNode::Execute(behavior::ExecuteContext& ctx) {
 
   uint64_t base_empty_timer = 30000;
 
-  if (!bb.ValueOr<bool>("InCenter", true)) {
-    if (!bb.ValueOr<bool>("EnemyInBase", false)) {
+  //if (!bb.ValueOr<bool>("InCenter", true)) {
+  if (!bb.GetInCenter()) {
+    //if (!bb.ValueOr<bool>("EnemyInBase", false)) {
+    if (!bb.GetEnemyInBase()) {
       if (time.TimedActionDelay("baseemptywarp", base_empty_timer)) {
         game.SetEnergy(100.0f);
         game.Warp();
@@ -689,7 +767,7 @@ behavior::ExecuteResult DevaWarpNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
-  g_RenderState.RenderDebugText("  DevaWarpNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  DevaWarpNode:(Enemy Not In Base) %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -701,9 +779,11 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
   // if dueling then run checks for attaching
   if (game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01) {
-    if (bb.ValueOr<bool>("TeamInBase", false)) {
+    //if (bb.ValueOr<bool>("TeamInBase", false)) {
+    if (bb.GetTeamInBase() && bb.GetEnemyInBase()) {
 
-      if (bb.ValueOr<bool>("Swarm", false)) {
+      //if (bb.ValueOr<bool>("Swarm", false)) {
+      if (bb.GetSwarm()) {
         if (!game.GetPlayer().active) {
           if (ctx.bot->GetTime().TimedActionDelay("respawn", 300)) {
             int ship = 1;
@@ -721,13 +801,14 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
             }
           }
 
-          g_RenderState.RenderDebugText("  DevaAttachNode: %llu", timer.GetElapsedTime());
+          g_RenderState.RenderDebugText("  DevaAttachNode:(Swarming) %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Failure;
         }
       }
 
       // if this check is valid the bot will halt here untill it attaches
-      if (bb.ValueOr<bool>("InCenter", true)) {
+      //if (bb.ValueOr<bool>("InCenter", true)) {
+      if (bb.GetInCenter()) {
         SetAttachTarget(ctx);
 
         // checks if energy is full
@@ -735,7 +816,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
           game.F7();
         }
 
-        g_RenderState.RenderDebugText("  DevaAttachNode: %llu", timer.GetElapsedTime());
+        g_RenderState.RenderDebugText("  DevaAttachNode:(Attaching) %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
       }
     }
@@ -743,7 +824,8 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
   // if attached to a player detach
   if (game.GetPlayer().attach_id != 65535) {
-    if (bb.ValueOr<bool>("Swarm", false)) {
+    //if (bb.ValueOr<bool>("Swarm", false)) {
+    if (bb.GetSwarm()) {
       game.SetEnergy(15.0f);
     }
 
@@ -765,12 +847,15 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   const std::vector<Vector2f>& path = ctx.bot->GetBasePath();
   auto ns = path::PathNodeSearch::Create(*ctx.bot, path, 30);
 
-  std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
-  std::vector<Player> combined_list = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>());
+  //std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
+  //std::vector<Player> combined_list = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>());
+  const std::vector<const Player*>& team_list = bb.GetTeamList();
+  const std::vector<const Player*>& combined_list = bb.GetCombinedList();
+
 
    if (path.empty()) {
     if (!team_list.empty()) {
-      game.SetSelectedPlayer(team_list[0].id);
+      game.SetSelectedPlayer(team_list[0]->id);
     }
     return;
    }
@@ -791,27 +876,31 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
 
   // find closest player to team and enemy safe
   for (std::size_t i = 0; i < combined_list.size(); i++) {
-    const Player& player = combined_list[i];
+    const Player* player = combined_list[i];
     // bool player_in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
-    bool player_in_base = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(path[0]));
+    bool player_in_base = ctx.bot->GetRegions().IsConnected(player->position, path[0]);
 
     if (player_in_base) {
       // if (!player_in_center && IsValidPosition(player.position) && player.ship < 8) {
 
-      float distance_to_team = ns->GetPathDistance(player.position, bb.ValueOr<MapCoord>(BB::TeamSafe, MapCoord()));
-      float distance_to_enemy = ns->GetPathDistance(player.position, bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord()));
+      //float distance_to_team = ns->GetPathDistance(player.position, bb.ValueOr<MapCoord>(BB::TeamSafe, MapCoord()));
+     // float distance_to_enemy = ns->GetPathDistance(player.position, bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord()));
+      float distance_to_team = ns->GetPathDistance(player->position, bb.GetTeamSafe());
+      float distance_to_enemy = ns->GetPathDistance(player->position, bb.GetEnemySafe());
 
-      if (player.frequency == game.GetPlayer().frequency) {
+      if (player->frequency == game.GetPlayer().frequency) {
         // float distance_to_team = ctx.deva->PathLength(player.position, ctx.deva->GetTeamSafe());
         // float distance_to_enemy = ctx.deva->PathLength(player.position, ctx.deva->GetEnemySafe());
 
         if (distance_to_team < closest_team_distance_to_team) {
           closest_team_distance_to_team = distance_to_team;
-          closest_team_to_team = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>())[i].id;
+          //closest_team_to_team = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>())[i].id;
+          closest_team_to_team = player->id;
         }
         if (distance_to_enemy < closest_team_distance_to_enemy) {
           closest_team_distance_to_enemy = distance_to_enemy;
-          closest_team_to_enemy = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>())[i].id;
+          //closest_team_to_enemy = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>())[i].id;
+          closest_team_to_enemy = player->id;
         }
       } else {
         // float distance_to_team = ctx.deva->PathLength(player.position, ctx.deva->GetTeamSafe());
@@ -819,11 +908,12 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
 
         if (distance_to_team < closest_enemy_distance_to_team) {
           closest_enemy_distance_to_team = distance_to_team;
-          closest_enemy_to_team = player.position;
+          closest_enemy_to_team = player->position;
         }
         if (distance_to_enemy < closest_enemy_distance_to_enemy) {
           closest_enemy_distance_to_enemy = distance_to_enemy;
-          closest_enemy_to_enemy = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>())[i].id;
+          //closest_enemy_to_enemy = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>())[i].id;
+          closest_enemy_to_enemy = player->id;
         }
       }
     }
@@ -837,18 +927,19 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
     team_leak = true;
   }
 
-  if (team_leak || enemy_leak || bb.ValueOr<bool>("IsAnchor", false)) {
+ // if (team_leak || enemy_leak || bb.ValueOr<bool>("IsAnchor", false)) {
+    if (team_leak || enemy_leak || bb.GetCombatRole() == CombatRole::Anchor) {
     game.SetSelectedPlayer(closest_team_to_team);
     return;
   }
 
   // find closest team player to the enemy closest to team safe
   for (std::size_t i = 0; i < team_list.size(); i++) {
-    const Player& player = team_list[i];
+    const Player* player = team_list[i];
 
     // bool player_in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
 
-    bool player_in_base = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(path[0]));
+    bool player_in_base = ctx.bot->GetRegions().IsConnected(player->position, path[0]);
 
     if (player_in_base) {
       // as long as the player is not in center and has a valid position, it will hold its position for a moment after
@@ -858,12 +949,12 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
 
       float distance_to_enemy_position = 0.0f;
 
-      distance_to_enemy_position = ns->GetPathDistance(player.position, closest_enemy_to_team);
+      distance_to_enemy_position = ns->GetPathDistance(player->position, closest_enemy_to_team);
 
       // get the closest player
       if (distance_to_enemy_position < closest_distance) {
         closest_distance = distance_to_enemy_position;
-        game.SetSelectedPlayer(player.id);
+        game.SetSelectedPlayer(player->id);
       }
     }
   }
@@ -886,10 +977,14 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
   bool has_stealth = (game.GetShipSettings().StealthStatus & 1) != 0;
   bool has_cloak = (game.GetShipSettings().CloakStatus & 3) != 0;
 
-  bool use_xradar = bb.ValueOr<bool>(BB::UseXRadar, true);
-  bool use_stealth = bb.ValueOr<bool>(BB::UseStealth, true);
-  bool use_cloak = bb.ValueOr<bool>(BB::UseCloak, true);
-  bool use_multi = bb.ValueOr<bool>(BB::UseMultiFire, false);
+  //bool use_xradar = bb.ValueOr<bool>(BB::UseXRadar, true);
+  //bool use_stealth = bb.ValueOr<bool>(BB::UseStealth, true);
+  //bool use_cloak = bb.ValueOr<bool>(BB::UseCloak, true);
+  //bool use_multi = bb.ValueOr<bool>(BB::UseMultiFire, false);
+  bool use_xradar = bb.GetUseXradar();
+  bool use_stealth = bb.GetUseStealth();
+  bool use_cloak = bb.GetUseCloak();
+  bool use_multi = bb.GetUseMultiFire();
 
   if (multi_on && !use_multi || !multi_on && use_multi) {
       game.MultiFire();
@@ -947,7 +1042,16 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  MapCoord enemy_safe = bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord());
+  //MapCoord enemy_safe = bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord());
+  MapCoord enemy_safe = bb.GetEnemySafe();
+  bool on_safe_tile = game.GetMap().GetTileId(game.GetPlayer().position) == kSafeTileId;
+  bool moving = game.GetPlayer().velocity.Length() > 0.0f;
+
+  if (on_safe_tile && moving && game.GetPosition().Distance(enemy_safe) <= 5.0f) {
+    ctx.bot->GetKeys().Press(VK_CONTROL);
+    g_RenderState.RenderDebugText("  DevaPatrolBaseNode:(Press Fire) %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
 
   ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
 
@@ -961,15 +1065,18 @@ behavior::ExecuteResult DevaRepelEnemyNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  if (!bb.ValueOr<bool>("InCenter", true)) {
-    if (bb.ValueOr<bool>("IsAnchor", false)) {
+  //if (!bb.ValueOr<bool>("InCenter", true)) {
+    if (!bb.GetInCenter()) {
+    //if (bb.ValueOr<bool>("IsAnchor", false)) {
+    if (bb.GetCombatRole() == CombatRole::Anchor) {
       if (game.GetEnergyPercent() < 20.0f && game.GetPlayer().repels > 0) {
         game.Repel(ctx.bot->GetKeys());
 
         g_RenderState.RenderDebugText("  DevaRepelEnemyNode: %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Success;
       }
-    } else if (bb.ValueOr<bool>("UseRepel", false)) {
+    //} else if (bb.ValueOr<bool>("UseRepel", false)) {
+    } else if (bb.GetUseRepel()) {
       if (game.GetEnergyPercent() < 10.0f && game.GetPlayer().repels > 0 && game.GetPlayer().bursts == 0) {
         game.Repel(ctx.bot->GetKeys());
 
@@ -989,8 +1096,10 @@ behavior::ExecuteResult DevaBurstEnemyNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.blackboard;
 
-  if (!bb.ValueOr<bool>("InCenter", true)) {
-    const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  //if (!bb.ValueOr<bool>("InCenter", true)) {
+  if (!bb.GetInCenter()) {
+    //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+    const Player* target = bb.GetTarget();
     if (!target) {
       g_RenderState.RenderDebugText("  DevaBurstEnemyNode: %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
@@ -1017,7 +1126,8 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 
   float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
 
-  const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
+  const Player* target = bb.GetTarget();
 
   if (!target) {
     g_RenderState.RenderDebugText("  DevaMoveToEnemyNode (no target): %llu", timer.GetElapsedTime());
@@ -1028,20 +1138,23 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 
   bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
 
-  Vector2f shot_position = bb.ValueOr<Vector2f>("Solution", Vector2f());
+  //Vector2f shot_position = bb.ValueOr<Vector2f>("Solution", Vector2f());
+  Vector2f shot_position = bb.GetSolution();
 
   float hover_distance = 0.0f;
 
   if (in_safe) {
     hover_distance = 0.0f;
   } else {
-    if (bb.ValueOr<bool>("InCenter", true)) {
+    //if (bb.ValueOr<bool>("InCenter", true)) {
+      if (bb.GetInCenter()) {
       float diff = (energy_pct - player_energy_pct) * 10.0f;
       hover_distance = 10.0f - diff;
 
       if (hover_distance < 0.0f) hover_distance = 0.0f;
     } else {
-      if (bb.ValueOr<bool>("IsAnchor", false)) {
+      //if (bb.ValueOr<bool>("IsAnchor", false)) {
+        if (bb.GetCombatRole() == CombatRole::Anchor) {
         hover_distance = 20.0f;
       } else {
         hover_distance = 7.0f;

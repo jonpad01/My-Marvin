@@ -11,13 +11,16 @@ class AnchorCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("IsAnchor", false) == true) {
+    //if (bb.ValueOr<bool>("IsAnchor", false) == true) {
+      if (bb.GetCombatRole() == CombatRole::Anchor) {
       game.SendPrivateMessage(sender, "Marv was already anchoring.");
     } else {
       game.SendPrivateMessage(sender, "Switching to anchor mode.");
     }
 
-    bb.Set<bool>("IsAnchor", true);
+    //bb.Set<bool>("IsAnchor", true);
+
+    bb.SetCombatRole(CombatRole::Anchor);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
@@ -33,13 +36,15 @@ class RushCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("IsAnchor", false) == false) {
+    //if (bb.ValueOr<bool>("IsAnchor", false) == false) {
+      if (bb.GetCombatRole() == CombatRole::Rusher) {
       game.SendPrivateMessage(sender, "Marv was already rushing.");
     } else {
       game.SendPrivateMessage(sender, "Switching to rush mode.");
     }
 
-    bb.Set<bool>("IsAnchor", false);
+    //bb.Set<bool>("IsAnchor", false);
+    bb.SetCombatRole(CombatRole::Rusher);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }

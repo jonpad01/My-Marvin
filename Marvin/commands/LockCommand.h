@@ -11,18 +11,20 @@ class LockCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("CmdLock", false) == true) {
+    //if (bb.ValueOr<bool>("CmdLock", false) == true) {
+    if (bb.GetCommandLock()) {
       game.SendPrivateMessage(sender, "Marv was already locked.");
     } else {
       game.SendPrivateMessage(sender, "Switching from unlocked to locked.");
     }
 
-    bb.Set<bool>("CmdLock", true);
+    //bb.Set<bool>("CmdLock", true);
+    bb.SetCommandLock(true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"lockmarv", "lm", "lock"}; }
+  std::vector<std::string> GetAliases() { return {"lock"}; }
   std::string GetDescription() { return "Locks marv so only mods can make changes"; }
   int GetSecurityLevel() { return 1; }
 };
@@ -33,13 +35,15 @@ class UnlockCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("CmdLock", false) == false) {
+    //if (bb.ValueOr<bool>("CmdLock", false) == false) {
+    if (!bb.GetCommandLock()) {
       game.SendPrivateMessage(sender, "Marv was already unlocked.");
     } else {
       game.SendPrivateMessage(sender, "Switching from locked to unlocked.");
     }
 
-    bb.Set<bool>("CmdLock", false);
+    //bb.Set<bool>("CmdLock", false);
+    bb.SetCommandLock(false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }

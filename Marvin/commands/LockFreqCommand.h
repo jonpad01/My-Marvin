@@ -11,13 +11,15 @@ class LockFreqCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("FreqLock", false) == true) {
+    //if (bb.ValueOr<bool>("FreqLock", false) == true) {
+      if (bb.GetFreqLock()) {
       game.SendPrivateMessage(sender, "Marv was already locked.");
     } else {
       game.SendPrivateMessage(sender, "Switching from unlocked to locked.");
     }
 
-    bb.Set<bool>("FreqLock", true);
+    //bb.Set<bool>("FreqLock", true);
+    bb.SetFreqLock(true);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
@@ -33,13 +35,15 @@ class UnlockFreqCommand : public CommandExecutor {
     behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
     GameProxy& game = bot.GetGame();
 
-    if (bb.ValueOr<bool>("FreqLock", false) == false) {
+    //if (bb.ValueOr<bool>("FreqLock", false) == false) {
+      if (!bb.GetFreqLock()) {
       game.SendPrivateMessage(sender, "Marv was already unlocked.");
     } else {
       game.SendPrivateMessage(sender, "Switching from locked to unlocked.");
     }
 
-    bb.Set<bool>("FreqLock", false);
+    //bb.Set<bool>("FreqLock", false);
+    bb.SetFreqLock(false);
   }
 
   CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }

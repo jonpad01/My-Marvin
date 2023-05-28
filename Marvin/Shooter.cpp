@@ -299,13 +299,13 @@ bool CanShootBomb(GameProxy& game, const Map& map, Vector2f player, Vector2f tar
   return true;
 }
 
-bool IsValidTarget(Bot& bot, const Player& target, bool anchoring) {
+bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
   auto& game = bot.GetGame();
 
   const Player& bot_player = game.GetPlayer();
 
   // anchors shoud wait until the target is no longer lag attachable
-  if (!anchoring && (!target.active || !IsValidPosition(target.position))) {
+  if (combat_role != CombatRole::Anchor && (!target.active || !IsValidPosition(target.position))) {
     return false;
   }
   else if (!IsValidPosition(target.position)) {

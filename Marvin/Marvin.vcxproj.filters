@@ -81,13 +81,7 @@
     <ClCompile Include="InfluenceMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="zones\ExtremeGames.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="zones\Devastation\Training.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="zones\Hockey.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="zones\Devastation\BaseDuelWarpCoords.cpp">
@@ -218,7 +212,7 @@
     <ClInclude Include="commands\LockFreqCommand.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="commands\FightingRoleCommands.h">
+    <ClInclude Include="commands\CombatRoleCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\SwarmCommand.h">
@@ -236,13 +230,7 @@
     <ClInclude Include="commands\BaseDuelCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="zones\ExtremeGames.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="zones\Devastation\Training.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="zones\Hockey.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zones\Devastation\BaseDuelWarpCoords.h">

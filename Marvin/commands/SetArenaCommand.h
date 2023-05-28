@@ -18,9 +18,18 @@ class SetArenaCommand : public CommandExecutor {
       return;
     }
 
-      bb.Set<std::string>("Arena", args[0]);
-      game.SendChatMessage("?go " + args[0]);
-      game.SendPrivateMessage(sender, "Arena selection recieved.");
+    if (bb.GetArena() == args[0]) {
+      game.SendPrivateMessage(sender, "I am already in that arena.");
+    } else {
+      //game.SendPrivateMessage(sender, "Arena selection recieved.");
+      game.SendChatMessage(sender + " has sent me to ?go " + args[0]);
+    }
+
+      //bb.Set<std::string>("Arena", args[0]);
+      bb.SetArena(args[0]);
+      bb.SetCommandRequest(CommandRequestType::ArenaChange);
+      //game.SendChatMessage("?go " + args[0]);
+      
   }
 
   void SendUsage(GameProxy& game, const std::string& sender) {
