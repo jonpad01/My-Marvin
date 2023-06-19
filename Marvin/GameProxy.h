@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "ClientSettings.h"
-#include "behavior/Blackboard.h"
 #include "KeyController.h"
 #include "Player.h"
 #include "Types.h"
@@ -16,8 +15,44 @@ namespace marvin {
 class Map;
 
 enum class UpdateState { Clear, Wait, Reload };
-
+enum class CombatRole : short { Anchor, Rusher, Bomber, Camper, None };
+enum class WarpToState : short { Center, Base, None };
+enum class BDState : short { Running, Paused, Stopped, Ended };
+enum class CommandRequestType : short { ShipChange, ArenaChange, FreqChange, None };
 enum class WeaponType : short { None, Bullet, BouncingBullet, Bomb, ProximityBomb, Repel, Decoy, Burst, Thor };
+enum class ChatType {
+  Arena,
+  PublicMacro,
+  Public,
+  Team,
+  OtherTeam,
+  Private,
+  RedWarning,
+  RemotePrivate,
+  RedError,
+  Channel,
+  Fuchsia = 79
+};
+
+enum StatusFlag {
+  Status_Stealth = (1 << 0),
+  Status_Cloak = (1 << 1),
+  Status_XRadar = (1 << 2),
+  Status_Antiwarp = (1 << 3),
+  Status_Flash = (1 << 4),
+  Status_Safety = (1 << 5),
+  Status_UFO = (1 << 6),
+  Status_InputChange = (1 << 7)
+};
+
+struct AnchorSet {
+  std::vector<const Player*> full_energy;
+  std::vector<const Player*> no_energy;
+  void Clear() { 
+    full_energy.clear();
+    no_energy.clear();
+  }
+};
 
 struct WeaponData {
   WeaponType type : 5;
@@ -70,10 +105,10 @@ struct Green {
 };
 
 struct ChatMessage {
-  ChatMessage() : message(""), player(""), type(0) {}
+  ChatMessage() : message(""), player(""), type(ChatType::Arena) {}
   std::string message;
   std::string player;
-  int type;
+  ChatType type;
 };
 
 class GameProxy {
@@ -121,6 +156,7 @@ class GameProxy {
   virtual const uint32_t GetSelectedPlayerIndex() const = 0;
 
   virtual const Player* GetPlayerById(u16 id) const = 0;
+  virtual const Player* GetPlayerByName(std::string_view name) const = 0;
 
   virtual std::vector<Weapon*> GetWeapons() = 0;
   virtual const std::vector<BallData>& GetBalls() const = 0;

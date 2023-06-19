@@ -10,13 +10,13 @@
 #include "Shooter.h"
 #include "platform/Platform.h"
 
-
-
 #include "zones/Devastation/Devastation.h"
+#include "zones/Devastation/BaseDuelWarpCoords.h"
 #include "zones/ExtremeGames.h"
 #include "zones/GalaxySports.h"
 #include "zones/Hockey.h"
-#include "zones/Hyperspace.h"
+#include "zones/Hyperspace/Hyperspace.h"
+#include "zones/Hyperspace/HyperspaceFlagRooms.h"
 #include "zones/PowerBall.h"
 #include "zones/Devastation/Training.h"
 
@@ -63,24 +63,52 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
   }
 };
 
-std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Bot& bot) {
+
+Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time_(*game_) {
+  srand((unsigned int)time_.GetTime());
+  LoadBot();
+}
+
+void Bot::LoadBot() {
+  PerformanceTimer timer;
+  log.Write("LOADING BOT", timer.GetElapsedTime());
+  
   std::unique_ptr<BehaviorBuilder> builder;
+  Zone zone = game_->GetZone();
+  std::string map = game_->GetMapFile();
+  log.Write("Map " + game_->GetMapFile() + " found", timer.GetElapsedTime());
+  radius_ = game_->GetRadius();
 
-  Zone zone = bot.GetGame().GetZone();
-  std::string map = bot.GetGame().GetMapFile();
-  deva::BaseDuelWarpCoords& warps = bot.GetBaseDuelWarps();
+  blackboard_ = std::make_unique<Blackboard>();
+  auto processor = std::make_unique<path::NodeProcessor>(*game_);
+  log.Write("Processor created", timer.GetElapsedTime());
+  influence_map_ = std::make_unique<InfluenceMap>();
+  log.Write("Influence Map created", timer.GetElapsedTime());
+  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
+  regions_->CreateAll(game_->GetMap(), radius_);
+  log.Write("Regions created", timer.GetElapsedTime());
+  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
+  log.Write("Pathfinder created", timer.GetElapsedTime());
+  pathfinder_->CreateMapWeights(game_->GetMap());
+  log.Write("Map Weights created", timer.GetElapsedTime());
+  pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
+  log.Write("Pathable Nodes created", timer.GetElapsedTime());
 
+  
   switch (zone) {
     case Zone::Devastation: {
+      goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
+      deva_blackboard_ = std::make_unique<DevaBlackboard>();
       if (map == "bdelite.lvl") {
         log.Write("Building Training behavior tree.");
-        builder = std::make_unique<training::TrainingBehaviorBuilder>(); 
+        builder = std::make_unique<training::TrainingBehaviorBuilder>();
       } else {
-        if (warps.HasCoords()) {
+        if (goals_->HasCoords()) {
           log.Write("Building Devastation behavior tree.");
+          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
           builder = std::make_unique<deva::DevastationBehaviorBuilder>();
         } else {
-          bot.GetGame().SendChatMessage(
+          game_->SendChatMessage(
               "Warning: I don't have base duel coords for this arena, using default behavior tree.");
           log.Write("Building Default behavior tree.");
           builder = std::make_unique<DefaultBehaviorBuilder>();
@@ -88,61 +116,27 @@ std::unique_ptr<BehaviorBuilder> CreateBehaviorBuilder(Bot& bot) {
       }
     } break;
     case Zone::ExtremeGames: {
-     // builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
+      // builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
     } break;
     case Zone::GalaxySports: {
-      //builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
+      // builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
     } break;
     case Zone::Hockey: {
-      //builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+      // builder = std::make_unique<hz::HockeyBehaviorBuilder>();
     } break;
     case Zone::Hyperspace: {
-     // builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+      hs_blackboard_ = std::make_unique<HSBlackboard>();
+      goals_ = std::make_unique<hs::HSFlagRooms>();
+      base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+      // builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
     } break;
     case Zone::PowerBall: {
-      //builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
+      // builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
     } break;
     default: {
       builder = std::make_unique<DefaultBehaviorBuilder>();
     } break;
   }
-
-  return builder;
-}
-
-Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time_(*game_) {
-  LoadBot();
-}
-
-void Bot::LoadBot() {
-  PerformanceTimer timer;
-  log.Write("LOADING BOT", timer.GetElapsedTime());
-
-  srand((unsigned int)time_.GetTime());
-  radius_ = game_->GetRadius();
-  log.Write("Ship Radius: " + std::to_string(radius_));
-
-  auto processor = std::make_unique<path::NodeProcessor>(*game_);
-  log.Write("Processor created", timer.GetElapsedTime());
- 
-  influence_map_ = std::make_unique<InfluenceMap>();
-  log.Write("Influence Map created", timer.GetElapsedTime());
-  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
-  regions_->CreateAll(game_->GetMap(), radius_);
-  log.Write("Regions created", timer.GetElapsedTime());
-
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  log.Write("Pathfinder created", timer.GetElapsedTime());
-
-  pathfinder_->CreateMapWeights(game_->GetMap());
-  log.Write("Map Weights created", timer.GetElapsedTime());
-  pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
-  log.Write("Pathable Nodes created", timer.GetElapsedTime());
-  warps_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
-  base_paths_ = std::make_unique<deva::BasePaths>(warps_->GetWarps(), radius_, *pathfinder_, game_->GetMap());
-  log.Write("Map " + game_->GetMapFile() + " found", timer.GetElapsedTime());
-  auto builder = CreateBehaviorBuilder(*this);
-  log.Write("Behavior Selected", timer.GetElapsedTime());
 
   ctx_.bot = this;
 
@@ -230,8 +224,8 @@ void Bot::Update(float dt) {
   if (ship != 8) {
    // steering_.Steer(*this, ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
    // ctx_.blackboard.Set<bool>("SteerBackwards", false);
-    steering_.Steer(*this, ctx_.blackboard.GetSteerBackwards());
-    ctx_.blackboard.SetSteerBackwards(false);
+    steering_.Steer(*this, ctx_.bot->GetBlackboard().GetSteerBackwards());
+    ctx_.bot->GetBlackboard().SetSteerBackwards(false);
   }
 
   g_RenderState.RenderDebugText("Steering: %llu", timer.GetElapsedTime());
@@ -351,7 +345,7 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   bool executed = false;
 
@@ -372,7 +366,7 @@ behavior::ExecuteResult SetArenaNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   const std::string& arena = bb.GetArena();
   std::string mapfile = game.GetMapFile();
@@ -401,7 +395,7 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   uint16_t cShip = game.GetPlayer().ship;
   //uint16_t dShip = bb.ValueOr<uint16_t>("Ship", 0);
@@ -436,7 +430,7 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   const char* balancer_msg = "Changing to that team would disrupt the balance between it and your current team.";
 
@@ -452,7 +446,7 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
       }
 
       for (ChatMessage& chat : game.GetChat()) {
-        if (chat.message == balancer_msg && chat.type == 0) {
+        if (chat.message == balancer_msg && chat.type == ChatType::Arena) {
           game.SendChatMessage("The zone balancer has prevented me from joining that team.");
           // bb.Set<uint16_t>("Freq", 999);
           //bb.SetFreq(999);
@@ -512,7 +506,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   const Player& bot = game.GetPlayer();
 
@@ -625,7 +619,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //if (!bb.ValueOr<bool>("InCenter", true)) {
   if (!bb.GetInCenter()) {
@@ -681,7 +675,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
 float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const Player& bot_player,
                                            const Player& target) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   float dist = bot_player.position.Distance(target.position);
 
@@ -704,7 +698,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //bool in_center = bb.ValueOr<bool>("InCenter", false);
   bool in_center = bb.GetInCenter();
@@ -717,7 +711,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     return result;
   }
 
-  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path, 100);
+  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
   int bot_node = (int)search->FindNearestNodeBFS(game.GetPosition());
 
   float max_net_player_bullet_travel = std::numeric_limits<float>::lowest();
@@ -737,7 +731,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     int player_node = (int)search->FindNearestNodeBFS(player.position);
     bool high_side = bot_node < player_node;
 
-    Vector2f player_fore = search->FindForwardLOSNode(*ctx.bot, player.position, player_node, 0.8f, high_side);
+    Vector2f player_fore = search->FindForwardLOSNode(player.position, player_node, 0.8f, high_side);
     //RenderWorldBox(game.GetPosition(), player_fore, 0.5f);
     Vector2f player_to_bot = Normalize(player_fore - player.position);
     //RenderDirection(game.GetPosition(), player.position, player_to_bot, player_fore.Distance(player.position));
@@ -784,7 +778,7 @@ behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   Vector2f bot = game.GetPosition();
 
@@ -808,7 +802,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   Vector2f from = game.GetPosition();
   float radius = game.GetShipSettings().GetRadius();
@@ -843,7 +837,7 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
 //  bool in_center = bb.ValueOr<bool>("InCenter", true);
  // bool is_anchor = bb.ValueOr<bool>("IsAnchor", false);
@@ -865,13 +859,13 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
   Vector2f desired_position;
 
-  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path, 30);
+  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
 
   size_t bot_node = search->FindNearestNodeBFS(position);
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
   bool high_side = bot_node > enemy_node;
 
-  desired_position = search->FindForwardLOSNode(*ctx.bot, position, bot_node, radius, high_side);
+  desired_position = search->FindForwardLOSNode(position, bot_node, radius, high_side);
 
   ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
 
@@ -883,7 +877,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //bool in_center = bb.ValueOr<bool>("InCenter", true);
   //bool is_anchor_ = bb.ValueOr<bool>("IsAnchor", false);
@@ -907,7 +901,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   enemy_radius_ = game.GetShipSettings(enemy->ship).GetRadius();
 
   base_path_ = ctx.bot->GetBasePath();
-  search_ = path::PathNodeSearch::Create(*ctx.bot, base_path_, 100);
+  search_ = path::PathNodeSearch::Create(*ctx.bot, base_path_);
   bot_node_ = search_->FindNearestNodeBFS(position_);
   enemy_node_ = search_->FindNearestNodeBFS(enemy->position);
   team_safe_node_ = ctx.bot->GetTeamSafeIndex(game.GetPlayer().frequency);
@@ -918,10 +912,10 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   // the enemy target is player with the highest net bullet travell in the direction of the bot
   // use the target found in find enemy node to get the front most node for reference
   // use the los_decrement flag to determine which direction in the base path the refernce nodes should be calculated 
-  enemy_fore_ = search_->FindForwardLOSNode(*ctx.bot, enemy->position, enemy_node_, enemy_radius_, !high_side_);
-  enemy_aft_ = search_->FindRearLOSNode(*ctx.bot, enemy->position, enemy_node_, enemy_radius_, !high_side_);
-  bot_fore_ = search_->FindForwardLOSNode(*ctx.bot, position_, bot_node_, radius_, high_side_);
-  bot_aft_ = search_->FindRearLOSNode(*ctx.bot, position_, bot_node_, radius_, high_side_);
+  enemy_fore_ = search_->FindForwardLOSNode(enemy->position, enemy_node_, enemy_radius_, !high_side_);
+  enemy_aft_ = search_->FindRearLOSNode(enemy->position, enemy_node_, enemy_radius_, !high_side_);
+  bot_fore_ = search_->FindForwardLOSNode(position_, bot_node_, radius_, high_side_);
+  bot_aft_ = search_->FindRearLOSNode(position_, bot_node_, radius_, high_side_);
 
   //RenderWorldLine(position_, position_, bot_fore_, RGB(255, 0, 0));
 
@@ -1011,7 +1005,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
 // note: the enemy argument is always the closest enemy to the bot in a base
 void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, const Player* enemy) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   for (std::size_t i = 0; i < game.GetEnemyTeam().size(); i++) {
     const Player& player = game.GetEnemyTeam()[i];
@@ -1041,7 +1035,7 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
  
     // players forward most path node that is in line of sight
     Vector2f player_fore =
-        search_->FindForwardLOSNode(*ctx.bot, player.position, player_node, player_radius, high_side);
+        search_->FindForwardLOSNode(player.position, player_node, player_radius, high_side);
     // the direction from the player position to the player_fore
     Vector2f player_to_anchor = Normalize(player_fore - player.position);
 
@@ -1085,7 +1079,7 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
 
 void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, const Player* enemy) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   // calculate team threat based on the players energy, bullet travel, and distance to the enemy target
   for (std::size_t i = 0; i < game.GetTeam().size(); i++) {
@@ -1103,7 +1097,7 @@ void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, cons
     // if the team player leaked past the enemy target this will switch the fore back towards the enemy target
     // so that the team threat is established as team players rushing towards the enemy target
     Vector2f player_fore =
-        search_->FindForwardLOSNode(*ctx.bot, player.position, player_node, player_radius, high_side);
+        search_->FindForwardLOSNode(player.position, player_node, player_radius, high_side);
     // the direction from the player position to the player_fore
     Vector2f player_to_enemy = Normalize(player_fore - player.position);
 
@@ -1123,7 +1117,7 @@ void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, cons
 
 bool AnchorBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
   float radius = game.GetShipSettings().GetRadius();
 
   Vector2f pos = game.GetPlayer().position;
@@ -1172,7 +1166,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   float radius = game.GetShipSettings().GetRadius();
   std::vector<Vector2f> path = ctx.bot->GetPathfinder().GetPath();
@@ -1225,7 +1219,7 @@ behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) 
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   for (Weapon* weapon : game.GetWeapons()) {
     const Player* weapon_player = game.GetPlayerById(weapon->GetPlayerId());
@@ -1250,7 +1244,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
   bool in_sight = false;
 
   //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
@@ -1279,7 +1273,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
 
 behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
   if (bb.GetCombatRole() == CombatRole::Anchor && !bb.GetInCenter()) {
@@ -1295,7 +1289,7 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
   //bool in_sight = bb.ValueOr<bool>("TargetInSight", false);
@@ -1347,7 +1341,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //const auto target_player = bb.ValueOr<const Player*>("Target", nullptr);
   const Player* target_player = bb.GetTarget();
@@ -1502,7 +1496,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //Vector2f position = bb.ValueOr<Vector2f>("Solution", Vector2f());
   Vector2f position = bb.GetSolution();

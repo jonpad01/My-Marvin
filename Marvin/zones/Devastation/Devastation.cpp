@@ -173,10 +173,11 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     //bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
 
     bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
-    bot.GetBlackboard().SetFreq(999);
+    //bot.GetBlackboard().SetFreq(999);
     bot.GetBlackboard().SetPubTeam0(00);
     bot.GetBlackboard().SetPubTeam1(01);
     bot.GetBlackboard().SetShip(ship);
+    bot.GetBlackboard().SetCommandRequest(CommandRequestType::ShipChange);
     bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   
   
@@ -348,10 +349,10 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-    const BaseWarps& warp = ctx.bot->GetBaseDuelWarps().GetWarps();
+    const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+    auto& bb = ctx.bot->GetBlackboard();
 
   //std::size_t base_index = bb.ValueOr<std::size_t>(BB::BaseIndex, 0);
   std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
@@ -398,10 +399,10 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
 
 behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-  const BaseWarps& warp = ctx.bot->GetBaseDuelWarps().GetWarps();
+  const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   uint64_t respawn_time = game.GetRespawnTime();
   
@@ -570,7 +571,7 @@ behavior::ExecuteResult DevaRunBDNode::Execute(behavior::ExecuteContext& ctx) {
 
 void DevaRunBDNode::PrintCurrentScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //int team0_score = bb.ValueOr<int>("Team0Score", 0);
   //int team1_score = bb.ValueOr<int>("Team1Score", 0);
@@ -585,7 +586,7 @@ void DevaRunBDNode::PrintCurrentScore(behavior::ExecuteContext& ctx) {
 
 void DevaRunBDNode::PrintFinalScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //int team0_score = bb.ValueOr<int>("Team0Score", 0);
  // int team1_score = bb.ValueOr<int>("Team1Score", 0);
@@ -603,7 +604,7 @@ void DevaRunBDNode::PrintFinalScore(behavior::ExecuteContext& ctx) {
 
 void DevaRunBDNode::ClearScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //bb.Set<int>("Team0Score", 0);
   //bb.Set<int>("Team1Score", 0);
@@ -613,7 +614,7 @@ void DevaRunBDNode::ClearScore(behavior::ExecuteContext& ctx) {
 
 void DevaRunBDNode::WarpAllToCenter(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
     const Player& player = game.GetPlayers()[i];
@@ -626,9 +627,9 @@ void DevaRunBDNode::WarpAllToCenter(behavior::ExecuteContext& ctx) {
 
 void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
-  const BaseWarps& warp = ctx.bot->GetBaseDuelWarps().GetWarps();
+  const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
 
   std::size_t random_index = rand() % warp.t0.size();
   //std::size_t previous_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
@@ -648,6 +649,7 @@ void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
       int team_safe_x = (int)warp.t0[random_index].x;
       int team_safe_y = (int)warp.t0[random_index].y;
       std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
+      game.SendPrivateMessage(player.name, "?shipreset");
       game.SendPrivateMessage(player.name, warp_msg);
     }
 
@@ -655,6 +657,7 @@ void DevaRunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
       int team_safe_x = (int)warp.t1[random_index].x;
       int team_safe_y = (int)warp.t1[random_index].y;
       std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
+      game.SendPrivateMessage(player.name, "?shipreset");
       game.SendPrivateMessage(player.name, warp_msg);
     }
   }
@@ -666,7 +669,7 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
 
@@ -751,7 +754,7 @@ behavior::ExecuteResult DevaWarpNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
   auto& time = ctx.bot->GetTime();
 
   uint64_t base_empty_timer = 30000;
@@ -775,7 +778,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   // if dueling then run checks for attaching
   if (game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01) {
@@ -841,11 +844,11 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
 void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
   auto& pf = ctx.bot->GetPathfinder();
 
   const std::vector<Vector2f>& path = ctx.bot->GetBasePath();
-  auto ns = path::PathNodeSearch::Create(*ctx.bot, path, 30);
+  auto ns = path::PathNodeSearch::Create(*ctx.bot, path);
 
   //std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
   //std::vector<Player> combined_list = bb.ValueOr<std::vector<Player>>("CombinedList", std::vector<Player>());
@@ -964,7 +967,7 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   // RenderText(text.c_str(), GetWindowCenter() - Vector2f(0, 200), RGB(100, 100, 100), RenderText_Centered);
 
@@ -1040,7 +1043,7 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //MapCoord enemy_safe = bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord());
   MapCoord enemy_safe = bb.GetEnemySafe();
@@ -1063,7 +1066,7 @@ behavior::ExecuteResult DevaRepelEnemyNode::Execute(behavior::ExecuteContext& ct
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //if (!bb.ValueOr<bool>("InCenter", true)) {
     if (!bb.GetInCenter()) {
@@ -1094,7 +1097,7 @@ behavior::ExecuteResult DevaBurstEnemyNode::Execute(behavior::ExecuteContext& ct
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   //if (!bb.ValueOr<bool>("InCenter", true)) {
   if (!bb.GetInCenter()) {
@@ -1122,7 +1125,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
 

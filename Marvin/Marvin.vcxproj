@@ -156,10 +156,11 @@
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="MapCoord.cpp" />
+    <ClCompile Include="TeamGoals.cpp" />
     <ClCompile Include="Vector2f.cpp" />
     <ClCompile Include="Vector2i.h" />
     <ClCompile Include="zones\Devastation\BaseDuelWarpCoords.cpp" />
-    <ClCompile Include="zones\Devastation\BasePaths.cpp" />
+    <ClCompile Include="BasePaths.cpp" />
     <ClCompile Include="zones\Devastation\Devastation.cpp" />
     <ClCompile Include="InfluenceMap.cpp" />
     <ClCompile Include="KeyController.cpp" />
@@ -175,11 +176,15 @@
     <ClCompile Include="Steering.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="zones\Devastation\Training.cpp" />
+    <ClCompile Include="zones\Hyperspace\HyperspaceFlagRooms.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BasePaths.h" />
     <ClInclude Include="behavior\BehaviorEngine.h" />
     <ClInclude Include="behavior\BehaviorTree.h" />
-    <ClInclude Include="behavior\Blackboard.h" />
+    <ClInclude Include="blackboard\Blackboard.h" />
+    <ClInclude Include="blackboard\DevastationBlackboard.h" />
+    <ClInclude Include="blackboard\HyperspaceBlackboard.h" />
     <ClInclude Include="Bot.h" />
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="commands\BaseDuelCommands.h" />
@@ -200,8 +205,8 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="MapCoord.h" />
+    <ClInclude Include="TeamGoals.h" />
     <ClInclude Include="zones\Devastation\BaseDuelWarpCoords.h" />
-    <ClInclude Include="zones\Devastation\BasePaths.h" />
     <ClInclude Include="zones\Devastation\Devastation.h" />
     <ClInclude Include="Hash.h" />
     <ClInclude Include="InfluenceMap.h" />
@@ -224,6 +229,7 @@
     <ClInclude Include="Types.h" />
     <ClInclude Include="Vector2f.h" />
     <ClInclude Include="zones\Devastation\Training.h" />
+    <ClInclude Include="zones\Hyperspace\HyperspaceFlagRooms.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <ItemGroup>

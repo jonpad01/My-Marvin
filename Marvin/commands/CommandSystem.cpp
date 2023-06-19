@@ -113,32 +113,38 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
     auto iter = commands_.find(trigger);
     if (iter != commands_.end()) {
       CommandExecutor& command = *iter->second;
-      u32 access_request = (1 << chat.type);
+      u32 access_request = (1 << (u32)chat.type);
 
-      if (access_request & command.GetAccess(bot)) {
-        int security_level = 0;
+      /* 
+      * bitfield evaluation example (showing 4 bits):
+      * chat type is 0000 for arena message
+      * request_access evaluates to 0001
+      * command access can be 0001 for arena or 0101 for both arena and public
+      * 0001 & 0101 = 0001 which evaluates to true or non zero
+      */
+      if (access_request & command.GetAccess()) {
+          int security_level = 0;
 
-        if (chat.type == 0) {
-          security_level = kArenaSecurityLevel;
-        } else {
-          auto op_iter = kOperators.find(Lowercase(chat.player));
+          if (chat.type == ChatType::Arena) {
+            security_level = kArenaSecurityLevel;
+          } else {
+            auto op_iter = kOperators.find(Lowercase(chat.player));
 
-          if (op_iter != kOperators.end()) {
-            security_level = op_iter->second;
+            if (op_iter != kOperators.end()) {
+              security_level = op_iter->second;
+            }
           }
-        }
 
-        if (security_level >= command.GetSecurityLevel()) {
-          behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+          if (security_level >= command.GetSecurityLevel()) {
+            Blackboard& bb = bot.GetBlackboard();
 
-          // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
-          //if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
-          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock() ||
-              security_level > 0) {
+            // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
+            // if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
+            if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock() || security_level > 0) {
               command.Execute(*this, bot, chat.player, arg);
               result = true;
+            }
           }
-        }
       }
     }
   }

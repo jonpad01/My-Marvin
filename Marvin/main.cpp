@@ -8,7 +8,7 @@
 #include <iostream>
 #include <filesystem>
 
-#include "platform/ContinuumGameProxy.h"
+#include "GameProxy.h"
 #include "Bot.h"
 #include "Debug.h"
 #include "Time.h"
@@ -148,7 +148,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
         
 
-        if (chat.type == 0) {
+        if (chat.type == marvin::ChatType::Arena) {
           if (disconected || eg_locked_in_spec) {
             PostQuitMessage(0);
             return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);

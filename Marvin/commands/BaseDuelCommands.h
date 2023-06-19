@@ -8,25 +8,27 @@ namespace marvin {
 class BDPublicCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>("BDPublic", false) == true) {
-    if (bb.GetBDChatType() == ChatType::Public) {
-      game.SendPrivateMessage(sender, "I am already listening to public baseduel commands.");
+    if (game.GetZone() != Zone::Devastation) {
+      game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
       return;
     }
 
-    if (game.GetZone() == Zone::Devastation) {
-      //bb.Set<bool>("BDPublic", true);
-      bb.SetBDChatType(ChatType::Public);
-      game.SendChatMessage("This bot now only listens to public baseduel commands. (Command sent by: " + sender + ")");
-    } else {
-      game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
+    const std::vector<std::string> commands = {"bdstart, bdstop, bdhold, bdresume"};
+
+    for (std::string command : commands) {
+      auto iter = cmd.GetCommands().find(command);
+      if (iter != cmd.GetCommands().end()) {
+        iter->second->SetAccess(CommandAccess_Public);
+      }
     }
+    game.SendChatMessage("This bot now only listens to public baseduel commands. (Command sent by: " + sender + ")");
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdpublic"}; }
   std::string GetDescription() { return "Allow the bot to accept public baseduel commands."; }
@@ -36,25 +38,27 @@ class BDPublicCommand : public CommandExecutor {
 class BDPrivateCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>("BDPublic", false) == false) {
-      if (bb.GetBDChatType() == ChatType::Private) {
-      game.SendPrivateMessage(sender, "I am already set to private baseduel commands.");
-      return;
-      }
-
-    if (game.GetZone() == Zone::Devastation) {
-      //bb.Set<bool>("BDPublic", false);
-      bb.SetBDChatType(ChatType::Private);
-      game.SendChatMessage("This bot no longer listens to public baseduel commands. (Command sent by: " + sender + ")");
-    } else {
+    if (game.GetZone() != Zone::Devastation) {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
+      return;
     }
+
+    const std::vector<std::string> commands = {"bdstart, bdstop, bdhold, bdresume"};
+
+    for (std::string command : commands) {
+      auto iter = cmd.GetCommands().find(command);
+      if (iter != cmd.GetCommands().end()) {
+        iter->second->SetAccess(CommandAccess_Private);
+      }
+    }
+    game.SendChatMessage("This bot now only listens to private baseduel commands. (Command sent by: " + sender + ")");
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdprivate"}; }
   std::string GetDescription() { return "Set the bot to only allow private baseduel commands."; }
@@ -65,7 +69,7 @@ class BDPrivateCommand : public CommandExecutor {
 class StartBDCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("RunBD", false)) {
@@ -93,25 +97,22 @@ class StartBDCommand : public CommandExecutor {
     }
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { 
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-    //if (bb.ValueOr<bool>("BDPublic", false)) {
-    if (bb.GetBDChatType() == ChatType::Public) {
-      return CommandAccess_Public;
-    }
-    return CommandAccess_Private;
-  }
-
+  StartBDCommand() : access(CommandAccess_Private) {}
+  CommandAccessFlags GetAccess() { return access; }
+  void SetAccess(CommandAccessFlags flags) { access = flags; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdstart"}; }
   std::string GetDescription() { return "Start a base duel game."; }
   int GetSecurityLevel() { return 0; }
+
+  private:
+  CommandAccessFlags access;
 };
 
 class StopBDCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     if (game.GetZone() == Zone::Devastation) {
@@ -136,25 +137,22 @@ class StopBDCommand : public CommandExecutor {
     }
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-    //if (bb.ValueOr<bool>("BDPublic", false) == true) {
-    if (bb.GetBDChatType() == ChatType::Public) {
-      return CommandAccess_Public;
-    }
-    return CommandAccess_Private;
-  }
-
+  StopBDCommand() : access(CommandAccess_Private) {}
+  CommandAccessFlags GetAccess() { return access; }
+  void SetAccess(CommandAccessFlags flags) { access = flags; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdstop"}; }
   std::string GetDescription() { return "Stop a base duel game (resets score)."; }
   int GetSecurityLevel() { return 1; }
+
+  private:
+  CommandAccessFlags access;
 };
 
 class HoldBDCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     if (game.GetZone() == Zone::Devastation) {
@@ -176,25 +174,22 @@ class HoldBDCommand : public CommandExecutor {
     }
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-   // if (bb.ValueOr<bool>("BDPublic", false)) {
-    if (bb.GetBDChatType() == ChatType::Public) {
-      return CommandAccess_Public;
-    }
-    return CommandAccess_Private;
-  }
-
+  HoldBDCommand() : access(CommandAccess_Private) {}
+  CommandAccessFlags GetAccess() { return access; }
+  void SetAccess(CommandAccessFlags flags) { access = flags; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdhold"}; }
   std::string GetDescription() { return "Hold a base duel game (score is saved)"; }
   int GetSecurityLevel() { return 1; }
+
+  private:
+  CommandAccessFlags access;
 };
 
 class ResumeBDCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     if (game.GetZone() == Zone::Devastation) {
@@ -218,19 +213,16 @@ class ResumeBDCommand : public CommandExecutor {
     }
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
-    //if (bb.ValueOr<bool>("BDPublic", false) == true) {
-      if (bb.GetBDChatType() == ChatType::Public) {
-      return CommandAccess_Public;
-    }
-    return CommandAccess_Private;
-  }
-
+  ResumeBDCommand() : access(CommandAccess_Private) {}
+  CommandAccessFlags GetAccess() { return access; }
+  void SetAccess(CommandAccessFlags flags) { access = flags; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdresume"}; }
   std::string GetDescription() { return "Resume a base duel game"; }
   int GetSecurityLevel() { return 1; }
+
+  private:
+  CommandAccessFlags access;
 };
 
 }  // namespace marvin

@@ -7,15 +7,11 @@
 
 #include "../player.h"
 #include "../MapCoord.h"
+#include "../GameProxy.h"
 
 namespace marvin {
-    // TODO: move these into thier own file and include them
-enum class CombatRole : short {Anchor, Rusher, Bomber, Camper, None};
-enum class WarpToState : short {Center, Base, None};
-enum class BDState : short {Running, Paused, Stopped, Ended};
-enum class CommandRequestType : short {ShipChange, ArenaChange, FreqChange, None};
-  //TODO: chattype could be used for chat messages
-enum class ChatType : unsigned char {Arena, Padding1, Public, Padding2, Padding3, Private, Padding4, Padding5, Padding6, Channel};
+
+
 #if 0
     enum class BB { 
         UseRepel, UseBurst, UseDecoy, UseRocket, UseThor, UseBrick, UsePortal,
@@ -25,7 +21,6 @@ enum class ChatType : unsigned char {Arena, Padding1, Public, Padding2, Padding3
         EnemyNetBulletTravel, 
         End };
 #endif
-namespace behavior {
 
 class Blackboard {
  private:
@@ -63,7 +58,7 @@ class Blackboard {
 
   // 1 byte
   std::string arena_;
-  ChatType bd_chat_type_;
+  //ChatType bd_chat_type_;
   bool in_center_;
   bool steer_backwards_;
   bool team_in_base_;
@@ -122,7 +117,7 @@ class Blackboard {
     team0_score_ = 0;
     team1_score_ = 0;
 
-    bd_chat_type_ = ChatType::Private;
+    //bd_chat_type_ = ChatType::Private;
     in_center_ = true;
     steer_backwards_ = false;
     team_in_base_ = false;
@@ -218,8 +213,8 @@ class Blackboard {
   void SetCombatRoleDefault(CombatRole role) { combat_role_default_ = role; }
   CombatRole GetCombatRole() { return combat_role_; }
 
-  void SetBDChatType(ChatType type) { bd_chat_type_ = type; }
-  ChatType GetBDChatType() { return bd_chat_type_; }
+ // void SetBDChatType(ChatType type) { bd_chat_type_ = type; }
+ // ChatType GetBDChatType() { return bd_chat_type_; }
 
   void SetInCenter(bool state) { in_center_ = state; }
   bool GetInCenter() { return in_center_; }
@@ -436,5 +431,4 @@ class Blackboard {
   // std::unordered_map<BB, std::any> data2_default_;
 };
 
-}  // namespace behavior
 }  // namespace marvin

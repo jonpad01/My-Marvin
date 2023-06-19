@@ -87,7 +87,7 @@
     <ClCompile Include="zones\Devastation\BaseDuelWarpCoords.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="zones\Devastation\BasePaths.cpp">
+    <ClCompile Include="BasePaths.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Vector2i.h">
@@ -97,6 +97,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MapCoord.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TeamGoals.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="zones\Hyperspace\HyperspaceFlagRooms.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -158,7 +164,7 @@
     <ClInclude Include="behavior\BehaviorTree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="behavior\Blackboard.h">
+    <ClInclude Include="blackboard\Blackboard.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RegionRegistry.h">
@@ -239,10 +245,22 @@
     <ClInclude Include="commands\SetArenaCommand.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="zones\Devastation\BasePaths.h">
+    <ClInclude Include="MapCoord.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MapCoord.h">
+    <ClInclude Include="BasePaths.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TeamGoals.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Hyperspace\HyperspaceFlagRooms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="blackboard\HyperspaceBlackboard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="blackboard\DevastationBlackboard.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

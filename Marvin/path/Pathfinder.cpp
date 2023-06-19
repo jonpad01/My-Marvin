@@ -351,7 +351,10 @@ size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
     VisitState state = *next;
     const MapCoord& coord = state.coord;
 
-    if (state.distance > search_range) continue;
+    if (!registry.IsConnected(coord, start_coord)) {
+      continue;
+    }
+    //if (state.distance > search_range) continue;
 
     // Check if the current tile is within the path set and return that index if it is.
     if (path_set[coord.y * 1024 + coord.x]) {
@@ -420,26 +423,26 @@ std::size_t PathNodeSearch::FindNearestNodeByDistance(const Vector2f& position) 
   return path_index;
 }
 
-Vector2f PathNodeSearch::FindForwardLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool high_side) {
+Vector2f PathNodeSearch::FindForwardLOSNode(Vector2f position, std::size_t index, float radius, bool high_side) {
   if (high_side) {
-   return FindLOSNode(bot, position, index, radius, true);
+   return FindLOSNode(position, index, radius, true);
   } else {
-    return FindLOSNode(bot, position, index, radius, false);
+    return FindLOSNode(position, index, radius, false);
   }
 }
 
-Vector2f PathNodeSearch::FindRearLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool high_side) {
+Vector2f PathNodeSearch::FindRearLOSNode(Vector2f position, std::size_t index, float radius, bool high_side) {
   if (high_side) {
-    return FindLOSNode(bot, position, index, radius, false);
+    return FindLOSNode(position, index, radius, false);
   } else {
-    return FindLOSNode(bot, position, index, radius, true);
+    return FindLOSNode(position, index, radius, true);
   }
 }
 
   // Use the player position and path index to calculate the last path node the bot is 
 // still in line of sight of.  Use edge raycast to ignore solids that arent a part 
 // of the basees barrier.
-Vector2f PathNodeSearch::FindLOSNode(Bot& bot, Vector2f position, std::size_t index, float radius, bool count_down) {
+Vector2f PathNodeSearch::FindLOSNode(Vector2f position, std::size_t index, float radius, bool count_down) {
   // this function should never be used on an empty path so this return is useless if it ever happens
     if (path.empty()) return position;
     
@@ -492,6 +495,15 @@ float PathNodeSearch::GetPathDistance(const Vector2f& pos1, const Vector2f& pos2
       distance += path[i].Distance(path[i + 1]);
     }
     return distance;
+  }
+
+  std::unique_ptr<PathNodeSearch> PathNodeSearch::Create(Bot& bot, const std::vector<Vector2f>& path) {
+    if (path.empty()) {
+      return nullptr;
+    }
+
+    std::size_t size = bot.GetRegions().GetTileCount(path[0]) + 1;
+    return std::unique_ptr<PathNodeSearch>(new PathNodeSearch(bot, path, size));
   }
 
 }  // namespace path

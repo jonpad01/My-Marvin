@@ -19,7 +19,7 @@ bool BaseDuelWarpCoords::LoadBaseDuelFile(const std::string& mapName) {
   std::ifstream file;
   bool fileFound = false;
   bool result = false;
-  warps_.clear();
+  warps_.Clear();
 
   // file name format is basewarp-XXX.ini where XXX = map name
   // searches the Continuum folder in C:\Program Files\ for the basewarp.ini files

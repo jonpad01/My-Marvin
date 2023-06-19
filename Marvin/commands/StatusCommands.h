@@ -9,7 +9,7 @@ namespace marvin {
 class MultiCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseMultiFire, false) == true) {
@@ -23,7 +23,8 @@ class MultiCommand : public CommandExecutor {
     bb.SetUseMultiFire(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"multi"}; }
   std::string GetDescription() { return "Sets multifire on"; }
@@ -33,7 +34,7 @@ class MultiCommand : public CommandExecutor {
 class MultiOffCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseMultiFire, false) == false) {
@@ -47,7 +48,8 @@ class MultiOffCommand : public CommandExecutor {
     bb.SetUseMultiFire(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"multioff"}; }
   std::string GetDescription() { return "Sets multifire off"; }
@@ -57,7 +59,7 @@ class MultiOffCommand : public CommandExecutor {
 class CloakCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseCloak, false) == true) {
@@ -71,7 +73,8 @@ class CloakCommand : public CommandExecutor {
     bb.SetUseCloak(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"cloak"}; }
   std::string GetDescription() { return "Sets cloak on"; }
@@ -81,7 +84,7 @@ class CloakCommand : public CommandExecutor {
 class CloakOffCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseCloak, false) == false) {
@@ -95,7 +98,8 @@ class CloakOffCommand : public CommandExecutor {
     bb.SetUseCloak(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"cloakoff"}; }
   std::string GetDescription() { return "Sets cloak off"; }
@@ -105,7 +109,7 @@ class CloakOffCommand : public CommandExecutor {
 class StealthCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseStealth, false) == true) {
@@ -119,7 +123,8 @@ class StealthCommand : public CommandExecutor {
     bb.SetUseStealth(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"stealth"}; }
   std::string GetDescription() { return "Sets stealth on"; }
@@ -129,7 +134,7 @@ class StealthCommand : public CommandExecutor {
 class StealthOffCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseStealth, false) == false) {
@@ -143,7 +148,8 @@ class StealthOffCommand : public CommandExecutor {
     bb.SetUseStealth(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"stealthoff"}; }
   std::string GetDescription() { return "Sets stealth off"; }
@@ -153,7 +159,7 @@ class StealthOffCommand : public CommandExecutor {
 class XRadarCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseXRadar, false) == true) {
@@ -167,7 +173,8 @@ class XRadarCommand : public CommandExecutor {
     bb.SetUseXradar(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"xradar"}; }
   std::string GetDescription() { return "Sets XRadar on"; }
@@ -177,7 +184,7 @@ class XRadarCommand : public CommandExecutor {
 class XRadarOffCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseXRadar, false) == false) {
@@ -191,7 +198,8 @@ class XRadarOffCommand : public CommandExecutor {
     bb.SetUseXradar(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"xradaroff"}; }
   std::string GetDescription() { return "Sets XRadar off"; }
@@ -201,7 +209,7 @@ class XRadarOffCommand : public CommandExecutor {
 class AntiWarpCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseAntiWarp, false) == true) {
@@ -215,7 +223,8 @@ class AntiWarpCommand : public CommandExecutor {
     bb.SetUseAntiWarp(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"anti"}; }
   std::string GetDescription() { return "Sets AntiWarp on"; }
@@ -225,7 +234,7 @@ class AntiWarpCommand : public CommandExecutor {
 class AntiWarpOffCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>(BB::UseAntiWarp, false) == false) {
@@ -239,7 +248,8 @@ class AntiWarpOffCommand : public CommandExecutor {
     bb.SetUseAntiWarp(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"antioff"}; }
   std::string GetDescription() { return "Sets AntiWarp off"; }

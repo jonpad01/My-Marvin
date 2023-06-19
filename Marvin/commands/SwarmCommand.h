@@ -8,7 +8,7 @@ namespace marvin {
 class SwarmCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("Swarm", false) == true) {
@@ -22,7 +22,8 @@ class SwarmCommand : public CommandExecutor {
     bb.SetSwarm(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"swarm"}; }
   std::string GetDescription() {
@@ -34,7 +35,7 @@ class SwarmCommand : public CommandExecutor {
 class SwarmOffCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("Swarm", false) == false) {
@@ -48,7 +49,8 @@ class SwarmOffCommand : public CommandExecutor {
     bb.SetSwarm(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"swarmoff"}; }
   std::string GetDescription() { return "Sets swarm off"; }

@@ -8,7 +8,7 @@ namespace marvin {
 class LockCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("CmdLock", false) == true) {
@@ -22,7 +22,8 @@ class LockCommand : public CommandExecutor {
     bb.SetCommandLock(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"lock"}; }
   std::string GetDescription() { return "Locks marv so only mods can make changes"; }
@@ -32,7 +33,7 @@ class LockCommand : public CommandExecutor {
 class UnlockCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("CmdLock", false) == false) {
@@ -46,7 +47,8 @@ class UnlockCommand : public CommandExecutor {
     bb.SetCommandLock(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"unlockmarv", "um", "unlock"}; }
   std::string GetDescription() { return "Unlocks marv so players can make changes"; }

@@ -332,7 +332,7 @@ void ContinuumGameProxy::FetchChat() {
 
     chat.message = entry->message;
     chat.player = entry->player;
-    chat.type = entry->type;
+    chat.type = (ChatType)entry->type;
 
     recent_chat_.push_back(chat);
     ++chat_index_;
@@ -543,6 +543,15 @@ const Player& ContinuumGameProxy::GetPlayer() const {
 const Player* ContinuumGameProxy::GetPlayerById(u16 id) const {
   for (std::size_t i = 0; i < players_.size(); ++i) {
     if (players_[i].id == id) {
+      return &players_[i];
+    }
+  }
+  return nullptr;
+}
+
+const Player* ContinuumGameProxy::GetPlayerByName(std::string_view name) const {
+  for (std::size_t i = 0; i < players_.size(); ++i) {
+    if (players_[i].name == name) {
       return &players_[i];
     }
   }

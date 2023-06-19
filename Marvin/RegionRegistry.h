@@ -56,7 +56,7 @@ namespace marvin {
 
 struct RegionFiller {
  public:
-  RegionFiller(const Map& map, float radius, RegionIndex* coord_regions, SharedRegionOwnership* edges);
+  RegionFiller(const Map& map, float radius, RegionIndex* coord_regions, SharedRegionOwnership* edges, int* region_tile_counts);
 
   void Fill(RegionIndex index, const MapCoord& coord) {
     this->region_index = index;
@@ -82,6 +82,7 @@ struct RegionFiller {
 
   RegionIndex* coord_regions;
   SharedRegionOwnership* edges;
+  int* region_tile_counts;
 
   MapCoord highest_coord;
 
@@ -96,7 +97,7 @@ class RegionRegistry {
 
   bool IsConnected(MapCoord a, MapCoord b) const;
   bool IsEdge(MapCoord coord) const;
-
+  int GetTileCount(MapCoord coord) const;
   void CreateAll(const Map& map, float radius);
 
   void DebugUpdate(Vector2f position);
@@ -112,5 +113,6 @@ class RegionRegistry {
 
   RegionIndex coord_regions_[1024 * 1024];
   SharedRegionOwnership outside_edges_[1024 * 1024];
+  int region_tile_counts_[1024 * 1024];
 };
 }  // namespace marvin

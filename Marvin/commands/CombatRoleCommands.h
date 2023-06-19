@@ -8,7 +8,7 @@ namespace marvin {
 class AnchorCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("IsAnchor", false) == true) {
@@ -23,7 +23,8 @@ class AnchorCommand : public CommandExecutor {
     bb.SetCombatRole(CombatRole::Anchor);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"anchor", "a"}; }
   std::string GetDescription() { return "Enable anchor behavior when basing"; }
@@ -33,7 +34,7 @@ class AnchorCommand : public CommandExecutor {
 class RushCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("IsAnchor", false) == false) {
@@ -47,7 +48,8 @@ class RushCommand : public CommandExecutor {
     bb.SetCombatRole(CombatRole::Rusher);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"rush", "r"}; }
   std::string GetDescription() { return "Enable rush behavior when basing"; }

@@ -10,8 +10,6 @@
 
 namespace marvin {
 
-
-
 struct BallData {
   BallData() : position(0, 0), velocity(0, 0), last_activity(0, 0), inactive_timer(0), last_holder_id(0), held(false) {}
   Vector2f position, velocity, last_activity;

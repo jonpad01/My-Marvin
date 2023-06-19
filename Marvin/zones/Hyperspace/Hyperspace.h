@@ -3,8 +3,8 @@
 #include <fstream>
 #include <memory>
 
-#include "../Bot.h"
-#include "../behavior/BehaviorEngine.h"
+#include "..//..//Bot.h"
+#include "..//..//behavior/BehaviorEngine.h"
 
 namespace marvin {
 
@@ -18,6 +18,14 @@ class HyperspaceBehaviorBuilder : public BehaviorBuilder {
 class HSFlaggerSort : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+  AnchorSet GetAnchors(Bot& bot);
+  const Player* SelectAnchor(const AnchorSet& anchors, Bot& bot);
+  const Player* FindAnchorInBase(const std::vector<const Player*>& anchors, Bot& bot);
+  const Player* FindAnchorInAnyBase(const std::vector<const Player*>& anchors, Bot& bot);
+  const Player* FindAnchorInTunnel(const std::vector<const Player*>& anchors, Bot& bot);
+  const Player* FindAnchorInCenter(const std::vector<const Player*>& anchors, Bot& bot);
 };
 
 class HSSetRegionNode : public behavior::BehaviorNode {

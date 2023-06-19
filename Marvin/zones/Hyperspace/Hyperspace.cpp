@@ -4,43 +4,38 @@
 #include <cstring>
 #include <limits>
 
-#include "../Bot.h"
-#include "../Debug.h"
-#include "../GameProxy.h"
-#include "../Map.h"
-#include "../RayCaster.h"
-#include "../RegionRegistry.h"
-#include "../Shooter.h"
-#include "../platform/ContinuumGameProxy.h"
-#include "../platform/Platform.h"
+#include "../../Bot.h"
+#include "../../Debug.h"
+#include "../../GameProxy.h"
+#include "../../Map.h"
+#include "../../RayCaster.h"
+#include "../../RegionRegistry.h"
+#include "../../Shooter.h"
+#include "../../platform/ContinuumGameProxy.h"
+#include "../../platform/Platform.h"
+#include "../../MapCoord.h"
+#include "../../blackboard/HyperspaceBlackboard.h"
 
 namespace marvin {
 namespace hs {
 
-std::vector<Vector2f> kBaseEntrances = {Vector2f(827, 339), Vector2f(811, 530), Vector2f(729, 893), Vector2f(444, 757),
-                                        Vector2f(127, 848), Vector2f(268, 552), Vector2f(181, 330)};
-
-std::vector<Vector2f> kFlagRooms = {Vector2f(826, 229), Vector2f(834, 540), Vector2f(745, 828), Vector2f(489, 832),
-                                    Vector2f(292, 812), Vector2f(159, 571), Vector2f(205, 204)};
-
 void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
+  std::vector<MapCoord> patrol_nodes = {MapCoord(585, 540), MapCoord(400, 570)};
 
-  bot.CreateBasePaths(kBaseEntrances, kFlagRooms, bot.GetGame().GetSettings().ShipSettings[6].GetRadius());
-  
-  uint16_t ship = bot.GetGame().GetPlayer().ship;
+  // bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
+  //  bot.GetBlackboard().Set<uint16_t>("Freq", 999);
+  //  bot.GetBlackboard().Set<uint16_t>("PubTeam0", 90);
+  //   bot.GetBlackboard().Set<uint16_t>("PubTeam1", 91);
+  //  bot.GetBlackboard().Set<uint16_t>("Ship", ship);
+  //   bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
 
-    std::vector<Vector2f> patrol_nodes = {Vector2f(585, 540), Vector2f(400, 570)};
-
-    bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
-    bot.GetBlackboard().Set<uint16_t>("Freq", 999);
-    bot.GetBlackboard().Set<uint16_t>("PubTeam0", 90);
-    bot.GetBlackboard().Set<uint16_t>("PubTeam1", 91);
-    bot.GetBlackboard().Set<uint16_t>("Ship", ship);
-    bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
-  
+  bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
+  bot.GetBlackboard().SetPubTeam0(90);
+  bot.GetBlackboard().SetPubTeam1(91);
+  bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
 
   auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
-  auto TvsT_base_path = std::make_unique<bot::TvsTBasePathNode>();
+  auto anchor_base_path = std::make_unique<bot::AnchorBasePathNode>();
   auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
 
   auto is_anchor = std::make_unique<bot::IsAnchorNode>();
@@ -62,11 +57,11 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
       std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
 
   auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
-  auto TvsT_base_path_sequence = std::make_unique<behavior::SequenceNode>(TvsT_base_path.get(), follow_path_.get());
+  auto anchor_base_path_sequence = std::make_unique<behavior::SequenceNode>(anchor_base_path.get(), follow_path_.get());
   auto enemy_path_logic_selector = std::make_unique<behavior::SelectorNode>(
-      mine_sweeper_.get(), TvsT_base_path_sequence.get(), path_to_enemy_sequence.get());
+      mine_sweeper_.get(), anchor_base_path_sequence.get(), path_to_enemy_sequence.get());
 
-  auto anchor_los_parallel = std::make_unique<behavior::ParallelNode>(TvsT_base_path_sequence.get());
+  auto anchor_los_parallel = std::make_unique<behavior::ParallelNode>(anchor_base_path_sequence.get());
   auto anchor_los_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
   auto anchor_los_selector =
       std::make_unique<behavior::SelectorNode>(anchor_los_sequence.get(), parallel_shoot_enemy.get());
@@ -92,9 +87,9 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), flagger_sort.get(),
-      HS_set_region.get(), HS_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(),
-      HS_attach.get(), respawn_check_.get(), HS_toggle.get(), action_selector.get());
+      commands_.get(), set_ship_.get(), set_freq_.get(), ship_check_.get(), flagger_sort.get(), HS_set_region.get(),
+      HS_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(), HS_attach.get(),
+      respawn_check_.get(), HS_toggle.get(), action_selector.get());
 
   engine_->PushRoot(std::move(root_sequence));
 
@@ -105,14 +100,14 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(path_to_enemy_sequence));
   engine_->PushNode(std::move(find_enemy_in_center_sequence));
   engine_->PushNode(std::move(move_to_enemy));
-  engine_->PushNode(std::move(TvsT_base_path));
+  engine_->PushNode(std::move(anchor_base_path));
   engine_->PushNode(std::move(is_anchor));
   engine_->PushNode(std::move(anchor_los_parallel));
   engine_->PushNode(std::move(anchor_los_sequence));
   engine_->PushNode(std::move(anchor_los_selector));
   engine_->PushNode(std::move(bouncing_shot));
   engine_->PushNode(std::move(bounce_path_parallel));
-  engine_->PushNode(std::move(TvsT_base_path_sequence));
+  engine_->PushNode(std::move(anchor_base_path_sequence));
   engine_->PushNode(std::move(enemy_path_logic_selector));
   engine_->PushNode(std::move(find_enemy_in_base));
   engine_->PushNode(std::move(find_enemy_in_base_sequence));
@@ -135,116 +130,257 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
 behavior::ExecuteResult HSFlaggerSort::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
+  auto& hs_bb = ctx.bot->GetHSBlackboard();
 
-  std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
+     // slow this node down
+  if (!ctx.bot->GetTime().TimedActionDelay("hssetregioncooldown", 50)) {
+    return behavior::ExecuteResult::Success;
+  }
 
-  const Player* base_anchor = nullptr;
-  const Player* other_anchor = nullptr;
-  const Player* enemy_anchor = nullptr;
+  // std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
+  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
+  const TeamGoals& goals = ctx.bot->GetTeamGoals().GetGoals();
 
-  std::vector<uint16_t> fList(100, 0);
+   const Player* enemy_anchor = nullptr;
+
+  AnchorSet anchors = GetAnchors(*ctx.bot);
+  const Player* anchor = SelectAnchor(anchors, *ctx.bot);
 
   int flagger_count = 0;
-  int team_spiders = 0;
-  int team_lancs = 0;
-
-  if (ctx.bot->GetTime().TimedActionDelay("sendchatmessage", 10000)) {
-    game.SendChatMessage("?lancs");
-  }
-
-  for (ChatMessage chat : game.GetChat()) {
-    if (chat.type == 0) {
-      if (chat.message.compare(0, 3, "(S)") == 0 || chat.message.compare(0, 3, "(E)") == 0) {
-        std::vector<std::string> anchors;
-        std::string name;
-
-        for (std::size_t i = 4; i < chat.message.size(); i++) {
-          if (chat.message[i] == ' ') {
-            anchors.push_back(name);
-            name.clear();
-            i += 3;
-          } else {
-            name.push_back(chat.message[i]);
-          }
-        }
-      }
-    }
-  }
+  int spid_count = 0;
+  int lanc_count = 0;
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
     const Player& player = game.GetPlayers()[i];
 
-    if (player.frequency < 100) fList[player.frequency]++;
+    // max allowed for HS
+    if (player.frequency <= 91) {
+      // fList[player.frequency]++;
+      bb.IncrementFreqList(player.frequency);
+    }
 
+    // player is on a flag team and not a fake player
     if ((player.frequency == 90 || player.frequency == 91) && player.name[0] != '<') {
       flagger_count++;
 
+      // player is on same team
       if (player.frequency == game.GetPlayer().frequency) {
         if (player.ship == 2) {
-          team_spiders++;
+          spid_count++;
         } else if (player.ship == 6) {
-          team_lancs++;
-          if (player.id != game.GetPlayer().id) {
-            if (ctx.bot->GetRegions().IsConnected(player.position, kBaseEntrances[base_index])) {
-              base_anchor = &game.GetPlayers()[i];
-            } else {
-              for (std::size_t i = 0; i < kBaseEntrances.size(); ++i) {
-                if (ctx.bot->GetRegions().IsConnected(player.position, kBaseEntrances[i])) {
-                  base_anchor = &game.GetPlayers()[i];
-                }
-              }
-            }
-            other_anchor = &game.GetPlayers()[i];
-          }
+          lanc_count++;
         }
-      } else if (ctx.bot->GetRegions().IsConnected(player.position, kBaseEntrances[base_index])) {
+        // player is on enemy team and connected to the current base
+      } else if (ctx.bot->GetRegions().IsConnected(player.position, goals.entrances[base_index])) {
+        // check for an enemy lanc of not then select enemy spid or lev
         if (player.ship == 6) {
           enemy_anchor = &game.GetPlayers()[i];
-        } else {
+        } else if (!enemy_anchor && player.ship == 2 || player.ship == 4) {
           enemy_anchor = &game.GetPlayers()[i];
         }
       }
     }
   }
 
-  if (base_anchor) {
-    bb.Set<const Player*>("TeamAnchor", base_anchor);
-  } else {
-    bb.Set<const Player*>("TeamAnchor", other_anchor);
-  }
-
-  bb.Set<const Player*>("EnemyAnchor", enemy_anchor);
-  bb.Set<std::vector<uint16_t>>("FreqList", fList);
-  bb.Set<int>("FlaggerCount", flagger_count);
-  bb.Set<int>("SpiderCount", team_spiders);
-  bb.Set<int>("LancCount", team_lancs);
+  hs_bb.SetAnchor(anchor);
+  hs_bb.SetEnemyAnchor(enemy_anchor);
+  hs_bb.SetFlaggerCount(flagger_count);
+  hs_bb.SetTeamLancCount(lanc_count);
+  hs_bb.SetTeamSpidCount(spid_count);
 
   return behavior::ExecuteResult::Success;
 }
 
-behavior::ExecuteResult HSSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+AnchorSet HSFlaggerSort::GetAnchors(Bot& bot) {
+  auto& game = bot.GetGame();
 
-  const std::vector<Vector2f>& entrances = kBaseEntrances;
-  const std::vector<Vector2f>& flagrooms = kFlagRooms;
+  AnchorSet anchors;
+  uint16_t ship = game.GetPlayer().ship;
+  bool evoker_usable = ship <= 1 || ship == 4 && ship == 5;
+  bool msg_found = false;
 
-  bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(),
-                                                     (MapCoord)bb.ValueOr<Vector2f>("Spawn", Vector2f(512, 512)));
+  if (bot.GetTime().TimedActionDelay("sendchatmessage", 10000)) {
+    game.SendChatMessage("?lancs");
+  }
 
-  bb.Set<bool>("InCenter", in_center);
+  //                 (summoner)      (evoker)   (in a lanc but no summoner/evoker)
+  // example format: (S) Baked Cake, (E) marv1, marv2
+  for (ChatMessage chat : game.GetChat()) {
+    // make sure message is a server message
+    if (chat.type != ChatType::Arena) {
+      continue;
+    }
+    if (msg_found) {
+      break;
+    }
 
-  if (!in_center && game.GetPlayer().active) {
-    if (!ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(),
-                                           (MapCoord)entrances[bb.ValueOr<std::size_t>("BaseIndex", 0)])) {
-      for (std::size_t i = 0; i < entrances.size(); i++) {
-        if (ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), (MapCoord)entrances[i])) {
-          bb.Set<std::size_t>("BaseIndex", i);
+    std::vector<std::string_view> list = SplitString(chat.message, ",");
 
-          // need to set anchor positions here?
-          return behavior::ExecuteResult::Success;
+    for (std::size_t i = 0; i < list.size(); i++) {
+      std::string_view entry = list[i];
+      std::vector<const Player*>* type_list = &anchors.no_energy;
+      std::string_view name = entry;
+
+      if (entry.size() > 4 && entry[0] == '(' && entry[2] == ')') {
+        name = entry.substr(4);
+
+        if (entry[1] == 'S' || (entry[1] == 'E' && evoker_usable)) {
+          type_list = &anchors.full_energy;
         }
+      }
+
+      const Player* anchor = game.GetPlayerByName(name);
+
+      if (anchor) {
+        type_list->push_back(anchor);
+        if (i == list.size() - 1) {
+          msg_found = true;
+        }
+      } else {
+        anchors.Clear();
+        break;
+      }
+    }
+  }
+  return anchors;
+}
+
+const Player* HSFlaggerSort::SelectAnchor(const AnchorSet& anchors, Bot& bot) {
+  auto& game = bot.GetGame();
+
+  const Player* anchor = nullptr;
+
+  anchor = FindAnchorInBase(anchors.full_energy, bot);
+  if (!anchor) {
+    anchor = FindAnchorInBase(anchors.no_energy, bot);
+  }
+  if (!anchor) {
+    anchor = FindAnchorInAnyBase(anchors.full_energy, bot);
+  }
+  if (!anchor) {
+    anchor = FindAnchorInAnyBase(anchors.no_energy, bot);
+  }
+  if (!anchor) {
+    anchor = FindAnchorInTunnel(anchors.full_energy, bot);
+  }
+  if (!anchor) {
+    anchor = FindAnchorInTunnel(anchors.no_energy, bot);
+  }
+  if (!anchor) {
+    anchor = FindAnchorInCenter(anchors.full_energy, bot);
+  }
+  if (!anchor) {
+    anchor = FindAnchorInCenter(anchors.no_energy, bot);
+  }
+  return anchor;
+}
+
+const Player* HSFlaggerSort::FindAnchorInBase(const std::vector<const Player*>& anchors, Bot& bot) {
+  auto& game = bot.GetGame();
+
+  const Player* anchor = nullptr;
+
+  const std::vector<MapCoord>& base_regions = bot.GetTeamGoals().GetGoals().entrances;
+  auto ns = path::PathNodeSearch::Create(bot, bot.GetBasePath());
+
+  float closest_anchor_distance_to_enemy = std::numeric_limits<float>::max();
+  
+  for (std::size_t i = 0; i < anchors.size(); i++) {
+    const Player* player = anchors[i];
+    MapCoord reference = base_regions[bot.GetBasePaths().GetBaseIndex()];
+    if (!bot.GetRegions().IsConnected(player->position, reference)) {
+      continue;
+    }
+
+    for (int i = 0; i < bot.GetBlackboard().GetEnemyList().size(); i++) {
+      const Player* enemy = bot.GetBlackboard().GetEnemyList()[i];
+      if (!bot.GetRegions().IsConnected(enemy->position, reference)) {
+        continue;
+      }
+
+      float distance = ns->GetPathDistance(enemy->position, player->position);
+      if (distance < closest_anchor_distance_to_enemy) {
+        anchor = player;
+        closest_anchor_distance_to_enemy = distance;
+      }
+    }
+  }
+  return anchor;
+}
+
+const Player* HSFlaggerSort::FindAnchorInAnyBase(const std::vector<const Player*>& anchors, Bot& bot) {
+  auto& game = bot.GetGame();
+
+  const Player* anchor = nullptr;
+  const std::vector<MapCoord>& base_regions = bot.GetTeamGoals().GetGoals().entrances;
+
+  for (std::size_t i = 0; i < anchors.size(); i++) {
+    const Player* player = anchors[i];
+    for (MapCoord base_coord : base_regions) {
+      if (bot.GetRegions().IsConnected(player->position, base_coord)) {
+        anchor = player;
+        break;
+      }
+    }
+  }
+  return anchor;
+}
+
+const Player* HSFlaggerSort::FindAnchorInTunnel(const std::vector<const Player*>& anchors, Bot& bot) {
+  auto& game = bot.GetGame();
+
+  const Player* anchor = nullptr;
+
+  for (std::size_t i = 0; i < anchors.size(); i++) {
+    const Player* player = anchors[i];
+    if (bot.GetRegions().IsConnected(player->position, MapCoord(16, 16))) {
+      anchor = player;
+      break;
+    }
+  }
+  return anchor;
+}
+
+const Player* HSFlaggerSort::FindAnchorInCenter(const std::vector<const Player*>& anchors, Bot& bot) {
+  auto& game = bot.GetGame();
+
+  const Player* anchor = nullptr;
+
+  for (std::size_t i = 0; i < anchors.size(); i++) {
+    const Player* player = anchors[i];
+    if (bot.GetRegions().IsConnected(player->position, MapCoord(512, 512))) {
+      anchor = player;
+      break;
+    }
+  }
+  return anchor;
+}
+
+behavior::ExecuteResult HSSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
+  GameProxy& game = ctx.bot->GetGame();
+  Blackboard& bb = ctx.bot->GetBlackboard();
+  RegionRegistry& regions = ctx.bot->GetRegions();
+
+  // slow this node down
+  if (!ctx.bot->GetTime().TimedActionDelay("hssetregioncooldown", 50)) {
+    return behavior::ExecuteResult::Success;
+  }
+
+  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+  const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
+
+  bool in_center = regions.IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
+
+   bb.SetInCenter(in_center);
+
+  // not in center
+  if (!in_center && game.GetPlayer().active) {
+      // if in a base set that base as the index
+    for (std::size_t i = 0; i < entrances.size(); i++) {
+      if (regions.IsConnected(game.GetPosition(), entrances[i])) {
+        ctx.bot->GetBasePaths().SetBase(i);
+        break;
       }
     }
   }
@@ -254,14 +390,16 @@ behavior::ExecuteResult HSSetRegionNode::Execute(behavior::ExecuteContext& ctx) 
 
 behavior::ExecuteResult HSDefensePositionNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
+  auto& hs_bb = ctx.bot->GetHSBlackboard();
+  auto ns = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath(), 100);
 
-  const std::vector<Vector2f>& entrances = kBaseEntrances;
-  const std::vector<Vector2f>& flagrooms = kFlagRooms;
-  std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
+  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+  const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
+  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
 
-  const Player* team_anchor = bb.ValueOr<const Player*>("TeamAnchor", nullptr);
-  const Player* enemy_anchor = bb.ValueOr<const Player*>("EnemyAnchor", nullptr);
+  const Player* team_anchor = hs_bb.GetAnchor();
+  const Player* enemy_anchor = hs_bb.GetEnemyAnchor();
 
   if (team_anchor && enemy_anchor) {
     if (ctx.bot->GetRegions().IsConnected((MapCoord)team_anchor->position, (MapCoord)entrances[base_index])) {
@@ -285,7 +423,7 @@ behavior::ExecuteResult HSDefensePositionNode::Execute(behavior::ExecuteContext&
 
 behavior::ExecuteResult HSFreqMan::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   uint64_t unique_timer = ctx.bot->GetTime().UniqueIDTimer(game.GetPlayer().id);
 
@@ -316,7 +454,7 @@ behavior::ExecuteResult HSFreqMan::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult HSShipMan::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   int lanc_count = bb.ValueOr<int>("LancCount", 0);
   int spider_count = bb.ValueOr<int>("SpiderCount", 0);
@@ -375,7 +513,7 @@ behavior::ExecuteResult HSShipMan::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult HSWarpToCenter::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   if (!bb.ValueOr<bool>("InCenter", true) && game.GetPlayer().frequency != 90 && game.GetPlayer().frequency != 91) {
     if (ctx.bot->GetTime().TimedActionDelay("warptocenter", 200)) {
@@ -391,7 +529,7 @@ behavior::ExecuteResult HSWarpToCenter::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   const Player* anchor = bb.ValueOr("TeamAnchor", nullptr);
 
@@ -424,7 +562,7 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.blackboard;
+  auto& bb = ctx.bot->GetBlackboard();
 
   if (game.GetPlayer().ship == 6 || game.GetPlayer().ship == 2) {
     bb.Set<bool>("IsAnchor", true);

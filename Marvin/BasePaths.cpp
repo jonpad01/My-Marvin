@@ -1,15 +1,15 @@
 #include "BasePaths.h"
 
-#include "..//..//Vector2f.h"
-#include "..//..//path/Pathfinder.h"
-#include "..//..//Map.h"
-#include "BaseDuelWarpCoords.h"
+#include "Vector2f.h"
+#include "path/Pathfinder.h"
+#include "Map.h"
+#include "TeamGoals.h"
 
 
 namespace marvin {
-namespace deva {
 
-BasePaths::BasePaths(const BaseWarps& spawns, float radius, path::Pathfinder& pathfinder, const Map& map) {
+
+BasePaths::BasePaths(const TeamGoals& spawns, float radius, path::Pathfinder& pathfinder, const Map& map) {
 
     current_index_ = 0;
 
@@ -23,5 +23,5 @@ BasePaths::BasePaths(const BaseWarps& spawns, float radius, path::Pathfinder& pa
   }
 
 }
-}  // namespace deva
+
 }  // namespace marvin

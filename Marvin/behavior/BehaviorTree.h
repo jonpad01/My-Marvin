@@ -5,7 +5,6 @@
 
 #include "../Player.h"
 #include "../Vector2f.h"
-#include "Blackboard.h"
 
 namespace marvin {
 
@@ -16,7 +15,7 @@ namespace behavior {
 enum class ExecuteResult { Success, Failure, Running };
 
 struct ExecuteContext {
-  Blackboard blackboard;
+  //Blackboard blackboard;
 
   Bot* bot;
 

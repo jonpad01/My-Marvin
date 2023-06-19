@@ -11,12 +11,15 @@
 #include "Steering.h"
 #include "Time.h"
 #include "behavior/BehaviorEngine.h"
-//#include "common.h"
-//#include "path/Pathfinder.h"
 #include "platform/ContinuumGameProxy.h"
 #include "Shooter.h"
-#include "zones/Devastation/BasePaths.h"
-#include "zones/Devastation/BaseDuelWarpCoords.h"
+#include "BasePaths.h"
+#include "TeamGoals.h"
+#include "blackboard/Blackboard.h"
+#include "blackboard/DevastationBlackboard.h"
+#include "blackboard/HyperspaceBlackboard.h"
+
+
 
 
 
@@ -24,11 +27,9 @@
 
 
 namespace marvin {
-    namespace deva {
-    //class BaseDuelWarpCoords;
-    }
 class GameProxy;
 struct Player;
+
 
 class Bot {
  public:
@@ -40,7 +41,9 @@ class Bot {
   KeyController& GetKeys() { return keys_; }
   GameProxy& GetGame() { return *game_; }
   Time& GetTime() { return time_; }
-  behavior::Blackboard& GetBlackboard() { return ctx_.blackboard; }
+  Blackboard& GetBlackboard() { return *blackboard_; }
+  HSBlackboard& GetHSBlackboard() { return *hs_blackboard_; }
+  DevaBlackboard& GetDevaBlackboard() { return *deva_blackboard_; }
   behavior::ExecuteContext& GetExecuteContext() { return ctx_; }
   path::Pathfinder& GetPathfinder() { return *pathfinder_; }
   RegionRegistry& GetRegions() { return *regions_; }
@@ -48,8 +51,8 @@ class Bot {
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return *influence_map_; }
   CommandSystem& GetCommandSystem() { return command_system_; }
-  deva::BaseDuelWarpCoords& GetBaseDuelWarps() { return *warps_; }
-  deva::BasePaths& GetBasePaths() { return *base_paths_; }
+  TeamGoalCreator& GetTeamGoals() { return *goals_; }
+  BasePaths& GetBasePaths() { return *base_paths_; }
 
   const std::vector<Vector2f>& GetBasePath() {
     //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
@@ -59,8 +62,8 @@ class Bot {
   std::size_t GetTeamSafeIndex(uint16_t freq) {
    // uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam0, 999);
    // uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam1, 999);
-    uint16_t low_index_team = ctx_.blackboard.GetPubTeam0();
-    uint16_t high_index_team = ctx_.blackboard.GetPubTeam1();
+    uint16_t low_index_team = blackboard_->GetPubTeam0();
+    uint16_t high_index_team = blackboard_->GetPubTeam1();
 
     if (freq == low_index_team) {
       return 0;
@@ -92,15 +95,19 @@ class Bot {
   std::shared_ptr<GameProxy> game_;
   std::unique_ptr<path::Pathfinder> pathfinder_;
   std::unique_ptr<RegionRegistry> regions_;
+  std::unique_ptr<Blackboard> blackboard_;
+  std::unique_ptr<HSBlackboard> hs_blackboard_;
+  std::unique_ptr<DevaBlackboard> deva_blackboard_;
   behavior::ExecuteContext ctx_;
   SteeringBehavior steering_;
   std::unique_ptr<InfluenceMap> influence_map_;
   CommandSystem command_system_;
   Shooter shooter_;
 
-  std::unique_ptr<deva::BaseDuelWarpCoords> warps_;
+  //std::unique_ptr<deva::BaseDuelWarpCoords> warps_;
+  std::unique_ptr<TeamGoalCreator> goals_;
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
-  std::unique_ptr<deva::BasePaths> base_paths_;
+  std::unique_ptr<BasePaths> base_paths_;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;

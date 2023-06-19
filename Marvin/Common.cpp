@@ -68,4 +68,24 @@ std::size_t FindOpenFreq(const std::vector<uint16_t>& list, std::size_t start_po
   return open_freq;
 }
 
+std::vector<std::string_view> SplitString(std::string_view string, std::string_view delim) {
+  std::vector<std::string_view> result;
+
+  std::size_t offset = 0;
+  std::size_t start = 0;
+
+  while ((offset = string.find(delim, offset)) != std::string::npos) {
+    std::string_view split = string.substr(start, offset - start);
+
+    result.push_back(split);
+
+    offset += delim.size();
+    start = offset;
+  }
+
+  result.push_back(string.substr(start));
+
+  return result;
+}
+
 }  // namespace marvin

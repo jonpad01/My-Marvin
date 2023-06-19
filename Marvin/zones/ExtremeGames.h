@@ -28,42 +28,8 @@ class FreqWarpAttachNode : public behavior::BehaviorNode {
   bool CheckStatus(behavior::ExecuteContext& ctx);
 };
 
-class FindEnemyNode : public behavior::BehaviorNode {  //: public PathingNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
- private:
-  float CalculateCost(GameProxy& game, const Player& bot_player, const Player& target);
-  bool IsValidTarget(behavior::ExecuteContext& ctx, const Player& target);
 
-  Vector2f view_min_;
-  Vector2f view_max_;
-};
-
-class PathToEnemyNode : public behavior::BehaviorNode {  //: public PathingNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-};
-
-class PatrolNode : public behavior::BehaviorNode {  //: public PathingNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-};
-
-class FollowPathNode : public behavior::BehaviorNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-
- private:
-  bool CanMoveBetween(Bot& bot, GameProxy& game, Vector2f from, Vector2f to);
-};
-
-class InLineOfSightNode : public behavior::BehaviorNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-
- private:
-};
 
 class AimWithGunNode : public behavior::BehaviorNode {
  public:

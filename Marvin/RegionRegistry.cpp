@@ -6,8 +6,8 @@
 
 namespace marvin {
 
-    RegionFiller::RegionFiller(const Map& map, float radius, RegionIndex* coord_regions, SharedRegionOwnership* edges)
-    : map(map), radius(radius), coord_regions(coord_regions), edges(edges), highest_coord(9999, 9999) {
+RegionFiller::RegionFiller(const Map& map, float radius, RegionIndex* coord_regions, SharedRegionOwnership* edges, int* region_tile_counts)
+    : map(map), radius(radius), coord_regions(coord_regions), edges(edges), region_tile_counts(region_tile_counts), highest_coord(9999, 9999) {
   potential_edges.reserve(1024 * 1024);
 
   for (size_t i = 0; i < 1024 * 1024; ++i) {
@@ -19,6 +19,7 @@ void RegionFiller::FillEmpty(const MapCoord& coord) {
   if (!map.CanOverlapTile(Vector2f(coord.x, coord.y), radius)) return;
 
   coord_regions[coord.y * 1024 + coord.x] = region_index;
+  region_tile_counts[region_index]++;
 
   stack.push_back(coord);
 
@@ -57,6 +58,7 @@ void RegionFiller::TraverseEmpty(const Vector2f& from, MapCoord to) {
 
     if (map.CanTraverse(from, to_pos, radius)) {
       coord_regions[to_index] = region_index;
+      region_tile_counts[region_index]++;
       stack.push_back(to);
     }
   }
@@ -472,7 +474,7 @@ void RegionRegistry::CreateRegions(const Map& map, std::vector<Vector2f> seed_po
 
 
 void RegionRegistry::CreateAll(const Map& map, float radius) {
-  RegionFiller filler(map, radius, coord_regions_, outside_edges_);
+  RegionFiller filler(map, radius, coord_regions_, outside_edges_, region_tile_counts_);
 
   for (uint16_t y = 0; y < 1024; ++y) {
     for (uint16_t x = 0; x < 1024; ++x) {
@@ -482,7 +484,7 @@ void RegionRegistry::CreateAll(const Map& map, float radius) {
         // If the current coord is empty and hasn't been inserted into region
         // map then create a new region and flood fill it
         if (!IsRegistered(coord)) {
-          auto region_index = CreateRegion();
+          RegionIndex region_index = CreateRegion();
 
           filler.Fill(region_index, coord);
         }
@@ -517,9 +519,12 @@ void RegionRegistry::DebugUpdate(Vector2f position) {
   }
 }
 
+int RegionRegistry::GetTileCount(MapCoord coord) const {
 
+  RegionIndex index = coord_regions_[coord.y * 1024 + coord.x];
 
-
+  return region_tile_counts_[index];
+}
 
 bool RegionRegistry::IsRegistered(MapCoord coord) const {
   if (!IsValidPosition(coord)) return false;

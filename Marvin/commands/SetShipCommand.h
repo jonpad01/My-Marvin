@@ -8,7 +8,7 @@ namespace marvin {
 class SetShipCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     std::vector<std::string> args = Tokenize(arg, ' ');
@@ -51,7 +51,8 @@ class SetShipCommand : public CommandExecutor {
     game.SendPrivateMessage(sender, "Invalid selection. !setship [shipNumber]");
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"setship", "ss"}; }
   std::string GetDescription() { return "Sets the ship (9 = spec)"; }

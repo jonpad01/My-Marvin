@@ -7,16 +7,16 @@
 namespace marvin {
 class Vector2f;
 class Map;
+struct TeamGoals;
+
 namespace path {
 struct Pathfinder;
 }
-namespace deva {
 
-	struct BaseWarps;
 
 class BasePaths {
  public:
-  BasePaths(const BaseWarps& spawns, float radius, path::Pathfinder& pathfinder, const Map& map);
+  BasePaths(const TeamGoals& spawns, float radius, path::Pathfinder& pathfinder, const Map& map);
 
   //const std::vector<std::vector<Vector2f>>& GetBasePaths() { return base_paths_; }
   const std::vector<Vector2f>& GetBasePath() { return base_paths_[current_index_]; }
@@ -27,5 +27,5 @@ class BasePaths {
   std::vector<std::vector<Vector2f>> base_paths_;
   std::size_t current_index_;
 };
-}  // namespace deva
+
 }  // namespace marvin

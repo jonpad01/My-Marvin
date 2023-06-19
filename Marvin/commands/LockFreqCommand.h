@@ -8,7 +8,7 @@ namespace marvin {
 class LockFreqCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("FreqLock", false) == true) {
@@ -22,7 +22,8 @@ class LockFreqCommand : public CommandExecutor {
     bb.SetFreqLock(true);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"lockfreq", "lf"}; }
   std::string GetDescription() { return "Locks frequency"; }
@@ -32,7 +33,7 @@ class LockFreqCommand : public CommandExecutor {
 class UnlockFreqCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    behavior::Blackboard& bb = bot.GetExecuteContext().blackboard;
+    Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
     //if (bb.ValueOr<bool>("FreqLock", false) == false) {
@@ -46,7 +47,8 @@ class UnlockFreqCommand : public CommandExecutor {
     bb.SetFreqLock(false);
   }
 
-  CommandAccessFlags GetAccess(Bot& bot) { return CommandAccess_All; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"unlockfreq", "uf"}; }
   std::string GetDescription() { return "Unlocks frequency"; }

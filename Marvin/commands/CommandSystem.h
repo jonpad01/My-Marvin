@@ -13,12 +13,21 @@ class Bot;
 // Match bits with the internal chat type numbers to simplify access check
 enum {
   CommandAccess_Arena = (1 << 0),
+  CommandAccess_PublicMacro = (1 << 1),
   CommandAccess_Public = (1 << 2),
+  CommandAccess_Team = (1 << 3),
+  CommandAccess_OtherTeam = (1 << 4),
   CommandAccess_Private = (1 << 5),
+  CommandAccess_RedWarning = (1 << 6),
+  CommandAccess_RemotePrivate = (1 << 7),
+  CommandAccess_RedError = (1 << 8),
   CommandAccess_Chat = (1 << 9),
+  CommandAccess_Fuchsia = (1 << 10),
 
-  CommandAccess_All = (CommandAccess_Arena | CommandAccess_Public | CommandAccess_Private | CommandAccess_Chat),
+  CommandAccess_All = (CommandAccess_PublicMacro | CommandAccess_Public | CommandAccess_Team |
+       CommandAccess_OtherTeam | CommandAccess_Private | CommandAccess_RemotePrivate | CommandAccess_Chat),
 };
+
 typedef u32 CommandAccessFlags;
 
 enum {
@@ -31,7 +40,8 @@ class CommandSystem;
 class CommandExecutor {
  public:
   virtual void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) = 0;
-  virtual CommandAccessFlags GetAccess(Bot& bot) = 0;
+  virtual CommandAccessFlags GetAccess() = 0;
+  virtual void SetAccess(CommandAccessFlags flags) = 0;
   virtual CommandFlags GetFlags() { return 0; }
   virtual std::vector<std::string> GetAliases() = 0;
   virtual std::string GetDescription() = 0;
