@@ -450,7 +450,8 @@ Vector2f PathNodeSearch::FindLOSNode(Vector2f position, std::size_t index, float
   Vector2f final_pos = path[index];
   // count_down is used to determine which direction to look in
   if (count_down) {
-    for (std::size_t i = index; i >= 0; i--) {
+      // use signed here so i can be less than 0 and stop the loop (unsigned cant be negative)
+    for (int i = (int)index; i >= 0; i--) {
       Vector2f current = path[i];
 
       if (!RadiusEdgeRayCastHit(bot, position, current, radius)) {

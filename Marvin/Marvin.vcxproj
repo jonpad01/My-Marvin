@@ -205,6 +205,7 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="MapCoord.h" />
+    <ClInclude Include="Radar.h" />
     <ClInclude Include="TeamGoals.h" />
     <ClInclude Include="zones\Devastation\BaseDuelWarpCoords.h" />
     <ClInclude Include="zones\Devastation\Devastation.h" />
