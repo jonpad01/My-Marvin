@@ -8,13 +8,19 @@
 
 namespace marvin {
 
+    struct TimerPair {
+      uint64_t timestamp;
+      uint64_t delay;
+    };
+
 class Time {
  public:
-  Time(GameProxy& game) : game_(game), settimer_(true), cooldown_(0), unique_action_("") {}
+  Time(GameProxy& game) : game_(game) {}
 
   uint64_t GetTime();
 
   bool TimedActionDelay(std::string key, uint64_t delay);
+  bool RepeatedActionDelay(std::string key, uint64_t delay);
 
   uint64_t UniqueIDTimer(uint16_t id);
 
@@ -23,26 +29,26 @@ class Time {
  private:
   bool Has(const std::string& key) { return data_.find(key) != data_.end(); }
 
-  void Set(const std::string& key, const uint64_t& value) { data_[key] = value; }
+  void Set(const std::string& key, const uint64_t& value) { data_[key].timestamp = value; }
+  void SetDelay(const std::string& key, const uint64_t& value) { data_[key].delay = value; }
 
   uint64_t Value(const std::string& key) {
     auto iter = data_.find(key);
-    return iter->second;
+    return iter->second.timestamp;
+  }
+
+  uint64_t DelayValue(const std::string& key) {
+    auto iter = data_.find(key);
+    return iter->second.delay;
   }
 
   void Clear() { data_.clear(); }
-
   void Erase(const std::string& key) { data_.erase(key); }
 
   GameProxy& game_;
-
-  bool settimer_;
-
-  uint64_t cooldown_;
-
   std::string unique_action_;
 
-  std::unordered_map<std::string, uint64_t> data_;
+  std::unordered_map<std::string, TimerPair> data_;
 };
 
 struct PerformanceTimer {

@@ -21,7 +21,8 @@ struct Player {
   std::string name;
   std::string squad;
   std::string wins;
-  bool dead, active;
+  bool dead;
+  bool active;
 
   bool multifire_status;
   bool multifire_capable;
@@ -48,6 +49,7 @@ struct Player {
   uint32_t rockets;
   uint32_t portals;
 
+  // bitfield
   uint8_t status;
 
   Vector2f GetHeading() const {
@@ -94,5 +96,7 @@ struct Player {
     return rads;
   }
 };
+
+
 
 }  // namespace marvin

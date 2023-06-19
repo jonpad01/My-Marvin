@@ -66,7 +66,7 @@ class ContinuumGameProxy : public GameProxy {
   UpdateState Update(float dt) override;
 
   std::string GetName() const override;
-  std::vector<ChatMessage> GetChat() const override;
+  std::vector<ChatMessage> GetChat() override;
   int GetEnergy() const override;
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
@@ -111,8 +111,6 @@ class ContinuumGameProxy : public GameProxy {
   void Stealth() override;
   void Cloak(KeyController& keys) override;
   void MultiFire() override;
-  void Flag() override;
-  void Attach(std::string name) override;
   void P() override;
   void L() override;
   void R() override;
@@ -121,9 +119,9 @@ class ContinuumGameProxy : public GameProxy {
   void XRadar() override;
   void Burst(KeyController& keys) override;
   void Repel(KeyController& keys) override;
-  void F7() override;
   void SendChatMessage(const std::string& mesg) const override;
   void SendPrivateMessage(const std::string& target, const std::string& mesg) const override;
+  void SendKey(int vKey) const override;
   void SetSelectedPlayer(uint16_t id) override;
 
   void SetWindowFocus() override;
@@ -144,7 +142,7 @@ class ContinuumGameProxy : public GameProxy {
   void FetchBallData();
   void FetchGreens();
   void FetchWeapons();
-  void SendKey(int vKey);
+  
 
   
   std::vector<BallData> balls_;
@@ -169,7 +167,8 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_;
-  bool reloadFlag;
+  bool reload_flag_;
+  bool clear_chat_flag_;
 
 
   std::vector<std::size_t> offsets_{0x04, 0x10, 0x18, 0x20, 0x24,  0x30,  0x34,  0x3C, 0x40,

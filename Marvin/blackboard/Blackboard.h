@@ -32,6 +32,7 @@ class Blackboard {
   std::vector<const Player*> enemy_list_;
   std::vector<const Player*> combined_list_;
   uint64_t bd_warp_cooldown_;
+  uint64_t set_ship_cooldown_;
 
   // 4 bytes
   float enemy_net_bullet_travel_;
@@ -46,9 +47,10 @@ class Blackboard {
   BDState bd_state_;
   CommandRequestType command_request_;
   WarpToState warp_to_state_;
+  Ship ship_;
   uint16_t pub_team0_;
   uint16_t pub_team1_;
-  uint16_t ship_;
+ // uint16_t ship_;
   uint16_t freq_;
   std::vector<uint16_t> freq_list_;
   MapCoord center_spawn_;
@@ -100,13 +102,15 @@ class Blackboard {
     bd_base_index_ = 0;
     patrol_index_ = 0;
     bd_warp_cooldown_ = 0;
+    set_ship_cooldown_ = 200;
 
     enemy_net_bullet_travel_ = 0.0f;
     bomb_cooldown_ = 0.0f;
 
     pub_team0_ = 00;
     pub_team1_ = 01;
-    ship_ = 0;
+   // ship_ = 0;
+    ship_ = Ship::Spectator;
     freq_ = 999;
     freq_list_.resize(100, 0);
     combat_role_ = CombatRole::Rusher;
@@ -162,6 +166,9 @@ class Blackboard {
   void SetBDWarpCoolDown(uint64_t cooldown) { bd_warp_cooldown_ = cooldown; }
   uint64_t GetBDWarpCoolDown() { return bd_warp_cooldown_; }
 
+  void SetSetShipCoolDown(uint64_t cooldown) { set_ship_cooldown_ = cooldown; }
+  uint64_t GetSetShipDown() { return set_ship_cooldown_; }
+
   void SetTarget(const Player* target) { target_ = target; }
   const Player* GetTarget() { return target_; }
 
@@ -193,10 +200,22 @@ class Blackboard {
   void SetPubTeam1(uint16_t freq) { pub_team1_ = freq; }
   uint16_t GetPubTeam1() { return pub_team1_; }
 
-  void SetShip(uint16_t ship) { ship_ = ship; }
-  uint16_t GetShip() { return ship_; }
+  //void SetShip(uint16_t ship) { 
+   // ship_ = ship;
+   // command_request_ = CommandRequestType::ShipChange;
+  //}
+  //uint16_t GetShip() { return ship_; }
 
-  void SetFreq(uint16_t freq) { freq_ = freq; }
+  void SetShip(Ship ship) {
+    ship_ = ship;
+    command_request_ = CommandRequestType::ShipChange;
+  }
+  Ship GetShip() { return ship_; }
+
+  void SetFreq(uint16_t freq) { 
+      freq_ = freq;
+    command_request_ = CommandRequestType::FreqChange;
+  }
   uint16_t GetFreq() { return freq_; }
 
   void SetTeam0Score(short score) { team0_score_ = score; }
@@ -246,7 +265,10 @@ class Blackboard {
   void SetCommandRequest(CommandRequestType type) { command_request_ = type; }
   CommandRequestType GetCommandRequest() { return command_request_; }
 
-  void SetArena(const std::string& arena) { arena_ = arena; }
+  void SetArena(const std::string& arena) { 
+    arena_ = arena;
+    command_request_ = CommandRequestType::ArenaChange;
+  }
   const std::string& GetArena() { return arena_; }
 
   void SetBDState(BDState state) { bd_state_ = state; }

@@ -11,6 +11,7 @@ uint64_t Time::GetTime() {
       .count();
 }
 
+// causes an initial delay 
 bool Time::TimedActionDelay(std::string key, uint64_t delay) {
   if (!Has(key) || GetTime() > Value(key) + 100) {
     Set(key, GetTime() + delay);
@@ -18,25 +19,16 @@ bool Time::TimedActionDelay(std::string key, uint64_t delay) {
     Erase(key);
     return true;
   }
-#if 0
-        if (GetTime() > cooldown_ + 100) {
-            settimer_ = true;
-        }
-        if (unique_action_ != key) {
-            settimer_ = true;
-            unique_action_ = key;
-        }
+  return false;
+}
 
-        if (settimer_) {
-            cooldown_ = GetTime() + delay;
-            settimer_ = false;
-            return false;
-        }
-        else if (GetTime() > cooldown_) {
-            settimer_ = true;
-            return true;
-        }
-#endif
+// triggers on 1st run but delays afterwards
+bool Time::RepeatedActionDelay(std::string key, uint64_t delay) {
+  if (!Has(key) || GetTime() > Value(key) || delay != DelayValue(key)) {
+    Set(key, GetTime() + delay);
+    SetDelay(key, delay);
+    return true;
+  }
   return false;
 }
 

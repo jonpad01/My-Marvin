@@ -175,6 +175,7 @@ this works with a flood fill method where a north/south/east/west lookup would i
 the orientation of the ship tile before calling the function, and the function does bounds checking
 to make sure the orientation stays with in the ships diameter
 */
+#if 0
 bool Map::CanStepInto(const Vector2f& start, const Vector2f& end, Vector2f* orientation, float radius) const {
   int diameter = (int)((radius + 0.5f) * 2.0f);
 
@@ -208,6 +209,7 @@ bool Map::CanStepInto(const Vector2f& start, const Vector2f& end, Vector2f* orie
   }
   return true;
 }
+#endif
 
 bool Map::CanTraverse(const Vector2f& start, const Vector2f& end, float radius) const {
   if (!CanOverlapTile(start, radius)) return false;

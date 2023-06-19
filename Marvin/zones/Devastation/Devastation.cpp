@@ -176,7 +176,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     //bot.GetBlackboard().SetFreq(999);
     bot.GetBlackboard().SetPubTeam0(00);
     bot.GetBlackboard().SetPubTeam1(01);
-    bot.GetBlackboard().SetShip(ship);
+    bot.GetBlackboard().SetShip((Ship)ship);
     bot.GetBlackboard().SetCommandRequest(CommandRequestType::ShipChange);
     bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   
@@ -816,7 +816,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
         // checks if energy is full
         if (CheckStatus(game, ctx.bot->GetKeys(), true)) {
-          game.F7();
+          game.SendKey(VK_F7);
         }
 
         g_RenderState.RenderDebugText("  DevaAttachNode:(Attaching) %llu", timer.GetElapsedTime());
@@ -832,7 +832,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
       game.SetEnergy(15.0f);
     }
 
-    game.F7();
+    game.SendKey(VK_F7);
 
     g_RenderState.RenderDebugText("  DevaAttachNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;

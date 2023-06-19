@@ -128,7 +128,8 @@ void Bot::LoadBot() {
       hs_blackboard_ = std::make_unique<HSBlackboard>();
       goals_ = std::make_unique<hs::HSFlagRooms>();
       base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
-      // builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+      builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+      log.Write("Building Hyperspace behavior tree.");
     } break;
     case Zone::PowerBall: {
       // builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
@@ -160,7 +161,14 @@ void Bot::Update(float dt) {
     return;
   }
   
-  if (state == UpdateState::Reload || radius != radius_) {
+  if (state == UpdateState::Reload) {
+    log.Write("GAME REQUESTED RELOAD");
+    LoadBot();
+    return;
+  }
+
+  if (radius != radius_) {
+    log.Write("SHIP RADIUS CHANGED");
     LoadBot();
     return;
   }
@@ -399,24 +407,23 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
 
   uint16_t cShip = game.GetPlayer().ship;
   //uint16_t dShip = bb.ValueOr<uint16_t>("Ship", 0);
-  uint16_t dShip = bb.GetShip();
+  uint16_t dShip = (uint16_t)bb.GetShip();
 
-  uint64_t ship_cooldown = 200;
+  uint64_t ship_cooldown = bb.GetSetShipDown();
   if (cShip == 8) {
     ship_cooldown = 1000;
   }
 
   if (bb.GetCommandRequest() == CommandRequestType::ShipChange) {
     if (cShip != dShip) {
-      if (ctx.bot->GetTime().TimedActionDelay("shipchange", ship_cooldown)) {
+      if (ctx.bot->GetTime().RepeatedActionDelay("shipchange", ship_cooldown)) {
         game.SetEnergy(100.0f);
         if (!game.SetShip(dShip)) {
-          ctx.bot->GetTime().TimedActionDelay("shipchange", 0);
+          ctx.bot->GetTime().RepeatedActionDelay("shipchange", 0);
         }
+        return behavior::ExecuteResult::Failure;
+        g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
       }
-
-      g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
     } else {
       bb.SetCommandRequest(CommandRequestType::None);
     }

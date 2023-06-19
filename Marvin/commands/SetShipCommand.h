@@ -29,7 +29,7 @@ class SetShipCommand : public CommandExecutor {
 
     if (number >= 1 && number <= 9) {
       //bb.Set<uint16_t>("Ship", number - 1);
-      bb.SetShip(number - 1);
+      bb.SetShip((Ship)(number - 1));
       bb.SetCommandRequest(CommandRequestType::ShipChange);
 
       if (number == 9) {

@@ -20,6 +20,8 @@ enum class WarpToState : short { Center, Base, None };
 enum class BDState : short { Running, Paused, Stopped, Ended };
 enum class CommandRequestType : short { ShipChange, ArenaChange, FreqChange, None };
 enum class WeaponType : short { None, Bullet, BouncingBullet, Bomb, ProximityBomb, Repel, Decoy, Burst, Thor };
+enum class AnchorType : short { Summoner, Evoker, None};
+enum class Ship : uint16_t { Warbird, Javelin, Spider, Leviathan, Terrier, Weasel, Lancaster, Shark, Spectator };
 enum class ChatType {
   Arena,
   PublicMacro,
@@ -45,9 +47,18 @@ enum StatusFlag {
   Status_InputChange = (1 << 7)
 };
 
+struct AnchorPlayer {
+  const Player* p;
+  AnchorType type;
+  AnchorPlayer() {
+    p = nullptr;
+    type = AnchorType::None;
+  }
+};
+
 struct AnchorSet {
-  std::vector<const Player*> full_energy;
-  std::vector<const Player*> no_energy;
+  std::vector<AnchorPlayer> full_energy;
+  std::vector<AnchorPlayer> no_energy;
   void Clear() { 
     full_energy.clear();
     no_energy.clear();
@@ -145,9 +156,10 @@ class GameProxy {
   virtual const std::string GetMapFile() const = 0;
   virtual const Map& GetMap() const = 0;
 
-  virtual std::vector<ChatMessage> GetChat() const = 0;
+  virtual std::vector<ChatMessage> GetChat() = 0;
   virtual void SendChatMessage(const std::string& mesg) const = 0;
   virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) const = 0;
+  virtual void SendKey(int vKey) const = 0;
 
   virtual void SetTileId(Vector2f position, u8 id) = 0;
   
@@ -174,8 +186,6 @@ class GameProxy {
   virtual void Stealth() = 0;
   virtual void Cloak(KeyController& keys) = 0;
   virtual void MultiFire() = 0;
-  virtual void Flag() = 0;
-  virtual void Attach(std::string name) = 0;
   virtual void P() = 0;
   virtual void L() = 0;
   virtual void R() = 0;
@@ -184,7 +194,6 @@ class GameProxy {
   virtual void XRadar() = 0;
   virtual void Burst(KeyController& keys) = 0;
   virtual void Repel(KeyController& keys) = 0;
-  virtual void F7() = 0;
   virtual void SetSelectedPlayer(uint16_t id) = 0;
 };
 

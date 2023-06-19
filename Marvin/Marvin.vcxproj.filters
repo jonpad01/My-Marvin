@@ -105,6 +105,9 @@
     <ClCompile Include="zones\Hyperspace\HyperspaceFlagRooms.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="zones\Hyperspace\Hyperspace.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameProxy.h">
@@ -264,6 +267,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Radar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Hyperspace\Hyperspace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

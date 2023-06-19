@@ -20,6 +20,9 @@ namespace marvin {
 
 ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
 
+  clear_chat_flag_ = false;
+  reload_flag_ = false;
+
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
   module_base_menu_ = process_.GetModuleBase("menu040.dll");
   player_id_ = 0xFFFF;
@@ -41,7 +44,7 @@ bool ContinuumGameProxy::LoadGame() {
 
   // map will be null if downloading a new map file
   if (map_ == nullptr) {
-    reloadFlag = true;
+    reload_flag_ = true;
     return false;
   }
   log.Write("Map loaded: " + mapfile_path_, timer.GetElapsedTime());
@@ -61,7 +64,7 @@ bool ContinuumGameProxy::LoadGame() {
     }
   }
   log.Write("Game Loaded. TOTAL TIME", timer.TimeSinceConstruction());
-  reloadFlag = false;
+  reload_flag_ = false;
   return true;
 }
 
@@ -72,7 +75,7 @@ UpdateState ContinuumGameProxy::Update(float dt) {
 
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
-  if (reloadFlag == true) {
+  if (reload_flag_ == true) {
     if (LoadGame()) {
       return UpdateState::Reload;
     } else {
@@ -320,7 +323,16 @@ void ContinuumGameProxy::FetchChat() {
     read_count += 64;
   }
 
-  recent_chat_.clear();
+  // set when getchat function is called
+  if (clear_chat_flag_) {
+    recent_chat_.clear();
+    clear_chat_flag_ = false;
+  }
+
+  // only hold onto 10 messages
+  while (recent_chat_.size() > 10) {
+    recent_chat_.erase(recent_chat_.begin());  
+  }
 
   for (int i = 0; i < read_count; ++i) {
     if (chat_index_ >= 1024) {
@@ -431,7 +443,8 @@ const Zone ContinuumGameProxy::GetZone() {
   return zone_;
 }
 
-std::vector<ChatMessage> ContinuumGameProxy::GetChat() const {
+std::vector<ChatMessage> ContinuumGameProxy::GetChat() {
+  clear_chat_flag_ = true;
   return recent_chat_;
 }
 
@@ -667,10 +680,6 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
   keys.Press(VK_CONTROL);
 }
 
-void ContinuumGameProxy::F7() {
-  SendKey(VK_F7);
-}
-
 bool ContinuumGameProxy::SetShip(uint16_t ship) {
 
   int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
@@ -709,10 +718,6 @@ void ContinuumGameProxy::MultiFire() {
   SendKey(VK_DELETE);
 }
 
-void ContinuumGameProxy::Flag() {
-  SendChatMessage("?flag");
-}
-
 void ContinuumGameProxy::P() {
   SendChatMessage("!p");
 }
@@ -725,10 +730,6 @@ void ContinuumGameProxy::R() {
   SendChatMessage("!r");
 }
 
-void ContinuumGameProxy::Attach(std::string name) {
-  SendChatMessage(":" + name + ":?attach");
-}
-
 void ContinuumGameProxy::SetWindowFocus() {
   std::size_t focus_addr = game_addr_ + 0x3039c;
 
@@ -739,7 +740,7 @@ ExeProcess& ContinuumGameProxy::GetProcess() {
   return process_;
 }
 
-void ContinuumGameProxy::SendKey(int vKey) {
+void ContinuumGameProxy::SendKey(int vKey) const {
 #if !DEBUG_USER_CONTROL
   PostMessage(hwnd_, WM_KEYDOWN, (WPARAM)vKey, 0);
   PostMessage(hwnd_, WM_KEYUP, (WPARAM)vKey, 0);

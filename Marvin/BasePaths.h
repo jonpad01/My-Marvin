@@ -8,6 +8,7 @@ namespace marvin {
 class Vector2f;
 class Map;
 struct TeamGoals;
+struct MapCoord;
 
 namespace path {
 struct Pathfinder;
@@ -24,6 +25,8 @@ class BasePaths {
   void SetBase(std::size_t index) { current_index_ = index; }
 
  private:
+  void BuildPaths(const std::vector<MapCoord>& start, const std::vector<MapCoord>& end, float radius, path::Pathfinder& pathfinder,
+                  const Map& map);
   std::vector<std::vector<Vector2f>> base_paths_;
   std::size_t current_index_;
 };
