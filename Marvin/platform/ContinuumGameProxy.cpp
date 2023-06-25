@@ -585,7 +585,7 @@ const float ContinuumGameProxy::GetThrust() {
 
 const float ContinuumGameProxy::GetMaxSpeed() {
 
-  float speed = (float)ship_status_.speed / 10.0f / 16.0f;
+  float speed = ((float)ship_status_.speed) / 10.0f / 16.0f;
 
   if (player_->velocity.Length() > speed) {
     speed = std::abs(speed + GetShipSettings().GravityTopSpeed);
@@ -601,19 +601,20 @@ const float ContinuumGameProxy::GetMaxSpeed(u16 ship) {
       break;
     }
     default:
-      speed = GetShipSettings(ship).GetMaximumSpeed();
+      speed = GetShipSettings(ship).GetInitialSpeed();
   }
   return speed;
 }
 
 const float ContinuumGameProxy::GetRotation() {
-  float rotation = GetShipSettings().GetInitialRotation();
+  //float rotation = GetShipSettings().GetInitialRotation();
 
-  if (zone_ == Zone::Devastation) {
-    rotation = GetShipSettings().GetMaximumRotation();
-  }
-
-  //float rotation = (float)ship_status_.rotation / 200.0f;
+ // if (zone_ == Zone::Devastation) {
+ //   rotation = GetShipSettings().GetMaximumRotation();
+ // }
+ // 
+  // changed from  / 200.f as / 400.f converts to rotations/second
+  float rotation = ((float)ship_status_.rotation) / 400.0f;
 
   return rotation;
 }

@@ -37,6 +37,7 @@ class Blackboard {
   // 4 bytes
   float enemy_net_bullet_travel_;
   float bomb_cooldown_;
+  std::vector<int> team_ship_counts;
   Vector2f solution_;
   Vector2f team_safe_;
   Vector2f enemy_safe_;
@@ -106,6 +107,8 @@ class Blackboard {
 
     enemy_net_bullet_travel_ = 0.0f;
     bomb_cooldown_ = 0.0f;
+
+    team_ship_counts.resize(8, 0);
 
     pub_team0_ = 00;
     pub_team1_ = 01;
@@ -177,6 +180,10 @@ class Blackboard {
 
   void SetBombCooldown(float time) { bomb_cooldown_ = time; }
   float GetBombCooldown() { return bomb_cooldown_; }
+
+  void ClearTeamShipCounts() { memset(&team_ship_counts[0], 0, team_ship_counts.size() * sizeof team_ship_counts[0]); }
+  void IncrementTeamShipCounts(Ship index) { team_ship_counts[(std::size_t)index]++; }
+  const std::vector<int>& GetTeamShipCounts() { return team_ship_counts; }
 
   void SetSolution(Vector2f position) { solution_ = position; }
   Vector2f GetSolution() { return solution_; }

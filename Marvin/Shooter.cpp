@@ -21,6 +21,7 @@ ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f 
 
   // dot product
   float a = v.Dot(v) - sProjectile * sProjectile;
+  //float a = v.Dot(v);
   float b = 2 * v.Dot(totarget);
   float c = totarget.Dot(totarget);
 

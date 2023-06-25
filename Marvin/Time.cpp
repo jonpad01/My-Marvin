@@ -49,13 +49,13 @@ uint64_t Time::UniqueIDTimer(uint16_t id) {
 
   for (std::size_t i = 0; i < id_list.size(); i++) {
     if (game_.GetPlayer().id == id_list[i]) {
-      bool odd = i % 2 == 0;
+      //bool odd = i % 2 == 0;
 
-      if (odd) {
-        time = ((uint64_t)i + 1 + id_count) * 500;
-      } else {
-        time = ((uint64_t)i + 1) * 500;
-      }
+      //if (odd) {
+        //time = ((uint64_t)i + 1 + id_count) * 500;
+      //} else {
+        time = ((uint64_t)i + 1) * 100;
+      //}
     }
   }
   return time;

@@ -12,9 +12,6 @@ class SteeringBehavior {
  public:
   SteeringBehavior();
 
-  Vector2f GetSteering();
-  float GetRotation();
-
   void Reset();
 
   void Seek(Bot& bot, Vector2f target, float multiplier = 1.0f);

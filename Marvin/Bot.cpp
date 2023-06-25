@@ -45,9 +45,8 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 
     auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get());
 
-    auto root_sequence = std::make_unique<behavior::SequenceNode>(respawn_check_.get(),
-                                                                  commands_.get(), set_ship_.get(), set_freq_.get(),
-                                                                  ship_check_.get(), action_selector.get());
+    auto root_sequence = std::make_unique<behavior::SequenceNode>(commands_.get(), set_ship_.get(), set_freq_.get(),
+                                                 spectator_check_.get(), respawn_check_.get(), action_selector.get());
 
     engine_->PushRoot(std::move(root_sequence));
 
@@ -66,10 +65,28 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time_(*game_) {
   srand((unsigned int)time_.GetTime());
-  LoadBot();
+  base_paths_ = nullptr;
+  goals_ = nullptr;
+  deva_blackboard_ = nullptr;
+  hs_blackboard_ = nullptr;
+  Load();
 }
 
-void Bot::LoadBot() {
+void Bot::LoadForRadius() {
+  auto processor = std::make_unique<path::NodeProcessor>(*game_);
+  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
+  regions_->CreateAll(game_->GetMap(), radius_);
+  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
+  pathfinder_->CreateMapWeights(game_->GetMap());
+  pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
+
+  // if base paths isnt null then its safe to rebuild
+  if (base_paths_) {
+    base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+  }
+}
+
+void Bot::Load() {
   PerformanceTimer timer;
   log.Write("LOADING BOT", timer.GetElapsedTime());
   
@@ -80,6 +97,7 @@ void Bot::LoadBot() {
   radius_ = game_->GetRadius();
 
   blackboard_ = std::make_unique<Blackboard>();
+  command_system_ = std::make_unique<CommandSystem>(zone);
   auto processor = std::make_unique<path::NodeProcessor>(*game_);
   log.Write("Processor created", timer.GetElapsedTime());
   influence_map_ = std::make_unique<InfluenceMap>();
@@ -150,11 +168,13 @@ void Bot::Update(float dt) {
   PerformanceTimer timer;
   g_RenderState.debug_y = 30.0f;
 
+
+
   keys_.ReleaseAll();
 
   float radius = game_->GetRadius();
   int ship = game_->GetPlayer().ship;
-
+  
   UpdateState state = game_->Update(dt);
 
   if (state == UpdateState::Wait) {
@@ -163,13 +183,14 @@ void Bot::Update(float dt) {
   
   if (state == UpdateState::Reload) {
     log.Write("GAME REQUESTED RELOAD");
-    LoadBot();
+    Load();
     return;
   }
 
   if (radius != radius_) {
     log.Write("SHIP RADIUS CHANGED");
-    LoadBot();
+    radius_ = radius;
+    LoadForRadius();
     return;
   }
  
@@ -477,7 +498,7 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
   return behavior::ExecuteResult::Success;
 }
 
-behavior::ExecuteResult ShipCheckNode::Execute(behavior::ExecuteContext& ctx) {
+behavior::ExecuteResult SpectatorCheckNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
@@ -687,7 +708,7 @@ float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const 
   float dist = bot_player.position.Distance(target.position);
 
   // How many seconds it takes to rotate 180 degrees
-  float rotate_speed = game.GetRotation();
+  float rotate_speed = game.GetRotation() * 0.5f;
 
   float move_cost = dist / game.GetMaxSpeed();
 
@@ -700,21 +721,24 @@ float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const 
 
 // get the closest player to the bot using path distance
 behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& ctx) {
- 
   PerformanceTimer timer;
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  //bool in_center = bb.ValueOr<bool>("InCenter", false);
+  // bool in_center = bb.ValueOr<bool>("InCenter", false);
   bool in_center = bb.GetInCenter();
-  //bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
+  // bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
   CombatRole combat_role = bb.GetCombatRole();
   const Path& base_path = ctx.bot->GetBasePath();
 
-  if (base_path.empty() || in_center) {
-    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(fail): %llu", timer.GetElapsedTime());
+  if (base_path.empty()) {
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(path empty): %llu", timer.GetElapsedTime());
+    return result;
+  }
+  if (in_center) {
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(bot in center): %llu", timer.GetElapsedTime());
     return result;
   }
 
@@ -775,7 +799,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     std::string msg = "  FindEnemyInBaseNode(" + target->name + "): %llu";
     g_RenderState.RenderDebugText(msg.c_str(), timer.GetElapsedTime());
   } else {
-    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(fail): %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(enemy not found): %llu", timer.GetElapsedTime());
   }
 
   return result;
@@ -1416,8 +1440,8 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
     Vector2f weapon_velocity = bot.velocity + bot.GetHeading() * proj_speed;
     float adjusted_proj_speed = weapon_velocity.Length();
 
-    ShotResult result =
-        ctx.bot->GetShooter().CalculateShot(bot.position, target.position, bot.velocity, target.velocity, adjusted_proj_speed);
+    ShotResult result = ctx.bot->GetShooter().CalculateShot(bot.position, target.position, bot.velocity,
+                                                            target.velocity, proj_speed);
     solution = result.solution;
 
     if (result.hit) {
@@ -1470,8 +1494,8 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
         RenderWorldBox(bot.position, bBox_min, bBox_min + box_extent, RGB(0, 255, 0));
 
-
-        if (FloatingRayBoxIntersect(bot.position, Normalize(weapon_velocity), solution, nearby_radius, &dist, &norm)) {
+        if (FloatingRayBoxIntersect(bot.position, bot.GetHeading(), solution, nearby_radius, &dist, &norm)) {
+        //if (FloatingRayBoxIntersect(bot.position, Normalize(weapon_velocity), solution, nearby_radius, &dist, &norm)) {
           ctx.bot->GetKeys().Press(weapon_key);
           g_RenderState.RenderDebugText("  ShootEnemyNode (success): %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Success;

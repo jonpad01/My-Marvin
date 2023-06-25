@@ -35,7 +35,8 @@ class Bot {
  public:
   Bot(std::shared_ptr<GameProxy> game);
 
-  void LoadBot();
+  void Load();
+  void LoadForRadius();
   void Update(float dt);
 
   KeyController& GetKeys() { return keys_; }
@@ -50,7 +51,7 @@ class Bot {
   Shooter& GetShooter() { return shooter_; }
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return *influence_map_; }
-  CommandSystem& GetCommandSystem() { return command_system_; }
+  CommandSystem& GetCommandSystem() { return *command_system_; }
   TeamGoalCreator& GetTeamGoals() { return *goals_; }
   BasePaths& GetBasePaths() { return *base_paths_; }
 
@@ -101,7 +102,7 @@ class Bot {
   behavior::ExecuteContext ctx_;
   SteeringBehavior steering_;
   std::unique_ptr<InfluenceMap> influence_map_;
-  CommandSystem command_system_;
+  std::unique_ptr<CommandSystem> command_system_;
   Shooter shooter_;
 
   //std::unique_ptr<deva::BaseDuelWarpCoords> warps_;
@@ -137,7 +138,7 @@ class SetFreqNode : public behavior::BehaviorNode {
  private:
 };
 
-class ShipCheckNode : public behavior::BehaviorNode {
+class SpectatorCheckNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
@@ -324,7 +325,7 @@ class BehaviorBuilder {
     set_ship_ = std::make_unique<bot::SetShipNode>();
     set_arena_ = std::make_unique<bot::SetArenaNode>();
     commands_ = std::make_unique<bot::CommandNode>();
-    ship_check_ = std::make_unique<bot::ShipCheckNode>();
+    spectator_check_ = std::make_unique<bot::SpectatorCheckNode>();
     respawn_check_ = std::make_unique<bot::RespawnCheckNode>();
   }
 
@@ -339,7 +340,7 @@ class BehaviorBuilder {
     engine_->PushNode(std::move(set_ship_));
     engine_->PushNode(std::move(set_arena_));
     engine_->PushNode(std::move(commands_));
-    engine_->PushNode(std::move(ship_check_));
+    engine_->PushNode(std::move(spectator_check_));
     engine_->PushNode(std::move(respawn_check_));
   }
 
@@ -355,7 +356,7 @@ class BehaviorBuilder {
   std::unique_ptr<bot::SetShipNode> set_ship_;
   std::unique_ptr<bot::SetArenaNode> set_arena_;
   std::unique_ptr<bot::CommandNode> commands_;
-  std::unique_ptr<bot::ShipCheckNode> ship_check_;
+  std::unique_ptr<bot::SpectatorCheckNode> spectator_check_;
   std::unique_ptr<bot::RespawnCheckNode> respawn_check_;
 };
 

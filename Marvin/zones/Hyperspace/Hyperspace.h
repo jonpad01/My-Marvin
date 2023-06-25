@@ -20,7 +20,7 @@ class HyperspaceBehaviorBuilder : public BehaviorBuilder {
   void CreateBehavior(Bot& bot);
 };
 
-class HSFlaggerSort : public behavior::BehaviorNode {
+class HSPlayerSortNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
@@ -40,17 +40,27 @@ class HSSetRegionNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
-class HSDefensePositionNode : public behavior::BehaviorNode {
+class HSFlaggerPatrolNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
-class HSFreqMan : public behavior::BehaviorNode {
+class HSSetDefensePositionNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
-class HSFlaggerShipMan : public behavior::BehaviorNode {
+class HSFreqManagerNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class HSFlaggingCheckNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class HSShipManagerNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
@@ -58,7 +68,7 @@ class HSFlaggerShipMan : public behavior::BehaviorNode {
   uint16_t SelectShip(uint16_t current);
 };
 
-class HSWarpToCenter : public behavior::BehaviorNode {
+class HSWarpToCenterNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };

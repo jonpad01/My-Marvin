@@ -44,7 +44,7 @@ namespace training {
 
     auto root_sequence =
         std::make_unique<behavior::SequenceNode>(template_node.get(), respawn_check_.get(), commands_.get(), set_ship_.get(),
-                                                 set_freq_.get(), ship_check_.get(), action_selector.get());
+                                                 set_freq_.get(), spectator_check_.get(), action_selector.get());
 
     engine_->PushRoot(std::move(root_sequence));
 

@@ -45,8 +45,9 @@ class ShipSettings {
   float GetInitialThrust() const { return InitialThrust * 10.0f / 16.0f; }
   float GetMaximumThrust() const { return MaximumThrust * 10.0f / 16.0f; }
 
-  float GetInitialRotation() const { return InitialRotation / 200.0f; }
-  float GetMaximumRotation() const { return MaximumRotation / 200.0f; }
+  // changed from  / 200.f as / 400.f converts to rotations/second
+  float GetInitialRotation() const { return (float)InitialRotation / 400.0f; }
+  float GetMaximumRotation() const { return (float)MaximumRotation / 400.0f; }
 
   // How long Super lasts on the ship (in ticks)
   uint32_t SuperTime;

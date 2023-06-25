@@ -16,26 +16,7 @@ float GetCurrentSpeed(GameProxy& game) {
   return game.GetPlayer().velocity.Length();
 }
 
-// Context sensitive max speed to handle wormhole increases
-float GetMaxSpeed(GameProxy& game) {
-  float speed = game.GetShipSettings().GetInitialSpeed();
-
-  if (GetCurrentSpeed(game) > speed) {
-    speed = std::abs(speed + game.GetShipSettings().GravityTopSpeed);
-  }
-
-  return speed;
-}
-
 SteeringBehavior::SteeringBehavior() : rotation_(0.0f) {}
-
-Vector2f SteeringBehavior::GetSteering() {
-  return force_;
-}
-
-float SteeringBehavior::GetRotation() {
-  return rotation_;
-}
 
 void SteeringBehavior::Reset() {
   force_ = Vector2f();
@@ -53,7 +34,7 @@ void SteeringBehavior::Seek(Bot& bot, Vector2f target, float multiplier) {
 
 void SteeringBehavior::Flee(Bot& bot, Vector2f target) {
   auto& game = bot.GetGame();
-  float speed = GetMaxSpeed(game);
+  float speed = game.GetMaxSpeed();
 
   Vector2f desired = Normalize(game.GetPosition() - target) * speed;
 
@@ -62,7 +43,7 @@ void SteeringBehavior::Flee(Bot& bot, Vector2f target) {
 
 void SteeringBehavior::Arrive(Bot& bot, Vector2f target, float deceleration) {
   auto& game = bot.GetGame();
-  float max_speed = GetMaxSpeed(game);
+  float max_speed = game.GetMaxSpeed();
 
   Vector2f to_target = target - game.GetPosition();
   float distance = to_target.Length();
@@ -79,7 +60,7 @@ void SteeringBehavior::Arrive(Bot& bot, Vector2f target, float deceleration) {
 }
 void SteeringBehavior::AnchorSpeed(Bot& bot, Vector2f target) {
   auto& game = bot.GetGame();
-  float speed = GetMaxSpeed(game);
+  float speed = game.GetMaxSpeed();
 
   Vector2f desired = Normalize(target - game.GetPosition()) * 5;
 
@@ -88,7 +69,7 @@ void SteeringBehavior::AnchorSpeed(Bot& bot, Vector2f target) {
 
 void SteeringBehavior::Stop(Bot& bot, Vector2f target) {
   auto& game = bot.GetGame();
-  float speed = GetMaxSpeed(game);
+  float speed = game.GetMaxSpeed();
 
   Vector2f desired = Normalize(target - game.GetPosition()) * 5;
 
@@ -99,7 +80,7 @@ void SteeringBehavior::Pursue(Bot& bot, const Player& enemy) {
   auto& game = bot.GetGame();
   const Player& player = game.GetPlayer();
 
-  float max_speed = GetMaxSpeed(game);
+  float max_speed = game.GetMaxSpeed();
 
   Vector2f to_enemy = enemy.position - game.GetPosition();
   float dot = player.GetHeading().Dot(enemy.GetHeading());
@@ -127,8 +108,6 @@ void SteeringBehavior::Face(Bot& bot, Vector2f target) {
 void SteeringBehavior::Steer(Bot& bot, bool backwards) {
   auto& game = bot.GetGame();
   auto& keys = bot.GetKeys();
-  Vector2f force = GetSteering();
-  float rotation = GetRotation();
   // bool afterburners = GetAfterburnerState();
 
   Vector2f heading = game.GetPlayer().GetHeading();
@@ -139,12 +118,12 @@ void SteeringBehavior::Steer(Bot& bot, bool backwards) {
   // Start out by trying to move in the direction that the bot is facing.
   Vector2f steering_direction = heading;
 
-  bool has_force = force.LengthSq() > 0.0f;
+  bool has_force = force_.LengthSq() > 0.0f;
 
   // If the steering system calculated any movement force, then set the movement
   // direction to it.
   if (has_force) {
-    steering_direction = marvin::Normalize(force);
+    steering_direction = marvin::Normalize(force_);
   }
 
   // Rotate toward the movement direction.
@@ -152,15 +131,15 @@ void SteeringBehavior::Steer(Bot& bot, bool backwards) {
 
   // If the steering system calculated any rotation then rotate from the heading
   // to desired orientation.
-  if (rotation != 0.0f) {
-    rotate_target = Rotate(heading, -rotation);
+  if (rotation_ != 0.0f) {
+    rotate_target = Rotate(heading, -rotation_);
   }
 
   if (!has_force) {
     steering_direction = rotate_target;
   }
   Vector2f perp = marvin::Perpendicular(heading);
-  bool behind = force.Dot(heading) < 0;
+  bool behind = force_.Dot(heading) < 0;
   // This is whether or not the steering direction is pointing to the left of
   // the ship.
   bool leftside = steering_direction.Dot(perp) < 0;

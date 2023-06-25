@@ -53,7 +53,7 @@ using Commands = std::unordered_map<std::string, std::shared_ptr<CommandExecutor
 
 class CommandSystem {
  public:
-  CommandSystem();
+  CommandSystem(Zone zone);
 
   bool ProcessMessage(Bot& bot, ChatMessage& chat);
 

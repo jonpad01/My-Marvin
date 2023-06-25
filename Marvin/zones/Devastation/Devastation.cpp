@@ -251,9 +251,9 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
                                                                   enemy_or_patrol_selector.get());
   auto role_selector = std::make_unique<behavior::SelectorNode>(anchor_sequence.get(), enemy_or_patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      DEVA_debug.get(), commands_.get(), set_arena_.get(), set_ship_.get(), set_freq_.get(),DEVA_runBD.get(), ship_check_.get(), team_sort.get(),
-      DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(), respawn_check_.get(),
-      DEVA_toggle_status.get(), role_selector.get());
+      DEVA_debug.get(), commands_.get(), respawn_check_.get(), set_arena_.get(), set_ship_.get(), set_freq_.get(),
+      DEVA_runBD.get(), spectator_check_.get(), team_sort.get(), DEVA_set_region.get(), DEVA_freqman.get(),
+      DEVA_warp.get(), DEVA_attach.get(), DEVA_toggle_status.get(), role_selector.get());
 
   engine_->PushRoot(std::move(root_sequence));
 

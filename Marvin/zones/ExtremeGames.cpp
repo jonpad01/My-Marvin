@@ -35,7 +35,7 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
     bot.GetBlackboard().SetPubTeam0(00);
     bot.GetBlackboard().SetPubTeam1(01);
-    bot.GetBlackboard().SetShip(ship);
+    bot.GetBlackboard().SetShip(Ship(ship));
     bot.GetBlackboard().SetCommandRequest(CommandRequestType::ShipChange);
     bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   
@@ -66,10 +66,14 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
       std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), enemy_path_sequence.get());
   auto handle_enemy =
       std::make_unique<behavior::SequenceNode>(find_enemy_in_center_.get(), path_or_shoot_selector.get());
+ 
   auto root_selector =
       std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
+  auto root_sequence = std::make_unique<behavior::SequenceNode>(commands_.get(), respawn_check_.get(), set_ship_.get(),
+                                                                spectator_check_.get(), root_selector.get());
 
-  engine_->PushRoot(std::move(root_selector));
+  engine_->PushRoot(std::move(root_sequence));
+  engine_->PushNode(std::move(root_selector));
 
    engine_->PushNode(std::move(freq_warp_attach));
    engine_->PushNode(std::move(aim_with_gun));

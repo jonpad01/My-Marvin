@@ -272,6 +272,9 @@
     <ClInclude Include="zones\Hyperspace\Hyperspace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="commands\HSFlagCommands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="MathCheatSheet.txt" />

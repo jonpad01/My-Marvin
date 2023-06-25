@@ -16,6 +16,7 @@
 #include "SetShipCommand.h"
 #include "SetArenaCommand.h"
 #include "SwarmCommand.h"
+#include "HSFlagCommands.h"
 
 namespace marvin {
 
@@ -23,7 +24,8 @@ constexpr int kArenaSecurityLevel = 5;
 const std::unordered_map<std::string, int> kOperators = {{"tm_master", 10}, {"baked cake", 10}, {"x-demo", 10},
                                                          {"lyra.", 5},      {"profile", 5},     {"monkey", 5}, {"neostar", 5},     {"geekgrrl", 5}, {"sed", 5},   {"sk", 5}};
 
-CommandSystem::CommandSystem() {
+CommandSystem::CommandSystem(Zone zone) {
+
   RegisterCommand(std::make_shared<HelpCommand>());
   RegisterCommand(std::make_shared<CommandsCommand>());
   RegisterCommand(std::make_shared<DelimiterCommand>());
@@ -31,13 +33,6 @@ CommandSystem::CommandSystem() {
 
   RegisterCommand(std::make_shared<LockCommand>());
   RegisterCommand(std::make_shared<UnlockCommand>());
-
-  RegisterCommand(std::make_shared<BDPublicCommand>());
-  RegisterCommand(std::make_shared<BDPrivateCommand>());
-  RegisterCommand(std::make_shared<StartBDCommand>());
-  RegisterCommand(std::make_shared<StopBDCommand>());
-  RegisterCommand(std::make_shared<HoldBDCommand>());
-  RegisterCommand(std::make_shared<ResumeBDCommand>());
 
   RegisterCommand(std::make_shared<SetShipCommand>());
   RegisterCommand(std::make_shared<SetFreqCommand>());
@@ -78,6 +73,26 @@ CommandSystem::CommandSystem() {
   RegisterCommand(std::make_shared<PortalOffCommand>());
   RegisterCommand(std::make_shared<ThorCommand>());
   RegisterCommand(std::make_shared<ThorOffCommand>());
+
+   switch (zone) {
+    case Zone::Devastation: {
+      RegisterCommand(std::make_shared<BDPublicCommand>());
+      RegisterCommand(std::make_shared<BDPrivateCommand>());
+      RegisterCommand(std::make_shared<StartBDCommand>());
+      RegisterCommand(std::make_shared<StopBDCommand>());
+      RegisterCommand(std::make_shared<HoldBDCommand>());
+      RegisterCommand(std::make_shared<ResumeBDCommand>());
+      break;
+    }
+    case Zone::Hyperspace: {
+      RegisterCommand(std::make_shared<HSFlagCommand>());
+      RegisterCommand(std::make_shared<HSFlagOffCommand>());
+      break;
+    }
+    default: {
+      break;
+    }
+  }
 }
 
 int CommandSystem::GetSecurityLevel(const std::string& player) {
