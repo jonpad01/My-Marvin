@@ -17,6 +17,7 @@
 #include "zones/Hockey.h"
 #include "zones/Hyperspace/Hyperspace.h"
 #include "zones/Hyperspace/HyperspaceFlagRooms.h"
+#include "zones/Hyperspace/HyperspacePathFinder.h"
 #include "zones/PowerBall.h"
 #include "zones/Devastation/Training.h"
 
@@ -45,7 +46,7 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 
     auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get());
 
-    auto root_sequence = std::make_unique<behavior::SequenceNode>(commands_.get(), set_ship_.get(), set_freq_.get(),
+    auto root_sequence = std::make_unique<behavior::SequenceNode>(commands_.get(),
                                                  spectator_check_.get(), respawn_check_.get(), action_selector.get());
 
     engine_->PushRoot(std::move(root_sequence));
@@ -64,11 +65,9 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 
 
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time_(*game_) {
-  srand((unsigned int)time_.GetTime());
+  srand((unsigned int)(time_.GetTime() + game_->GetPlayer().id));
   base_paths_ = nullptr;
   goals_ = nullptr;
-  deva_blackboard_ = nullptr;
-  hs_blackboard_ = nullptr;
   Load();
 }
 
@@ -116,7 +115,6 @@ void Bot::Load() {
   switch (zone) {
     case Zone::Devastation: {
       goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
-      deva_blackboard_ = std::make_unique<DevaBlackboard>();
       if (map == "bdelite.lvl") {
         log.Write("Building Training behavior tree.");
         builder = std::make_unique<training::TrainingBehaviorBuilder>();
@@ -143,7 +141,6 @@ void Bot::Load() {
       // builder = std::make_unique<hz::HockeyBehaviorBuilder>();
     } break;
     case Zone::Hyperspace: {
-      hs_blackboard_ = std::make_unique<HSBlackboard>();
       goals_ = std::make_unique<hs::HSFlagRooms>();
       base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
       builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
@@ -545,6 +542,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   bb.ClearEnemyList();
   bb.ClearCombinedList();
   bb.ClearFreqList();
+  bb.ClearTeamShipCounts();
 
   // a list of player counts for each frequency
   // where the index is the frequency, and the value is the player count
@@ -561,6 +559,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
  // uint16_t pFreq1 = bb.ValueOr<uint16_t>("PubTeam1", 01);
   uint16_t pFreq0 = bb.GetPubTeam0();
   uint16_t pFreq1 = bb.GetPubTeam1();
+  int base_team_count = 0;
 
   // Vector2f current_base = ctx.blackboard.GetBase[ctx.blackboard.GetRegionIndex()];
 
@@ -575,9 +574,10 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
       bb.IncrementFreqList(player.frequency);
     }
 
-    if ((player.frequency == pFreq0 || player.frequency == pFreq1) && (player.id != bot.id)) {
-      //combined_list.push_back(game.GetPlayers()[i]);
+    if (player.frequency == pFreq0 || player.frequency == pFreq1) {
+      bb.IncrementTeamShipCounts((Ship)player.ship);
       bb.PushCombinedList(&game.GetPlayers()[i]);
+      base_team_count++;
 
       if (player.frequency == bot.frequency) {
         //team_list.push_back(game.GetPlayers()[i]);
@@ -604,13 +604,12 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   }
 
   // last in base flag should not be set when bot is the only player on the team
-  if (bb.GetTeamList().size() == 0) {
+  if (bb.GetTeamList().size() == 1) {
     //last_in_base = false;
     bb.SetLastInBase(false);
   }
 
-  // push player into team list after checking if team list is 0 
-  bb.PushTeamList(&game.GetPlayer());
+  bb.SetBaseTeamsCount(base_team_count);
 
   //bb.Set<std::vector<Player>>("TeamList", team_list);
   //bb.Set<std::vector<Player>>("EnemyList", enemy_list);
@@ -748,8 +747,8 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   float max_net_player_bullet_travel = std::numeric_limits<float>::lowest();
   const Player* target = nullptr;
 
-  for (std::size_t i = 0; i < game.GetEnemies().size(); ++i) {
-    const Player& player = game.GetEnemies()[i];
+  for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
+    const Player& player = game.GetPlayers()[i];
 
     if (!IsValidTarget(*ctx.bot, player, combat_role)) {
       continue;
@@ -786,7 +785,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
 
     if (net_player_bullet_travel > max_net_player_bullet_travel) {
       max_net_player_bullet_travel = net_player_bullet_travel;
-      target = &game.GetEnemies()[i];
+      target = &game.GetPlayers()[i];
       result = behavior::ExecuteResult::Success;
     }
   }
@@ -1038,16 +1037,16 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  for (std::size_t i = 0; i < game.GetEnemyTeam().size(); i++) {
-    const Player& player = game.GetEnemyTeam()[i];
+  for (std::size_t i = 0; i < bb.GetEnemyList().size(); i++) {
+    const Player* player = bb.GetEnemyList()[i];
 
-    if (!IsValidTarget(*ctx.bot, player, role_)) continue;
+    if (!IsValidTarget(*ctx.bot, *player, role_)) continue;
 
-    float player_bullet_speed = game.GetShipSettings(player.ship).GetBulletSpeed();
-    float player_radius = game.GetShipSettings(player.ship).GetRadius();
+    float player_bullet_speed = game.GetShipSettings(player->ship).GetBulletSpeed();
+    float player_radius = game.GetShipSettings(player->ship).GetRadius();
 
     // players closest path node
-    size_t player_node = search_->FindNearestNodeBFS(player.position);
+    size_t player_node = search_->FindNearestNodeBFS(player->position);
     bool high_side = bot_node_ < player_node;
 
     /* 
@@ -1066,16 +1065,16 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
  
     // players forward most path node that is in line of sight
     Vector2f player_fore =
-        search_->FindForwardLOSNode(player.position, player_node, player_radius, high_side);
+        search_->FindForwardLOSNode(player->position, player_node, player_radius, high_side);
     // the direction from the player position to the player_fore
-    Vector2f player_to_anchor = Normalize(player_fore - player.position);
+    Vector2f player_to_anchor = Normalize(player_fore - player->position);
 
     //RenderWorldLine(position_, player.position, player_fore, RGB(255, 0, 0));
 
     // the speed that the enemy is moving toward or away from its forward path node
-    float player_speed = (Normalize(player.velocity).Dot(player_to_anchor)) * player.velocity.Length();
+    float player_speed = (Normalize(player->velocity).Dot(player_to_anchor)) * player->velocity.Length();
     // if the player is dead set it's speed to 0
-    if (!player.active) {
+    if (!player->active) {
       player_speed = 0.0f;
     }
 
@@ -1089,10 +1088,10 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
     // how far the current enemy bullets will travel past the target enemy
     float net_player_bullet_travel = player_bullet_travel - player_pathlength_to_bot;
 
-    if (player.active) {
+    if (player->active) {
       float threat_distance = player_bullet_travel - player_pathlength_to_enemy;
       if (threat_distance > 0.0f) {
-        enemy_team_threat_ += player.energy * (threat_distance / player_bullet_travel);
+        enemy_team_threat_ += player->energy * (threat_distance / player_bullet_travel);
       }
     }
 
@@ -1113,27 +1112,27 @@ void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, cons
   auto& bb = ctx.bot->GetBlackboard();
 
   // calculate team threat based on the players energy, bullet travel, and distance to the enemy target
-  for (std::size_t i = 0; i < game.GetTeam().size(); i++) {
-    const Player& player = game.GetTeam()[i];
+  for (std::size_t i = 0; i < bb.GetTeamList().size(); i++) {
+    const Player* player = bb.GetTeamList()[i];
 
-    if (!player.active || !ctx.bot->GetRegions().IsConnected(player.position, position_)) continue;
+    if (!player->active || !ctx.bot->GetRegions().IsConnected(player->position, position_)) continue;
 
-    float player_bullet_speed = game.GetShipSettings(player.ship).GetBulletSpeed();
-    float player_radius = game.GetShipSettings(player.ship).GetRadius();
+    float player_bullet_speed = game.GetShipSettings(player->ship).GetBulletSpeed();
+    float player_radius = game.GetShipSettings(player->ship).GetRadius();
 
-    size_t player_node = search_->FindNearestNodeBFS(player.position);
+    size_t player_node = search_->FindNearestNodeBFS(player->position);
     // use the enemy target for high side comparison
     bool high_side = player_node > enemy_node_;
 
     // if the team player leaked past the enemy target this will switch the fore back towards the enemy target
     // so that the team threat is established as team players rushing towards the enemy target
     Vector2f player_fore =
-        search_->FindForwardLOSNode(player.position, player_node, player_radius, high_side);
+        search_->FindForwardLOSNode(player->position, player_node, player_radius, high_side);
     // the direction from the player position to the player_fore
-    Vector2f player_to_enemy = Normalize(player_fore - player.position);
+    Vector2f player_to_enemy = Normalize(player_fore - player->position);
 
     // the speed that the enemy is moving toward or away from its forward path node
-    float player_speed = (Normalize(player.velocity).Dot(player_to_enemy)) * player.velocity.Length();
+    float player_speed = (Normalize(player->velocity).Dot(player_to_enemy)) * player->velocity.Length();
 
     float player_pathlength_to_enemy = search_->GetPathDistance(enemy_node_, player_node);
     float player_bullet_travel = (player_speed + player_bullet_speed) * alive_time_;
@@ -1141,7 +1140,7 @@ void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, cons
     // a range of 0 to player energy in a linear scale
     float threat_distance = player_bullet_travel - player_pathlength_to_enemy;
     if (threat_distance > 0.0f) {
-      team_threat_ += player.energy * (threat_distance / player_bullet_travel);
+      team_threat_ += player->energy * (threat_distance / player_bullet_travel);
     }
   }
 }
@@ -1307,7 +1306,8 @@ behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.bot->GetBlackboard();
 
   //if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
-  if (bb.GetCombatRole() == CombatRole::Anchor && !bb.GetInCenter()) {
+  //if (bb.GetCombatRole() == CombatRole::Anchor && !bb.GetInCenter()) {
+  if (bb.GetCombatRole() == CombatRole::Anchor) {
     g_RenderState.RenderDebugText("  IsAnchorNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }

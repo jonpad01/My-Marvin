@@ -74,9 +74,6 @@ class ContinuumGameProxy : public GameProxy {
 
    const Player& GetPlayer() const override;
   const std::vector<Player>& GetPlayers() const override;
-  const std::vector<Player>& GetTeam() const override;
-  const std::vector<Player>& GetEnemies() const override;
-  const std::vector<Player>& GetEnemyTeam() const override;
 
   const float GetMaxEnergy() override;
   const float GetThrust() override;
@@ -107,6 +104,7 @@ class ContinuumGameProxy : public GameProxy {
   void SetEnergy(float percent) override;
   void SetFreq(int freq) override;
   bool SetShip(uint16_t ship) override;
+  void SetArena(const std::string& arena) override;
   void Warp() override;
   void Stealth() override;
   void Cloak(KeyController& keys) override;
@@ -138,12 +136,9 @@ class ContinuumGameProxy : public GameProxy {
   void SetZone();
   void FetchChat();
   void FetchPlayers();
-  void SortPlayers();
   void FetchBallData();
   void FetchGreens();
   void FetchWeapons();
-  
-
   
   std::vector<BallData> balls_;
   std::vector<Green> greens_;
@@ -161,38 +156,14 @@ class ContinuumGameProxy : public GameProxy {
   std::unique_ptr<Map> map_;
   Player* player_;
   std::vector<Player> players_;
-  std::vector<Player> team_;
-  std::vector<Player> enemy_team_;
-  std::vector<Player> enemies_;
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_;
+
   bool reload_flag_;
   bool clear_chat_flag_;
-
-
-  std::vector<std::size_t> offsets_{0x04, 0x10, 0x18, 0x20, 0x24,  0x30,  0x34,  0x3C, 0x40,
-                                    0x4C, 0x5C, 0x58, 0x60, 0x6D, 0x178, 0x208, 0x20C, 0x2EC, 0x32C};
-
-  std::vector<std::string> offset_titles_{"kPosOffset",
-                                          "kVelocityOffset",
-                                          "kIdOffset",
-                                          "kBountyOffset1",
-                                          "kBountyOffset2",
-                                          "kFlagOffset1",
-                                          "kFlagOffset2",
-                                          "kRotOffset",
-                                          "kActiveOffset1",
-                                          "kActiveOffset2",
-                                          "kShipOffset",
-                                          "kFreqOffset",
-                                          "kStatusOffset",
-                                          "kNameOffset",
-                                          "kDeadOffset",
-                                          "kEnergyOffset1",
-                                          "kEnergyOffset2",
-                                          "kMultiFireCapableOffset",
-                                          "kMultiFireStatusOffset"};
+  bool set_ship_flag_;
+  uint16_t desired_ship_;
 };
 
 }  // namespace marvin

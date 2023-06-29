@@ -178,14 +178,13 @@
     <ClCompile Include="zones\Devastation\Training.cpp" />
     <ClCompile Include="zones\Hyperspace\Hyperspace.cpp" />
     <ClCompile Include="zones\Hyperspace\HyperspaceFlagRooms.cpp" />
+    <ClCompile Include="zones\Hyperspace\HyperspacePathFinder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BasePaths.h" />
     <ClInclude Include="behavior\BehaviorEngine.h" />
     <ClInclude Include="behavior\BehaviorTree.h" />
     <ClInclude Include="blackboard\Blackboard.h" />
-    <ClInclude Include="blackboard\DevastationBlackboard.h" />
-    <ClInclude Include="blackboard\HyperspaceBlackboard.h" />
     <ClInclude Include="Bot.h" />
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="commands\BaseDuelCommands.h" />
@@ -234,6 +233,7 @@
     <ClInclude Include="zones\Devastation\Training.h" />
     <ClInclude Include="zones\Hyperspace\Hyperspace.h" />
     <ClInclude Include="zones\Hyperspace\HyperspaceFlagRooms.h" />
+    <ClInclude Include="zones\Hyperspace\HyperspacePathFinder.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <ItemGroup>

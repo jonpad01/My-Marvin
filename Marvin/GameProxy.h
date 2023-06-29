@@ -47,18 +47,9 @@ enum StatusFlag {
   Status_InputChange = (1 << 7)
 };
 
-struct AnchorPlayer {
-  const Player* p;
-  AnchorType type;
-  AnchorPlayer() {
-    p = nullptr;
-    type = AnchorType::None;
-  }
-};
-
 struct AnchorSet {
-  std::vector<AnchorPlayer> full_energy;
-  std::vector<AnchorPlayer> no_energy;
+  std::vector<const Player*> full_energy;
+  std::vector<const Player*> no_energy;
   void Clear() { 
     full_energy.clear();
     no_energy.clear();
@@ -136,9 +127,6 @@ class GameProxy {
 
   virtual const Player& GetPlayer() const = 0;
   virtual const std::vector<Player>& GetPlayers() const = 0;
-  virtual const std::vector<Player>& GetTeam() const = 0;
-  virtual const std::vector<Player>& GetEnemies() const = 0;
-  virtual const std::vector<Player>& GetEnemyTeam() const = 0;
 
   virtual const ClientSettings& GetSettings() const = 0;
   virtual const ShipSettings& GetShipSettings() const = 0;
@@ -182,6 +170,7 @@ class GameProxy {
   virtual void SetEnergy(float percent) = 0;
   virtual bool SetShip(uint16_t ship) = 0;
   virtual void SetFreq(int freq) = 0;
+  virtual void SetArena(const std::string& arena) = 0;
   virtual void Warp() = 0;
   virtual void Stealth() = 0;
   virtual void Cloak(KeyController& keys) = 0;

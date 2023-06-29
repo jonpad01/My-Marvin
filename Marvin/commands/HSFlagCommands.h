@@ -10,17 +10,16 @@ class HSFlagCommand : public CommandExecutor {
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
-    auto& hs_bb = bot.GetHSBlackboard();
 
     // if (bb.ValueOr<bool>("CmdLock", false) == true) {
-    if (hs_bb.GetCanFlag()) {
+    if (bb.GetCanFlag()) {
       game.SendPrivateMessage(sender, "Marv was already flagging.");
     } else {
       game.SendPrivateMessage(sender, "Switching to flagging.");
     }
 
     // bb.Set<bool>("CmdLock", true);
-    hs_bb.SetCanFlag(true);
+    bb.SetCanFlag(true);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
@@ -36,17 +35,16 @@ class HSFlagOffCommand : public CommandExecutor {
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
-    auto& hs_bb = bot.GetHSBlackboard();
 
     // if (bb.ValueOr<bool>("CmdLock", false) == true) {
-    if (!hs_bb.GetCanFlag()) {
+    if (!bb.GetCanFlag()) {
       game.SendPrivateMessage(sender, "Marv was not flagging.");
     } else {
       game.SendPrivateMessage(sender, "Marv will stop flagging.");
     }
 
     // bb.Set<bool>("CmdLock", true);
-    hs_bb.SetCanFlag(false);
+    bb.SetCanFlag(false);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }

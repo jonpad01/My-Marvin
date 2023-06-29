@@ -16,14 +16,6 @@
 #include "BasePaths.h"
 #include "TeamGoals.h"
 #include "blackboard/Blackboard.h"
-#include "blackboard/DevastationBlackboard.h"
-#include "blackboard/HyperspaceBlackboard.h"
-
-
-
-
-
-
 
 
 namespace marvin {
@@ -43,8 +35,6 @@ class Bot {
   GameProxy& GetGame() { return *game_; }
   Time& GetTime() { return time_; }
   Blackboard& GetBlackboard() { return *blackboard_; }
-  HSBlackboard& GetHSBlackboard() { return *hs_blackboard_; }
-  DevaBlackboard& GetDevaBlackboard() { return *deva_blackboard_; }
   behavior::ExecuteContext& GetExecuteContext() { return ctx_; }
   path::Pathfinder& GetPathfinder() { return *pathfinder_; }
   RegionRegistry& GetRegions() { return *regions_; }
@@ -97,8 +87,6 @@ class Bot {
   std::unique_ptr<path::Pathfinder> pathfinder_;
   std::unique_ptr<RegionRegistry> regions_;
   std::unique_ptr<Blackboard> blackboard_;
-  std::unique_ptr<HSBlackboard> hs_blackboard_;
-  std::unique_ptr<DevaBlackboard> deva_blackboard_;
   behavior::ExecuteContext ctx_;
   SteeringBehavior steering_;
   std::unique_ptr<InfluenceMap> influence_map_;
@@ -321,9 +309,9 @@ class BehaviorBuilder {
     target_in_los_ = std::make_unique<bot::InLineOfSightNode>();
     path_to_enemy_ = std::make_unique<bot::PathToEnemyNode>();
     find_enemy_in_center_ = std::make_unique<bot::FindEnemyInCenterNode>();
-    set_freq_ = std::make_unique<bot::SetFreqNode>();
-    set_ship_ = std::make_unique<bot::SetShipNode>();
-    set_arena_ = std::make_unique<bot::SetArenaNode>();
+   // set_freq_ = std::make_unique<bot::SetFreqNode>();
+    //set_ship_ = std::make_unique<bot::SetShipNode>();
+    //set_arena_ = std::make_unique<bot::SetArenaNode>();
     commands_ = std::make_unique<bot::CommandNode>();
     spectator_check_ = std::make_unique<bot::SpectatorCheckNode>();
     respawn_check_ = std::make_unique<bot::RespawnCheckNode>();
@@ -336,9 +324,9 @@ class BehaviorBuilder {
     engine_->PushNode(std::move(target_in_los_));
     engine_->PushNode(std::move(path_to_enemy_));
     engine_->PushNode(std::move(find_enemy_in_center_));
-    engine_->PushNode(std::move(set_freq_));
-    engine_->PushNode(std::move(set_ship_));
-    engine_->PushNode(std::move(set_arena_));
+   // engine_->PushNode(std::move(set_freq_));
+   // engine_->PushNode(std::move(set_ship_));
+    //engine_->PushNode(std::move(set_arena_));
     engine_->PushNode(std::move(commands_));
     engine_->PushNode(std::move(spectator_check_));
     engine_->PushNode(std::move(respawn_check_));
@@ -352,9 +340,9 @@ class BehaviorBuilder {
   std::unique_ptr<bot::InLineOfSightNode> target_in_los_;
   std::unique_ptr<bot::PathToEnemyNode> path_to_enemy_;
   std::unique_ptr<bot::FindEnemyInCenterNode> find_enemy_in_center_;
-  std::unique_ptr<bot::SetFreqNode> set_freq_;
-  std::unique_ptr<bot::SetShipNode> set_ship_;
-  std::unique_ptr<bot::SetArenaNode> set_arena_;
+  //std::unique_ptr<bot::SetFreqNode> set_freq_;
+  //std::unique_ptr<bot::SetShipNode> set_ship_;
+ // std::unique_ptr<bot::SetArenaNode> set_arena_;
   std::unique_ptr<bot::CommandNode> commands_;
   std::unique_ptr<bot::SpectatorCheckNode> spectator_check_;
   std::unique_ptr<bot::RespawnCheckNode> respawn_check_;

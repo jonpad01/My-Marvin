@@ -13,6 +13,7 @@ namespace hs {
 struct AnchorResult {
   AnchorSet anchors;
   bool found;
+  bool has_summoner;
 };
 
 class HyperspaceBehaviorBuilder : public BehaviorBuilder {
@@ -28,11 +29,11 @@ class HSPlayerSortNode : public behavior::BehaviorNode {
  private:
 
   AnchorResult GetAnchors(Bot& bot);
-  AnchorPlayer SelectAnchor(const AnchorSet& anchors, Bot& bot);
-  AnchorPlayer FindAnchorInBase(const std::vector<AnchorPlayer>& anchors, Bot& bot);
-  AnchorPlayer FindAnchorInAnyBase(const std::vector<AnchorPlayer>& anchors, Bot& bot);
-  AnchorPlayer FindAnchorInTunnel(const std::vector<AnchorPlayer>& anchors, Bot& bot);
-  AnchorPlayer FindAnchorInCenter(const std::vector<AnchorPlayer>& anchors, Bot& bot);
+  const Player* SelectAnchor(const AnchorSet& anchors, Bot& bot);
+  const Player* FindAnchorInBase(const std::vector<const Player*>& anchors, Bot& bot);
+  const Player* FindAnchorInAnyBase(const std::vector<const Player*>& anchors, Bot& bot);
+  const Player* FindAnchorInTunnel(const std::vector<const Player*>& anchors, Bot& bot);
+  const Player* FindAnchorInCenter(const std::vector<const Player*>& anchors, Bot& bot);
 };
 
 class HSSetRegionNode : public behavior::BehaviorNode {
@@ -40,9 +41,28 @@ class HSSetRegionNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
-class HSFlaggerPatrolNode : public behavior::BehaviorNode {
+class HSDropFlagsNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class HSFlaggerBasePatrolNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class HSMoveToBaseNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class HSGatherFlagsNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+  float GetDistanceToFlag(behavior::ExecuteContext& ctx, Vector2f player_pos, Vector2f flag_pos);
+  void SetPathToFlag(behavior::ExecuteContext& ctx, Vector2f player_pos, Vector2f flag_pos);
 };
 
 class HSSetDefensePositionNode : public behavior::BehaviorNode {
@@ -79,11 +99,6 @@ class HSAttachNode : public behavior::BehaviorNode {
 };
 
 class HSToggleNode : public behavior::BehaviorNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-};
-
-class HSPatrolBaseNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };

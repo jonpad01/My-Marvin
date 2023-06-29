@@ -108,6 +108,9 @@
     <ClCompile Include="zones\Hyperspace\Hyperspace.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="zones\Hyperspace\HyperspacePathFinder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameProxy.h">
@@ -260,12 +263,6 @@
     <ClInclude Include="zones\Hyperspace\HyperspaceFlagRooms.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="blackboard\HyperspaceBlackboard.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="blackboard\DevastationBlackboard.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Radar.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -273,6 +270,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\HSFlagCommands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Hyperspace\HyperspacePathFinder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

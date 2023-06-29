@@ -86,6 +86,7 @@ struct RenderState {
   void Render();
 
   void RenderDebugText(const char* fmt, ...);
+  void RenderDebugText(const std::string& input);
 };
 
 extern RenderState g_RenderState;

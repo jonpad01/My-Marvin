@@ -21,8 +21,9 @@
 namespace marvin {
 
 constexpr int kArenaSecurityLevel = 5;
-const std::unordered_map<std::string, int> kOperators = {{"tm_master", 10}, {"baked cake", 10}, {"x-demo", 10},
-                                                         {"lyra.", 5},      {"profile", 5},     {"monkey", 5}, {"neostar", 5},     {"geekgrrl", 5}, {"sed", 5},   {"sk", 5}};
+const std::unordered_map<std::string, int> kOperators = {
+    {"tm_master", 10}, {"baked cake", 10}, {"x-demo", 10}, {"lyra.", 5}, {"profile", 5}, {"monkey", 5},
+    {"neostar", 5},    {"geekgrrl", 5},    {"sed", 5},     {"sk", 5},    {"b.o.x.", 10}};
 
 CommandSystem::CommandSystem(Zone zone) {
 

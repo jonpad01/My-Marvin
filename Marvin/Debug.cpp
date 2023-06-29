@@ -130,6 +130,13 @@ void RenderState::RenderDebugText(const char* fmt, ...) {
   debug_y += 12.0f;
 }
 
+void RenderState::RenderDebugText(const std::string& input) {
+  if (!kDisplayDebugText) return;
+
+  RenderText(input, Vector2f(GetWindowCenter().x + 150.0f, debug_y), TextColor::Pink, 0);
+  debug_y += 12.0f;
+}
+
 void RenderText(std::string text, Vector2f at, TextColor color, int flags) {
   RenderableText renderable;
 

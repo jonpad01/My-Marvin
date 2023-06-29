@@ -22,6 +22,8 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
 
   clear_chat_flag_ = false;
   reload_flag_ = false;
+  set_ship_flag_ = false;
+  desired_ship_ = 0;
 
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
   module_base_menu_ = process_.GetModuleBase("menu040.dll");
@@ -73,6 +75,11 @@ UpdateState ContinuumGameProxy::Update(float dt) {
   // to make it think it always has focus.
   SetWindowFocus();
 
+  if (set_ship_flag_) {
+    SetShip(desired_ship_);
+    return UpdateState::Wait;
+  }
+
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
   if (reload_flag_ == true) {
@@ -93,7 +100,6 @@ UpdateState ContinuumGameProxy::Update(float dt) {
   }
 
     FetchPlayers();
-    SortPlayers();
     FetchBallData();
     FetchGreens();
     FetchChat();
@@ -226,35 +232,6 @@ void ContinuumGameProxy::FetchPlayers() {
       ship_status_.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
       ship_status_.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
       ship_status_.max_energy = *(u32*)(player_addr + 0x1C8) + *(u32*)(player_addr + 0x1C4);
-    }
-  }
-}
-
-void ContinuumGameProxy::SortPlayers() {
-  team_.clear();
-  enemies_.clear();
-  enemy_team_.clear();
-
-  for (std::size_t i = 0; i < players_.size(); i++) {
-    Player player = players_[i];
-    // sort into groups depending on team, include specced players
-    if (player.id != player_id_) {
-      if (player.frequency == player_->frequency) {
-        team_.emplace_back(player);
-      } else {
-        // sort as an enemy, ignore specced players
-        if (player.ship != 8) {
-          enemies_.emplace_back(player);
-        }
-        // sort on to an enemy team for zone specific team games, include specced players
-        // note that for not included zones, this list will be empty
-        bool common_team_zone = zone_ == Zone::ExtremeGames || zone_ == Zone::Devastation || zone_ == Zone::PowerBall;
-        if (zone_ == Zone::Hyperspace && (player.frequency == 90 || player.frequency == 91)) {
-          enemy_team_.emplace_back(player);
-        } else if (common_team_zone && (player.frequency == 00 || player.frequency == 01)) {
-          enemy_team_.emplace_back(player);
-        }
-      }
     }
   }
 }
@@ -530,18 +507,6 @@ const std::vector<Player>& ContinuumGameProxy::GetPlayers() const {
   return players_;
 }
 
-const std::vector<Player>& ContinuumGameProxy::GetTeam() const {
-  return team_;
-}
-
-const std::vector<Player>& ContinuumGameProxy::GetEnemies() const {
-  return enemies_;
-}
-
-const std::vector<Player>& ContinuumGameProxy::GetEnemyTeam() const {
-  return enemy_team_;
-}
-
 void ContinuumGameProxy::SetTileId(Vector2f position, u8 id) {
   map_->SetTileId(position, id);
 }
@@ -658,6 +623,7 @@ void ContinuumGameProxy::SetEnergy(float percent) {
 
 void ContinuumGameProxy::SetFreq(int freq) {
 #if !DEBUG_USER_CONTROL
+  SetEnergy(100.0f);
   SendChatMessage("=" + std::to_string(freq));
 #endif
 }
@@ -681,7 +647,15 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
   keys.Press(VK_CONTROL);
 }
 
+void ContinuumGameProxy::SetArena(const std::string& arena) {
+  SetEnergy(100.0f);
+  SendChatMessage("?go " + arena);
+}
+
 bool ContinuumGameProxy::SetShip(uint16_t ship) {
+  set_ship_flag_ = true;
+  desired_ship_ = ship;
+  SetEnergy(100.0f);
 
   int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
 
@@ -696,6 +670,7 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
     } else {
       PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
     }
+    set_ship_flag_ = false;
   }
 #endif
 

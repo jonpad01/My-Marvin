@@ -26,6 +26,8 @@ class Blackboard {
  private:
   // 8 bytes
   const Player* target_;
+  const Player* anchor;
+  const Player* enemy_anchor;
   std::size_t bd_base_index_;
   std::size_t patrol_index_;
   std::vector<const Player*> team_list_;
@@ -35,12 +37,13 @@ class Blackboard {
   uint64_t set_ship_cooldown_;
 
   // 4 bytes
+  int base_teams_count_;
   float enemy_net_bullet_travel_;
   float bomb_cooldown_;
   std::vector<int> team_ship_counts;
   Vector2f solution_;
-  Vector2f team_safe_;
-  Vector2f enemy_safe_;
+  MapCoord team_safe_;
+  MapCoord enemy_safe_;
 
   // 2 bytes
   CombatRole combat_role_;
@@ -95,11 +98,16 @@ class Blackboard {
   bool freq_lock_;
   bool command_lock_;
   bool swarm_;
+  bool team_has_summoner;
+  bool update_lancs_flag;
+  bool can_flag;
 
  public:
   Blackboard() {
     
     target_ = nullptr; 
+    anchor = nullptr;
+    enemy_anchor = nullptr;
     bd_base_index_ = 0;
     patrol_index_ = 0;
     bd_warp_cooldown_ = 0;
@@ -107,7 +115,7 @@ class Blackboard {
 
     enemy_net_bullet_travel_ = 0.0f;
     bomb_cooldown_ = 0.0f;
-
+    base_teams_count_ = 0;
     team_ship_counts.resize(8, 0);
 
     pub_team0_ = 00;
@@ -175,6 +183,15 @@ class Blackboard {
   void SetTarget(const Player* target) { target_ = target; }
   const Player* GetTarget() { return target_; }
 
+  const Player* GetAnchor() { return anchor; }
+  void SetAnchor(const Player* player) { anchor = player; }
+
+  const Player* GetEnemyAnchor() { return enemy_anchor; }
+  void SetEnemyAnchor(const Player* player) { enemy_anchor = player; } 
+
+  int GetBaseTeamsCount() { return base_teams_count_; }
+  void SetBaseTeamsCount(int count) { base_teams_count_ = count; } 
+
   void SetEnemyNetBulletTravel(float travel) { enemy_net_bullet_travel_ = travel; }
   float GetEnemyNetBulletTravel() { return enemy_net_bullet_travel_; }
 
@@ -188,11 +205,11 @@ class Blackboard {
   void SetSolution(Vector2f position) { solution_ = position; }
   Vector2f GetSolution() { return solution_; }
 
-  void SetTeamSafe(Vector2f position) { team_safe_ = position; }
-  Vector2f GetTeamSafe() { return team_safe_; }
+  void SetTeamSafe(MapCoord position) { team_safe_ = position; }
+  MapCoord GetTeamSafe() { return team_safe_; }
 
-  void SetEnemySafe(Vector2f position) { enemy_safe_ = position; }
-  Vector2f GetEnemySafe() { return enemy_safe_; }
+  void SetEnemySafe(MapCoord position) { enemy_safe_ = position; }
+  MapCoord GetEnemySafe() { return enemy_safe_; }
 
   void SetCenterSpawn(MapCoord position) { center_spawn_ = position; }
   MapCoord GetCenterSpawn() { return center_spawn_; }
@@ -268,6 +285,15 @@ class Blackboard {
 
   void SetCommandLock(bool lock) { command_lock_ = lock; }
   bool GetCommandLock() { return command_lock_; }
+
+  bool GetUpdateLancsFlag() { return update_lancs_flag; }
+  void SetUpdateLancsFlag(bool count) { update_lancs_flag = count; }
+
+  bool GetCanFlag() { return can_flag; }
+  void SetCanFlag(bool value) { can_flag = value; }
+
+  bool GetTeamHasSummoner() { return team_has_summoner; }
+  void SetTeamHasSummoner(bool value) { team_has_summoner = value; } 
 
   void SetCommandRequest(CommandRequestType type) { command_request_ = type; }
   CommandRequestType GetCommandRequest() { return command_request_; }

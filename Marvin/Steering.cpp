@@ -25,7 +25,7 @@ void SteeringBehavior::Reset() {
 
 void SteeringBehavior::Seek(Bot& bot, Vector2f target, float multiplier) {
   auto& game = bot.GetGame();
-  float speed = (game.GetMaxSpeed() + 5.0f);
+  float speed = game.GetMaxSpeed();
 
   Vector2f desired = Normalize(target - game.GetPosition()) * speed * multiplier;
 

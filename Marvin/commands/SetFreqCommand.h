@@ -29,9 +29,8 @@ class SetFreqCommand : public CommandExecutor {
 
     if (number >= 0 && number < 100) {
       //bb.Set<uint16_t>("Freq", number);
-      bb.SetFreq(number);
-      bb.SetCommandRequest(CommandRequestType::FreqChange);
-      game.SendPrivateMessage(sender, "Frequency selection recieved.");
+      game.SetFreq(number);
+      game.SendPrivateMessage(sender, "If you don't see me change freq, either the balancer stopped me, or I jumped back automatically.");
     } else {
       SendUsage(game, sender);
     }
