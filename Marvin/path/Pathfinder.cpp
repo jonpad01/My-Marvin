@@ -215,7 +215,7 @@ std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f t
 
 
       // Rebuild the path if the bot isn't in line of sight of its next node.
-      if (!DiameterRayCastHit(bot, pos, next, radius)) {
+      if (!RadiusRayCastHit(bot, pos, next, radius)) {
        build = false;
       }
     }

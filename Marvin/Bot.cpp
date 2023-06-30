@@ -17,7 +17,7 @@
 #include "zones/Hockey.h"
 #include "zones/Hyperspace/Hyperspace.h"
 #include "zones/Hyperspace/HyperspaceFlagRooms.h"
-#include "zones/Hyperspace/HyperspacePathFinder.h"
+#include "zones/Hyperspace/GateNavigator.h"
 #include "zones/PowerBall.h"
 #include "zones/Devastation/Training.h"
 

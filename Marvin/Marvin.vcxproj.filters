@@ -108,7 +108,7 @@
     <ClCompile Include="zones\Hyperspace\Hyperspace.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="zones\Hyperspace\HyperspacePathFinder.cpp">
+    <ClCompile Include="zones\Hyperspace\GateNavigator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -272,7 +272,7 @@
     <ClInclude Include="commands\HSFlagCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="zones\Hyperspace\HyperspacePathFinder.h">
+    <ClInclude Include="zones\Hyperspace\GateNavigator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
