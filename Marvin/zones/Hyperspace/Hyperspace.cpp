@@ -14,6 +14,7 @@
 #include "../../platform/ContinuumGameProxy.h"
 #include "../../platform/Platform.h"
 #include "../../MapCoord.h"
+#include "HyperGateNavigator.h"
 
 namespace marvin {
 namespace hs {
@@ -23,9 +24,9 @@ const MapCoord kHyperTunnelCoord = MapCoord(16, 16);
 // gates from center to tunnel
 const std::vector<MapCoord> kCenterGates = {MapCoord(388, 395), MapCoord(572, 677)};
 // gates to go back to center
-const std::vector<MapCoord> kTunnelToCenterGates = {MapCoord(62, 351), MapCoord(961, 674)};
+const std::vector<MapCoord> kTunnelToCenterGates = {MapCoord(62, 351), MapCoord(961, 350)};
 // gates to 7 bases plus top area in order
-const std::vector<MapCoord> kBaseTunnelGates = {MapCoord(961, 63),  MapCoord(960, 351), MapCoord(960, 960),
+const std::vector<MapCoord> kBaseTunnelGates = {MapCoord(961, 63),  MapCoord(960, 673), MapCoord(960, 960),
                                                 MapCoord(512, 959), MapCoord(64, 960),  MapCoord(64, 672),
                                                 MapCoord(65, 65), MapCoord(512, 64)};
 
@@ -46,6 +47,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   // fastest allowed for hypersppace
   bot.GetBlackboard().SetSetShipCoolDown(5000);
+  bot.GetBlackboard().SetUpdateLancsFlag(true);
 
   auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
   auto anchor_base_path = std::make_unique<bot::AnchorBasePathNode>();
@@ -126,7 +128,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
       flagger_sequence.get(), find_enemy_in_center_sequence.get(), patrol_center_sequence.get());
 
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), respawn_check_.get(), spectator_check_.get(), HS_player_sort.get(), team_sort.get(),
+      commands_.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(), HS_player_sort.get(), team_sort.get(),
       HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(),
       HS_toggle.get(), action_selector.get());
 
@@ -882,6 +884,7 @@ behavior::ExecuteResult HSFlaggerBasePatrolNode::Execute(behavior::ExecuteContex
 }
 
 behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) {
+  return behavior::ExecuteResult::Failure;
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
@@ -894,7 +897,11 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
   }  
 
   if (anchor && !ctx.bot->GetRegions().IsConnected(game.GetPosition(), anchor->position)) {
-    g_RenderState.RenderDebugText("  HSDropFlagsNode(Not With Anchor): %llu", timer.GetElapsedTime());
+    if (ctx.bot->GetTime().RepeatedActionDelay("attachwithflags", 3000)) {
+      game.SetEnergy(100.0f);
+      game.SendChatMessage(":" + anchor->name + ":?attach");
+    }
+    g_RenderState.RenderDebugText("  HSDropFlagsNode(Attaching To Anchor): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -915,23 +922,23 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
 }
 
 behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx) {
-  return behavior::ExecuteResult::Failure;
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
   uint16_t ship = game.GetPlayer().ship;
+  uint16_t id = game.GetPlayer().id;
+  float radius = game.GetShipSettings().GetRadius();
+  const Player* anchor = bb.GetAnchor();
   bool flagging = (game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91);
-  bool in_flag_collecting_ship = ship == 0 || ship == 1 || ship == 4 || ship == 5 || ship == 7;
 
   if (!flagging) {
     g_RenderState.RenderDebugText("  HSGatherFlagsNode(Not Flagging): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
-  if (!in_flag_collecting_ship) {
-    g_RenderState.RenderDebugText("  HSGatherFlagsNode(Not In Flag Collecting Ship): %llu",
-                                  timer.GetElapsedTime());
+  if (!InFlagCollectingShip(ship)) {
+    g_RenderState.RenderDebugText("  HSGatherFlagsNode(Not In Flag Collecting Ship): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
@@ -940,7 +947,58 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
     return behavior::ExecuteResult::Failure;
   }
 
-  bool should_collect_flag = false;
+  for (const Player* player : bb.GetTeamList()) {
+    if (player->id == id) continue;
+
+    if (player->id < id && InFlagCollectingShip(player->ship)) {
+      g_RenderState.RenderDebugText("  HSGatherFlagsNode(Not Selected Flag Gatherer): %llu", timer.GetElapsedTime());
+    //  return behavior::ExecuteResult::Failure;
+    }
+  }
+
+  Flag* flag = SelectFlag(ctx);
+
+  if (flag) {
+    if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), flag->position)) {
+      if (anchor && ctx.bot->GetRegions().IsConnected(anchor->position, flag->position)) {
+        if (ctx.bot->GetTime().RepeatedActionDelay("attachforflags", 3000)) {
+          game.SetEnergy(100.0f);
+          game.SendChatMessage(":" + anchor->name + ":?attach");
+        }
+        g_RenderState.RenderDebugText("  HSGatherFlagsNode(Attaching To Anchor): %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Failure;
+      } else if (ctx.bot->GetRegions().IsConnected(flag->position, MapCoord(512, 512))) {
+        if (ctx.bot->GetTime().RepeatedActionDelay("warpforflags", 300)) {
+          game.SetEnergy(100.0f);
+          game.Warp();
+        }
+        g_RenderState.RenderDebugText("  HSGatherFlagsNode(Warping To Center): %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Failure;
+      }
+    }
+    HyperGateNavigator navigator(ctx.bot->GetRegions());
+    Vector2f waypoint = navigator.GetWayPoint(game.GetPosition(), flag->position);
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), waypoint, radius);
+    g_RenderState.RenderDebugText("  HSGatherFlagsNode(Heading To Flag ID: %u): %llu", flag->id,
+                                  timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  g_RenderState.RenderDebugText("  HSGatherFlagsNode(No Flags Found): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
+// start by grabbing flags in connected area first
+// TODO: implement distance checking with pathfinder to find closest flag and store it in blackboard
+// if stored flag gets picked up rerun for next closest flag
+Flag* HSGatherFlagsNode::SelectFlag(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  Flag* result = nullptr;
+  Flag* connected_flag = nullptr;
+  Flag* other_flag = nullptr;
+
   const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
   std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
 
@@ -950,154 +1008,31 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
     }
     if (flag.frequency != game.GetPlayer().frequency &&
         ctx.bot->GetRegions().IsConnected(flag.position, entrances[base_index])) {
-        // flags are gaurded by enemy team
+      // flags are gaurded by enemy team
       if (entrances[base_index] == bb.GetTeamSafe()) {
-        continue;
+      //  continue;
       }
     }
-    should_collect_flag = true;
-    float bot_distance_to_flag = GetDistanceToFlag(ctx, game.GetPosition(), flag.position);
-    for (const Player* player : bb.GetTeamList()) {
-      bool player_in_flag_collecting_ship =
-          player->ship == 0 || player->ship == 1 || player->ship == 4 || player->ship == 5 || player->ship == 7;
-      if (!player_in_flag_collecting_ship) {
-        continue;
-      }
-      float distance = GetDistanceToFlag(ctx, player->position, flag.position);
-      if (distance < bot_distance_to_flag) {
-        should_collect_flag = false;
-        break;
-      }
-    }
-    if (should_collect_flag) {
-      SetPathToFlag(ctx, game.GetPosition(), flag.position);
-      g_RenderState.RenderDebugText("  HSGatherFlagsNode(Heading To Flag): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Success;
-    }
-  }
 
-  g_RenderState.RenderDebugText("  HSGatherFlagsNode(No Flags Found): %llu", timer.GetElapsedTime());
-  return behavior::ExecuteResult::Failure;
-}
-
-void HSGatherFlagsNode::SetPathToFlag(behavior::ExecuteContext& ctx, Vector2f player_pos, Vector2f flag_pos) {
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.bot->GetBlackboard();
-
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  std::size_t index = bb.GetBDBaseIndex();
-  float radius = game.GetShipSettings().GetRadius();
-  bool in_center = bb.GetInCenter();
-  bool in_tunnel = ctx.bot->GetRegions().IsConnected(game.GetPlayer().position, kHyperTunnelCoord);
-
-  // flag and player are connected
-  if (ctx.bot->GetRegions().IsConnected(player_pos, flag_pos)) {
-    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, player_pos, flag_pos, radius);
-    return;
-  }
-
-  // flag is in center, player is not
-  if (ctx.bot->GetRegions().IsConnected(MapCoord(512, 512), flag_pos)) {
-    game.SetEnergy(100.0f);
-    game.Warp();
-    return;
-  // player is in center, flag is not 
-  } else if (in_center) {
-    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, player_pos, kCenterGates[0], radius);
-    return;
-  // player is in tunnel, flag is not in tunnel or center
-  } else if (in_tunnel) {
-    for (std::size_t i = 0; i < entrances.size(); i++) {
-      if (ctx.bot->GetRegions().IsConnected(entrances[i], flag_pos)) {
-        ctx.bot->GetPathfinder().CreatePath(*ctx.bot, player_pos, kBaseTunnelGates[i], radius);
-        return;
-      }
-    }
-  // player is in base, flag is in another base
-  } else {
-    game.SetEnergy(100.0f);
-    game.Warp();
-  }
-}
-
-// not accurate, using straight line distances but should still work to determine whos closer
-// distance flows from center to tunnel to base until flag is found
-float HSGatherFlagsNode::GetDistanceToFlag(behavior::ExecuteContext& ctx, Vector2f player_pos,
-                                                       Vector2f flag_pos) {
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.bot->GetBlackboard();
-
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-
-  float distance = 0.0f;
-
-  // player connected to flag, just return distance
-  if (ctx.bot->GetRegions().IsConnected(player_pos, flag_pos)) {
-    return player_pos.Distance(flag_pos);
-  }
-
-  // player in center, flag is not
-  if (ctx.bot->GetRegions().IsConnected(player_pos, MapCoord(512, 512))) {
-    float distance = player_pos.Distance(kCenterGates[0]);
-    if (ctx.bot->GetRegions().IsConnected(kHyperTunnelCoord, flag_pos)) {
-      distance += kTunnelToCenterGates[0].Distance(flag_pos);
+    if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), flag.position)) {
+      connected_flag = &flag;
+      break;
     } else {
-      for (std::size_t i = 0; i < entrances.size(); i++) {
-        if (ctx.bot->GetRegions().IsConnected(entrances[i], flag_pos)) {
-          distance += kTunnelToCenterGates[0].Distance(kBaseTunnelGates[i]);
-          distance += entrances[i].Distance(flag_pos);
-          break;
-        }
-      }
-    } 
+      other_flag = &flag;
+    }
   }
-  // player in tunnel, flag is not
-  else if (ctx.bot->GetRegions().IsConnected(player_pos, kHyperTunnelCoord)) {
-    // flag in center
-    if (ctx.bot->GetRegions().IsConnected(flag_pos, MapCoord(512, 512))) {
-      distance += player_pos.Distance(kTunnelToCenterGates[0]);
-      distance += kCenterGates[0].Distance(flag_pos);
-    //  flag in base
-    } else {
-      for (std::size_t i = 0; i < entrances.size(); i++) {
-        if (ctx.bot->GetRegions().IsConnected(entrances[i], flag_pos)) {
-          distance += player_pos.Distance(kBaseTunnelGates[i]);
-          distance += entrances[i].Distance(flag_pos);
-          break;
-        }
-      }
-    }
-  // player in base, flag is not
-  } else {
-    // add player distance to entrance and mark the base 
-    std::size_t index = 0;
-    for (std::size_t i = 0; i < entrances.size(); i++) {
-      if (ctx.bot->GetRegions().IsConnected(entrances[i], player_pos)) {
-        distance += player_pos.Distance(entrances[i]);
-        index = i;
-        break;
-      }
-    }
-    // flag in other base
-    for (std::size_t i = 0; i < entrances.size(); i++) {
-      if (ctx.bot->GetRegions().IsConnected(entrances[i], flag_pos)) {
-        distance += kBaseTunnelGates[index].Distance(kBaseTunnelGates[i]);
-        distance += entrances[i].Distance(flag_pos);
-        break;
-      }
-    }
 
-    // flag in tunnel
-    if (ctx.bot->GetRegions().IsConnected(flag_pos, kHyperTunnelCoord)) {
-      distance += kBaseTunnelGates[index].Distance(flag_pos);
-    }
-    else if (ctx.bot->GetRegions().IsConnected(flag_pos, MapCoord(512, 512))) {
-      distance += kBaseTunnelGates[index].Distance(kTunnelToCenterGates[0]);
-      distance += kCenterGates[0].Distance(flag_pos);
-    }
+  if (connected_flag) {
+    result = connected_flag;
+  } else if (other_flag) {
+    result = other_flag;
   }
-  return distance;
+
+  return result;
 }
 
+bool HSGatherFlagsNode::InFlagCollectingShip(uint64_t ship) {
+  return ship == 0 || ship == 1 || ship == 7;
+ }
 }  // namespace hs
 }  // namespace marvin

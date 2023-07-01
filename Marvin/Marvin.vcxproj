@@ -178,7 +178,7 @@
     <ClCompile Include="zones\Devastation\Training.cpp" />
     <ClCompile Include="zones\Hyperspace\Hyperspace.cpp" />
     <ClCompile Include="zones\Hyperspace\HyperspaceFlagRooms.cpp" />
-    <ClCompile Include="zones\Hyperspace\GateNavigator.cpp" />
+    <ClCompile Include="zones\Hyperspace\HyperGateNavigator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BasePaths.h" />
@@ -233,7 +233,7 @@
     <ClInclude Include="zones\Devastation\Training.h" />
     <ClInclude Include="zones\Hyperspace\Hyperspace.h" />
     <ClInclude Include="zones\Hyperspace\HyperspaceFlagRooms.h" />
-    <ClInclude Include="zones\Hyperspace\GateNavigator.h" />
+    <ClInclude Include="zones\Hyperspace\HyperGateNavigator.h" />
     <ClInclude Include="zones\Zone.h" />
   </ItemGroup>
   <ItemGroup>

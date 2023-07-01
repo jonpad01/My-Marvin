@@ -22,6 +22,9 @@ namespace path {
     void Pathfinder::DebugUpdate(const Vector2f& position) {   
         for (float y = -5.00; y <= 5.0f; y++) {
         for (float x = -5.0f; x <= 5.0f; x++) {
+            if (!IsValidPosition(Vector2f(position.x + x, position.y + y))) {
+              return;
+            }
           Node* node = this->processor_->GetNode(NodePoint(uint16_t(position.x + x), uint16_t(position.y + y)));
           if (node->can_occupy) {
             Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
@@ -215,7 +218,7 @@ std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f t
 
 
       // Rebuild the path if the bot isn't in line of sight of its next node.
-      if (!RadiusRayCastHit(bot, pos, next, radius)) {
+      if (!DiameterRayCastHit(bot, pos, next, radius)) {
        build = false;
       }
     }

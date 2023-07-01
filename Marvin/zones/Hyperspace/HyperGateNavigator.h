@@ -6,12 +6,11 @@
 
 namespace marvin {
 namespace hs {
-
-	// the gate navigator will take a start position and a destination, and return the coordinate of the gate to move to
-	// if in a connected area it will return the destination
-class GateNavigator {
+// the gate navigator will take a start position and a destination, and return the coordinate of the gate to move to
+// if in a connected area it will return the destination
+class HyperGateNavigator {
  public:
-  GateNavigator(RegionRegistry& regions, Map& map);
+  HyperGateNavigator(RegionRegistry& regions);
 
   Vector2f GetWayPoint(Vector2f start, Vector2f end);
   Vector2f GetClosestCenterToTunnelGate(Vector2f pos);
@@ -19,14 +18,13 @@ class GateNavigator {
 
  private:
   RegionRegistry& regions;
-  Map& map;
 
   // gates from center to tunnel
   const std::vector<MapCoord> kCenterToTunnelGates = {MapCoord(388, 395), MapCoord(572, 677)};
   // gates to go back to center
-  const std::vector<MapCoord> kTunnelToCenterGates = {MapCoord(62, 351), MapCoord(961, 674)};
+  const std::vector<MapCoord> kTunnelToCenterGates = {MapCoord(62, 351), MapCoord(961, 350)};
   // gates to 7 bases plus top area in order
-  const std::vector<MapCoord> kTunnelToBaseGates = {MapCoord(961, 63),  MapCoord(960, 351), MapCoord(960, 960),
+  const std::vector<MapCoord> kTunnelToBaseGates = {MapCoord(961, 63),  MapCoord(960, 673), MapCoord(960, 960),
                                                   MapCoord(512, 959), MapCoord(64, 960),  MapCoord(64, 672),
                                                   MapCoord(65, 65),   MapCoord(512, 64)};
   // gates from bases to tunnel

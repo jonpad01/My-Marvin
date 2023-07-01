@@ -112,6 +112,13 @@ class CommandNode : public behavior::BehaviorNode {
  private:
 };
 
+class DettachNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+};
+
 class SetShipNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
@@ -304,6 +311,7 @@ class BehaviorBuilder {
     engine_ = std::make_unique<behavior::BehaviorEngine>();
 
     follow_path_ = std::make_unique<bot::FollowPathNode>();
+    dettach_ = std::make_unique<bot::DettachNode>();
     shoot_enemy_ = std::make_unique<bot::ShootEnemyNode>();
     mine_sweeper_ = std::make_unique<bot::MineSweeperNode>();
     target_in_los_ = std::make_unique<bot::InLineOfSightNode>();
@@ -319,6 +327,7 @@ class BehaviorBuilder {
 
   void PushCommonNodes() {
     engine_->PushNode(std::move(follow_path_));
+    engine_->PushNode(std::move(dettach_));
     engine_->PushNode(std::move(shoot_enemy_));
     engine_->PushNode(std::move(mine_sweeper_));
     engine_->PushNode(std::move(target_in_los_));
@@ -335,6 +344,7 @@ class BehaviorBuilder {
   std::unique_ptr<behavior::BehaviorEngine> engine_;
 
   std::unique_ptr<bot::FollowPathNode> follow_path_;
+  std::unique_ptr<bot::DettachNode> dettach_;
   std::unique_ptr<bot::ShootEnemyNode> shoot_enemy_;
   std::unique_ptr<bot::MineSweeperNode> mine_sweeper_;
   std::unique_ptr<bot::InLineOfSightNode> target_in_los_;

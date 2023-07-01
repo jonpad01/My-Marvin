@@ -17,7 +17,6 @@
 #include "zones/Hockey.h"
 #include "zones/Hyperspace/Hyperspace.h"
 #include "zones/Hyperspace/HyperspaceFlagRooms.h"
-#include "zones/Hyperspace/GateNavigator.h"
 #include "zones/PowerBall.h"
 #include "zones/Devastation/Training.h"
 
@@ -206,6 +205,11 @@ void Bot::Update(float dt) {
       }
     }
   }
+
+ #if DUBUG_RENDER_PATH
+  RenderPath(game_->GetPosition(), pathfinder_->GetPath());
+  g_RenderState.RenderDebugText("Render Path: %llu", timer.GetElapsedTime());
+#endif
 
   #if DEBUG_RENDER_PATHFINDER
       pathfinder_->DebugUpdate(game_->GetPosition());
@@ -492,6 +496,25 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
   g_RenderState.RenderDebugText("  SetFreqNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult DettachNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+    // if attached to a player detach
+  if (game.GetPlayer().attach_id != 65535) {
+
+    game.SendKey(VK_F7);
+
+    g_RenderState.RenderDebugText("  DettachNode: %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  g_RenderState.RenderDebugText("  DettachNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -1223,7 +1246,8 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
 
   // this is an easy place to create out of bounds access violations
   // always check/test the result when changing this part
-  while (path.size() > 1) {
+  while (path.size() > 1 && from.Distance(path[1]) < 40.0f) {
+    //while (path.size() > 1) {
     if (!DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[1], radius)) {
       path.erase(path.begin());
       current = path.front();

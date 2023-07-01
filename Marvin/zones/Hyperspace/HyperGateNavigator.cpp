@@ -1,11 +1,12 @@
-#include "GateNavigator.h"
+#include "HyperGateNavigator.h"
+#include "../../Debug.h"
 
 namespace marvin {
 namespace hs {
 
-    GateNavigator::GateNavigator(RegionRegistry& regions, Map& map) : regions(regions), map(map) {}
+    HyperGateNavigator::HyperGateNavigator(RegionRegistry& regions) : regions(regions) {}
 
-    Vector2f GateNavigator::GetClosestCenterToTunnelGate(Vector2f pos) {
+    Vector2f HyperGateNavigator::GetClosestCenterToTunnelGate(Vector2f pos) {
       float distance0 = pos.Distance(kCenterToTunnelGates[0]);
       float distance1 = pos.Distance(kCenterToTunnelGates[1]);
 
@@ -15,7 +16,7 @@ namespace hs {
       return kCenterToTunnelGates[1];
     }
 
-    Vector2f GateNavigator::GetClosestTunnelToCenterGate(Vector2f pos) {
+    Vector2f HyperGateNavigator::GetClosestTunnelToCenterGate(Vector2f pos) {
       float distance0 = pos.Distance(kTunnelToCenterGates[0]);
       float distance1 = pos.Distance(kTunnelToCenterGates[1]);
 
@@ -25,7 +26,7 @@ namespace hs {
       return kTunnelToCenterGates[1];
     }
 
-    Vector2f GateNavigator::GetWayPoint(Vector2f start, Vector2f end) {
+    Vector2f HyperGateNavigator::GetWayPoint(Vector2f start, Vector2f end) {
       if (regions.IsConnected(start, end)) {
         return end;
       }
@@ -33,11 +34,11 @@ namespace hs {
       bool start_in_center = regions.IsConnected(start, MapCoord(512, 512));
       bool start_in_tunnel = regions.IsConnected(start, kTunnelToCenterGates[0]);
       bool start_in_base = false;
-      bool start_base_index = 0;
+      std::size_t start_base_index = 0;
       bool end_in_center = regions.IsConnected(end, MapCoord(512, 512));
       bool end_in_tunnel = regions.IsConnected(end, kTunnelToCenterGates[0]);
       bool end_in_base = false;
-      bool end_base_index = 0;
+      std::size_t end_base_index = 0;
 
       for (std::size_t i = 0; i < kBaseToTunnelGates.size(); i++) {
         if (regions.IsConnected(start, kBaseToTunnelGates[i])) {

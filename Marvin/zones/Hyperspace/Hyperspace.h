@@ -61,8 +61,8 @@ class HSGatherFlagsNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
-  float GetDistanceToFlag(behavior::ExecuteContext& ctx, Vector2f player_pos, Vector2f flag_pos);
-  void SetPathToFlag(behavior::ExecuteContext& ctx, Vector2f player_pos, Vector2f flag_pos);
+  bool InFlagCollectingShip(uint64_t ship);
+  Flag* SelectFlag(behavior::ExecuteContext& ctx);
 };
 
 class HSSetDefensePositionNode : public behavior::BehaviorNode {
