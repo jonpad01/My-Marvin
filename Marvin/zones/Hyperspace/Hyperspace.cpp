@@ -630,6 +630,7 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
 }
 
 behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx) {
+  return behavior::ExecuteResult::Success;
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
@@ -956,7 +957,7 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
     }
   }
 
-  Flag* flag = SelectFlag(ctx);
+  const Flag* flag = SelectFlag(ctx);
 
   if (flag) {
     if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), flag->position)) {
@@ -991,18 +992,18 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
 // start by grabbing flags in connected area first
 // TODO: implement distance checking with pathfinder to find closest flag and store it in blackboard
 // if stored flag gets picked up rerun for next closest flag
-Flag* HSGatherFlagsNode::SelectFlag(behavior::ExecuteContext& ctx) {
+const Flag* HSGatherFlagsNode::SelectFlag(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  Flag* result = nullptr;
-  Flag* connected_flag = nullptr;
-  Flag* other_flag = nullptr;
+  const Flag* result = nullptr;
+  const Flag* connected_flag = nullptr;
+  const Flag* other_flag = nullptr;
 
   const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
   std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
 
-  for (Flag& flag : game.GetDroppedFlags()) {
+  for (const Flag& flag : game.GetDroppedFlags()) {
     if (flag.frequency == game.GetPlayer().frequency) {
       continue;
     }

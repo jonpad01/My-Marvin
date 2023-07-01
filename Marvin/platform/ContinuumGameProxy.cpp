@@ -101,6 +101,7 @@ UpdateState ContinuumGameProxy::Update(float dt) {
 
     FetchPlayers();
     FetchBallData();
+    FetchDroppedFlags();
     FetchGreens();
     FetchChat();
     FetchWeapons();
@@ -378,20 +379,24 @@ void ContinuumGameProxy::FetchWeapons() {
   }
 }
 
-std::vector<Flag> ContinuumGameProxy::GetDroppedFlags() {
+void ContinuumGameProxy::FetchDroppedFlags() {
   u32 flag_count = *(u32*)(game_addr_ + 0x127ec + 0x1d4c);
   u32** flag_ptrs = (u32**)(game_addr_ + 0x127ec + 0x188c);
-  std::vector<marvin::Flag> flags;
-  flags.reserve(flag_count);
+  //std::vector<marvin::Flag> flags;
+  dropped_flags_.clear();
+  dropped_flags_.reserve(flag_count);
   for (size_t i = 0; i < flag_count; ++i) {
     char* current = (char*)flag_ptrs[i];
     u32 flag_id = *(u32*)(current + 0x1C);
     u32 x = *(u32*)(current + 0x04);
     u32 y = *(u32*)(current + 0x08);
     u32 frequency = *(u32*)(current + 0x14);
-    flags.emplace_back(flag_id, frequency, Vector2f(x / 16000.0f, y / 16000.0f));
+    dropped_flags_.emplace_back(flag_id, frequency, Vector2f(x / 16000.0f, y / 16000.0f));
   }
-  return flags;
+}
+
+const std::vector<Flag>& ContinuumGameProxy::GetDroppedFlags() {
+  return dropped_flags_;
 }
 
 void ContinuumGameProxy::SetZone() {

@@ -99,7 +99,7 @@ class ContinuumGameProxy : public GameProxy {
   const std::vector<BallData>& GetBalls() const override;
   const std::vector<Green>& GetGreens() const override;
   std::vector<Weapon*> GetWeapons() override;
-  std::vector<marvin::Flag> GetDroppedFlags() override;
+  const std::vector<Flag>& GetDroppedFlags() override;
 
   void SetEnergy(float percent) override;
   void SetFreq(int freq) override;
@@ -137,11 +137,13 @@ class ContinuumGameProxy : public GameProxy {
   void FetchChat();
   void FetchPlayers();
   void FetchBallData();
+  void FetchDroppedFlags();
   void FetchGreens();
   void FetchWeapons();
   
   std::vector<BallData> balls_;
   std::vector<Green> greens_;
+  std::vector<Flag> dropped_flags_;
   ShipStatus ship_status_;
   std::vector<ChatMessage> recent_chat_;
   std::size_t chat_index_;

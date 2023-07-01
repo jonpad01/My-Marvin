@@ -39,5 +39,6 @@ bool DiameterEdgeRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 bool RadiusEdgeRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 bool DiameterRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 bool RadiusRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
+bool RayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius);
 
 }  // namespace marvin

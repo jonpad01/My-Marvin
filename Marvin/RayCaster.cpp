@@ -320,6 +320,21 @@ bool DiameterRayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius) {
   return result;
 }
 
+bool RayCastHit(Bot& bot, Vector2f from, Vector2f to, float radius) {
+  bool result = false;
+
+  Vector2f to_target = to - from;
+  Vector2f direction = Normalize(to_target);
+  Vector2f side = Perpendicular(direction);
+
+  CastResult center = RayCast(bot, RayBarrier::Solid, from, direction, to_target.Length());
+
+  if (center.hit) {
+    result = true;
+  }
+  return result;
+}
+
 /* 
 Return false if only leftside or rightside is a hit.  Good for line of sight checks where a single raycast can trigger line of
 sight through holes the ship cant path through, and a diameter raycast makes the ship slower to respond when

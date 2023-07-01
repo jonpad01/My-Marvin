@@ -266,7 +266,7 @@ void Bot::Move(const Vector2f& target, float target_distance) {
   float distance = bot_player.position.Distance(target);
 
   if (distance > target_distance) {
-    steering_.Seek(*this, target);
+    steering_.Arrive(*this, target, game_->GetThrust());
   }
 
   else if (distance <= target_distance) {
@@ -1246,9 +1246,16 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
 
   // this is an easy place to create out of bounds access violations
   // always check/test the result when changing this part
-  while (path.size() > 1 && from.Distance(path[1]) < 40.0f) {
-    //while (path.size() > 1) {
-    if (!DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[1], radius)) {
+
+  while (path.size() > 1) {
+
+    bool hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius * 1.5f);
+
+    if (ctx.bot->GetPathfinder().PathIsChoked(0, radius)) {
+      hit = RadiusRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius);
+    }
+
+    if (!hit) {
       path.erase(path.begin());
       current = path.front();
     } else {
@@ -1257,7 +1264,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   if (path.size() == 1 && path.front().DistanceSq(game.GetPosition()) < 2.0f * 2.0f) {
-    path.clear();
+  //  path.clear();
   }
 
   if (path.size() != path_size) {

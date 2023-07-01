@@ -44,20 +44,36 @@ void SteeringBehavior::Flee(Bot& bot, Vector2f target) {
 void SteeringBehavior::Arrive(Bot& bot, Vector2f target, float deceleration) {
   auto& game = bot.GetGame();
   float max_speed = game.GetMaxSpeed();
+  // the desired final speed
+  float final_speed = 0.0f;
 
   Vector2f to_target = target - game.GetPosition();
+  //float current_speed = game.GetPlayer().velocity.Length();
+  // speed flying towards target waypoint
+  float current_speed = (Normalize(game.GetPlayer().velocity).Dot(Normalize(to_target))) * game.GetPlayer().velocity.Length();
   float distance = to_target.Length();
+  float thrust = game.GetThrust();
+  // how long it takes to stop
+  float time_to_zero = std::abs(current_speed) / thrust;
+  // how many tiles it needs to travel to adjust to this speed
+  float braking_distance = ((current_speed + final_speed) / 2.0f) * time_to_zero;
 
   if (distance > 0) {
-    float speed = distance / deceleration;
+    float speed = max_speed;
+
+    if (distance < braking_distance) {
+      // the speed it can move at with time to stop
+      speed = (distance / time_to_zero) * 2.0f;
+    }
 
     speed = std::min(speed, max_speed);
 
-    Vector2f desired = to_target * (speed / distance);
+    Vector2f desired = Normalize(to_target) * speed;
 
     force_ += desired - game.GetPlayer().velocity;
   }
 }
+
 void SteeringBehavior::AnchorSpeed(Bot& bot, Vector2f target) {
   auto& game = bot.GetGame();
   float speed = game.GetMaxSpeed();

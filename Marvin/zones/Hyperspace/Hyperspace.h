@@ -62,7 +62,7 @@ class HSGatherFlagsNode : public behavior::BehaviorNode {
 
  private:
   bool InFlagCollectingShip(uint64_t ship);
-  Flag* SelectFlag(behavior::ExecuteContext& ctx);
+  const Flag* SelectFlag(behavior::ExecuteContext& ctx);
 };
 
 class HSSetDefensePositionNode : public behavior::BehaviorNode {

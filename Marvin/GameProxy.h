@@ -161,7 +161,7 @@ class GameProxy {
   virtual std::vector<Weapon*> GetWeapons() = 0;
   virtual const std::vector<BallData>& GetBalls() const = 0;
   virtual const std::vector<Green>& GetGreens() const = 0;
-  virtual std::vector<Flag> GetDroppedFlags() = 0;
+  virtual const std::vector<Flag>& GetDroppedFlags() = 0;
 
   virtual void SetWindowFocus() = 0;
 

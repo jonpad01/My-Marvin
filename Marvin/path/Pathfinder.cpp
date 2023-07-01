@@ -200,7 +200,35 @@ std::vector<Vector2f> Pathfinder::SmoothPath(Bot& bot, const std::vector<Vector2
   return result;
 }
 
+bool Pathfinder::PathIsChoked(std::size_t index, float radius) {
 
+  int check = (int)(radius + 0.5f);
+  bool north_choked = false;
+  bool south_choked = false;
+  bool east_choked = false;
+  bool west_choked = false;
+
+  for (int i = 1; i <= check; i++) {
+    Vector2f North = path_[index] - MapCoord(0, i);
+    Vector2f South = path_[index] + MapCoord(0, i);
+    Vector2f East = path_[index] + MapCoord(i, 0);
+    Vector2f West = path_[index] - MapCoord(i, 0);
+
+    if (processor_->GetGame().GetMap().IsSolid(North)) {
+      north_choked = true;
+    }
+    if (processor_->GetGame().GetMap().IsSolid(South)) {
+      south_choked = true;
+    }
+    if (processor_->GetGame().GetMap().IsSolid(West)) {
+      west_choked = true;
+    }
+    if (processor_->GetGame().GetMap().IsSolid(East)) {
+      east_choked = true;
+    }
+  }
+  return north_choked || south_choked || east_choked || west_choked;
+}
 
 std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius) {
   bool build = true;
@@ -216,9 +244,14 @@ std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f t
 
       float distance = next.Distance(pos);
 
+      bool hit = DiameterRayCastHit(bot, pos, next, radius);
+
+      if (PathIsChoked(0, radius)) {
+        hit = RadiusRayCastHit(bot, pos, next, radius);
+      }
 
       // Rebuild the path if the bot isn't in line of sight of its next node.
-      if (!DiameterRayCastHit(bot, pos, next, radius)) {
+      if (!hit) {
        build = false;
       }
     }

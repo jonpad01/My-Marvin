@@ -67,6 +67,8 @@ struct Pathfinder {
   void SetPathableNodes(const Map& map, float radius);
   void DebugUpdate(const Vector2f& position);
 
+  bool PathIsChoked(std::size_t index, float radius);
+
  private:
   float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius);
   struct NodeCompare {
