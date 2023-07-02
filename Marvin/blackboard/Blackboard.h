@@ -166,6 +166,9 @@ class Blackboard {
     freq_lock_ = false;
     swarm_ = false;
     command_lock_ = false;  
+    can_flag = true;
+    team_has_summoner = false;
+    update_lancs_flag = true;
   }
 
   void SetBDBaseIndex(std::size_t index) { bd_base_index_ = index; }

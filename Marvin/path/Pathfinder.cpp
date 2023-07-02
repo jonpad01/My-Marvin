@@ -35,14 +35,15 @@ namespace path {
       }
     }
 
-NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
+NodePoint ToNodePoint(Vector2f v) {
   NodePoint np;
 
   np.x = (uint16_t)v.x;
   np.y = (uint16_t)v.y;
 
-  Vector2f check_pos(np.x, np.y);
+  //Vector2f check_pos(np.x, np.y);
 
+  #if 0
   // in case the start or end point isnt on a pathable node, attmept to find one nearby
   if (!map.CanPathOn(check_pos, radius + 0.5f)) {
     int check_diameter = (int)((radius + 0.5f) * 2) + 1;
@@ -61,6 +62,8 @@ NodePoint ToNodePoint(const Vector2f v, float radius, const Map& map) {
       }
     }
   }
+  #endif
+
 
   return np;
 }
@@ -78,9 +81,16 @@ inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* t
 Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
     : processor_(std::move(processor)), regions_(regions) {}
 
-std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vector2f>& mines, const Vector2f& from,
-                                           const Vector2f& to, float radius) {
+std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vector2f>& mines, Vector2f from,
+                                           Vector2f to, float radius) {
   std::vector<Vector2f> path;
+
+  if (!map.CanOverlapTile(from, radius)) {
+        from = GetPathableNeighbor(map, regions_, from, radius);
+  }
+  if (!map.CanOverlapTile(to, radius)) {
+        to = GetPathableNeighbor(map, regions_, to, radius);
+  }
 
   // Clear the touched nodes before pathfinding.
   for (Node* node : touched_nodes_) {
@@ -89,8 +99,8 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vec
   }
   touched_nodes_.clear();
 
-  Node* start = processor_->GetNode(ToNodePoint(from, radius, map));
-  Node* goal = processor_->GetNode(ToNodePoint(to, radius, map));
+  Node* start = processor_->GetNode(ToNodePoint(from));
+  Node* goal = processor_->GetNode(ToNodePoint(to));
 
   if (start == nullptr || goal == nullptr) {
     return path;
@@ -238,24 +248,21 @@ std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f t
     if (path_.back().DistanceSq(to) < 3 * 3) {
       Vector2f pos = processor_->GetGame().GetPosition();
       Vector2f next = path_.front();
-      Vector2f direction = Normalize(next - pos);
-      Vector2f side = Perpendicular(direction);
-      float radius = processor_->GetGame().GetShipSettings().GetRadius();
 
-      float distance = next.Distance(pos);
-
-      bool hit = DiameterRayCastHit(bot, pos, next, radius);
+      //diameter cast causes a lot of rebuilding radius seems good
+      bool hit = RadiusRayCastHit(bot, pos, next, radius);
 
       if (PathIsChoked(0, radius)) {
-        hit = RadiusRayCastHit(bot, pos, next, radius);
+         //hit = RayCastHit(bot, pos, next, radius);
       }
 
       // Rebuild the path if the bot isn't in line of sight of its next node.
       if (!hit) {
-       build = false;
+        build = false;
       }
     }
   }
+  
 
   if (build) {
     std::vector<Vector2f> mines;
@@ -294,7 +301,7 @@ float Pathfinder::GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
   return sqrt(closest_sq);
 }
 
-void Pathfinder::CreateMapWeights(const Map& map) {
+void Pathfinder::CreateMapWeights(const Map& map, float radius) {
 
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
@@ -313,13 +320,33 @@ void Pathfinder::CreateMapWeights(const Map& map) {
       // Nodes are initialized with a weight of 1.0f, so never calculate when the distance is greater or equal
       // because the result will be less than 1.0f.
       if (distance < close_distance) {
-        float weight = 8.0f / distance;
+        float weight = close_distance - distance;
         //paths directly next to a wall will be a last resort, 1 tile from wall very unlikely
-        node->weight = (float)std::pow(weight, 4.0);
-        node->previous_weight = node->weight;
+        //node->weight = (float)std::pow(weight, 4.0);
+        node->weight = weight;
+        node->previous_weight = weight;
       }
     }
   }
+}
+
+Vector2f Pathfinder::GetPathableNeighbor(const Map& map, RegionRegistry& regions, Vector2f position, float radius) {
+  
+  Vector2f check_pos = position;
+  int check_diameter = (int)((radius + 0.5f) * 2) + 1;
+
+  // start in the center and search outward
+  for (int i = 1; i < check_diameter; i++) {
+    for (int y = -i; y <= i; y++) {
+      for (int x = -i; x <= i; x++) {
+        check_pos = Vector2f(position.x + (float)x, position.y + (float)y);
+        if (map.CanOverlapTile(check_pos, radius) && regions.IsConnected(position, check_pos)) {
+          return check_pos;
+        }
+      }
+    }
+  }
+  return check_pos;
 }
 
 void Pathfinder::SetPathableNodes(const Map& map, float radius) {
@@ -330,7 +357,7 @@ void Pathfinder::SetPathableNodes(const Map& map, float radius) {
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
-      if (map.CanPathOn(Vector2f(x, y), radius)) {
+      if (map.CanOverlapTile(Vector2f(x, y), radius)) {
         node->is_pathable = true;
       }
       if (map.CanOccupy(Vector2f(x, y), radius)) {

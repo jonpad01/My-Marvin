@@ -65,7 +65,7 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
 
     Vector2f check_pos(world_x, world_y);
 
-    //if (!map_.CanPathOn(check_pos, radius)) continue;
+   // if (!map_.CanOverlapTile(check_pos, radius)) continue;
 
     NodePoint current_point(world_x, world_y);
     Node* current = GetNode(current_point);

@@ -75,7 +75,7 @@ void Bot::LoadForRadius() {
   regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
   regions_->CreateAll(game_->GetMap(), radius_);
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  pathfinder_->CreateMapWeights(game_->GetMap());
+  pathfinder_->CreateMapWeights(game_->GetMap(), radius_);
   pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
 
   // if base paths isnt null then its safe to rebuild
@@ -105,7 +105,7 @@ void Bot::Load() {
   log.Write("Regions created", timer.GetElapsedTime());
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   log.Write("Pathfinder created", timer.GetElapsedTime());
-  pathfinder_->CreateMapWeights(game_->GetMap());
+  pathfinder_->CreateMapWeights(game_->GetMap(), radius_);
   log.Write("Map Weights created", timer.GetElapsedTime());
   pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
   log.Write("Pathable Nodes created", timer.GetElapsedTime());
@@ -172,6 +172,7 @@ void Bot::Update(float dt) {
   int ship = game_->GetPlayer().ship;
   
   UpdateState state = game_->Update(dt);
+  g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
   if (state == UpdateState::Wait) {
     return;
@@ -190,8 +191,6 @@ void Bot::Update(float dt) {
     return;
   }
  
-  g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
-
   steering_.Reset();
   ctx_.dt = dt;
 
@@ -229,12 +228,6 @@ void Bot::Update(float dt) {
     g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
 #endif
 
-  if (radius_ != radius && ship != 8) {
-    pathfinder_->SetPathableNodes(game_->GetMap(), radius);
-    radius_ = radius;
-    g_RenderState.RenderDebugText("SetPathableNodes: %llu", timer.GetElapsedTime());
-  }
-
   behavior_->Update(ctx_);
 
   g_RenderState.RenderDebugText("Behavior: %llu", timer.GetElapsedTime());
@@ -266,7 +259,7 @@ void Bot::Move(const Vector2f& target, float target_distance) {
   float distance = bot_player.position.Distance(target);
 
   if (distance > target_distance) {
-    steering_.Arrive(*this, target, game_->GetThrust());
+    steering_.Arrive(*this, target, 0);
   }
 
   else if (distance <= target_distance) {
@@ -1244,15 +1237,18 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
-  // this is an easy place to create out of bounds access violations
-  // always check/test the result when changing this part
-
+  // this code culls the front of the path as the ship moves along its nodes
+  // it culls nodes using line of sight
   while (path.size() > 1) {
-
-    bool hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius * 1.5f);
+    // this check is good with wider than ship radius, keeps ship from grazing corners of walls
+    // works very good in tubes because overwide radius check ensures the nodes wont get wiped until
+    // the bot is on top of them
+    // this check is directly tied to how the pathfinder decides to rebuild the path in the createpath function
+    // value of 1.5 to 2.0 times radius seems good
+    bool hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius * 2.0f);
 
     if (ctx.bot->GetPathfinder().PathIsChoked(0, radius)) {
-      hit = RadiusRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius);
+     // hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius);
     }
 
     if (!hit) {
