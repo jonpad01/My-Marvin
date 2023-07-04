@@ -190,7 +190,7 @@ void Bot::Update(float dt) {
     LoadForRadius();
     return;
   }
- 
+
   steering_.Reset();
   ctx_.dt = dt;
 
@@ -265,7 +265,7 @@ void Bot::Move(const Vector2f& target, float target_distance) {
   else if (distance <= target_distance) {
     Vector2f to_target = target - bot_player.position;
 
-    steering_.Seek(*this, target - Normalize(to_target) * target_distance);
+    steering_.Arrive(*this, target - Normalize(to_target) * target_distance, 0);
   }
 }
 
@@ -644,8 +644,13 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-
   auto& game = ctx.bot->GetGame();
+
+    // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(839, 223), 0.95);
+  // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(522, 381), 0.95);
+ //  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), 0.95);
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(962, 63), 0.95);
+  return behavior::ExecuteResult::Failure;
 
   if (!game.GetPlayer().active) {
     g_RenderState.RenderDebugText("  RespawnCheckNode(fail): %llu", timer.GetElapsedTime());
@@ -1194,7 +1199,7 @@ bool AnchorBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
 
         value *= heading_value;
 
-        if (value < best_value && game.GetMap().CanOccupy(check + offsets[i], radius)) {
+        if (value < best_value && game.GetMap().CanTraverse(pos, check + offsets[i], radius)) {
           best_value = value;
           best_index = i;
         }
@@ -1244,12 +1249,9 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     // works very good in tubes because overwide radius check ensures the nodes wont get wiped until
     // the bot is on top of them
     // this check is directly tied to how the pathfinder decides to rebuild the path in the createpath function
-    // value of 1.5 to 2.0 times radius seems good
-    bool hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius * 2.0f);
-
-    if (ctx.bot->GetPathfinder().PathIsChoked(0, radius)) {
-     // hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius);
-    }
+    // value of 1.055 will clear line of sight in tubes
+    // value of 1.1 wont clear line of sight in tubes
+    bool hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius * 1.055f);
 
     if (!hit) {
       path.erase(path.begin());
@@ -1260,7 +1262,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   if (path.size() == 1 && path.front().DistanceSq(game.GetPosition()) < 2.0f * 2.0f) {
-  //  path.clear();
+    path.clear();
   }
 
   if (path.size() != path_size) {

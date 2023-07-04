@@ -105,6 +105,8 @@ UpdateState ContinuumGameProxy::Update(float dt) {
     FetchGreens();
     FetchChat();
     FetchWeapons();
+
+    //map_->SetMinedTiles(GetEnemyMines());
   
   return UpdateState::Clear;
 }
@@ -339,6 +341,7 @@ void ContinuumGameProxy::FetchWeapons() {
   u32 weapon_ptrs = (ptr + 0x21F4);
 
   weapons_.clear();
+  enemy_mines_.clear();
 
   for (size_t i = 0; i < weapon_count; ++i) {
     u32 weapon_data = *(u32*)(weapon_ptrs + i * 4);
@@ -347,6 +350,7 @@ void ContinuumGameProxy::FetchWeapons() {
     WeaponType type = data->data.type;
 
     float total_milliseconds = 0.0f;
+    bool place_mine = false;
 
     switch (type) {
       case WeaponType::Bomb:
@@ -355,6 +359,10 @@ void ContinuumGameProxy::FetchWeapons() {
         total_milliseconds = this->GetSettings().GetBombAliveTime();
         if (data->data.alternate) {
           total_milliseconds = this->GetSettings().GetMineAliveTime();
+          const Player* weapon_player = GetPlayerById(data->pid);
+          if (weapon_player != nullptr && weapon_player->frequency != GetPlayer().frequency) {
+            place_mine = true;
+          }
         }
       } break;
       case WeaponType::Burst:
@@ -376,6 +384,7 @@ void ContinuumGameProxy::FetchWeapons() {
     if (alive_milliseconds > total_milliseconds) alive_milliseconds = total_milliseconds;
 
     weapons_.emplace_back(data, total_milliseconds - alive_milliseconds);
+    if (place_mine) enemy_mines_.emplace_back(data, total_milliseconds - alive_milliseconds);
   }
 }
 
@@ -432,6 +441,16 @@ std::vector<ChatMessage> ContinuumGameProxy::GetChat() {
 
 const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
   return balls_;
+}
+
+std::vector<Weapon*> ContinuumGameProxy::GetEnemyMines() {
+  std::vector<Weapon*> mines;
+
+  for (std::size_t i = 0; i < enemy_mines_.size(); ++i) {
+    mines.push_back(&enemy_mines_[i]);
+  }
+
+  return mines;
 }
 
 const std::vector<Green>& ContinuumGameProxy::GetGreens() const {

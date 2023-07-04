@@ -30,7 +30,6 @@ struct Node {
   float previous_weight;
 
   bool is_pathable;
-  bool can_occupy;
 
   u8 flags;
 
@@ -41,8 +40,7 @@ struct Node {
         f(0.0f),
         weight(1.0f),
         previous_weight(1.0f),
-        is_pathable(false),
-        can_occupy(false)
+        is_pathable(false)
   {}
 };
 

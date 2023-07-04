@@ -7,7 +7,9 @@
 
 namespace marvin {
 
-Map::Map(const TileData& tile_data) : tile_data_(tile_data) {}
+Map::Map(const TileData& tile_data) : tile_data_(tile_data) {
+  memset(mine_map, 0, sizeof(mine_map));
+}
 
 TileId Map::GetTileId(u16 x, u16 y) const {
   if (x >= 1024 || y >= 1024) return 0;
@@ -55,6 +57,84 @@ TileId Map::GetTileId(const Vector2f& position) const {
   return GetTileId(x, y);
 }
 
+bool Map::IsMined(MapCoord coord) const {
+  return mine_map[coord.y * kMapExtent + coord.x] == 1;
+}
+
+void Map::SetMinedTiles(std::vector<Weapon*> mines) {
+  ClearMinedTiles();
+  for (Weapon* mine : mines) {
+    SetMinedTile(mine->GetPosition());
+  }
+}
+
+void Map::SetMinedTile(MapCoord coord) {
+  mine_map[coord.y * kMapExtent + coord.x] = 1;
+  mined_tile_index_list.emplace_back(coord.y * kMapExtent + coord.x);
+}
+
+void Map::ClearMinedTiles() {
+  for (std::size_t i = 0; i < mined_tile_index_list.size(); i++) {
+    mine_map[mined_tile_index_list[i]] = 0;
+  }
+  mined_tile_index_list.clear();
+}
+
+// if any tile in the square is solid return true
+bool Map::IsSolidSquare(MapCoord top_left, int length) const {
+  for (uint16_t x = 0; x < length; x++) {
+    for (uint16_t y = 0; y < length; y++) {
+      MapCoord pos(top_left.x + x, top_left.y + y);
+      if (IsSolid(pos)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+// get a list of positions/orientation points that the ship can fit on the selected tile 
+std::vector<bool> Map::OccupyMap(MapCoord start, float radius) const {
+
+  std::vector<bool> ship_map;
+  int diameter = int(radius + 0.5f) * 2;
+
+  for (int x = -diameter + 1; x <= 0; x++) {
+    for (int y = -diameter + 1; y <= 0; y++) {
+      MapCoord pos(start.x + x, start.y + y);
+      if (IsSolidSquare(pos, diameter)) {
+        ship_map.emplace_back(true);
+      } else {
+        ship_map.emplace_back(false);
+      }
+    }
+  }
+  return ship_map;
+}
+// for 1 tile steps
+bool Map::CanMoveTo(MapCoord from, MapCoord to, float radius) const {
+
+ // MapCoord cardinal = from - to;
+
+  std::vector<bool> fromMap = OccupyMap(from, radius);
+  std::vector<bool> toMap = OccupyMap(to, radius);
+
+  // compare the lists, if the ship was able to complete a 1 tile step in the same direction return true
+  for (std::size_t i = 0; i < fromMap.size(); i++) {
+    if (fromMap[i] == true || toMap[i] == true) {
+    //if (fromMap[i] == MapCoord(0, 0) || toMap[i] == MapCoord(0, 0)) {
+      continue;
+    } else {
+      return true;
+    }
+
+    //if (fromMap[i] - toMap[i] == cardinal) {
+     // return true;
+   // }
+  }
+  return false;
+}
+
+//#if 0
 bool Map::CanPathOn(const Vector2f& position, float radius) const {
   /* Peg the check position to the same tile on the ship and expand the search for every tile it
   *  will occupy at that point.
@@ -66,7 +146,7 @@ bool Map::CanPathOn(const Vector2f& position, float radius) const {
      be considered pathathble for the bot to correctly path through tubes with non solid corners
   */
 
-  int tile_diameter = (int)((radius + 0.5f) * 2);
+  int tile_diameter = int((radius + 0.5f) * 2);
   // Direction direction = GetDirection(Normalize(to - from));
   Vector2f offset;
 
@@ -164,7 +244,7 @@ bool Map::CornerPointCheck(int sX, int sY, int diameter) const {
   }
   return true;
 }
-
+//#endif
 /*
 look at the starting tile and see if the ship can step into the ending tile
 orientation is the ships current orientation on the start tile
@@ -211,6 +291,8 @@ bool Map::CanStepInto(const Vector2f& start, const Vector2f& end, Vector2f* orie
 }
 #endif
 
+
+// doesnt seem to work in the pathfinder
 bool Map::CanTraverse(const Vector2f& start, const Vector2f& end, float radius) const {
   if (!CanOverlapTile(start, radius)) return false;
   if (!CanOverlapTile(end, radius)) return false;
@@ -332,7 +414,7 @@ OccupyRect Map::GetPossibleOccupyRect(const Vector2f& position, float radius) co
         result.start_x = found_start_x;
         result.start_y = found_start_y;
         result.end_x = found_end_x;
-        result.end_x = found_end_y;
+        result.end_y = found_end_y;
 
         result.occupy = true;
         return result;
@@ -343,6 +425,92 @@ OccupyRect Map::GetPossibleOccupyRect(const Vector2f& position, float radius) co
   return result;
 }
 
+Vector2f Map::GetOccupyCenter(const Vector2f& position, float radius) const {
+  u16 d = (u16)(radius * 2.0f);
+  u16 start_x = (u16)position.x;
+  u16 start_y = (u16)position.y;
+
+  u16 far_left = start_x - d;
+  u16 far_right = start_x + d;
+  u16 far_top = start_y - d;
+  u16 far_bottom = start_y + d;
+
+  // Handle wrapping that can occur from using unsigned short
+  if (far_left > 1023) far_left = 0;
+  if (far_right > 1023) far_right = 1023;
+  if (far_top > 1023) far_top = 0;
+  if (far_bottom > 1023) far_bottom = 1023;
+
+  bool solid = IsSolid(start_x, start_y);
+  if (d < 1 || solid) {
+    return position;
+  }
+
+  Vector2f accum;
+  size_t count = 0;
+
+  // Loop over the entire check region and move in the direction of the check tile.
+  // This makes sure that the check tile is always contained within the found region.
+  for (u16 check_y = far_top; check_y <= far_bottom; ++check_y) {
+    s16 dir_y = (start_y - check_y) > 0 ? 1 : (start_y == check_y ? 0 : -1);
+
+    // Skip cardinal directions because the radius is >1 and must be found from a corner region.
+    if (dir_y == 0) continue;
+
+    for (u16 check_x = far_left; check_x <= far_right; ++check_x) {
+      s16 dir_x = (start_x - check_x) > 0 ? 1 : (start_x == check_x ? 0 : -1);
+
+      if (dir_x == 0) continue;
+
+      bool can_fit = true;
+
+      for (s16 y = check_y; std::abs(y - check_y) <= d && can_fit; y += dir_y) {
+        for (s16 x = check_x; std::abs(x - check_x) <= d; x += dir_x) {
+          if (IsSolid(x, y)) {
+            can_fit = false;
+            break;
+          }
+        }
+      }
+
+      if (can_fit) {
+        // Calculate the final region. Not necessary for simple overlap check, but might be useful
+        u16 found_start_x = 0;
+        u16 found_start_y = 0;
+        u16 found_end_x = 0;
+        u16 found_end_y = 0;
+
+        if (check_x > start_x) {
+          found_start_x = check_x - d;
+          found_end_x = check_x;
+        } else {
+          found_start_x = check_x;
+          found_end_x = check_x + d;
+        }
+
+        if (check_y > start_y) {
+          found_start_y = check_y - d;
+          found_end_y = check_y;
+        } else {
+          found_start_y = check_y;
+          found_end_y = check_y + d;
+        }
+
+        Vector2f min(found_start_x, found_start_y);
+        Vector2f max(found_end_x + 1, found_end_y + 1);
+
+        accum += (min + max) * 0.5f;
+        ++count;
+      }
+    }
+  }
+
+  if (count <= 0) return position;
+
+  return accum * (1.0f / count);
+}
+
+// verified working with debugger
 bool Map::CanOverlapTile(const Vector2f& position, float radius) const {
   u16 d = (u16)(radius * 2.0f);
   u16 start_x = (u16)position.x;
@@ -394,7 +562,7 @@ bool Map::CanOverlapTile(const Vector2f& position, float radius) const {
 
   return false;
 }
-
+#if 0
 bool Map::CanOccupy(const Vector2f& position, float radius) const {
   /* Convert the ship into a tiled grid and put each tile of the ship on the test
      position.
@@ -421,7 +589,7 @@ bool Map::CanOccupy(const Vector2f& position, float radius) const {
   }
   return false;
 }
-
+#endif
 bool Map::CanOccupyRadius(const Vector2f& position, float radius) const {
   // rounds 2 tile ships to a 3 tile search
 
@@ -442,6 +610,8 @@ bool Map::CanOccupyRadius(const Vector2f& position, float radius) const {
   }
   return true;
 }
+
+
 
 struct Tile {
   u32 x : 12;

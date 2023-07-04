@@ -7,6 +7,7 @@
 #include "../GameProxy.h"
 #include "../Map.h"
 #include "Node.h"
+#include "../RegionRegistry.h"
 
 namespace marvin {
 namespace path {
@@ -28,9 +29,7 @@ class NodeProcessor {
 
   GameProxy& GetGame() { return game_; }
 
-  bool Mined(std::vector<Vector2f> mines, NodePoint point);
-
-  NodeConnections FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal);
+  NodeConnections FindEdges(Node* node, float radius);
   Node* GetNode(NodePoint point);
   bool IsSolid(u16 x, u16 y) { return map_.IsSolid(x, y); }
 

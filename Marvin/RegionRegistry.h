@@ -26,7 +26,7 @@ MAKE_HASHABLE(marvin::MapCoord, t.x, t.y);
 
 namespace marvin {
 
-    struct SharedRegionOwnership {
+ struct SharedRegionOwnership {
   static constexpr size_t kMaxOwners = 4;
 
   RegionIndex owners[kMaxOwners];

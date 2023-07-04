@@ -19,51 +19,27 @@ or 5 tiles with a weight of 2, and so on. If a tile has a weight of 9, the pathf
 namespace marvin {
 namespace path {
 
-    void Pathfinder::DebugUpdate(const Vector2f& position) {   
-        for (float y = -5.00; y <= 5.0f; y++) {
-        for (float x = -5.0f; x <= 5.0f; x++) {
-            if (!IsValidPosition(Vector2f(position.x + x, position.y + y))) {
-              return;
-            }
-          Node* node = this->processor_->GetNode(NodePoint(uint16_t(position.x + x), uint16_t(position.y + y)));
-          if (node->can_occupy) {
-            Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
-            RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 100, 100));
-            RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 100, 100));
-          }
-        }
+void Pathfinder::DebugUpdate(const Vector2f& position) {
+  for (float y = -5.0; y <= 5.0f; y++) {
+    for (float x = -5.0f; x <= 5.0f; x++) {
+      if (!IsValidPosition(Vector2f(position.x + x, position.y + y))) {
+        return;
+      }
+      Node* node = this->processor_->GetNode(NodePoint(uint16_t(position.x + x), uint16_t(position.y + y)));
+      if (node->is_pathable) {
+        Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
+        RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 100, 100));
+        RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 100, 100));
       }
     }
+  }
+}
 
 NodePoint ToNodePoint(Vector2f v) {
   NodePoint np;
 
   np.x = (uint16_t)v.x;
   np.y = (uint16_t)v.y;
-
-  //Vector2f check_pos(np.x, np.y);
-
-  #if 0
-  // in case the start or end point isnt on a pathable node, attmept to find one nearby
-  if (!map.CanPathOn(check_pos, radius + 0.5f)) {
-    int check_diameter = (int)((radius + 0.5f) * 2) + 1;
-
-    // start in the center and search outward
-    for (int i = 1; i < check_diameter; i++) {
-      for (int y = -i; y <= i; y++) {
-        for (int x = -i; x <= i; x++) {
-          check_pos = Vector2f(np.x + (float)x, np.y + (float)y);
-          if (map.CanPathOn(check_pos, radius)) {
-            np.y += y;
-            np.x += x;
-            return np;
-          }
-        }
-      }
-    }
-  }
-  #endif
-
 
   return np;
 }
@@ -81,14 +57,14 @@ inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* t
 Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
     : processor_(std::move(processor)), regions_(regions) {}
 
-std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vector2f>& mines, Vector2f from,
-                                           Vector2f to, float radius) {
-  std::vector<Vector2f> path;
+std::vector<Vector2f> Pathfinder::FindPath(const Map& map, Vector2f from, Vector2f to, float radius) {
+  //std::vector<Vector2f> path;
+  path_.clear();
 
-  if (!map.CanOverlapTile(from, radius)) {
+  if (!map.CanPathOn(from, radius)) {
         from = GetPathableNeighbor(map, regions_, from, radius);
   }
-  if (!map.CanOverlapTile(to, radius)) {
+  if (!map.CanPathOn(to, radius)) {
         to = GetPathableNeighbor(map, regions_, to, radius);
   }
 
@@ -103,14 +79,14 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vec
   Node* goal = processor_->GetNode(ToNodePoint(to));
 
   if (start == nullptr || goal == nullptr) {
-    return path;
+    return path_;
   }
 
   NodePoint start_p = processor_->GetPoint(start);
   NodePoint goal_p = processor_->GetPoint(goal);
 
   if (!regions_.IsConnected(MapCoord(start_p.x, start_p.y), MapCoord(goal_p.x, goal_p.y))) {
-    return path;
+    return path_;
   }
 
   // clear vector then add start node
@@ -127,7 +103,6 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vec
 
     touched_nodes_.insert(node);
 
-    // this is the only way to break the pathfinder
     if (node == goal) {
       break;
     }
@@ -135,7 +110,8 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vec
     node->flags |= NodeFlag_Closed;
 
     // returns neighbor nodes that are not solid
-    NodeConnections connections = processor_->FindEdges(mines, node, start, goal);
+    NodeConnections connections = processor_->FindEdges(node, radius);
+    //return path_;
 
     for (std::size_t i = 0; i < connections.count; ++i) {
       Node* edge = connections.neighbors[i];
@@ -163,7 +139,7 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vec
   }
 
   if (goal->parent) {
-    path.push_back(Vector2f(start_p.x + 0.5f, start_p.y + 0.5f));
+    path_.push_back(Vector2f(start_p.x + 0.5f, start_p.y + 0.5f));
   }
 
   // Construct path backwards from goal node
@@ -179,12 +155,72 @@ std::vector<Vector2f> Pathfinder::FindPath(const Map& map, const std::vector<Vec
   // Reverse and store as vector
   for (std::size_t i = 0; i < points.size(); ++i) {
     std::size_t index = points.size() - i - 1;
-    Vector2f pos(points[index].x + 0.5f, points[index].y + 0.5f);
+    //Vector2f pos(points[index].x + 0.5f, points[index].y + 0.5f);
+    Vector2f pos(points[index].x, points[index].y);
 
-    path.push_back(pos);
+    //OccupyRect o_rect = map.GetPossibleOccupyRect(pos, radius);
+    //path.push_back(pos);
+    //if (!o_rect.occupy || map.CanOccupyRadius(Vector2f(points[index].x, points[index].y), radius)) {
+    // if (!o_rect.occupy) {
+    //  path_.push_back(pos);
+  //  } else {
+   //   Vector2f min(o_rect.start_x, o_rect.start_y);
+   //   Vector2f max((float)o_rect.end_x + 1.0f, (float)o_rect.end_y + 1.0f);
+
+   //   path_.push_back((min + max) * 0.5f);
+   // }
+    pos = map.GetOccupyCenter(pos, radius);
+
+    path_.push_back(pos);
+    
   }
 
-  return path;
+  return path_;
+}
+
+bool Pathfinder::InTube(const Map& map, Vector2f position, float radius) {
+  for (float x = -1.0f; x <= 1.0f; x++) {
+    for (float y = -1.0f; y <= 1.0f; y++) {
+      Vector2f check(position.x + x, position.y + y);
+      if (CrossCheck(map, check, radius)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool Pathfinder::CrossCheck(const Map& map, Vector2f position, float radius) {
+  bool north = false;
+  bool south = false;
+  bool west = false;
+  bool east = false;
+
+  // snap pos to nearest tile
+  MapCoord pos = ToNearestTile(position);
+
+  uint16_t check_distance = uint16_t(radius + 0.5f) + 1;
+ 
+  for (uint16_t i = 1; i <= check_distance; i++) {
+    // check pos is already on this tile so ignore first pass
+    if (map.IsSolid(MapCoord(pos.x, pos.y - (i - 1)))) {
+      north = true;
+    } 
+    if (map.IsSolid(MapCoord(pos.x, pos.y + i))) {
+      south = true;
+    }
+    if (map.IsSolid(MapCoord(pos.x + i, pos.y))) {
+      east = true;
+    }
+    // check pos is already on this tile so ignore first pass
+    if (map.IsSolid(MapCoord(pos.x - (i - 1), pos.y))) {
+      west = true;
+    }
+  }
+  if ((north && south) || (east && west)) {
+    return true;
+  }
+  return false;
 }
 
 std::vector<Vector2f> Pathfinder::SmoothPath(Bot& bot, const std::vector<Vector2f>& path, float ship_radius) {
@@ -210,37 +246,7 @@ std::vector<Vector2f> Pathfinder::SmoothPath(Bot& bot, const std::vector<Vector2
   return result;
 }
 
-bool Pathfinder::PathIsChoked(std::size_t index, float radius) {
-
-  int check = (int)(radius + 0.5f);
-  bool north_choked = false;
-  bool south_choked = false;
-  bool east_choked = false;
-  bool west_choked = false;
-
-  for (int i = 1; i <= check; i++) {
-    Vector2f North = path_[index] - MapCoord(0, i);
-    Vector2f South = path_[index] + MapCoord(0, i);
-    Vector2f East = path_[index] + MapCoord(i, 0);
-    Vector2f West = path_[index] - MapCoord(i, 0);
-
-    if (processor_->GetGame().GetMap().IsSolid(North)) {
-      north_choked = true;
-    }
-    if (processor_->GetGame().GetMap().IsSolid(South)) {
-      south_choked = true;
-    }
-    if (processor_->GetGame().GetMap().IsSolid(West)) {
-      west_choked = true;
-    }
-    if (processor_->GetGame().GetMap().IsSolid(East)) {
-      east_choked = true;
-    }
-  }
-  return north_choked || south_choked || east_choked || west_choked;
-}
-
-std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius) {
+const std::vector<Vector2f>& Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius) {
   bool build = true;
 
   if (!path_.empty()) {
@@ -249,12 +255,9 @@ std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f t
       Vector2f pos = processor_->GetGame().GetPosition();
       Vector2f next = path_.front();
 
-      //diameter cast causes a lot of rebuilding radius seems good
+      // diameter cast causes a lot of rebuilding radius seems good
+      // this is influenced by how the follow path node culls line of sight nodes
       bool hit = RadiusRayCastHit(bot, pos, next, radius);
-
-      if (PathIsChoked(0, radius)) {
-         //hit = RayCastHit(bot, pos, next, radius);
-      }
 
       // Rebuild the path if the bot isn't in line of sight of its next node.
       if (!hit) {
@@ -265,17 +268,7 @@ std::vector<Vector2f> Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f t
   
 
   if (build) {
-    std::vector<Vector2f> mines;
-    path_.clear();
-    //#if 0
-    for (Weapon* weapon : processor_->GetGame().GetWeapons()) {
-      const Player* weapon_player = processor_->GetGame().GetPlayerById(weapon->GetPlayerId());
-      if (weapon_player == nullptr) continue;
-      if (weapon_player->frequency == processor_->GetGame().GetPlayer().frequency) continue;
-      if (weapon->IsMine()) mines.push_back(weapon->GetPosition());
-    }
-    //#endif
-    path_ = FindPath(processor_->GetGame().GetMap(), mines, from, to, radius);
+    FindPath(processor_->GetGame().GetMap(), from, to, radius);
   }
 
   return path_;
@@ -310,10 +303,7 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
       // Search width is double this number (for 8, searches a 16 x 16 square).
-      int close_distance = 8;
-
-      /* Causes exponentianl weight increase as the path gets closer to wall tiles.  
-      Known Issue: 3 tile gaps and 4 tile gaps will carry the same weight since each tiles closest wall is 2 tiles away.*/
+      int close_distance = (int(radius * 2) + 1) + 3;
 
       float distance = GetWallDistance(map, x, y, close_distance);
 
@@ -340,7 +330,7 @@ Vector2f Pathfinder::GetPathableNeighbor(const Map& map, RegionRegistry& regions
     for (int y = -i; y <= i; y++) {
       for (int x = -i; x <= i; x++) {
         check_pos = Vector2f(position.x + (float)x, position.y + (float)y);
-        if (map.CanOverlapTile(check_pos, radius) && regions.IsConnected(position, check_pos)) {
+        if (map.CanPathOn(check_pos, radius) && regions.IsConnected(position, check_pos)) {
           return check_pos;
         }
       }
@@ -357,11 +347,8 @@ void Pathfinder::SetPathableNodes(const Map& map, float radius) {
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
-      if (map.CanOverlapTile(Vector2f(x, y), radius)) {
+      if (map.CanPathOn(Vector2f(x, y), radius)) {
         node->is_pathable = true;
-      }
-      if (map.CanOccupy(Vector2f(x, y), radius)) {
-        node->can_occupy = true;
       }
     }
   }

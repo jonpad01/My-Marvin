@@ -5,27 +5,7 @@
 namespace marvin {
 namespace path {
 
-bool NodeProcessor::Mined(std::vector<Vector2f> mines, NodePoint point) {
-  if (mines.empty()) {
-    return false;
-  }
-
-  for (std::size_t i = 0; i < mines.size(); i++) {
-    NodePoint np;
-    np.x = (uint16_t)mines[i].x;
-    np.y = (uint16_t)mines[i].y;
-
-    if (np.x - 1 == point.x || np.x == point.x || np.x + 1 == point.x) {
-      if (np.y - 1 == point.y || np.y == point.y || np.y + 1 == point.y) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node, Node* start, Node* goal) {
+NodeConnections NodeProcessor::FindEdges(Node* node, float radius) {
   /* There are some cases where the ship can path into a node diagonally but should not (diagonal gaps)
      when finding edges, only allow diagonal movement if both of the other sides can be pathed on
 
@@ -36,6 +16,7 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
   connections.count = 0;
 
   NodePoint base_point = GetPoint(node);
+  MapCoord base(base_point.x, base_point.y);
 
   bool north = false;
   bool south = false;
@@ -45,41 +26,30 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
   Vector2f pos;
   std::vector<Vector2f> neighbors{North(pos), South(pos), West(pos), East(pos)};
 
-  // for (int y = -1; y <= 1; ++y) {
-  // for (int x = -1; x <= 1; ++x) {
-  //   if (x == 0 && y == 0) {
-  //     continue;
-  //   }
-
   for (std::size_t i = 0; i < neighbors.size(); i++) {
-
     uint16_t world_x = base_point.x + (uint16_t)neighbors[i].x;
     uint16_t world_y = base_point.y + (uint16_t)neighbors[i].y;
+    MapCoord pos(world_x, world_y);
 
-    // uint16_t world_x = base_point.x + x;
-    // uint16_t world_y = base_point.y + y;
-
-    if (map_.IsSolid(world_x, world_y)) {
-      continue;
+    if (!map_.CanMoveTo(base, pos, radius)) {
+      // continue;
     }
-
-    Vector2f check_pos(world_x, world_y);
-
-   // if (!map_.CanOverlapTile(check_pos, radius)) continue;
 
     NodePoint current_point(world_x, world_y);
     Node* current = GetNode(current_point);
 
-    if (current) {
-      if (!current->is_pathable) {
-        continue;
-      } else if (Mined(mines, current_point)) {
-        current->weight = 100.0f;
-      } else if (map_.GetTileId(current_point.x, current_point.y) == kSafeTileId) {
-        current->weight = 10.0f;
-      } else if (current->weight != current->previous_weight) {
-        current->weight = current->previous_weight;
-      }
+    if (!current) {
+      continue;
+    }
+    if (!current->is_pathable) {
+     // continue;
+    }
+    // if (map_.IsMined(MapCoord(world_x, world_y))) {
+    //   current->weight = 100.0f;
+    if (map_.GetTileId(current_point.x, current_point.y) == kSafeTileId) {
+      current->weight = 10.0f;
+    } else if (current->weight != current->previous_weight) {
+      current->weight = current->previous_weight;
     }
 
     connections.neighbors[connections.count++] = current;
@@ -114,8 +84,8 @@ NodeConnections NodeProcessor::FindEdges(std::vector<Vector2f> mines, Node* node
       } break;
     }
   }
-      // }
-      return connections;
+  // }
+  return connections;
 }
 
 Node* NodeProcessor::GetNode(NodePoint point) {

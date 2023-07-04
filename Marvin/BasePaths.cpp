@@ -25,7 +25,7 @@ void BasePaths::BuildPaths(const std::vector<MapCoord>& start, const std::vector
     Vector2f position_1 = start[i];
     Vector2f position_2 = end[i];
 
-    std::vector<Vector2f> base_path = pathfinder.FindPath(map, std::vector<Vector2f>(), position_1, position_2, radius);
+    std::vector<Vector2f> base_path = pathfinder.FindPath(map, position_1, position_2, radius);
 
     base_paths_.push_back(base_path);
   }

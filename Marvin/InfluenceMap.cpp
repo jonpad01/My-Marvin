@@ -245,7 +245,7 @@ void InfluenceMap::CastPlayer(const Map& map, const Player& player, Bot& bot) {
      }
     }
 }
-
+#if 0
 void InfluenceMap::FloodFillInfluence(const Map& map, GameProxy& game, const Player& player, float radius) {
   if (!player.active || !IsValidPosition(player.position)) {
     return;
@@ -350,7 +350,7 @@ void InfluenceMap::FloodFillInfluence(const Map& map, GameProxy& game, const Pla
     }
   }
 }
-
+#endif
 
 CastResult InfluenceMap::CastInfluence(const Map& map, Vector2f from, Vector2f direction, float max_length, RayWidth width, float value, bool perform_collision) {
   CastResult result;

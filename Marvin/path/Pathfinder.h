@@ -53,22 +53,22 @@ class PriorityQueue {
 struct Pathfinder {
  public:
   Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions);
-  std::vector<Vector2f> FindPath(const Map& map, const std::vector<Vector2f>& mines, Vector2f from, Vector2f to,
-                                 float radius);
+  std::vector<Vector2f> FindPath(const Map& map, Vector2f from, Vector2f to, float radius);
 
   const std::vector<Vector2f>& GetPath() { return path_; }
   void SetPath(std::vector<Vector2f> path) { path_ = path; }
 
   std::vector<Vector2f> SmoothPath(Bot& bot, const std::vector<Vector2f>& path, float ship_radius);
 
-  std::vector<Vector2f> CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius);
+  const std::vector<Vector2f>& CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius);
 
   void CreateMapWeights(const Map& map, float radius);
   void SetPathableNodes(const Map& map, float radius);
   void DebugUpdate(const Vector2f& position);
 
   Vector2f GetPathableNeighbor(const Map& map, RegionRegistry& regions, Vector2f position, float radius);
-  bool PathIsChoked(std::size_t index, float radius);
+  bool InTube(const Map& map, Vector2f position, float radius);
+  bool CrossCheck(const Map& map, Vector2f position, float radius);
 
  private:
   float GetWallDistance(const Map& map, u16 x, u16 y, u16 radius);

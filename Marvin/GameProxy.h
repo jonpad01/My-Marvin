@@ -159,6 +159,7 @@ class GameProxy {
   virtual const Player* GetPlayerByName(std::string_view name) const = 0;
 
   virtual std::vector<Weapon*> GetWeapons() = 0;
+  virtual std::vector<Weapon*> GetEnemyMines() = 0;
   virtual const std::vector<BallData>& GetBalls() const = 0;
   virtual const std::vector<Green>& GetGreens() const = 0;
   virtual const std::vector<Flag>& GetDroppedFlags() = 0;

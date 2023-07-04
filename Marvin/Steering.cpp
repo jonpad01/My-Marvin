@@ -59,12 +59,8 @@ void SteeringBehavior::Arrive(Bot& bot, Vector2f target, float deceleration) {
   float braking_distance = ((current_speed + final_speed) / 2.0f) * time_to_zero;
 
   if (distance > 0) {
-    float speed = max_speed;
-
-    if (distance < braking_distance) {
       // the speed it can move at with time to stop
-      speed = (distance / time_to_zero) * 2.0f;
-    }
+    float speed = (distance / time_to_zero) * 2.0f;
 
     speed = std::min(speed, max_speed);
 

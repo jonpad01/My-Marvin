@@ -84,4 +84,57 @@ class Vector2i {
   inline Vector2i operator/(int v) const { return Vector2i(x / v, y / v); }
 };
 
+inline bool IsDiagonal(Vector2i v) {
+  return v.x != 0 && v.y != 0;
+}
+
+inline Vector2i Perpendicular(Vector2i v) {
+  // return Vector2i(-v.y, v.x);
+  Vector2i result;
+  if (v.x == -1) {
+    result.y = 1;
+    if (v.y == -1) {
+      result.x = -1;
+    }
+    if (v.y == 1) {
+      result.x = 1;
+    }
+    return result;
+  }
+
+  if (v.x == 1) {
+    result.y = 1;
+    if (v.y == -1) {
+      result.x = 1;
+    }
+    if (v.y == 1) {
+      result.x = -1;
+    }
+    return result;
+  }
+
+  if (v.y == -1) {
+    result.x = 1;
+    if (v.x == -1) {
+      result.y = -1;
+    }
+    if (v.x == 1) {
+      result.y = 1;
+    }
+    return result;
+  }
+
+  if (v.y == 1) {
+    result.x = 1;
+    if (v.x == -1) {
+      result.y = 1;
+    }
+    if (v.x == 1) {
+      result.y = -1;
+    }
+    return result;
+  }
+
+  return result;
+}
 }  // namespace marvin

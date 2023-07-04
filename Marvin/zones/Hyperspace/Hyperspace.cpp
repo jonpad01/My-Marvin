@@ -933,6 +933,11 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
   const Player* anchor = bb.GetAnchor();
   bool flagging = (game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91);
 
+  //ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), radius);
+  //ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(839, 223), radius);
+  // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(522, 381), radius);
+  //return behavior::ExecuteResult::Success;
+
   if (!flagging) {
     g_RenderState.RenderDebugText("  HSGatherFlagsNode(Not Flagging): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
