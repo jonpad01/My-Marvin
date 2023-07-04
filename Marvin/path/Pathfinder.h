@@ -53,7 +53,7 @@ class PriorityQueue {
 struct Pathfinder {
  public:
   Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions);
-  std::vector<Vector2f> FindPath(const Map& map, Vector2f from, Vector2f to, float radius);
+  const std::vector<Vector2f>& FindPath(const Map& map, Vector2f from, Vector2f to, float radius);
 
   const std::vector<Vector2f>& GetPath() { return path_; }
   void SetPath(std::vector<Vector2f> path) { path_ = path; }

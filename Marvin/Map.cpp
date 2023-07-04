@@ -96,11 +96,12 @@ bool Map::IsSolidSquare(MapCoord top_left, int length) const {
 std::vector<bool> Map::OccupyMap(MapCoord start, float radius) const {
 
   std::vector<bool> ship_map;
-  int diameter = int(radius + 0.5f) * 2;
+  uint16_t diameter = uint16_t(radius + 0.5f) * 2;
+  MapCoord offset(start.x - diameter + 1, start.y - diameter + 1);
 
-  for (int x = -diameter + 1; x <= 0; x++) {
-    for (int y = -diameter + 1; y <= 0; y++) {
-      MapCoord pos(start.x + x, start.y + y);
+  for (uint16_t x = 0; x < diameter; x++) {
+    for (uint16_t y = 0 + 1; y < diameter; y++) {
+      MapCoord pos(offset.x + x, offset.y + y);
       if (IsSolidSquare(pos, diameter)) {
         ship_map.emplace_back(true);
       } else {
@@ -113,7 +114,7 @@ std::vector<bool> Map::OccupyMap(MapCoord start, float radius) const {
 // for 1 tile steps
 bool Map::CanMoveTo(MapCoord from, MapCoord to, float radius) const {
 
- // MapCoord cardinal = from - to;
+  //MapCoord cardinal = from - to;
 
   std::vector<bool> fromMap = OccupyMap(from, radius);
   std::vector<bool> toMap = OccupyMap(to, radius);
@@ -127,8 +128,8 @@ bool Map::CanMoveTo(MapCoord from, MapCoord to, float radius) const {
       return true;
     }
 
-    //if (fromMap[i] - toMap[i] == cardinal) {
-     // return true;
+  //  if (fromMap[i] - toMap[i] == cardinal) {
+  //    return true;
    // }
   }
   return false;

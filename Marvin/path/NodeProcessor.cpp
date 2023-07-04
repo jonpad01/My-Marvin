@@ -29,10 +29,12 @@ NodeConnections NodeProcessor::FindEdges(Node* node, float radius) {
   for (std::size_t i = 0; i < neighbors.size(); i++) {
     uint16_t world_x = base_point.x + (uint16_t)neighbors[i].x;
     uint16_t world_y = base_point.y + (uint16_t)neighbors[i].y;
-    MapCoord pos(world_x, world_y);
+    MapCoord current_pos(world_x, world_y);
 
-    if (!map_.CanMoveTo(base, pos, radius)) {
-      // continue;
+    if (!map_.CanOccupyRadius(pos, radius)) {
+      if (!map_.CanMoveTo(base, current_pos, radius)) {
+        continue;
+      }
     }
 
     NodePoint current_point(world_x, world_y);
@@ -41,12 +43,12 @@ NodeConnections NodeProcessor::FindEdges(Node* node, float radius) {
     if (!current) {
       continue;
     }
-    if (!current->is_pathable) {
+    //if (!current->is_pathable) {
      // continue;
-    }
-    // if (map_.IsMined(MapCoord(world_x, world_y))) {
-    //   current->weight = 100.0f;
-    if (map_.GetTileId(current_point.x, current_point.y) == kSafeTileId) {
+   // }
+    if (map_.IsMined(MapCoord(world_x, world_y))) {
+      current->weight = 100.0f;
+    } else if (map_.GetTileId(current_point.x, current_point.y) == kSafeTileId) {
       current->weight = 10.0f;
     } else if (current->weight != current->previous_weight) {
       current->weight = current->previous_weight;

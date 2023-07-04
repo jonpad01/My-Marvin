@@ -228,6 +228,12 @@ void Bot::Update(float dt) {
     g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
 #endif
 
+      pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(839, 223), 0.95);
+    // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(522, 381), 0.95);
+    //  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), 0.95);
+    //pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(962, 63), 0.95);
+    return;
+
   behavior_->Update(ctx_);
 
   g_RenderState.RenderDebugText("Behavior: %llu", timer.GetElapsedTime());
@@ -645,12 +651,6 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
 behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
-
-    // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(839, 223), 0.95);
-  // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(522, 381), 0.95);
- //  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), 0.95);
-  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(962, 63), 0.95);
-  return behavior::ExecuteResult::Failure;
 
   if (!game.GetPlayer().active) {
     g_RenderState.RenderDebugText("  RespawnCheckNode(fail): %llu", timer.GetElapsedTime());

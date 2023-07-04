@@ -57,7 +57,7 @@ inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* t
 Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
     : processor_(std::move(processor)), regions_(regions) {}
 
-std::vector<Vector2f> Pathfinder::FindPath(const Map& map, Vector2f from, Vector2f to, float radius) {
+const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from, Vector2f to, float radius) {
   //std::vector<Vector2f> path;
   path_.clear();
 
