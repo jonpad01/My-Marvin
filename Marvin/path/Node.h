@@ -19,24 +19,26 @@ struct NodePoint {
 };
 
 
-enum { NodeFlag_Openset = (1 << 0), NodeFlag_Closed = (1 << 1), NodeFlag_Initialized = (1 << 2) };
+enum {
+  NodeFlag_Openset = (1 << 0),
+  NodeFlag_Closed = (1 << 1),
+  NodeFlag_Initialized = (1 << 2),
+  NodeFlag_Traversable = (1 << 3),
+};
 typedef u32 NodeFlags;
 
 struct Node {
-
   Node* parent;
+  u32 flags;
+
   float g;
   float f;
-  float weight;
-  u8 flags;
+  // This is the fitness value of the node when it was last processed.
+  float f_last;
 
-  Node()
-      : flags(0),
-        parent(nullptr),
-        g(0.0f),
-        f(0.0f),
-        weight(1.0f)
-  {}
+  float weight;
+
+  Node() : flags(0), parent(nullptr), g(0.0f), f(0.0f), f_last(0.0f), weight(1.0f) {}
 };
 
 }  // namespace path

@@ -8,11 +8,11 @@
 #include "platform/Platform.h"
 
 #define DEBUG_RENDER 1
-#define DEBUG_USER_CONTROL 1
+#define DEBUG_USER_CONTROL 0
 
 #define DUBUG_RENDER_PATH 1
 
-#define DEBUG_RENDER_BASE_PATHS 1
+#define DEBUG_RENDER_BASE_PATHS 0
 
 #define DEBUG_RENDER_INFLUENCE 0
 #define DEBUG_RENDER_INFLUENCE_TEXT 0

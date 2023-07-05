@@ -4,6 +4,7 @@
 #include <cmath>
 #include <queue>
 #include <unordered_set>
+#include <immintrin.h>
 
 #include "../Bot.h"
 #include "../Debug.h"
@@ -35,7 +36,7 @@ void Pathfinder::DebugUpdate(const Vector2f& position) {
   }
 }
 
-NodePoint ToNodePoint(Vector2f v) {
+inline NodePoint ToNodePoint(const Vector2f v) {
   NodePoint np;
 
   np.x = (uint16_t)v.x;
@@ -44,7 +45,7 @@ NodePoint ToNodePoint(Vector2f v) {
   return np;
 }
 
-inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* to) {
+inline float Euclidean(NodeProcessor& processor, const Node* __restrict from, const Node* __restrict to) {
   NodePoint from_p = processor.GetPoint(from);
   NodePoint to_p = processor.GetPoint(to);
 
@@ -54,6 +55,16 @@ inline float Euclidean(NodeProcessor& processor, const Node* from, const Node* t
   return sqrt(dx * dx + dy * dy);
 }
 
+inline float Euclidean(const NodePoint& __restrict from_p, const NodePoint& __restrict to_p) {
+  float dx = static_cast<float>(from_p.x - to_p.x);
+  float dy = static_cast<float>(from_p.y - to_p.y);
+
+  __m128 mult = _mm_set_ss(dx * dx + dy * dy);
+  __m128 result = _mm_sqrt_ss(mult);
+
+  return _mm_cvtss_f32(result);
+}
+
 Pathfinder::Pathfinder(std::unique_ptr<NodeProcessor> processor, RegionRegistry& regions)
     : processor_(std::move(processor)), regions_(regions) {}
 
@@ -61,47 +72,53 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
   //std::vector<Vector2f> path;
   path_.clear();
 
-  if (!map.CanPathOn(from, radius)) {
+  if (!regions_.IsConnected(from, to)) {
+    return path_;
+  }
+
+  if (!map.CanOverlapTile(from, radius)) {
         from = GetPathableNeighbor(map, regions_, from, radius);
   }
-  if (!map.CanPathOn(to, radius)) {
+  if (!map.CanOverlapTile(to, radius)) {
         to = GetPathableNeighbor(map, regions_, to, radius);
   }
 
+  Node* start = processor_->GetNode(ToNodePoint(from));
+  Node* goal = processor_->GetNode(ToNodePoint(to));
+
+  if (start == nullptr || goal == nullptr) {
+        return path_;
+  }
+
+  if (!(start->flags & NodeFlag_Traversable)) return path_;
+  if (!(goal->flags & NodeFlag_Traversable)) return path_;
+
+  NodePoint start_p = processor_->GetPoint(start);
+  NodePoint goal_p = processor_->GetPoint(goal);
+
+  #if 0 
   // Clear the touched nodes before pathfinding.
   for (Node* node : touched_nodes_) {
     // Setting the flag to zero causes GetNode to reset the node on next fetch.
     node->flags = 0;
   }
   touched_nodes_.clear();
-
-  Node* start = processor_->GetNode(ToNodePoint(from));
-  Node* goal = processor_->GetNode(ToNodePoint(to));
-
-  if (start == nullptr || goal == nullptr) {
-    return path_;
-  }
-
-  NodePoint start_p = processor_->GetPoint(start);
-  NodePoint goal_p = processor_->GetPoint(goal);
-
-  if (!regions_.IsConnected(MapCoord(start_p.x, start_p.y), MapCoord(goal_p.x, goal_p.y))) {
-    return path_;
-  }
+  #endif
 
   // clear vector then add start node
   openset_.Clear();
   openset_.Push(start);
 
-  touched_nodes_.insert(start);
-  touched_nodes_.insert(goal);
+  //touched_nodes_.insert(start);
+ // touched_nodes_.insert(goal);
 
   // at the start there is only one node here, the start node
   while (!openset_.Empty()) {
     // grab front item then delete it
     Node* node = openset_.Pop();
 
-    touched_nodes_.insert(node);
+    //touched_nodes_.insert(node);
+    touched_.push_back(node);
 
     if (node == goal) {
       break;
@@ -110,42 +127,61 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
     node->flags |= NodeFlag_Closed;
 
     // returns neighbor nodes that are not solid
-    NodeConnections connections = processor_->FindEdges(node, radius);
+   // NodeConnections connections = processor_->FindEdges(node, radius);
     //return path_;
 
-    for (std::size_t i = 0; i < connections.count; ++i) {
-      Node* edge = connections.neighbors[i];
-      float weight = edge->weight;
-      touched_nodes_.insert(edge);
+    if (node->f > 0 && node->f == node->f_last) {
+      // This node was re-added to the openset because its fitness was better, so skip reprocessing the same node.
+      // This reduces pathing time by about 20%.
+      continue;
+    }
+    node->f_last = node->f;
 
-      NodePoint edge_point = processor_->GetPoint(edge);
+    NodePoint node_point = processor_->GetPoint(node);
+
+    // returns neighbor nodes that are not solid
+    EdgeSet edges = processor_->FindEdges(node, radius);
+
+
+
+    for (std::size_t i = 0; i < 8; ++i) {
+      if (!edges.IsSet(i)) continue;
+
+      CoordOffset offset = CoordOffset::FromIndex(i);
+
+      NodePoint edge_point(node_point.x + offset.x, node_point.y + offset.y);
+      Node* edge = processor_->GetNode(edge_point);
+      float weight = edge->weight;
+
       if (map.IsMined(MapCoord(edge_point.x, edge_point.y))) {
-        weight += 10;
+        weight += 10.0f;
       }
 
-      float cost = node->g + weight * Euclidean(*processor_, node, edge);
+      touched_.push_back(edge);
 
+      // The cost to this neighbor is the cost to the current node plus the edge weight times the distance between the
+      // nodes.
+      float cost = node->g + weight * Euclidean(node_point, edge_point);
+
+      // If the new cost is lower than the previously closed cost then remove it from the closed set.
       if ((edge->flags & NodeFlag_Closed) && cost < edge->g) {
         edge->flags &= ~NodeFlag_Closed;
       }
 
-      float h = Euclidean(*processor_, edge, goal);
+      // Compute a heuristic from this neighbor to the end goal.
+      float h = Euclidean(edge_point, goal_p);
 
+      // If this neighbor hasn't been considered or is better than its original fitness test, then add it back to the
+      // open set.
       if (!(edge->flags & NodeFlag_Openset) || cost + h < edge->f) {
         edge->g = cost;
         edge->f = edge->g + h;
         edge->parent = node;
-
         edge->flags |= NodeFlag_Openset;
 
         openset_.Push(edge);
       }
     }
-  }
-
-  if (goal->parent) {
-    path_.push_back(map.GetOccupyCenter(Vector2f(start_p.x, start_p.y), radius));
-   // path_.push_back(Vector2f(start_p.x + 0.5f, start_p.y + 0.5f));
   }
 
   // Construct path backwards from goal node
@@ -156,6 +192,13 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
     NodePoint p = processor_->GetPoint(current);
     points.push_back(p);
     current = current->parent;
+  }
+
+  path_.reserve(points.size() + 1);
+
+  if (goal->parent) {
+    path_.push_back(map.GetOccupyCenter(Vector2f(start_p.x, start_p.y), radius));
+   // path_.push_back(Vector2f(start_p.x + 0.5f, start_p.y + 0.5f));
   }
 
   // Reverse and store as vector
@@ -181,9 +224,16 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
     
   }
 
+  for (Node* node : touched_) {
+    node->flags &= ~NodeFlag_Initialized;
+  }
+
+  touched_.clear();
+
   return path_;
 }
 
+#if 0
 bool Pathfinder::InTube(const Map& map, Vector2f position, float radius) {
   for (float x = -1.0f; x <= 1.0f; x++) {
     for (float y = -1.0f; y <= 1.0f; y++) {
@@ -252,13 +302,15 @@ std::vector<Vector2f> Pathfinder::SmoothPath(Bot& bot, const std::vector<Vector2
   return result;
 }
 
+#endif
+
 const std::vector<Vector2f>& Pathfinder::CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius) {
   bool build = true;
 
   if (!path_.empty()) {
     // Check if the current destination is the same as the requested one.
     if (path_.back().DistanceSq(to) < 3 * 3) {
-      Vector2f pos = processor_->GetGame().GetPosition();
+      Vector2f pos = bot.GetGame().GetPosition();
       Vector2f next = path_.front();
 
       // diameter cast causes a lot of rebuilding radius seems good
@@ -274,7 +326,7 @@ const std::vector<Vector2f>& Pathfinder::CreatePath(Bot& bot, Vector2f from, Vec
   
 
   if (build) {
-    FindPath(processor_->GetGame().GetMap(), from, to, radius);
+    FindPath(bot.GetGame().GetMap(), from, to, radius);
   }
 
   return path_;
@@ -301,26 +353,36 @@ float Pathfinder::GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
 }
 
 void Pathfinder::CreateMapWeights(const Map& map, float radius) {
+  // Calculate which nodes are traversable before creating edges.
+  for (u16 y = 0; y < 1024; ++y) {
+    for (u16 x = 0; x < 1024; ++x) {
+      if (map.IsSolid(x, y)) continue;
+
+      Node* node = processor_->GetNode(NodePoint(x, y));
+
+      if (map.CanOverlapTile(Vector2f(x, y), radius)) {
+        node->flags |= NodeFlag_Traversable;
+      }
+    }
+  }
 
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
       if (map.IsSolid(x, y)) continue;
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
+      EdgeSet edges = processor_->CalculateEdges(node, radius);
+      processor_->SetEdgeSet(x, y, edges);
 
-      // Search width is double this number (for 8, searches a 16 x 16 square).
-      int close_distance = (int(radius * 2) + 1) + 3;
+      node->weight = 1.0f;
 
+     int close_distance = 5;
       float distance = GetWallDistance(map, x, y, close_distance);
 
-      // Nodes are initialized with a weight of 1.0f, so never calculate when the distance is greater or equal
-      // because the result will be less than 1.0f.
+      if (distance < 1) distance = 1;
+
       if (distance < close_distance) {
-        float weight = close_distance - distance;
-        //paths directly next to a wall will be a last resort, 1 tile from wall very unlikely
-        //node->weight = (float)std::pow(weight, 4.0);
-        node->weight = weight;
-        //node->previous_weight = weight;
+        node->weight = close_distance / distance;
       }
     }
   }
@@ -336,7 +398,7 @@ Vector2f Pathfinder::GetPathableNeighbor(const Map& map, RegionRegistry& regions
     for (int y = -i; y <= i; y++) {
       for (int x = -i; x <= i; x++) {
         check_pos = Vector2f(position.x + (float)x, position.y + (float)y);
-        if (map.CanPathOn(check_pos, radius) && regions.IsConnected(position, check_pos)) {
+        if (map.CanOverlapTile(check_pos, radius) && regions.IsConnected(position, check_pos)) {
           return check_pos;
         }
       }
@@ -345,6 +407,7 @@ Vector2f Pathfinder::GetPathableNeighbor(const Map& map, RegionRegistry& regions
   return check_pos;
 }
 
+#if 0
 void Pathfinder::SetPathableNodes(const Map& map, float radius) {
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
@@ -359,6 +422,7 @@ void Pathfinder::SetPathableNodes(const Map& map, float radius) {
     }
   }
 }
+#endif
 
   // Use breadth first search to find the nearest node index.
  // use region registry to search through solid tiles that are not connected to the regions barrier

@@ -71,12 +71,12 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time
 }
 
 void Bot::LoadForRadius() {
-  auto processor = std::make_unique<path::NodeProcessor>(*game_);
+  auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());
   regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
   regions_->CreateAll(game_->GetMap(), radius_);
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
   pathfinder_->CreateMapWeights(game_->GetMap(), radius_);
-  pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
+  //pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
 
   // if base paths isnt null then its safe to rebuild
   if (base_paths_) {
@@ -96,7 +96,7 @@ void Bot::Load() {
 
   blackboard_ = std::make_unique<Blackboard>();
   command_system_ = std::make_unique<CommandSystem>(zone);
-  auto processor = std::make_unique<path::NodeProcessor>(*game_);
+  auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());
   log.Write("Processor created", timer.GetElapsedTime());
   influence_map_ = std::make_unique<InfluenceMap>();
   log.Write("Influence Map created", timer.GetElapsedTime());
@@ -107,8 +107,8 @@ void Bot::Load() {
   log.Write("Pathfinder created", timer.GetElapsedTime());
   pathfinder_->CreateMapWeights(game_->GetMap(), radius_);
   log.Write("Map Weights created", timer.GetElapsedTime());
-  pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
-  log.Write("Pathable Nodes created", timer.GetElapsedTime());
+  //pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
+  //log.Write("Pathable Nodes created", timer.GetElapsedTime());
 
   
   switch (zone) {
@@ -245,7 +245,7 @@ void Bot::Update(float dt) {
     // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(522, 381), 0.95);
     //  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), 0.95);
     //pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(962, 63), 0.95);
-    return;
+   // return;
 
   behavior_->Update(ctx_);
 
