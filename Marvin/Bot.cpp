@@ -223,12 +223,25 @@ void Bot::Update(float dt) {
   shooter_.DebugUpdate(*this);
 #endif
 
+  #if DEBUG_RENDER_BASE_PATHS
+
+  Vector2f position = game_->GetPosition();
+  const std::vector<std::vector<Vector2f>>& base_paths = GetBasePaths().GetBasePaths();
+
+  for (Path path : base_paths) {
+    if (!path.empty() && regions_->IsConnected(path[0], position)) {
+      RenderPath(position, path);
+    }
+  }
+
+#endif
+
   #if DEBUG_RENDER_REGION_REGISTRY
     regions_->DebugUpdate(game_->GetPosition());
     g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
 #endif
 
-      pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(839, 223), 0.95);
+   //   pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(839, 223), 0.95);
     // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(522, 381), 0.95);
     //  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), 0.95);
     //pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(962, 63), 0.95);

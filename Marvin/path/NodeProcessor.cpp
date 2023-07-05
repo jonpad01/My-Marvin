@@ -6,12 +6,7 @@ namespace marvin {
 namespace path {
 
 NodeConnections NodeProcessor::FindEdges(Node* node, float radius) {
-  /* There are some cases where the ship can path into a node diagonally but should not (diagonal gaps)
-     when finding edges, only allow diagonal movement if both of the other sides can be pathed on
 
-     note: there are some cases where it would be safe to path diagonally if only one side is pathable,
-     this method ignores those cases.
-  */
   NodeConnections connections;
   connections.count = 0;
 
@@ -40,19 +35,19 @@ NodeConnections NodeProcessor::FindEdges(Node* node, float radius) {
     NodePoint current_point(world_x, world_y);
     Node* current = GetNode(current_point);
 
-    if (!current) {
-      continue;
-    }
-    //if (!current->is_pathable) {
-     // continue;
-   // }
-    if (map_.IsMined(MapCoord(world_x, world_y))) {
-      current->weight = 100.0f;
-    } else if (map_.GetTileId(current_point.x, current_point.y) == kSafeTileId) {
-      current->weight = 10.0f;
-    } else if (current->weight != current->previous_weight) {
-      current->weight = current->previous_weight;
-    }
+    // if (!current) {
+    //  continue;
+    // }
+    // if (!current->is_pathable) {
+    // continue;
+    // }
+    // if (map_.IsMined(MapCoord(world_x, world_y))) {
+    //  current->weight = 100.0f;
+    // } else if (map_.GetTileId(current_point.x, current_point.y) == kSafeTileId) {
+    //  current->weight = 10.0f;
+    // } else if (current->weight != current->previous_weight) {
+    //   current->weight = current->previous_weight;
+    // }
 
     connections.neighbors[connections.count++] = current;
 

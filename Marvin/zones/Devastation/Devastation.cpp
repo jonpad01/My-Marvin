@@ -306,20 +306,6 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.bot->GetBlackboard();
   auto& game = ctx.bot->GetGame();
 
-#if DEBUG_RENDER_BASE_PATHS
-
-  
-  Vector2f position = game.GetPosition();
-  std::vector<std::vector<Vector2f>> base_paths = ctx.bot->GetBasePaths().GetBasePaths();
-
-  for (Path path : base_paths) {
-    if (!path.empty() && ctx.bot->GetRegions().IsConnected(path[0], position)) {
-      RenderPath(position, path);
-    }
-  }
-
-  #endif
-
     #if DEBUG_RENDER_FIND_ENEMY_IN_BASE_NODE
   const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
   Path base_path = ctx.bot->GetBasePath();

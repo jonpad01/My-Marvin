@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <bitset>
 
 #include "Types.h"
 #include "Vector2f.h"
@@ -28,13 +29,21 @@ struct OccupyRect {
   u16 end_y;
 };
 
+constexpr size_t kMaxOccupySet = 96;
+struct OccupyMap {
+  u32 count = 0;
+  std::bitset<kMaxOccupySet> set;
+
+  bool operator[](size_t index) const { return set[index]; }
+};
+
 class Map {
  public:
   Map(const TileData& tile_data);
 
   bool IsSolid(TileId id) const;
   bool IsSolid(u16 x, u16 y) const;
-  bool IsSolidSquare(MapCoord top_left, int length) const;
+  bool IsSolidSquare(MapCoord top_left, uint16_t length) const;
   bool IsSolid(const Vector2f& position) const;
   TileId GetTileId(u16 x, u16 y) const;
   TileId GetTileId(const Vector2f& position) const;
@@ -47,7 +56,7 @@ class Map {
   Vector2f GetOccupyCenter(const Vector2f& position, float radius) const;
 
   bool CanMoveTo(MapCoord from, MapCoord to, float radius) const ;
-  std::vector<bool> OccupyMap(MapCoord start, float radius) const ;
+  OccupyMap CalculateOccupyMap(MapCoord start, float radius) const;
   bool CanOccupy(const Vector2f& position, float radius) const;
   bool CanOccupyRadius(const Vector2f& position, float radius) const;
   bool CanStepInto(const Vector2f& start, const Vector2f& end, Vector2f* orientation, float radius) const;

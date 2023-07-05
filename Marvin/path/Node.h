@@ -7,6 +7,7 @@
 namespace marvin {
 namespace path {
 
+
 struct NodePoint {
   uint16_t x;
   uint16_t y;
@@ -17,20 +18,16 @@ struct NodePoint {
   bool operator==(const NodePoint& other) const { return x == other.x && y == other.y; }
 };
 
+
 enum { NodeFlag_Openset = (1 << 0), NodeFlag_Closed = (1 << 1), NodeFlag_Initialized = (1 << 2) };
 typedef u32 NodeFlags;
 
 struct Node {
-  Node* parent;
 
+  Node* parent;
   float g;
   float f;
-
   float weight;
-  float previous_weight;
-
-  bool is_pathable;
-
   u8 flags;
 
   Node()
@@ -38,9 +35,7 @@ struct Node {
         parent(nullptr),
         g(0.0f),
         f(0.0f),
-        weight(1.0f),
-        previous_weight(1.0f),
-        is_pathable(false)
+        weight(1.0f)
   {}
 };
 

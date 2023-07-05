@@ -2,10 +2,13 @@
 
 #include <fstream>
 
+
 #include "RegionRegistry.h"
 #include "MapCoord.h"
 
 namespace marvin {
+
+
 
 Map::Map(const TileData& tile_data) : tile_data_(tile_data) {
   memset(mine_map, 0, sizeof(mine_map));
@@ -81,10 +84,13 @@ void Map::ClearMinedTiles() {
 }
 
 // if any tile in the square is solid return true
-bool Map::IsSolidSquare(MapCoord top_left, int length) const {
+bool Map::IsSolidSquare(MapCoord top_left, uint16_t length) const {
+  uint16_t abs_x = top_left.x;
+  uint16_t abs_y = top_left.y;
+
   for (uint16_t x = 0; x < length; x++) {
     for (uint16_t y = 0; y < length; y++) {
-      MapCoord pos(top_left.x + x, top_left.y + y);
+      MapCoord pos(abs_x + x, abs_y + y);
       if (IsSolid(pos)) {
         return true;
       }
@@ -92,45 +98,44 @@ bool Map::IsSolidSquare(MapCoord top_left, int length) const {
   }
   return false;
 }
-// get a list of positions/orientation points that the ship can fit on the selected tile 
-std::vector<bool> Map::OccupyMap(MapCoord start, float radius) const {
 
-  std::vector<bool> ship_map;
+// get a list of positions/orientation points that the ship can fit on the selected tile
+OccupyMap Map::CalculateOccupyMap(MapCoord start, float radius) const {
+  OccupyMap result;
+
   uint16_t diameter = uint16_t(radius + 0.5f) * 2;
   MapCoord offset(start.x - diameter + 1, start.y - diameter + 1);
 
   for (uint16_t x = 0; x < diameter; x++) {
     for (uint16_t y = 0 + 1; y < diameter; y++) {
       MapCoord pos(offset.x + x, offset.y + y);
-      if (IsSolidSquare(pos, diameter)) {
-        ship_map.emplace_back(true);
-      } else {
-        ship_map.emplace_back(false);
-      }
+
+      result.set[result.count++] = IsSolidSquare(pos, diameter);
     }
   }
-  return ship_map;
+
+  return result;
 }
+
 // for 1 tile steps
 bool Map::CanMoveTo(MapCoord from, MapCoord to, float radius) const {
+  // MapCoord cardinal = from - to;
 
-  //MapCoord cardinal = from - to;
-
-  std::vector<bool> fromMap = OccupyMap(from, radius);
-  std::vector<bool> toMap = OccupyMap(to, radius);
+  OccupyMap fromMap = CalculateOccupyMap(from, radius);
+  OccupyMap toMap = CalculateOccupyMap(to, radius);
 
   // compare the lists, if the ship was able to complete a 1 tile step in the same direction return true
-  for (std::size_t i = 0; i < fromMap.size(); i++) {
-    if (fromMap[i] == true || toMap[i] == true) {
-    //if (fromMap[i] == MapCoord(0, 0) || toMap[i] == MapCoord(0, 0)) {
+  for (std::size_t i = 0; i < fromMap.count && i < toMap.count; i++) {
+    if (fromMap[i] || toMap[i]) {
+      // if (fromMap[i] == MapCoord(0, 0) || toMap[i] == MapCoord(0, 0)) {
       continue;
     } else {
       return true;
     }
 
-  //  if (fromMap[i] - toMap[i] == cardinal) {
-  //    return true;
-   // }
+    //  if (fromMap[i] - toMap[i] == cardinal) {
+    //    return true;
+    // }
   }
   return false;
 }

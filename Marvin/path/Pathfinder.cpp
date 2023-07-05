@@ -26,11 +26,11 @@ void Pathfinder::DebugUpdate(const Vector2f& position) {
         return;
       }
       Node* node = this->processor_->GetNode(NodePoint(uint16_t(position.x + x), uint16_t(position.y + y)));
-      if (node->is_pathable) {
-        Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
-        RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 100, 100));
-        RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 100, 100));
-      }
+     // if (node->is_pathable) {
+      //  Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
+      //  RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 100, 100));
+      //  RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 100, 100));
+      //}
     }
   }
 }
@@ -115,10 +115,15 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
 
     for (std::size_t i = 0; i < connections.count; ++i) {
       Node* edge = connections.neighbors[i];
-
+      float weight = edge->weight;
       touched_nodes_.insert(edge);
 
-      float cost = node->g + edge->weight * Euclidean(*processor_, node, edge);
+      NodePoint edge_point = processor_->GetPoint(edge);
+      if (map.IsMined(MapCoord(edge_point.x, edge_point.y))) {
+        weight += 10;
+      }
+
+      float cost = node->g + weight * Euclidean(*processor_, node, edge);
 
       if ((edge->flags & NodeFlag_Closed) && cost < edge->g) {
         edge->flags &= ~NodeFlag_Closed;
@@ -139,7 +144,8 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
   }
 
   if (goal->parent) {
-    path_.push_back(Vector2f(start_p.x + 0.5f, start_p.y + 0.5f));
+    path_.push_back(map.GetOccupyCenter(Vector2f(start_p.x, start_p.y), radius));
+   // path_.push_back(Vector2f(start_p.x + 0.5f, start_p.y + 0.5f));
   }
 
   // Construct path backwards from goal node
@@ -314,7 +320,7 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
         //paths directly next to a wall will be a last resort, 1 tile from wall very unlikely
         //node->weight = (float)std::pow(weight, 4.0);
         node->weight = weight;
-        node->previous_weight = weight;
+        //node->previous_weight = weight;
       }
     }
   }
@@ -348,7 +354,7 @@ void Pathfinder::SetPathableNodes(const Map& map, float radius) {
       Node* node = this->processor_->GetNode(NodePoint(x, y));
 
       if (map.CanPathOn(Vector2f(x, y), radius)) {
-        node->is_pathable = true;
+       // node->is_pathable = true;
       }
     }
   }
