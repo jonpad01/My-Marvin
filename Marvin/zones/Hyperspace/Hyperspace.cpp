@@ -545,8 +545,17 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
   const Player* team_anchor = bb.GetAnchor();
   const Player* enemy_anchor = bb.GetEnemyAnchor();
 
-    if (!team_anchor || !enemy_anchor) {
-      g_RenderState.RenderDebugText("  HSDefensePositionNode(No Anchor): %llu", timer.GetElapsedTime());
+    if (!enemy_anchor) {
+      bb.SetTeamSafe(flagrooms[base_index]);
+      bb.SetEnemySafe(entrances[base_index]);
+      g_RenderState.RenderDebugText("  HSDefensePositionNode(No Enemy Anchor): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Success;
+    }
+
+    if (!team_anchor) {
+      bb.SetTeamSafe(entrances[base_index]);
+      bb.SetEnemySafe(flagrooms[base_index]);
+      g_RenderState.RenderDebugText("  HSDefensePositionNode(No Team Anchor): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
 
@@ -598,30 +607,28 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
 
   // join a flag team
   if (flagger_count < 14 && !flagging && bb.GetCanFlag()) {
-    if (ctx.bot->GetTime().TimedActionDelay("joingame", unique_timer)) {
-      game.SetEnergy(100.0f);
-      game.SendChatMessage("?flag");
+    //if (ctx.bot->GetTime().TimedActionDelay("joingame", unique_timer)) {
+      game.HSFlag();
 
       g_RenderState.RenderDebugText("  HSFreqMan(Join Flag Team): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
-    }
-    g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Join Flag Team): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
+   // }
+   // g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Join Flag Team): %llu", timer.GetElapsedTime());
+   // return behavior::ExecuteResult::Failure;
   }
 
   // leave a flag team
   if (flagging) {
     if ((flagger_count > 16 && game.GetPlayer().ship != 6) || !bb.GetCanFlag()) {
-      if (ctx.bot->GetTime().TimedActionDelay("leavegame", unique_timer)) {
-        game.SetEnergy(100.0f);
+      //if (ctx.bot->GetTime().TimedActionDelay("leavegame", unique_timer)) {
         game.SetFreq(FindOpenFreq(bb.GetFreqList(), 0));
         //bb.SetFreq(FindOpenFreq(bb.GetFreqList(), 0));
 
         g_RenderState.RenderDebugText("  HSFreqMan(Leave Flag Team): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
-      }
-      g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Leave Flag Team): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Success;
+     // }
+     // g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Leave Flag Team): %llu", timer.GetElapsedTime());
+     // return behavior::ExecuteResult::Success;
     }
   }
 
@@ -630,7 +637,7 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
 }
 
 behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx) {
-  return behavior::ExecuteResult::Success;
+ // return behavior::ExecuteResult::Success;
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
@@ -640,11 +647,12 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
 
   if (game.GetPlayer().frequency != 90 && game.GetPlayer().frequency != 91) {
     if (game.GetPlayer().ship == 6) {
-      if (ctx.bot->GetTime().TimedActionDelay("hsswitchtoanchor", unique_timer)) {
+     // if (ctx.bot->GetTime().TimedActionDelay("hsswitchtoanchor", unique_timer)) {
         game.SetShip(SelectShip(game.GetPlayer().ship));
+        bb.SetCombatRole(CombatRole::Rusher);
         g_RenderState.RenderDebugText("  HSFlaggerShipMan(In Lanc And Not Flagging): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
-      }
+      //}
     }
     g_RenderState.RenderDebugText("  HSFlaggerShipMan(Not Flagging): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
@@ -674,30 +682,30 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
   // switch to lanc if team doesnt have one
   if (ship != 6 && !bb.GetTeamHasSummoner()) {
    // if (!anchor.p || (!evoker_usable && anchor.type != AnchorType::Summoner) || anchor.type == AnchorType::None) {
-      if (ctx.bot->GetTime().TimedActionDelay("hsswitchtoanchor", unique_timer)) {
+     // if (ctx.bot->GetTime().TimedActionDelay("hsswitchtoanchor", unique_timer)) {
         // bb.Set<uint16_t>("Ship", 6);
         //bb.SetShip(Ship::Lancaster);
-        game.SetEnergy(100.0f);
         game.SetShip((uint16_t)Ship::Lancaster);
+        bb.SetCombatRole(CombatRole::Anchor);
         bb.SetUpdateLancsFlag(true);
         g_RenderState.RenderDebugText("  HSFlaggerShipMan(Switch To Lanc): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
-      }
-      g_RenderState.RenderDebugText("  HSFlaggerShipMan(Awaiting Switch To Lanc):");
+    //  }
+    //  g_RenderState.RenderDebugText("  HSFlaggerShipMan(Awaiting Switch To Lanc):");
    // }
   }
 
   // if there is more than one lanc on the team, switch back to original ship
   if (ship_counts[6] > 1 && bb.GetTeamHasSummoner() && anchor_id != game.GetPlayer().id && ship == 6) {
-    if (ctx.bot->GetTime().TimedActionDelay("hsswitchtowarbird", unique_timer)) {
-      game.SetEnergy(100.0f);
+   // if (ctx.bot->GetTime().TimedActionDelay("hsswitchtowarbird", unique_timer)) {
       game.SetShip(SelectShip(game.GetPlayer().ship));
+      bb.SetCombatRole(CombatRole::Rusher);
       //bb.SetShip((Ship)SelectShip(game.GetPlayer().ship));
       bb.SetUpdateLancsFlag(true);
       g_RenderState.RenderDebugText("  HSFlaggerShipMan(Switch From Lanc): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
-    }
-    g_RenderState.RenderDebugText("  HSFlaggerShipMan(Awaiting Switch From Lanc):");
+    //}
+    //g_RenderState.RenderDebugText("  HSFlaggerShipMan(Awaiting Switch From Lanc):");
   }
 
   // hs has such a long ship change cooldown, if this node decides no ship change is needed
@@ -723,13 +731,12 @@ behavior::ExecuteResult HSWarpToCenterNode::Execute(behavior::ExecuteContext& ct
   auto& bb = ctx.bot->GetBlackboard();
 
   if (!bb.GetInCenter() && game.GetPlayer().frequency != 90 && game.GetPlayer().frequency != 91) {
-    if (ctx.bot->GetTime().TimedActionDelay("warptocenter", 200)) {
-      game.SetEnergy(100.0f);
+   // if (ctx.bot->GetTime().TimedActionDelay("warptocenter", 200)) {
       game.Warp();
 
       g_RenderState.RenderDebugText("  HSWarpToCenter(Warping): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
-    }
+    //}
   }
   g_RenderState.RenderDebugText("  HSWarpToCenter(No Action Taken): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -762,13 +769,13 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
   bool anchor_in_safe = game.GetMap().GetTileId(anchor->position) == kSafeTileId;
 
   if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), anchor->position) && !anchor_in_safe && IsValidPosition(anchor->position)) {
-    if (ctx.bot->GetTime().RepeatedActionDelay("attach", 2000)) {
-      game.SetEnergy(100.0f);
-      game.SendChatMessage(":" + anchor->name + ":?attach");
+   // if (ctx.bot->GetTime().RepeatedActionDelay("attach", 2000)) {
+
+      game.Attach(anchor->name);
 
       g_RenderState.RenderDebugText("  HSAttachNode(Attaching): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
-    }
+   // }
   }
 
   if (game.GetPlayer().attach_id != 65535) {
@@ -800,11 +807,11 @@ behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   if (bb.GetUseMultiFire()) {
-    if (!game.GetPlayer().multifire_status && game.GetPlayer().multifire_capable) {
+    if (!game.GetPlayer().multifire_status && game.GetPlayer().capability.multifire) {
       game.SendKey(VK_DELETE);
       return behavior::ExecuteResult::Failure;
     }
-  } else if (game.GetPlayer().multifire_status && game.GetPlayer().multifire_capable) {
+  } else if (game.GetPlayer().multifire_status && game.GetPlayer().capability.multifire) {
     game.SendKey(VK_DELETE);
     return behavior::ExecuteResult::Failure;
   }
@@ -885,12 +892,15 @@ behavior::ExecuteResult HSFlaggerBasePatrolNode::Execute(behavior::ExecuteContex
 }
 
 behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) {
-  return behavior::ExecuteResult::Failure;
+  //return behavior::ExecuteResult::Failure;
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
   const Player* anchor = bb.GetAnchor();
+  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
+  float radius = game.GetShipSettings().GetRadius();
 
   if (game.GetPlayer().flags < 1) {
     g_RenderState.RenderDebugText("  HSDropFlagsNode(Not Holding Flags): %llu", timer.GetElapsedTime());
@@ -898,17 +908,19 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
   }  
 
   if (anchor && !ctx.bot->GetRegions().IsConnected(game.GetPosition(), anchor->position)) {
-    if (ctx.bot->GetTime().RepeatedActionDelay("attachwithflags", 3000)) {
-      game.SetEnergy(100.0f);
-      game.SendChatMessage(":" + anchor->name + ":?attach");
+    if (ctx.bot->GetRegions().IsConnected(anchor->position, entrances[base_index])) {
+      // if (ctx.bot->GetTime().RepeatedActionDelay("attachwithflags", 3000)) {
+      //   game.SetEnergy(100.0f);
+      //   game.SendChatMessage(":" + anchor->name + ":?attach");
+      //  }
+      game.Attach(anchor->name);
+      g_RenderState.RenderDebugText("  HSDropFlagsNode(Attaching To Anchor): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
     }
-    g_RenderState.RenderDebugText("  HSDropFlagsNode(Attaching To Anchor): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
   }
 
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
-  float radius = game.GetShipSettings().GetRadius();
+
+
 
   if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
     if (entrances[base_index] != bb.GetTeamSafe()) {
@@ -916,6 +928,12 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
       g_RenderState.RenderDebugText("  HSDropFlagsNode(Dropping Flags): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
+  } else {
+     HyperGateNavigator navigator(ctx.bot->GetRegions());
+    Vector2f waypoint = navigator.GetWayPoint(game.GetPosition(), entrances[base_index]);
+     ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), waypoint, radius);
+     g_RenderState.RenderDebugText("  HSDropFlagsNode(Heading To Base): %llu", timer.GetElapsedTime());
+     return behavior::ExecuteResult::Success;
   }
 
   g_RenderState.RenderDebugText("  HSDropFlagsNode(Not Dropping Flags): %llu", timer.GetElapsedTime());
@@ -958,7 +976,7 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
 
     if (player->id < id && InFlagCollectingShip(player->ship)) {
       g_RenderState.RenderDebugText("  HSGatherFlagsNode(Not Selected Flag Gatherer): %llu", timer.GetElapsedTime());
-    //  return behavior::ExecuteResult::Failure;
+      return behavior::ExecuteResult::Failure;
     }
   }
 
@@ -967,26 +985,25 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
   if (flag) {
     if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), flag->position)) {
       if (anchor && ctx.bot->GetRegions().IsConnected(anchor->position, flag->position)) {
-        if (ctx.bot->GetTime().RepeatedActionDelay("attachforflags", 3000)) {
-          game.SetEnergy(100.0f);
-          game.SendChatMessage(":" + anchor->name + ":?attach");
-        }
+       // if (ctx.bot->GetTime().RepeatedActionDelay("attachforflags", 3000)) {
+          game.Attach(anchor->name);
+        //}
         g_RenderState.RenderDebugText("  HSGatherFlagsNode(Attaching To Anchor): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
       } else if (ctx.bot->GetRegions().IsConnected(flag->position, MapCoord(512, 512))) {
-        if (ctx.bot->GetTime().RepeatedActionDelay("warpforflags", 300)) {
-          game.SetEnergy(100.0f);
+       // if (ctx.bot->GetTime().RepeatedActionDelay("warpforflags", 300)) {
           game.Warp();
         }
         g_RenderState.RenderDebugText("  HSGatherFlagsNode(Warping To Center): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
-      }
+     // }
     }
     HyperGateNavigator navigator(ctx.bot->GetRegions());
     Vector2f waypoint = navigator.GetWayPoint(game.GetPosition(), flag->position);
     ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), waypoint, radius);
     g_RenderState.RenderDebugText("  HSGatherFlagsNode(Heading To Flag ID: %u): %llu", flag->id,
                                   timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  HSGatherFlagsNode(Flag Coord: %f, %f)", flag->position.x, flag->position.y);
     return behavior::ExecuteResult::Success;
   }
 
@@ -1012,11 +1029,14 @@ const Flag* HSGatherFlagsNode::SelectFlag(behavior::ExecuteContext& ctx) {
     if (flag.frequency == game.GetPlayer().frequency) {
       continue;
     }
-    if (flag.frequency != game.GetPlayer().frequency &&
-        ctx.bot->GetRegions().IsConnected(flag.position, entrances[base_index])) {
-      // flags are gaurded by enemy team
-      if (entrances[base_index] == bb.GetTeamSafe()) {
-      //  continue;
+    if (ctx.bot->GetRegions().IsConnected(flag.position, entrances[base_index])) {
+      if (flag.frequency != game.GetPlayer().frequency) {
+        // flags are gaurded by enemy team
+        if (entrances[base_index] == bb.GetTeamSafe()) {
+          if (!flag.IsNeutral()) {
+            continue;
+          }
+        }
       }
     }
 

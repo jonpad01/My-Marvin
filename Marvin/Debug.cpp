@@ -5,6 +5,7 @@
 
 #include "Types.h"
 
+
 #pragma comment(lib, "ddraw.lib")
 #pragma comment(lib, "dxguid.lib")
 
@@ -28,6 +29,15 @@ void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f
   to = from + (diff * 16.0f);
 
   RenderLine(center + from, center + to, color);
+}
+
+void RenderWorldTile(Vector2f screenCenterWorldPosition, MapCoord position, COLORREF color) {
+  Vector2f center = GetWindowCenter();
+
+  Vector2f pos = position;
+
+  RenderWorldLine(screenCenterWorldPosition, pos, pos + Vector2f(1, 1), color);
+  RenderWorldLine(screenCenterWorldPosition, pos + Vector2f(0, 1), pos + Vector2f(1, 0), color);
 }
 
 void RenderLine(Vector2f from, Vector2f to, COLORREF color) {
@@ -183,7 +193,9 @@ void RenderDirection(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f
 void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f position, float size) {}
   void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
                     COLORREF color) {}
-void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text, const Vector2f& at, TextColor color,
+
+  void RenderWorldTile(Vector2f screenCenterWorldPosition, MapCoord position, COLORREF color) {}
+    void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text, const Vector2f& at, TextColor color,
                      int flags) {}
 
 void RenderLine(Vector2f from, Vector2f to, COLORREF color) {}

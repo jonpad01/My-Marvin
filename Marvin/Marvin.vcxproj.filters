@@ -269,7 +269,7 @@
     <ClInclude Include="zones\Hyperspace\Hyperspace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="commands\HSFlagCommands.h">
+    <ClInclude Include="commands\HSCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zones\Hyperspace\HyperGateNavigator.h">

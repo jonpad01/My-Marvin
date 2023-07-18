@@ -15,16 +15,15 @@ namespace marvin {
 
 class Time {
  public:
-  Time(GameProxy& game) : game_(game) {}
 
   uint64_t GetTime();
 
   bool TimedActionDelay(std::string key, uint64_t delay);
   bool RepeatedActionDelay(std::string key, uint64_t delay);
 
-  uint64_t UniqueIDTimer(uint16_t id);
+ // uint64_t UniqueIDTimer(uint16_t id);
 
-  uint64_t DevaFreqTimer(std::vector<std::string> names);
+  //uint64_t DevaFreqTimer(std::vector<std::string> names);
 
  private:
   bool Has(const std::string& key) { return data_.find(key) != data_.end(); }
@@ -45,7 +44,6 @@ class Time {
   void Clear() { data_.clear(); }
   void Erase(const std::string& key) { data_.erase(key); }
 
-  GameProxy& game_;
   std::string unique_action_;
 
   std::unordered_map<std::string, TimerPair> data_;

@@ -19,4 +19,8 @@ std::vector<std::string_view> SplitString(std::string_view string, std::string_v
 
 MapCoord ToNearestTile(Vector2f position);
 
+Vector2f DiscreteToHeading(uint16_t rotation);
+
+float DiscreteToRadians(uint16_t rotation);
+
 }  // namespace marvin

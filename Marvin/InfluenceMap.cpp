@@ -210,7 +210,7 @@ void InfluenceMap::CastWeapon(const Map& map, Weapon* weapon, Bot& bot) {
 void InfluenceMap::CastPlayer(const Map& map, const Player& player, Bot& bot) {
   GameProxy& game = bot.GetGame();
 
-    if (!player.active || !IsValidPosition(player.position)) {
+    if (!player.dead || !IsValidPosition(player.position)) {
     return;
     }
     if (game.GetMap().IsSolid(player.position)) return;

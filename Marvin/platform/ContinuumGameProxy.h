@@ -3,9 +3,11 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <deque>
 
 #include "../GameProxy.h"
 #include "ExeProcess.h"
+#include "../Time.h"
 
 namespace marvin {
 
@@ -70,9 +72,9 @@ class ContinuumGameProxy : public GameProxy {
   int GetEnergy() const override;
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
-  const ShipStatus& GetShipStatus() const override;
+  //const ShipFlightStatus& GetShipStatus() const override;
 
-   const Player& GetPlayer() const override;
+  const Player& GetPlayer() const override;
   const std::vector<Player>& GetPlayers() const override;
 
   const float GetMaxEnergy() override;
@@ -102,26 +104,31 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Weapon*> GetEnemyMines() override;
   const std::vector<Flag>& GetDroppedFlags() override;
 
-  void SetEnergy(float percent) override;
+  void SetEnergy(uint64_t percent) override;
   void SetFreq(int freq) override;
   bool SetShip(uint16_t ship) override;
   void SetArena(const std::string& arena) override;
+  void ResetStatus() override;
+  void Attach(std::string name) override;
+  void Attach(uint16_t id) override;
+  void Attach() override;
+  void HSFlag() override;
   void Warp() override;
   void Stealth() override;
   void Cloak(KeyController& keys) override;
   void MultiFire() override;
-  void P() override;
-  void L() override;
-  void R() override;
-  void PageUp() override;
-  void PageDown() override;
   void XRadar() override;
+  void Antiwarp(KeyController& keys) override;
   void Burst(KeyController& keys) override;
   void Repel(KeyController& keys) override;
-  void SendChatMessage(const std::string& mesg) const override;
-  void SendPrivateMessage(const std::string& target, const std::string& mesg) const override;
+  void SendQueuedMessage();
+  void SendMessage(const std::string& mesg);
+  void SendChatMessage(const std::string& mesg) override;
+  void SendPrivateMessage(const std::string& target, const std::string& mesg) override;
   void SendKey(int vKey) const override;
   void SetSelectedPlayer(uint16_t id) override;
+
+ 
   
 
   void SetWindowFocus() override;
@@ -142,12 +149,16 @@ class ContinuumGameProxy : public GameProxy {
   void FetchDroppedFlags();
   void FetchGreens();
   void FetchWeapons();
+
+  bool ActionDelay();
+  std::size_t GetIDIndex();
   
   std::vector<BallData> balls_;
   std::vector<Green> greens_;
   std::vector<Flag> dropped_flags_;
   std::vector<ContinuumWeapon> enemy_mines_;
-  ShipStatus ship_status_;
+ // ShipFlightStatus ship_status_;
+  ShipCapability capability_;
   std::vector<ChatMessage> recent_chat_;
   std::size_t chat_index_;
   ExeProcess process_;
@@ -164,11 +175,18 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_;
+  Time time_;
 
   bool reload_flag_;
+  uint64_t attach_cooldown_;
+  uint64_t flag_cooldown_;
+  uint64_t message_cooldown_;
+  uint64_t delay_timer_;
   bool clear_chat_flag_;
   bool set_ship_flag_;
   uint16_t desired_ship_;
+  std::vector<uint16_t> numerical_id_list;
+  std::deque<std::string> message_queue;
 };
 
 }  // namespace marvin

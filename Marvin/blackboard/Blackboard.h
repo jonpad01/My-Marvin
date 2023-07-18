@@ -35,6 +35,7 @@ class Blackboard {
   std::vector<const Player*> combined_list_;
   uint64_t bd_warp_cooldown_;
   uint64_t set_ship_cooldown_;
+  HSItems hs_items_; 
 
   // 4 bytes
   int base_teams_count_;
@@ -166,10 +167,13 @@ class Blackboard {
     freq_lock_ = false;
     swarm_ = false;
     command_lock_ = false;  
-    can_flag = true;
+    can_flag = false;
     team_has_summoner = false;
     update_lancs_flag = true;
   }
+
+  void SetHSItems(const HSItems& items) { hs_items_ = items; }
+  const HSItems& GetHSItems() { return hs_items_; }
 
   void SetBDBaseIndex(std::size_t index) { bd_base_index_ = index; }
   std::size_t GetBDBaseIndex() { return bd_base_index_; }

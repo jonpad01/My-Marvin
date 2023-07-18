@@ -353,7 +353,7 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
 
   for (std::size_t i = 0; i < team_list.size(); i++) {
     bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i]->position, MapCoord(512, 512));
-    if (!in_center && team_list[i]->active) {
+    if (!in_center && team_list[i]->dead) {
       bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i]->position, warp.t0[base_index]) == 0;
       if (update_region) {
         for (std::size_t j = 0; j < warp.t0.size(); j++) {
@@ -665,7 +665,7 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Success;
   }
 
-  uint64_t offset = ctx.bot->GetTime().DevaFreqTimer(kBotNames);
+  //uint64_t offset = ctx.bot->GetTime().DevaFreqTimer(kBotNames);
   // uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(game.GetPlayer().id);
 
   //std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>("FreqList", std::vector<uint16_t>());
@@ -675,10 +675,9 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   if (game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01) {
     if (fList[game.GetPlayer().frequency] > 1) {
       g_RenderState.RenderDebugText("  FList 0: %i", fList[game.GetPlayer().frequency]);
-      if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
-        game.SetEnergy(100.0f);
+     // if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
         game.SetFreq(FindOpenFreq(fList, 2));
-      }
+    //  }
 
       g_RenderState.RenderDebugText("  DevaFreqMan:(jump from oversized team) %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
@@ -688,15 +687,14 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   // duel team is uneven
   if (fList[0] != fList[1]) {
     if (!dueling) {
-      if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
-        game.SetEnergy(100.0f);
+     // if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
         if (fList[0] < fList[1]) {
           game.SetFreq(0);
         } else {
           // get on freq 1
           game.SetFreq(1);
         }
-      }
+     // }
       g_RenderState.RenderDebugText("  DevaFreqMan:(jump onto dueling team) %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
       // } else if (bb.ValueOr<bool>("InCenter", true) ||
@@ -719,10 +717,9 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
           }
         }
 
-        if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
-          game.SetEnergy(100.0f);
+       // if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
           game.SetFreq(FindOpenFreq(fList, 2));
-        }
+       // }
 
         g_RenderState.RenderDebugText("  FList 0: %i", fList[0]);
         g_RenderState.RenderDebugText("  Flist 1: %i", fList[1]);
@@ -750,7 +747,6 @@ behavior::ExecuteResult DevaWarpNode::Execute(behavior::ExecuteContext& ctx) {
     //if (!bb.ValueOr<bool>("EnemyInBase", false)) {
     if (!bb.GetEnemyInBase()) {
       if (time.TimedActionDelay("baseemptywarp", base_empty_timer)) {
-        game.SetEnergy(100.0f);
         game.Warp();
       }
     }
@@ -773,7 +769,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
       //if (bb.ValueOr<bool>("Swarm", false)) {
       if (bb.GetSwarm()) {
-        if (!game.GetPlayer().active) {
+        if (!game.GetPlayer().dead) {
           if (ctx.bot->GetTime().TimedActionDelay("respawn", 300)) {
             int ship = 1;
 
@@ -783,11 +779,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
               ship = 1;
             }
 
-            game.SetEnergy(100.0f);
-
-            if (!game.SetShip(ship)) {
-              ctx.bot->GetTime().TimedActionDelay("respawn", 0);
-            }
+            game.SetShip(ship);
           }
 
           g_RenderState.RenderDebugText("  DevaAttachNode:(Swarming) %llu", timer.GetElapsedTime());
@@ -798,13 +790,10 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
       // if this check is valid the bot will halt here untill it attaches
       //if (bb.ValueOr<bool>("InCenter", true)) {
       if (bb.GetInCenter()) {
+
         SetAttachTarget(ctx);
-
-        // checks if energy is full
-        if (CheckStatus(game, ctx.bot->GetKeys(), true)) {
-          game.SendKey(VK_F7);
-        }
-
+        game.Attach();
+        
         g_RenderState.RenderDebugText("  DevaAttachNode:(Attaching) %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
       }
@@ -955,16 +944,18 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
+  uint8_t status = game.GetPlayer().status;
+
   // RenderText(text.c_str(), GetWindowCenter() - Vector2f(0, 200), RGB(100, 100, 100), RenderText_Centered);
 
-  bool x_active = (game.GetPlayer().status & 4) != 0;
-  bool stealthing = (game.GetPlayer().status & 1) != 0;
-  bool cloaking = (game.GetPlayer().status & 2) != 0;
+  bool x_active = (status & Status_XRadar) != 0;
+  bool stealthing = (status & Status_Stealth) != 0;
+  bool cloaking = (status & Status_Cloak) != 0;
   bool multi_on = game.GetPlayer().multifire_status;
 
-  bool has_xradar = (game.GetShipSettings().XRadarStatus & 3) != 0;
-  bool has_stealth = (game.GetShipSettings().StealthStatus & 1) != 0;
-  bool has_cloak = (game.GetShipSettings().CloakStatus & 3) != 0;
+  bool has_xradar = game.GetShipSettings().XRadarStatus == 2;
+  bool has_stealth = game.GetShipSettings().StealthStatus == 2;
+  bool has_cloak = game.GetShipSettings().CloakStatus == 2;
 
   //bool use_xradar = bb.ValueOr<bool>(BB::UseXRadar, true);
   //bool use_stealth = bb.ValueOr<bool>(BB::UseStealth, true);

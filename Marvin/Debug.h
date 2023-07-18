@@ -5,12 +5,13 @@
 #include <vector>
 
 #include "Vector2f.h"
+#include "MapCoord.h"
 #include "platform/Platform.h"
 
 #define DEBUG_RENDER 1
 #define DEBUG_USER_CONTROL 0
 
-#define DUBUG_RENDER_PATH 1
+#define DUBUG_RENDER_PATH 0
 
 #define DEBUG_RENDER_BASE_PATHS 0
 
@@ -95,7 +96,8 @@ extern RenderState g_RenderState;
 
 void RenderWorldLine(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f to, COLORREF color);
 void RenderDirection(Vector2f screenCenterWorldPosition, Vector2f from, Vector2f direction, float length);
-void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f position, float size);
+void RenderWorldTile(Vector2f screenCenterWorldPosition, MapCoord position, COLORREF color);
+  void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f position, float size);
 void RenderWorldBox(Vector2f screenCenterWorldPosition, Vector2f box_top_left, Vector2f box_bottom_right,
                     COLORREF color);
 void RenderWorldText(Vector2f screenCenterWorldPosition, const std::string& text, const Vector2f& at, TextColor color, int flags = 0);

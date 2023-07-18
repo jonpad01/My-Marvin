@@ -16,19 +16,20 @@ Last fix:  reading multifire status and item counts on other players was not the
 
 namespace marvin {
 
-    
-
 ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
-
   clear_chat_flag_ = false;
   reload_flag_ = false;
   set_ship_flag_ = false;
   desired_ship_ = 0;
+  attach_cooldown_ = 0;
+  message_cooldown_ = 0;
+  flag_cooldown_ = 0;
+  delay_timer_ = 0;
 
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
   module_base_menu_ = process_.GetModuleBase("menu040.dll");
   player_id_ = 0xFFFF;
-  
+
   log.Open(GetName());
   log.Write("Log file created.");
 
@@ -65,6 +66,7 @@ bool ContinuumGameProxy::LoadGame() {
       player_ = &player;
     }
   }
+
   log.Write("Game Loaded. TOTAL TIME", timer.TimeSinceConstruction());
   reload_flag_ = false;
   return true;
@@ -99,20 +101,20 @@ UpdateState ContinuumGameProxy::Update(float dt) {
     return UpdateState::Reload;
   }
 
-    FetchPlayers();
-    FetchBallData();
-    FetchDroppedFlags();
-    FetchGreens();
-    FetchChat();
-    FetchWeapons();
+  FetchPlayers();
+  FetchBallData();
+  FetchDroppedFlags();
+  FetchGreens();
+  FetchChat();
+  FetchWeapons();
+  SendQueuedMessage();
 
-    //map_->SetMinedTiles(GetEnemyMines());
-  
+  map_->SetMinedTiles(GetEnemyMines());
+
   return UpdateState::Clear;
 }
 
 void ContinuumGameProxy::FetchPlayers() {
-
   const std::size_t kPosOffset = 0x04;
   const std::size_t kVelocityOffset = 0x10;
   const std::size_t kIdOffset = 0x18;
@@ -121,8 +123,8 @@ void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kFlagOffset1 = 0x30;
   const std::size_t kFlagOffset2 = 0x34;
   const std::size_t kRotOffset = 0x3C;
-  const std::size_t kActiveOffset1 = 0x40;
-  const std::size_t kActiveOffset2 = 0x4C;
+  const std::size_t kDeadOffset1 = 0x40;
+  const std::size_t kDeadOffset2 = 0x4C;
   const std::size_t kShipOffset = 0x5C;
   const std::size_t kFreqOffset = 0x58;
   const std::size_t kStatusOffset = 0x60;
@@ -140,9 +142,9 @@ void ContinuumGameProxy::FetchPlayers() {
   std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
 
   players_.clear();
+  numerical_id_list.clear();
 
   for (std::size_t i = 0; i < count; ++i) {
-
     std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
 
     if (!player_addr) continue;
@@ -158,7 +160,7 @@ void ContinuumGameProxy::FetchPlayers() {
     player.velocity.x = process_.ReadI32(player_addr + kVelocityOffset) / 10.0f / 16.0f;
 
     player.velocity.y = process_.ReadI32(player_addr + kVelocityOffset + 4) / 10.0f / 16.0f;
- 
+
     player.id = static_cast<uint16_t>(process_.ReadU32(player_addr + kIdOffset));
 
     player.discrete_rotation = static_cast<uint16_t>(process_.ReadU32(player_addr + kRotOffset) / 1000);
@@ -174,21 +176,37 @@ void ContinuumGameProxy::FetchPlayers() {
     player.flags = *(u32*)(player_addr + kFlagOffset1) + *(u32*)(player_addr + kFlagOffset2);
 
     // triggers if player is not moving and has no velocity, not used
-    player.dead = process_.ReadU32(player_addr + kDeadOffset) == 0;
+    // player.dead = process_.ReadU32(player_addr + kDeadOffset) == 0;
 
     // might not work on bot but works well on other players
-    player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
- 
-    
-    if (player.id == player_id_) {
+    // player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
+    player.dead = *(u32*)(player_addr + kDeadOffset1) == 0 && *(u32*)(player_addr + kDeadOffset2) == 0;
 
-      //these are not valid when reading on other players and will result in crashes
+    // these are not valid when reading on other players and will result in crashes
+    if (player.id == player_id_) {
+      player.flight_status.rotation = *(u32*)(player_addr + 0x278) + *(u32*)(player_addr + 0x274);
+      player.flight_status.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
+      player.flight_status.shrapnel = *(u32*)(player_addr + 0x2A8) + *(u32*)(player_addr + 0x2AC);
+      player.flight_status.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
+      player.flight_status.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
+      player.flight_status.max_energy = *(u32*)(player_addr + 0x1C8) + *(u32*)(player_addr + 0x1C4);
 
       // the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
       player.attach_id = process_.ReadU32(player_addr + 0x1C);
 
+      u32 capabilities = *(u32*)(player_addr + 0x2EC);
+      u32 cloak_stealth = *(u32*)(player_addr + 0x2E8);
+
+      player.capability.stealth = (cloak_stealth & (1 << 17)) != 0;
+      player.capability.cloak = (cloak_stealth & (1 << 30)) != 0;
+      player.capability.antiwarp = (capabilities & (1 << 7)) != 0;
+      player.capability.xradar = (capabilities & (1 << 9)) != 0;
+      player.capability.multifire = (capabilities & (1 << 15)) != 0;
+      player.capability.bouncing_bullets = (capabilities & (1 << 19)) != 0;
+      player.capability.proximity = (capabilities & (1 << 26)) != 0;
+
       player.multifire_status = static_cast<uint8_t>(process_.ReadU32(player_addr + kMultiFireStatusOffset));
-      player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
+      // player.multifire_capable = (process_.ReadU32(player_addr + kMultiFireCapableOffset)) & 0x8000;
 
       // remaining emp ticks if hit with emp
       player.emp_ticks = *(u32*)(player_addr + 0x2f4) + *(u32*)(player_addr + 0x2f8);
@@ -217,26 +235,27 @@ void ContinuumGameProxy::FetchPlayers() {
 
       player.energy = static_cast<uint16_t>(first + second);
     }
-    
+
     // remove "^" that gets placed on names when biller is down
     if (!player.name.empty() && player.name[0] == '^') {
       player.name.erase(0, 1);
     }
 
-    //sort all players into this
+    // only include players in ships and ignore hyperspace fake players
+    if (player.ship != 8 && player.name.size() > 0 && player.name[0] != '<') {
+      numerical_id_list.emplace_back(player.id);
+    }
+
+    // sort all players into this
     players_.emplace_back(player);
 
     if (player.id == player_id_) {
       player_ = &players_.back();
       player_addr_ = player_addr;
-      ship_status_.rotation = *(u32*)(player_addr + 0x278) + *(u32*)(player_addr + 0x274);
-      ship_status_.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
-      ship_status_.shrapnel = *(u32*)(player_addr + 0x2A8) + *(u32*)(player_addr + 0x2AC);
-      ship_status_.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
-      ship_status_.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
-      ship_status_.max_energy = *(u32*)(player_addr + 0x1C8) + *(u32*)(player_addr + 0x1C4);
     }
   }
+  // sorted list is used to get a unique timer offset for each bot based on bots id
+  std::sort(numerical_id_list.begin(), numerical_id_list.end());
 }
 
 void ContinuumGameProxy::FetchBallData() {
@@ -274,7 +293,7 @@ void ContinuumGameProxy::FetchGreens() {
   u32 green_count = *(u32*)(game_addr_ + 0x2e350);
   Green* greens = (Green*)(game_addr_ + 0x2df50);
 
-  for (size_t i = 0; i < green_count; ++i) {   
+  for (size_t i = 0; i < green_count; ++i) {
     greens_.push_back(greens[i]);
   }
 }
@@ -309,9 +328,9 @@ void ContinuumGameProxy::FetchChat() {
     clear_chat_flag_ = false;
   }
 
-  // only hold onto 10 messages
-  while (recent_chat_.size() > 10) {
-    recent_chat_.erase(recent_chat_.begin());  
+  // only hold onto 30 messages
+  while (recent_chat_.size() > 30) {
+    recent_chat_.erase(recent_chat_.begin());
   }
 
   for (int i = 0; i < read_count; ++i) {
@@ -391,7 +410,7 @@ void ContinuumGameProxy::FetchWeapons() {
 void ContinuumGameProxy::FetchDroppedFlags() {
   u32 flag_count = *(u32*)(game_addr_ + 0x127ec + 0x1d4c);
   u32** flag_ptrs = (u32**)(game_addr_ + 0x127ec + 0x188c);
-  //std::vector<marvin::Flag> flags;
+  // std::vector<marvin::Flag> flags;
   dropped_flags_.clear();
   dropped_flags_.reserve(flag_count);
   for (size_t i = 0; i < flag_count; ++i) {
@@ -426,9 +445,9 @@ void ContinuumGameProxy::SetZone() {
   }
 }
 
-const ShipStatus& ContinuumGameProxy::GetShipStatus() const {
-  return ship_status_;
-}
+// const ShipFlightStatus& ContinuumGameProxy::GetShipStatus() const {
+//   return ship_status_;
+// }
 
 const Zone ContinuumGameProxy::GetZone() {
   return zone_;
@@ -561,20 +580,19 @@ const Player* ContinuumGameProxy::GetPlayerByName(std::string_view name) const {
 }
 
 const float ContinuumGameProxy::GetEnergyPercent() {
-  return ((float)GetEnergy() / ship_status_.max_energy) * 100.0f;
+  return ((float)GetEnergy() / player_->flight_status.max_energy) * 100.0f;
 }
 
 const float ContinuumGameProxy::GetMaxEnergy() {
-  return (float)ship_status_.max_energy;
+  return (float)player_->flight_status.max_energy;
 }
 
 const float ContinuumGameProxy::GetThrust() {
-  return (float)ship_status_.thrust * 10.0f / 16.0f;
+  return (float)player_->flight_status.thrust * 10.0f / 16.0f;
 }
 
 const float ContinuumGameProxy::GetMaxSpeed() {
-
-  float speed = ((float)ship_status_.speed) / 10.0f / 16.0f;
+  float speed = ((float)player_->flight_status.speed) / 10.0f / 16.0f;
 
   if (player_->velocity.Length() > speed) {
     speed = std::abs(speed + GetShipSettings().GravityTopSpeed);
@@ -596,14 +614,14 @@ const float ContinuumGameProxy::GetMaxSpeed(u16 ship) {
 }
 
 const float ContinuumGameProxy::GetRotation() {
-  //float rotation = GetShipSettings().GetInitialRotation();
+  // float rotation = GetShipSettings().GetInitialRotation();
 
- // if (zone_ == Zone::Devastation) {
- //   rotation = GetShipSettings().GetMaximumRotation();
- // }
- // 
+  // if (zone_ == Zone::Devastation) {
+  //   rotation = GetShipSettings().GetMaximumRotation();
+  // }
+  //
   // changed from  / 200.f as / 400.f converts to rotations/second
-  float rotation = ((float)ship_status_.rotation) / 400.0f;
+  float rotation = ((float)player_->flight_status.rotation) / 400.0f;
 
   return rotation;
 }
@@ -630,11 +648,15 @@ const std::string ContinuumGameProxy::GetMapFile() const {
   return file;
 }
 
-void ContinuumGameProxy::SetEnergy(float percent) {
+void ContinuumGameProxy::SetEnergy(uint64_t percent) {
 #if !DEBUG_USER_CONTROL
   const uint64_t overflow = 4294967296;
 
-  double max_energy = (double)GetMaxEnergy();
+  if (percent > 100) {
+    percent = 100;
+  }
+
+  u64 max_energy = (u64)GetMaxEnergy();
 
   u64 desired = u64(max_energy * (percent / 100));
 
@@ -647,22 +669,94 @@ void ContinuumGameProxy::SetEnergy(float percent) {
 
 void ContinuumGameProxy::SetFreq(int freq) {
 #if !DEBUG_USER_CONTROL
+  if (!ActionDelay()) {
+    return;
+  }
+  ResetStatus();
   SetEnergy(100.0f);
   SendChatMessage("=" + std::to_string(freq));
 #endif
 }
 
-void ContinuumGameProxy::PageUp() {
-  SendKey(VK_PRIOR);
+// prefered method for hyperspace
+void ContinuumGameProxy::Attach(std::string name) {
+
+  if (time_.GetTime() < attach_cooldown_) return;
+ 
+  ResetStatus();
+  SetEnergy(100.0f);
+
+  if (zone_ == Zone::Hyperspace) {
+    SendMessage(":" + name + ":?attach");
+    attach_cooldown_ = time_.GetTime() + 1000;
+  } else {
+    const Player* player = GetPlayerByName(name);
+    SetSelectedPlayer(player->id);
+    SendKey(VK_F7);
+    attach_cooldown_ = time_.GetTime() + 100;
+  }
 }
-void ContinuumGameProxy::PageDown() {
-  SendKey(VK_NEXT);
+
+// prefered method when attach uses F7 key
+void ContinuumGameProxy::Attach(uint16_t id) {
+
+  if (time_.GetTime() < attach_cooldown_) return;
+
+  ResetStatus();
+  SetEnergy(100.0f);
+
+  if (zone_ == Zone::Hyperspace) {
+    const Player* player = GetPlayerById(id);
+    SendMessage(":" + player->name + ":?attach");
+    attach_cooldown_ = time_.GetTime() + 1000;
+  } else {
+    SetSelectedPlayer(id);
+    SendKey(VK_F7);
+    attach_cooldown_ = time_.GetTime() + 100;
+  }
 }
+
+void ContinuumGameProxy::Attach() {
+
+  if (time_.GetTime() < attach_cooldown_) return;
+
+  ResetStatus();
+  SetEnergy(100.0f);
+  SendKey(VK_F7);
+
+  attach_cooldown_ = time_.GetTime() + 100;
+}
+
+void ContinuumGameProxy::HSFlag() {
+
+  if (time_.GetTime() < flag_cooldown_) return;
+
+  ResetStatus();
+  SetEnergy(100.0f);
+  SendMessage("?flag");
+
+  flag_cooldown_ = time_.GetTime() + 1000;
+}
+
+void ContinuumGameProxy::ResetStatus() {
+  uint8_t status = player_->status;
+
+  status &= ~(Status_Stealth | Status_Cloak | Status_XRadar | Status_Antiwarp);
+
+  *(u8*)(player_addr_ + 0x60) = status;
+}
+
 void ContinuumGameProxy::XRadar() {
   SendKey(VK_END);
 }
+
+void ContinuumGameProxy::Antiwarp(KeyController& keys) {
+  keys.Press(VK_SHIFT);
+  SendKey(VK_END);
+}
+
 void ContinuumGameProxy::Burst(KeyController& keys) {
- // must be sent using this combination
+  // must be sent using this combination
   keys.Press(VK_SHIFT);
   SendKey(VK_DELETE);
 }
@@ -672,6 +766,7 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
 }
 
 void ContinuumGameProxy::SetArena(const std::string& arena) {
+  ResetStatus();
   SetEnergy(100.0f);
   SendChatMessage("?go " + arena);
 }
@@ -679,7 +774,6 @@ void ContinuumGameProxy::SetArena(const std::string& arena) {
 bool ContinuumGameProxy::SetShip(uint16_t ship) {
   set_ship_flag_ = true;
   desired_ship_ = ship;
-  SetEnergy(100.0f);
 
   int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
 
@@ -689,12 +783,16 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
   if (!menu_open) {
     SendKey(VK_ESCAPE);
   } else {
-    if (ship == 8) {
-      PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
-    } else {
-      PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
+    if (ActionDelay()) {
+      ResetStatus();
+      SetEnergy(100.0f);
+      if (ship == 8) {
+        PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
+      } else {
+        PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
+      }
+      set_ship_flag_ = false;
     }
-    set_ship_flag_ = false;
   }
 #endif
 
@@ -702,6 +800,8 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
 }
 
 void ContinuumGameProxy::Warp() {
+  ResetStatus();
+  SetEnergy(100.0f);
   SendKey(VK_INSERT);
 }
 
@@ -716,18 +816,6 @@ void ContinuumGameProxy::Cloak(KeyController& keys) {
 
 void ContinuumGameProxy::MultiFire() {
   SendKey(VK_DELETE);
-}
-
-void ContinuumGameProxy::P() {
-  SendChatMessage("!p");
-}
-
-void ContinuumGameProxy::L() {
-  SendChatMessage("!l");
-}
-
-void ContinuumGameProxy::R() {
-  SendChatMessage("!r");
 }
 
 void ContinuumGameProxy::SetWindowFocus() {
@@ -747,8 +835,19 @@ void ContinuumGameProxy::SendKey(int vKey) const {
 #endif
 }
 
-void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
+void ContinuumGameProxy::SendQueuedMessage() {
+  if (message_queue.empty() || time_.GetTime() < message_cooldown_) return;
+  
+  SendMessage(message_queue[0]);
+  message_queue.pop_front();
+
+  message_cooldown_ = time_.GetTime() + 1000;
+}
+
+void ContinuumGameProxy::SendMessage(const std::string& mesg) {
 #if !DEBUG_USER_CONTROL
+
+
   typedef void(__fastcall * ChatSendFunction)(void* This, void* thiscall_garbage, char* msg, u32* unknown1,
                                               u32* unknown2);
 
@@ -774,9 +873,15 @@ void ContinuumGameProxy::SendChatMessage(const std::string& mesg) const {
 #endif
 }
 
-void ContinuumGameProxy::SendPrivateMessage(const std::string& target, const std::string& mesg) const {
+void ContinuumGameProxy::SendChatMessage(const std::string& mesg) {
+    message_queue.emplace_back(mesg);
+}
+
+void ContinuumGameProxy::SendPrivateMessage(const std::string& target, const std::string& mesg) {
+  
   if (!target.empty()) {
-    SendChatMessage(":" + target + ":" + mesg);
+    message_queue.emplace_back(":" + target + ":" + mesg);
+   // SendChatMessage(":" + target + ":" + mesg);
   }
 }
 
@@ -810,6 +915,30 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
       return;
     }
   }
-  #endif
+#endif
 }
+
+// use id index to offset the bots delay from other bots
+// that might be playing, prevents spam like
+// a bunch of bots all jumping onto the same freq
+bool ContinuumGameProxy::ActionDelay() {
+  if (delay_timer_ == 0) {
+    delay_timer_ = time_.GetTime() + ((uint64_t)GetIDIndex() * 100);
+  } else if (time_.GetTime() > delay_timer_) {
+    delay_timer_ = 0;
+    return true;
+  }
+  return false;
+}
+
+std::size_t ContinuumGameProxy::GetIDIndex() {
+  std::size_t i = 0;
+  for (i = 0; i < numerical_id_list.size(); i++) {
+    if (numerical_id_list[i] == player_id_) {
+      return i;
+    }
+  }
+  return i;
+}
+
 }  // namespace marvin

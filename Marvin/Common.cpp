@@ -92,4 +92,20 @@ std::vector<std::string_view> SplitString(std::string_view string, std::string_v
   return result;
 }
 
+Vector2f DiscreteToHeading(uint16_t rotation) {
+  const float kToRads = (static_cast<float>(M_PI) / 180.0f);
+  float rads = (((40 - (rotation + 30)) % 40) * 9.0f) * kToRads;
+  float x = std::cos(rads);
+  float y = -std::sin(rads);
+
+  return Vector2f(x, y);
+}
+
+float DiscreteToRadians(uint16_t rotation) {
+  const float kToRads = (static_cast<float>(M_PI) / 180.0f);
+  float rads = (((40 - (rotation + 30)) % 40) * 9.0f) * kToRads;
+
+  return rads;
+}
+
 }  // namespace marvin

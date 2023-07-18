@@ -4,6 +4,7 @@
 #include <iostream>
 #include <limits>
 #include <vector>
+#include <algorithm>
 
 namespace marvin {
 
@@ -132,6 +133,10 @@ class Vector2f {
     return *this;
   }
 };
+
+inline Vector2f Reflect(const Vector2f& direction, const Vector2f& normal) {
+  return direction - (normal * (2.0f * (direction.Dot(normal))));
+}
 
 inline float DotProduct(const Vector2f& v1, const Vector2f& v2) noexcept {
   return v1.x * v2.x + v1.y * v2.y;

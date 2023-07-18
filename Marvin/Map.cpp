@@ -5,10 +5,40 @@
 
 #include "RegionRegistry.h"
 #include "MapCoord.h"
+#include "Vector2i.h"
+//#include "path/NodeProcessor.h"
 
 namespace marvin {
 
+  //  enum class Corner : short {TopLeft, TopRight, BottomLeft, BottomRight};
+//enum class Direction : short { North, South, East, West, NorthWest, NorthEast, SouthWest, SouthEast, None };
 
+Direction GetDirecton(Vector2i direction) {
+  if (direction.x == -1) {
+    if (direction.y == -1) {
+      return Direction::NorthWest;
+    } else if (direction.y == 0) {
+      return Direction::West;
+    } else if (direction.y == 1) {
+      return Direction::SouthWest;
+    }
+  } else if (direction.x == 0) {
+     if (direction.y == -1) {
+      return Direction::North; 
+    } else if (direction.y == 1) {
+      return Direction::South;
+     }
+  } else if (direction.x == 1) {
+     if (direction.y == -1) {
+      return Direction::NorthEast;
+     } else if (direction.y == 0) {
+      return Direction::East;
+     } else if (direction.y == 1) {
+      return Direction::SouthEast;
+     }
+  }
+  return Direction::None;
+}
 
 Map::Map(const TileData& tile_data) : tile_data_(tile_data) {
   memset(mine_map, 0, sizeof(mine_map));
@@ -107,7 +137,7 @@ OccupyMap Map::CalculateOccupyMap(MapCoord start, float radius) const {
   MapCoord offset(start.x - diameter + 1, start.y - diameter + 1);
 
   for (uint16_t x = 0; x < diameter; x++) {
-    for (uint16_t y = 0 + 1; y < diameter; y++) {
+    for (uint16_t y = 0; y < diameter; y++) {
       MapCoord pos(offset.x + x, offset.y + y);
 
       result.set[result.count++] = IsSolidSquare(pos, diameter);
@@ -117,15 +147,20 @@ OccupyMap Map::CalculateOccupyMap(MapCoord start, float radius) const {
   return result;
 }
 
+#if 0
 // for 1 tile steps
 bool Map::CanMoveTo(MapCoord from, MapCoord to, float radius) const {
-  // MapCoord cardinal = from - to;
-
+  
+ path::CoordOffset coord_direction = path::CoordOffset(from.x - to.x, from.y - to.y);
+ Vector2i map_direction = Vector2i(from.x - to.x, from.y - to.y);
+  Direction direction = GetDirecton(map_direction);
+ 
   OccupyMap fromMap = CalculateOccupyMap(from, radius);
   OccupyMap toMap = CalculateOccupyMap(to, radius);
 
+
   // compare the lists, if the ship was able to complete a 1 tile step in the same direction return true
-  for (std::size_t i = 0; i < fromMap.count && i < toMap.count; i++) {
+  for (std::size_t i = 0; i < fromMap.count; i++) {
     if (fromMap[i] || toMap[i]) {
       // if (fromMap[i] == MapCoord(0, 0) || toMap[i] == MapCoord(0, 0)) {
       continue;
@@ -139,6 +174,7 @@ bool Map::CanMoveTo(MapCoord from, MapCoord to, float radius) const {
   }
   return false;
 }
+#endif
 
 //#if 0
 bool Map::CanPathOn(const Vector2f& position, float radius) const {
@@ -429,6 +465,95 @@ OccupyRect Map::GetPossibleOccupyRect(const Vector2f& position, float radius) co
   }
 
   return result;
+}
+
+// Rects must be initialized memory that can contain all possible occupy rects.
+size_t Map::GetAllOccupiedRects(Vector2f position, float radius, OccupiedRect* rects) const {
+  size_t count = 0;
+
+  u16 d = (u16)(radius * 2.0f);
+  u16 start_x = (u16)position.x;
+  u16 start_y = (u16)position.y;
+
+  u16 far_left = start_x - d;
+  u16 far_right = start_x + d;
+  u16 far_top = start_y - d;
+  u16 far_bottom = start_y + d;
+
+  // Handle wrapping that can occur from using unsigned short
+  if (far_left > 1023) far_left = 0;
+  if (far_right > 1023) far_right = 1023;
+  if (far_top > 1023) far_top = 0;
+  if (far_bottom > 1023) far_bottom = 1023;
+
+  bool solid = IsSolid(start_x, start_y);
+  if (d < 1 || solid) {
+    rects->start_x = (u16)position.x;
+    rects->start_y = (u16)position.y;
+    rects->end_x = (u16)position.x;
+    rects->end_y = (u16)position.y;
+
+    return !solid;
+  }
+
+  // Loop over the entire check region and move in the direction of the check tile.
+  // This makes sure that the check tile is always contained within the found region.
+  for (u16 check_y = far_top; check_y <= far_bottom; ++check_y) {
+    s16 dir_y = (start_y - check_y) > 0 ? 1 : (start_y == check_y ? 0 : -1);
+
+    // Skip cardinal directions because the radius is >1 and must be found from a corner region.
+    if (dir_y == 0) continue;
+
+    for (u16 check_x = far_left; check_x <= far_right; ++check_x) {
+      s16 dir_x = (start_x - check_x) > 0 ? 1 : (start_x == check_x ? 0 : -1);
+
+      if (dir_x == 0) continue;
+
+      bool can_fit = true;
+
+      for (s16 y = check_y; std::abs(y - check_y) <= d && can_fit; y += dir_y) {
+        for (s16 x = check_x; std::abs(x - check_x) <= d; x += dir_x) {
+          if (IsSolid(x, y)) {
+            can_fit = false;
+            break;
+          }
+        }
+      }
+
+      if (can_fit) {
+        // Calculate the final region. Not necessary for simple overlap check, but might be useful
+        u16 found_start_x = 0;
+        u16 found_start_y = 0;
+        u16 found_end_x = 0;
+        u16 found_end_y = 0;
+
+        if (check_x > start_x) {
+          found_start_x = check_x - d;
+          found_end_x = check_x;
+        } else {
+          found_start_x = check_x;
+          found_end_x = check_x + d;
+        }
+
+        if (check_y > start_y) {
+          found_start_y = check_y - d;
+          found_end_y = check_y;
+        } else {
+          found_start_y = check_y;
+          found_end_y = check_y + d;
+        }
+
+        OccupiedRect* rect = rects + count++;
+
+        rect->start_x = found_start_x;
+        rect->start_y = found_start_y;
+        rect->end_x = found_end_x;
+        rect->end_y = found_end_y;
+      }
+    }
+  }
+
+  return count;
 }
 
 Vector2f Map::GetOccupyCenter(const Vector2f& position, float radius) const {

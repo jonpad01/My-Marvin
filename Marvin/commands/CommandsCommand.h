@@ -44,7 +44,7 @@ class CommandsCommand : public CommandExecutor {
               output += "/";
             }
 
-            output += "!" + aliases[i];
+            output += "-- !" + aliases[i];
           }
 
           triggers.emplace_back(executor, output);

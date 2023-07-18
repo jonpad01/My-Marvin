@@ -20,21 +20,7 @@ or 5 tiles with a weight of 2, and so on. If a tile has a weight of 9, the pathf
 namespace marvin {
 namespace path {
 
-void Pathfinder::DebugUpdate(const Vector2f& position) {
-  for (float y = -5.0; y <= 5.0f; y++) {
-    for (float x = -5.0f; x <= 5.0f; x++) {
-      if (!IsValidPosition(Vector2f(position.x + x, position.y + y))) {
-        return;
-      }
-      Node* node = this->processor_->GetNode(NodePoint(uint16_t(position.x + x), uint16_t(position.y + y)));
-     // if (node->is_pathable) {
-      //  Vector2f check(std::floor(position.x) + x, std::floor(position.y) + y);
-      //  RenderWorldLine(position, check, check + Vector2f(1, 1), RGB(255, 100, 100));
-      //  RenderWorldLine(position, check + Vector2f(0, 1), check + Vector2f(1, 0), RGB(255, 100, 100));
-      //}
-    }
-  }
-}
+
 
 inline NodePoint ToNodePoint(const Vector2f v) {
   NodePoint np;
@@ -44,6 +30,28 @@ inline NodePoint ToNodePoint(const Vector2f v) {
 
   return np;
 }
+
+void Pathfinder::DebugUpdate(const Vector2f& position) {
+
+  RenderWorldTile(position, position, RGB(200, 50, 50));
+
+    Node* node = processor_->GetNode(ToNodePoint(position));
+    EdgeSet edges = processor_->FindEdges(node);
+
+       Vector2f neighbors[8] = {Vector2f(0, -1), Vector2f(0, 1), Vector2f(-1, 0),  Vector2f(1, 0),
+                             Vector2f(-1, -1), Vector2f(1, -1), Vector2f(-1, 1), Vector2f(1, 1)};
+
+  for (std::size_t i = 0; i < 8; ++i) {
+      if (!edges.IsSet(i)) continue;
+
+      Vector2f check = position + neighbors[i];
+
+    RenderWorldTile(position, check, RGB(255, 255, 255));
+   }
+
+}
+
+
 
 inline float Euclidean(NodeProcessor& processor, const Node* __restrict from, const Node* __restrict to) {
   NodePoint from_p = processor.GetPoint(from);
@@ -90,6 +98,9 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
         return path_;
   }
 
+   // TODO: need a case for when the start node is a diagonal gap
+  // which side of the gap does the bot start on?
+  // need to look at bots position relative to the tile its currently on
   if (!(start->flags & NodeFlag_Traversable)) return path_;
   if (!(goal->flags & NodeFlag_Traversable)) return path_;
 
@@ -140,9 +151,7 @@ const std::vector<Vector2f>& Pathfinder::FindPath(const Map& map, Vector2f from,
     NodePoint node_point = processor_->GetPoint(node);
 
     // returns neighbor nodes that are not solid
-    EdgeSet edges = processor_->FindEdges(node, radius);
-
-
+    EdgeSet edges = processor_->FindEdges(node);
 
     for (std::size_t i = 0; i < 8; ++i) {
       if (!edges.IsSet(i)) continue;
@@ -315,7 +324,7 @@ const std::vector<Vector2f>& Pathfinder::CreatePath(Bot& bot, Vector2f from, Vec
 
       // diameter cast causes a lot of rebuilding radius seems good
       // this is influenced by how the follow path node culls line of sight nodes
-      bool hit = RadiusRayCastHit(bot, pos, next, radius);
+      bool hit = DiameterRayCastHit(bot, pos, next, radius);
 
       // Rebuild the path if the bot isn't in line of sight of its next node.
       if (!hit) {
@@ -353,6 +362,8 @@ float Pathfinder::GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
 }
 
 void Pathfinder::CreateMapWeights(const Map& map, float radius) {
+  OccupiedRect* scratch_rects = new OccupiedRect[256];
+
   // Calculate which nodes are traversable before creating edges.
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
@@ -362,9 +373,24 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
 
       if (map.CanOverlapTile(Vector2f(x, y), radius)) {
         node->flags |= NodeFlag_Traversable;
+
+        size_t rect_count = map.GetAllOccupiedRects(Vector2f(x, y), radius, scratch_rects);
+
+        // TODO: test this for larger radius using elm
+        // This might be a diagonal tile
+        if (rect_count == 2) {
+          // Check if the two occupied rects are offset on both axes.
+          if (scratch_rects[0].start_x != scratch_rects[1].start_x &&
+              scratch_rects[0].start_y != scratch_rects[1].start_y) {
+            // This is a diagonal-only tile, so skip it.
+            node->flags |= NodeFlag_DiagonalGap;
+          }
+        }
       }
     }
   }
+
+ 
 
   for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = 0; x < 1024; ++x) {
@@ -386,6 +412,8 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
       }
     }
   }
+
+ delete[] scratch_rects;
 }
 
 Vector2f Pathfinder::GetPathableNeighbor(const Map& map, RegionRegistry& regions, Vector2f position, float radius) {

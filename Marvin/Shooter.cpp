@@ -122,9 +122,9 @@ ShotResult Shooter::BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f t
 
     if (game.GetPlayer().multifire_status) {
       if (i == (pos_adjust.size() - 2)) {
-        direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), true);
+        direction = game.GetPlayer().GetHeading(game.GetShipSettings().GetMultiFireAngle());
       } else if (i == (pos_adjust.size() - 3)) {
-        direction = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), false);
+        direction = game.GetPlayer().GetHeading(-game.GetShipSettings().GetMultiFireAngle());
       }
     }
    ShotResult current_result = BounceShot(bot, target_pos, target_vel, target_radius, position, game.GetPlayer().velocity, direction, proj_speed,
@@ -247,9 +247,9 @@ void Shooter::LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f tar
     }
 
     Vector2f left_trajectory =
-        (game.GetPlayer().ConvertToHeading(left_rotation) * proj_speed) + game.GetPlayer().velocity;
+        (DiscreteToHeading(left_rotation) * proj_speed) + game.GetPlayer().velocity;
     Vector2f right_trajectory =
-        (game.GetPlayer().ConvertToHeading(right_rotation) * proj_speed) + game.GetPlayer().velocity;
+        (DiscreteToHeading(right_rotation) * proj_speed) + game.GetPlayer().velocity;
 
     Vector2f left_direction = Normalize(left_trajectory);
     Vector2f right_direction = Normalize(right_trajectory);
@@ -305,7 +305,7 @@ bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
   const Player& bot_player = game.GetPlayer();
 
   // anchors shoud wait until the target is no longer lag attachable
-  if (combat_role != CombatRole::Anchor && (!target.active || !IsValidPosition(target.position))) {
+  if (combat_role != CombatRole::Anchor && (!target.dead || !IsValidPosition(target.position))) {
     return false;
   }
   else if (!IsValidPosition(target.position)) {

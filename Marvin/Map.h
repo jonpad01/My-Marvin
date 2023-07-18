@@ -29,6 +29,25 @@ struct OccupyRect {
   u16 end_y;
 };
 
+// Reduced version of OccupyRect to remove bool so it fits more in a cache line
+struct OccupiedRect {
+  u16 start_x;
+  u16 start_y;
+  u16 end_x;
+  u16 end_y;
+
+  bool operator==(const OccupiedRect& other) const {
+    return start_x == other.start_x && start_y == other.start_y && end_x == other.end_x && end_y == other.end_y;
+  }
+
+  inline bool Contains(Vector2f position) const {
+    u16 x = (u16)position.x;
+    u16 y = (u16)position.y;
+
+    return x >= start_x && x <= end_x && y >= start_y && y <= end_y;
+  }
+};
+
 constexpr size_t kMaxOccupySet = 96;
 struct OccupyMap {
   u32 count = 0;
@@ -54,6 +73,7 @@ class Map {
   // Returns a possible rect that creates an occupiable area that contains the tested position.
   OccupyRect GetPossibleOccupyRect(const Vector2f& position, float radius) const;
   Vector2f GetOccupyCenter(const Vector2f& position, float radius) const;
+  size_t GetAllOccupiedRects(Vector2f position, float radius, OccupiedRect* rects) const;
 
   bool CanMoveTo(MapCoord from, MapCoord to, float radius) const ;
   OccupyMap CalculateOccupyMap(MapCoord start, float radius) const;
@@ -70,6 +90,8 @@ class Map {
   void SetMinedTile(MapCoord coord);
   void SetMinedTiles(std::vector<Weapon*> tiles);
   void ClearMinedTiles();
+
+
 
   static std::unique_ptr<Map> Load(const char* filename);
   static std::unique_ptr<Map> Load(const std::string& filename);

@@ -10,9 +10,9 @@ class HelpCommand : public CommandExecutor {
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     if (sender.empty()) return;
 
-    bot.GetGame().SendPrivateMessage(sender, "!commands {.c} -- see command list (pm)");
-    bot.GetGame().SendPrivateMessage(sender, "!delimiter {.d} -- how to send multiple commands with one message (pm)");
-    bot.GetGame().SendPrivateMessage(sender, "!modlist {.ml} -- see who can lock marv (pm)");
+    bot.GetGame().SendPrivateMessage(sender, "-- !commands {.c} -- see command list (pm)");
+    bot.GetGame().SendPrivateMessage(sender, "-- !delimiter {.d} -- how to send multiple commands with one message (pm)");
+    bot.GetGame().SendPrivateMessage(sender, "-- !modlist {.ml} -- see who can lock marv (pm)");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }

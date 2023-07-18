@@ -63,7 +63,7 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 };
 
 
-Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)), time_(*game_) {
+Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   srand((unsigned int)(time_.GetTime() + game_->GetPlayer().id));
   base_paths_ = nullptr;
   goals_ = nullptr;
@@ -164,17 +164,13 @@ void Bot::Update(float dt) {
   PerformanceTimer timer;
   g_RenderState.debug_y = 30.0f;
 
-
-
   keys_.ReleaseAll();
 
-  float radius = game_->GetRadius();
-  int ship = game_->GetPlayer().ship;
-  
   UpdateState state = game_->Update(dt);
   g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
   if (state == UpdateState::Wait) {
+    g_RenderState.RenderDebugText("Wait For Game");
     return;
   }
   
@@ -183,6 +179,9 @@ void Bot::Update(float dt) {
     Load();
     return;
   }
+
+  float radius = game_->GetRadius();
+  int ship = game_->GetPlayer().ship;
 
   if (radius != radius_) {
     log.Write("SHIP RADIUS CHANGED");
@@ -276,6 +275,23 @@ void Bot::Update(float dt) {
 void Bot::Move(const Vector2f& target, float target_distance) {
   const Player& bot_player = game_->GetPlayer();
   float distance = bot_player.position.Distance(target);
+  float speed_sq = game_->GetPlayer().velocity.LengthSq();
+
+  if (speed_sq < 0.3f * 0.3f) {
+    Vector2f direction = Normalize(target - bot_player.position);
+    Vector2f new_direction;
+
+    if (fabsf(direction.x) < fabsf(direction.y)) {
+      new_direction = Normalize(Reflect(direction, Vector2f(0, 1)));
+    } else {
+      new_direction = Normalize(Reflect(direction, Vector2f(1, 0)));
+    }
+
+    // Face a reflected vector so it rotates away from the wall.
+    steering_.Face(*this, bot_player.position + new_direction);
+    steering_.Seek(*this, target);
+    return;
+  }
 
   if (distance > target_distance) {
     steering_.Arrive(*this, target, 0);
@@ -375,7 +391,7 @@ bool Bot::MaxEnergyCheck() {
   else if (energy_pct >= 100.0f) {
     result = true;
   }
-  if (!game_->GetPlayer().active) {
+  if (!game_->GetPlayer().dead) {
     result = false;
   }
   return result;
@@ -622,7 +638,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
           //team_in_base = true;
           bb.SetTeamInBase(true);
         }
-        if (!in_center && player.active) {
+        if (!in_center && player.dead) {
           //last_in_base = false;
           bb.SetLastInBase(false);
         }
@@ -665,7 +681,7 @@ behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx)
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
 
-  if (!game.GetPlayer().active) {
+  if (!game.GetPlayer().dead) {
     g_RenderState.RenderDebugText("  RespawnCheckNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -808,7 +824,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     // multiply the players speed by a ratio of how "true" its flying towards the bot
     float player_speed = Normalize(player.velocity).Dot(player_to_bot) * player.velocity.Length();
     // if the target is dead, set its speed to 0
-    if (!player.active) {
+    if (!player.dead) {
       player_speed = 0.0f;
     }
     // if the player is flying at full speed in the direction of the player_fore position, then it will reach its maximum bullet travel
@@ -997,7 +1013,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   max_enemy_speed_ = Normalize(enemy->velocity).Dot(enemy_to_bot_) * enemy->velocity.Length();
   float enemy_speed = Normalize(enemy->velocity).Dot(enemy_to_bot_) * enemy->velocity.Length();
   // if the target is dead, set its speed to 0
-  if (!enemy->active) {
+  if (!enemy->dead) {
     max_enemy_speed_ = 0.0f;
   }
   // this is not the true max travel, instead its relative to the dot product
@@ -1108,7 +1124,7 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
     // the speed that the enemy is moving toward or away from its forward path node
     float player_speed = (Normalize(player->velocity).Dot(player_to_anchor)) * player->velocity.Length();
     // if the player is dead set it's speed to 0
-    if (!player->active) {
+    if (!player->dead) {
       player_speed = 0.0f;
     }
 
@@ -1122,7 +1138,7 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
     // how far the current enemy bullets will travel past the target enemy
     float net_player_bullet_travel = player_bullet_travel - player_pathlength_to_bot;
 
-    if (player->active) {
+    if (player->dead) {
       float threat_distance = player_bullet_travel - player_pathlength_to_enemy;
       if (threat_distance > 0.0f) {
         enemy_team_threat_ += player->energy * (threat_distance / player_bullet_travel);
@@ -1149,7 +1165,7 @@ void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, cons
   for (std::size_t i = 0; i < bb.GetTeamList().size(); i++) {
     const Player* player = bb.GetTeamList()[i];
 
-    if (!player->active || !ctx.bot->GetRegions().IsConnected(player->position, position_)) continue;
+    if (!player->dead || !ctx.bot->GetRegions().IsConnected(player->position, position_)) continue;
 
     float player_bullet_speed = game.GetShipSettings(player->ship).GetBulletSpeed();
     float player_radius = game.GetShipSettings(player->ship).GetRadius();
@@ -1264,7 +1280,7 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
     // this check is directly tied to how the pathfinder decides to rebuild the path in the createpath function
     // value of 1.055 will clear line of sight in tubes
     // value of 1.1 wont clear line of sight in tubes
-    bool hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[0], radius * 1.055f);
+    bool hit = DiameterRayCastHit(*ctx.bot, game.GetPosition(), path[1], radius * 1.055f);
 
     if (!hit) {
       path.erase(path.begin());
@@ -1527,9 +1543,9 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
         if (game.GetPlayer().multifire_status) {
           if (i == iSize - 2) {
-            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), true);
+            heading = game.GetPlayer().GetHeading(game.GetShipSettings().GetMultiFireAngle());
           } else if (i == iSize - 3) {
-            heading = game.GetPlayer().MultiFireDirection(game.GetShipSettings().GetMultiFireAngle(), false);
+            heading = game.GetPlayer().GetHeading(-game.GetShipSettings().GetMultiFireAngle());
           }
         }
 

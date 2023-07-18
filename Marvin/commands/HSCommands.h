@@ -5,6 +5,32 @@
 
 namespace marvin {
 
+class HSBuyCommand : public CommandExecutor {
+  public:
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+     Blackboard& bb = bot.GetBlackboard();
+     GameProxy& game = bot.GetGame();
+
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    HSItems items;
+    items.action = ItemAction::Buy;
+
+     for (std::string item : args) {
+      items.items.emplace_back(item);
+     }
+
+     bb.SetHSItems(items);
+     game.SendPrivateMessage(sender, "Attempting to buy items for my current ship.");
+  }
+
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
+  CommandFlags GetFlags() { return CommandFlag_Lockable; }
+  std::vector<std::string> GetAliases() { return {"buy"}; }
+  std::string GetDescription() { return "Tell the bot to buy items (use a space to buy multiple items)."; }
+  int GetSecurityLevel() { return 0; }
+};
+
 class HSFlagCommand : public CommandExecutor {
  public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {

@@ -230,17 +230,24 @@ class ShipSettings {
   // Number of times a ship's bombs bounce before they explode on impact
   uint8_t BombBounceCount;
 
+  // these values are not a bitfield they are interpreted as integer values
   struct {
+      // 5 bits range from 0-31
     uint32_t ShrapnelMax : 5;
     uint32_t ShrapnelRate : 5;
+    // 2 bits size allows values 0-3
+    // 0 = not allowed, 1 = allowed, 2 = allowed/starts with
     uint32_t CloakStatus : 2;
     uint32_t StealthStatus : 2;
     uint32_t XRadarStatus : 2;
     uint32_t AntiWarpStatus : 2;
+    // 0 = no guns, 1-3 = gun level
     uint32_t InitialGuns : 2;
     uint32_t MaxGuns : 2;
     uint32_t InitialBombs : 2;
     uint32_t MaxBombs : 2;
+    // booleans
+    // 0 = single, 1 = double
     uint32_t DoubleBarrel : 1;
     uint32_t EmpBomb : 1;
     uint32_t SeeMines : 1;

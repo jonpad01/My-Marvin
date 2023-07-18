@@ -32,6 +32,7 @@ bool Time::RepeatedActionDelay(std::string key, uint64_t delay) {
   return false;
 }
 
+#if 0
 // create a consitent gap between each unique id
 // zones endup with large gaps between player ids so use a sorted vector to sandwich them together
 uint64_t Time::UniqueIDTimer(uint16_t id) {
@@ -61,6 +62,7 @@ uint64_t Time::UniqueIDTimer(uint16_t id) {
   return time;
 }
 
+
 uint64_t Time::DevaFreqTimer(std::vector<std::string> names) {
   uint64_t offset = 200;
   uint64_t offset_index = 0;
@@ -84,7 +86,7 @@ uint64_t Time::DevaFreqTimer(std::vector<std::string> names) {
           if (game_.GetPlayer().frequency == 00 || game_.GetPlayer().frequency == 01) {
             if (player.frequency != 00 && player.frequency != 01 && player.name != game_.GetPlayer().name) {
               wait_for_bot = true;
-              if (!player.active) {
+              if (!player.dead) {
                 bot_dead = true;
               }
             }
@@ -109,6 +111,8 @@ uint64_t Time::DevaFreqTimer(std::vector<std::string> names) {
 
   return offset;
 }
+
+#endif
 
 PerformanceTimer::PerformanceTimer() {
   begin_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now())

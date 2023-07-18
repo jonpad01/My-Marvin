@@ -24,6 +24,8 @@ enum {
   NodeFlag_Closed = (1 << 1),
   NodeFlag_Initialized = (1 << 2),
   NodeFlag_Traversable = (1 << 3),
+  // node is in a diagonal gap
+  NodeFlag_DiagonalGap = (1 << 4),
 };
 typedef u32 NodeFlags;
 

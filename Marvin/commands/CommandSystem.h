@@ -5,6 +5,7 @@
 
 #include "../Common.h"
 #include "../GameProxy.h"
+#include "../Time.h"
 
 namespace marvin {
 
@@ -70,6 +71,9 @@ class CommandSystem {
 
  private:
   Commands commands_;
+  bool ignore_self_message_ = true;
+  Time time_;
+  uint64_t self_message_cooldown_ = 0;
 };
 
 std::vector<std::string> Tokenize(std::string message, char delim);

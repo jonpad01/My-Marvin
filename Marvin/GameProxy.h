@@ -14,7 +14,8 @@ namespace marvin {
 
 class Map;
 
-enum class UpdateState { Clear, Wait, Reload };
+enum class UpdateState : short { Clear, Wait, Reload };
+enum class ItemAction : short {Buy, Sell, None};
 enum class CombatRole : short { Anchor, Rusher, Bomber, Camper, None };
 enum class WarpToState : short { Center, Base, None };
 enum class BDState : short { Running, Paused, Stopped, Ended };
@@ -45,6 +46,13 @@ enum StatusFlag {
   Status_Safety = (1 << 5),
   Status_UFO = (1 << 6),
   Status_InputChange = (1 << 7)
+};
+
+struct HSItems {
+  std::vector<std::string> items;
+  ItemAction action;
+  HSItems() { action = ItemAction::None; }
+  HSItems(const std::vector<std::string>& items, ItemAction action) : items(items), action(action) {}
 };
 
 struct AnchorSet {
@@ -81,14 +89,18 @@ class Weapon {
   }
 };
 
-//current status of bots ship
-struct ShipStatus {
-  u32 max_energy;
-  u32 recharge;
-  u32 thrust;
-  u32 speed;
-  u32 rotation;
-  u32 shrapnel;
+
+
+// if the status is on or off
+struct ShipToggleStatus {
+  u8 stealth : 1;
+  u8 cloak : 1;
+  u8 xradar : 1;
+  u8 antiwarp : 1;
+  u8 flash : 1;
+  u8 safety : 1;
+  u8 ufo : 1;
+  u8 inputChange : 1;
 };
 
 struct Flag {
@@ -123,7 +135,7 @@ class GameProxy {
   virtual int GetEnergy() const = 0;
   virtual const float GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
-  virtual const ShipStatus& GetShipStatus() const = 0;
+  //virtual const ShipFlightStatus& GetShipStatus() const = 0;
 
   virtual const Player& GetPlayer() const = 0;
   virtual const std::vector<Player>& GetPlayers() const = 0;
@@ -145,8 +157,8 @@ class GameProxy {
   virtual const Map& GetMap() const = 0;
 
   virtual std::vector<ChatMessage> GetChat() = 0;
-  virtual void SendChatMessage(const std::string& mesg) const = 0;
-  virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) const = 0;
+  virtual void SendChatMessage(const std::string& mesg) = 0;
+  virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) = 0;
   virtual void SendKey(int vKey) const = 0;
 
   virtual void SetTileId(Vector2f position, u8 id) = 0;
@@ -168,20 +180,21 @@ class GameProxy {
 
   // May need to be called more than once to transition the game menu
   // Returns true if it attempts to set the ship this call.
-  virtual void SetEnergy(float percent) = 0;
+  virtual void SetEnergy(uint64_t percent) = 0;
   virtual bool SetShip(uint16_t ship) = 0;
   virtual void SetFreq(int freq) = 0;
   virtual void SetArena(const std::string& arena) = 0;
+  virtual void ResetStatus() = 0;
+  virtual void Attach(std::string name) = 0;
+  virtual void Attach(uint16_t id) = 0;
+  virtual void Attach() = 0;
+  virtual void HSFlag() = 0;
   virtual void Warp() = 0;
   virtual void Stealth() = 0;
   virtual void Cloak(KeyController& keys) = 0;
   virtual void MultiFire() = 0;
-  virtual void P() = 0;
-  virtual void L() = 0;
-  virtual void R() = 0;
-  virtual void PageUp() = 0;
-  virtual void PageDown() = 0;
   virtual void XRadar() = 0;
+  virtual void Antiwarp(KeyController& keys) = 0;
   virtual void Burst(KeyController& keys) = 0;
   virtual void Repel(KeyController& keys) = 0;
   virtual void SetSelectedPlayer(uint16_t id) = 0;

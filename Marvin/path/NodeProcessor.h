@@ -14,6 +14,8 @@ namespace path {
 
 constexpr std::size_t kMaxNodes = 1024 * 1024;
 
+
+
 struct EdgeSet {
   u8 set = 0;
 
@@ -94,7 +96,7 @@ class NodeProcessor {
     memset(&edges_[0], 0, kMaxNodes * sizeof(EdgeSet));
   }
 
-  EdgeSet FindEdges(Node* node, float radius);
+  EdgeSet FindEdges(Node* node);
   EdgeSet CalculateEdges(Node* node, float radius);
   Node* GetNode(NodePoint point);
   bool IsSolid(u16 x, u16 y) { return map_.IsSolid(x, y); }

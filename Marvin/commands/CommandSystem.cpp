@@ -16,7 +16,7 @@
 #include "SetShipCommand.h"
 #include "SetArenaCommand.h"
 #include "SwarmCommand.h"
-#include "HSFlagCommands.h"
+#include "HSCommands.h"
 
 namespace marvin {
 
@@ -88,6 +88,7 @@ CommandSystem::CommandSystem(Zone zone) {
     case Zone::Hyperspace: {
       RegisterCommand(std::make_shared<HSFlagCommand>());
       RegisterCommand(std::make_shared<HSFlagOffCommand>());
+      RegisterCommand(std::make_shared<HSBuyCommand>());
       break;
     }
     default: {
@@ -112,6 +113,24 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
 
   if (msg.empty()) return false;
   if (msg[0] != '!' && msg[0] != '.') return false;
+
+  // ignore messages sent from self unless the message is pm'd to self
+  // this works because pm'ing self causes a double message
+  // so the function here can throw out the first message, and process the next one
+  // if it is recieved within the 250ms limit 
+  if (chat.player == bot.GetGame().GetName()) {
+
+   // reset the flag 
+   if (time_.GetTime() > self_message_cooldown_) {
+      ignore_self_message_ = true;
+   }
+
+   if (ignore_self_message_) {
+      ignore_self_message_ = false;
+      self_message_cooldown_ = time_.GetTime() + 250;
+      return false;
+    } 
+  } 
 
   msg.erase(0, 1);
 
