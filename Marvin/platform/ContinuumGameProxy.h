@@ -121,12 +121,14 @@ class ContinuumGameProxy : public GameProxy {
   void Antiwarp(KeyController& keys) override;
   void Burst(KeyController& keys) override;
   void Repel(KeyController& keys) override;
-  void SendQueuedMessage();
+  bool ProcessQueuedMessages();
+  void SendPriorityMessage(const std::string& message) override;
   void SendMessage(const std::string& mesg);
   void SendChatMessage(const std::string& mesg) override;
   void SendPrivateMessage(const std::string& target, const std::string& mesg) override;
   void SendKey(int vKey) const override;
   void SetSelectedPlayer(uint16_t id) override;
+  std::size_t GetIDIndex() override;
 
  
   
@@ -151,7 +153,6 @@ class ContinuumGameProxy : public GameProxy {
   void FetchWeapons();
 
   bool ActionDelay();
-  std::size_t GetIDIndex();
   
   std::vector<BallData> balls_;
   std::vector<Green> greens_;
@@ -187,6 +188,7 @@ class ContinuumGameProxy : public GameProxy {
   uint16_t desired_ship_;
   std::vector<uint16_t> numerical_id_list;
   std::deque<std::string> message_queue;
+  std::deque<std::string> priority_message_queue;
 };
 
 }  // namespace marvin

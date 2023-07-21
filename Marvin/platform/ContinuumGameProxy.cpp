@@ -107,7 +107,10 @@ UpdateState ContinuumGameProxy::Update(float dt) {
   FetchGreens();
   FetchChat();
   FetchWeapons();
-  SendQueuedMessage();
+  
+  if (ProcessQueuedMessages()) {
+    return UpdateState::Wait;
+  }
 
   map_->SetMinedTiles(GetEnemyMines());
 
@@ -669,12 +672,12 @@ void ContinuumGameProxy::SetEnergy(uint64_t percent) {
 
 void ContinuumGameProxy::SetFreq(int freq) {
 #if !DEBUG_USER_CONTROL
-  if (!ActionDelay()) {
+  if (!ActionDelay() || freq == player_->frequency) {
     return;
   }
   ResetStatus();
   SetEnergy(100.0f);
-  SendChatMessage("=" + std::to_string(freq));
+  SendPriorityMessage("=" + std::to_string(freq));
 #endif
 }
 
@@ -772,6 +775,11 @@ void ContinuumGameProxy::SetArena(const std::string& arena) {
 }
 
 bool ContinuumGameProxy::SetShip(uint16_t ship) {
+
+  if (player_->ship == ship) {
+    return true;
+  }
+
   set_ship_flag_ = true;
   desired_ship_ = ship;
 
@@ -800,9 +808,11 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
 }
 
 void ContinuumGameProxy::Warp() {
-  ResetStatus();
-  SetEnergy(100.0f);
-  SendKey(VK_INSERT);
+  if (player_->dead && player_->ship != 8) {
+    ResetStatus();
+    SetEnergy(100.0f);
+    SendKey(VK_INSERT);
+  }
 }
 
 void ContinuumGameProxy::Stealth() {
@@ -835,13 +845,31 @@ void ContinuumGameProxy::SendKey(int vKey) const {
 #endif
 }
 
-void ContinuumGameProxy::SendQueuedMessage() {
-  if (message_queue.empty() || time_.GetTime() < message_cooldown_) return;
+// priority messages will make the bot stop until it sends the messages
+// currently used for buying items in hyperspace
+bool ContinuumGameProxy::ProcessQueuedMessages() {
+  bool result = false;
+  if (!priority_message_queue.empty()) {
+    result = true;
+  }
+
+  if ((message_queue.empty() && priority_message_queue.empty()) || time_.GetTime() < message_cooldown_) return result;
   
-  SendMessage(message_queue[0]);
-  message_queue.pop_front();
+  if (!priority_message_queue.empty()) {
+    SendMessage(priority_message_queue[0]);
+    priority_message_queue.pop_front();
+  } else {
+    SendMessage(message_queue[0]);
+    message_queue.pop_front();
+  }
 
   message_cooldown_ = time_.GetTime() + 1000;
+  return result;
+}
+
+void ContinuumGameProxy::SendPriorityMessage(const std::string& message) {
+  //priority_message_queue.emplace_back(message);
+  SendMessage(message);
 }
 
 void ContinuumGameProxy::SendMessage(const std::string& mesg) {
@@ -874,14 +902,17 @@ void ContinuumGameProxy::SendMessage(const std::string& mesg) {
 }
 
 void ContinuumGameProxy::SendChatMessage(const std::string& mesg) {
-    message_queue.emplace_back(mesg);
+  // ignore duplicate messages
+  if (!message_queue.empty()) {
+    if (message_queue[message_queue.size() - 1] == mesg) return;
+  }
+
+  message_queue.emplace_back(mesg);
 }
 
 void ContinuumGameProxy::SendPrivateMessage(const std::string& target, const std::string& mesg) {
-  
   if (!target.empty()) {
-    message_queue.emplace_back(":" + target + ":" + mesg);
-   // SendChatMessage(":" + target + ":" + mesg);
+   SendChatMessage(":" + target + ":" + mesg);
   }
 }
 
@@ -923,7 +954,7 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
 // a bunch of bots all jumping onto the same freq
 bool ContinuumGameProxy::ActionDelay() {
   if (delay_timer_ == 0) {
-    delay_timer_ = time_.GetTime() + ((uint64_t)GetIDIndex() * 100);
+    delay_timer_ = time_.GetTime() + ((uint64_t)GetIDIndex() * 100) + 100;
   } else if (time_.GetTime() > delay_timer_) {
     delay_timer_ = 0;
     return true;

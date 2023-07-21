@@ -71,6 +71,8 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto HS_move_to_base = std::make_unique<hs::HSMoveToBaseNode>();
   auto HS_gather_flags = std::make_unique<hs::HSGatherFlagsNode>();
   auto HS_drop_flags = std::make_unique<hs::HSDropFlagsNode>();
+  auto HS_buy_sell = std::make_unique<hs::HSBuySellNode>();
+  auto HS_move_to_depot = std::make_unique<hs::HSMoveToDepotNode>();
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
@@ -121,16 +123,19 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
       HS_move_to_base_sequence.get(), HS_flagger_find_enemy_selector.get(), HS_base_patrol_sequence.get());
   auto flagger_sequence = std::make_unique<behavior::SequenceNode>(HS_is_flagging.get(), flagger_selector.get());
 
-
+  auto HS_move_to_depot_sequence = std::make_unique<behavior::SequenceNode>(HS_move_to_depot.get(), follow_path_.get());
 
 
   auto action_selector = std::make_unique<behavior::SelectorNode>(
+      HS_move_to_depot_sequence.get(), 
       flagger_sequence.get(), find_enemy_in_center_sequence.get(), patrol_center_sequence.get());
 
+  
+
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(), HS_player_sort.get(), team_sort.get(),
-      HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(), HS_shipman.get(), HS_warp.get(),
-      HS_toggle.get(), action_selector.get());
+      commands_.get(), HS_buy_sell.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(),
+      HS_player_sort.get(), team_sort.get(), HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(),
+      HS_shipman.get(), HS_warp.get(), HS_toggle.get(), action_selector.get());
 
   engine_->PushRoot(std::move(root_sequence));
 
@@ -166,6 +171,9 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_move_to_base_sequence));
   engine_->PushNode(std::move(HS_move_to_base));
   engine_->PushNode(std::move(HS_gather_flags));
+  engine_->PushNode(std::move(HS_buy_sell));
+  engine_->PushNode(std::move(HS_move_to_depot_sequence));
+  engine_->PushNode(std::move(HS_move_to_depot));
  // engine_->PushNode(std::move(patrol_selector));
   engine_->PushNode(std::move(flagger_sequence));
   engine_->PushNode(std::move(HS_toggle));
@@ -179,6 +187,300 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_set_region));
   engine_->PushNode(std::move(HS_is_flagging));
   engine_->PushNode(std::move(action_selector));
+}
+
+// The buy sell node looks at the buy sell list and watches the action flag
+// when the flag is set to buy or sell it sends a buy message then clears the list
+// it keeps track of the number of messages it sent and waits for that many server responces
+// it reads each responce and relays the message to the sender
+// the buy or sell flag is not cleared until it gets all the responces, or it times out while waiting
+// this node also sets a depotbuy an depotsell flag that signals another node to drive to an ammo depot
+behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  // copying struct might be better to make seprate blackboard functions to access it
+  // or make a class object 
+  const HSBuySellList& items = bb.GetHSBuySellList();
+  std::string command;
+  std::string action;
+  int count = items.action_count;
+
+
+  if (items.action == ItemAction::None || items.action == ItemAction::DepotBuy || items.action == ItemAction::DepotSell) {
+    g_RenderState.RenderDebugText("  HSBuySellNode(No Action Taken): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  } else if (ctx.bot->GetTime().GetTime() > items.timestamp + 5000) {
+    if (game.GetPlayer().ship != items.ship) {
+      game.SendPrivateMessage(items.sender, "I do not own that ship, please buy it first.");
+    } else {
+      game.SendPrivateMessage(items.sender,
+                              "I did not recieve a server message confirming buy/sell.");
+    }
+    bb.ClearHSBuySellAll();
+    g_RenderState.RenderDebugText("  HSBuySellNode(Failed To Get Server Messages): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  Vector2f position = game.GetPosition();
+  bool on_safe_tile = game.GetMap().GetTileId(position) == kSafeTileId;
+
+  if (!game.GetPlayer().dead) {
+    bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
+    g_RenderState.RenderDebugText("  HSBuySellNode(Waiting for Respawn): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  } 
+
+  // TODO: this check should look for center safe or ammo depot instead of just a safe tile
+  if (!on_safe_tile && game.GetPlayer().ship != 8) {
+    game.Warp();
+    g_RenderState.RenderDebugText("  HSBuySellNode(Warping To Center): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  } 
+
+  // check player ship
+  if (game.GetPlayer().ship != items.ship) {
+    game.SetShip(items.ship);
+    g_RenderState.RenderDebugText("  HSBuySellNode(Setting Ship): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+
+    // run this only once then clear items
+  if (!items.items.empty() && items.action_completed == false && game.GetPlayer().ship == items.ship) {
+      // prepend prefix
+      command = "?";
+
+      // append buy or sell with delimiter
+      if (items.action == ItemAction::Buy)
+        action = "|buy ";
+      else if (items.action == ItemAction::Sell)
+        action = "|sell ";
+
+      command += action;
+
+      for (std::size_t i = 0; i < items.items.size(); i++) {
+        const std::string& item = items.items[i];
+        command += item;
+
+        if (i < items.items.size() - 1) {
+          command += action;
+        }
+      }
+
+      game.SendPriorityMessage(command);
+      bb.SetHSBuySellActionCompleted(true);
+      bb.ClearHSBuySellList();
+  }
+
+
+  // now look for confirmation messages before clearing the item action flag
+  const std::string kBuySuccess = "You purchased "; 
+  const std::string kSellSuccess = "You sold "; 
+  const std::string kSlotsFull = "You do not have enough free ";
+  const std::string kTooMany = "You may only have ";
+  const std::string kNotAllowed = "is not allowed on a ";
+  const std::string kNoItem = "No item ";
+  const std::string kAmmoDepot = "You cannot buy item ";
+  const std::string kSpectator = "You cannot buy or sell items ";
+  const std::string kAmmoDepotSell = "You cannot sell item ";
+  const std::string kNotAvalibe = " are not avalible for sale in this arena.";
+  const std::string kAlreadyOwn = "You already own a ";
+  const std::string kDoNotOwn = "You do not own a ";
+  const std::string kUsingShip = "You cannot sell the ship you are using. ";
+  const std::string kPleaseWait = "Please wait a few moments between ship buy and sell requests";
+
+
+  for (ChatMessage& msg : game.GetChat()) {
+    if (msg.type != ChatType::Arena) continue;
+
+    std::size_t found = msg.message.find(kBuySuccess);
+    if (found != std::string::npos) {
+      std::string type = "item ";
+      found = msg.message.find("item ");
+      if (found == std::string::npos) {
+        found = msg.message.find("ed a ");
+        type = "ship ";
+      }
+      std::size_t offset = found + 5;
+      std::size_t next = msg.message.find(" for", offset);
+      std::string item = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "I bought " + type + item + ".");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kSellSuccess);
+    if (found != std::string::npos) {
+      std::string type = "item ";
+      found = msg.message.find("item ");
+      // sold ship message
+      if (found == std::string::npos) {
+        found = msg.message.find("your ");
+        type = "ship ";
+      }
+      std::size_t offset = found + 5;
+      std::size_t next = msg.message.find(" for", offset);
+      std::string item = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "I sold " + type + item + ".");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kSlotsFull);
+    if (found != std::string::npos) {
+      std::size_t offset = found + kSlotsFull.size();
+      std::size_t next = msg.message.find(" spots.", offset);
+      std::string slot_type = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "I do not have enough free " + slot_type + " spots.");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kTooMany);
+    if (found != std::string::npos) {
+      found = msg.message.find("item ");
+      std::size_t offset = found + 5;
+      std::size_t next = msg.message.find(" on", offset);
+      std::string item = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "I have too many of item " + item + ".");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kNotAllowed);
+    if (found != std::string::npos) {
+      std::size_t offset = 5;
+      std::size_t next = msg.message.find(" is", offset);
+      std::string item = msg.message.substr(offset, next - offset);
+      found = msg.message.find(" a ");
+      offset = found + 3;
+      std::string ship = msg.message.substr(offset, (msg.message.size() - 1) - offset);
+      game.SendPrivateMessage(items.sender, "Item " + item + " is not allowed on my ship (" + ship + ").");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kNoItem);
+    if (found != std::string::npos) {
+      std::size_t offset = kNoItem.size();
+      // player could input a gibberish string that matches this find criteria.
+      std::size_t next = msg.message.find(" in this arena.", offset);
+      std::string item = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "No item " + item + " in this arena.");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kNotAvalibe);
+    if (found != std::string::npos) {
+      std::size_t offset = 0;
+      std::size_t next = msg.message.find(" are", offset);
+      std::string ship = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, ship + " are not avalible for sale in this arena.");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kAlreadyOwn);
+    if (found != std::string::npos) {
+      std::size_t offset = kAlreadyOwn.size();
+      std::size_t next = msg.message.find(" on", offset);
+      std::string ship = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "I already own a " + ship + ".");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kSpectator);
+    if (found != std::string::npos) {
+      game.SendPrivateMessage(items.sender, "I cannot buy or sell items as a spectator.");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kDoNotOwn);
+    if (found != std::string::npos) {
+      std::size_t offset = kDoNotOwn.size();
+      std::string ship = msg.message.substr(offset, (msg.message.size() - 1) - offset);
+      game.SendPrivateMessage(items.sender, "I do not own a " + ship + ".");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kPleaseWait);
+    if (found != std::string::npos) {
+      game.SendPrivateMessage(items.sender, "The server is blocking me for buying ships too fast.");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kUsingShip);
+    if (found != std::string::npos) {
+      game.SendPrivateMessage(items.sender,
+                              "I cannot sell the ship I am using (" + GetShip(game.GetPlayer().ship) + ").");
+      count--;
+      continue;
+    }
+    found = msg.message.find(kAmmoDepot);
+    if (found != std::string::npos) {
+      std::size_t offset = kAmmoDepot.size();
+      std::size_t next = msg.message.find(" here.", offset);
+      std::string item = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "Moving to ammo depot to buy item " + item + ".");
+
+      bb.EmplaceHSBuySellList(item);
+      bb.SetHSBuySellAction(ItemAction::DepotBuy);
+      bb.SetHSBuySellActionCompleted(false);
+      continue;
+    }
+    found = msg.message.find(kAmmoDepotSell);
+    if (found != std::string::npos) {
+      std::size_t offset = kAmmoDepot.size();
+      std::size_t next = msg.message.find(" here.", offset);
+      std::string item = msg.message.substr(offset, next - offset);
+      game.SendPrivateMessage(items.sender, "Moving to ammo depot to sell item " + item + ".");
+
+      bb.EmplaceHSBuySellList(item);
+      bb.SetHSBuySellAction(ItemAction::DepotSell);
+      bb.SetHSBuySellActionCompleted(false);
+      continue;
+    }
+  }
+
+  bb.SetHSBuySellActionCount(count);
+
+  if (count == 0) {
+    bb.ClearHSBuySellAll();
+  }
+  
+  g_RenderState.RenderDebugText("  HSBuySellNode(Sending Messages): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
+
+behavior::ExecuteResult HSMoveToDepotNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  const HSBuySellList& items = bb.GetHSBuySellList();
+  Vector2f position = game.GetPosition();
+  bool on_safe_tile = game.GetMap().GetTileId(position) == kSafeTileId;
+
+  if (items.action == ItemAction::DepotBuy || items.action == ItemAction::DepotSell) {
+    if (on_safe_tile && position.Distance(Vector2f(590, 349)) < 4.0f) {
+      if (items.action == ItemAction::DepotBuy) {
+        bb.SetHSBuySellAction(ItemAction::Buy);
+      } else {
+        bb.SetHSBuySellAction(ItemAction::Sell);
+      }
+      bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
+      // try to stop the bot on the safe tile
+      ctx.bot->GetKeys().Press(VK_CONTROL);
+      // success will push into the follow path node so make the path empty
+      ctx.bot->GetPathfinder().SetPath(std::vector<Vector2f>());
+      g_RenderState.RenderDebugText("  HSMoveToDepotNode(In Position): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Success;
+    } else {
+      ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), Vector2f(590, 349), game.GetRadius());
+      g_RenderState.RenderDebugText("  HSMoveToDepotNode(Moving to Depot): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Success;
+    }
+  }
+
+   g_RenderState.RenderDebugText("  HSMoveToDepotNode(No Action Taken): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult HSFlaggingCheckNode::Execute(behavior::ExecuteContext& ctx) {
@@ -323,11 +625,11 @@ AnchorResult HSPlayerSortNode::GetAnchors(Bot& bot) {
       break;
     }
 
-    std::vector<std::string_view> list = SplitString(chat.message, ", ");
+    std::vector<std::string> list = SplitString(chat.message, ", ");
 
     for (std::size_t i = 0; i < list.size(); i++) {
       
-      std::string_view entry = list[i];
+      const std::string& entry = list[i];
       std::vector<const Player*>* type_list = &result.anchors.no_energy;
       const Player* anchor = nullptr;
       std::string_view name = entry;

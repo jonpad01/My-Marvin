@@ -35,7 +35,7 @@ class Blackboard {
   std::vector<const Player*> combined_list_;
   uint64_t bd_warp_cooldown_;
   uint64_t set_ship_cooldown_;
-  HSItems hs_items_; 
+  HSBuySellList hs_items_; 
 
   // 4 bytes
   int base_teams_count_;
@@ -172,8 +172,17 @@ class Blackboard {
     update_lancs_flag = true;
   }
 
-  void SetHSItems(const HSItems& items) { hs_items_ = items; }
-  const HSItems& GetHSItems() { return hs_items_; }
+  void SetHSBuySellList(const std::vector<std::string>& items) { hs_items_.items = items; }
+  void SetHSBuySellAction(ItemAction action) { hs_items_.action = action; }
+  void SetHSBuySellActionCount(int count) { hs_items_.action_count = count; }
+  void SetHSBuySellShip(uint16_t ship) { hs_items_.ship = ship; }
+  void SetHSBuySellTimeStamp(uint64_t timestamp) { hs_items_.timestamp = timestamp; }
+  void SetHSBuySellActionCompleted(bool state) { hs_items_.action_completed = state; }
+  void SetHSBuySellSender(const std::string& sender) { hs_items_.sender = sender; }
+  void ClearHSBuySellList() { hs_items_.items.clear(); }
+  void ClearHSBuySellAll() { hs_items_.Clear(); }
+  void EmplaceHSBuySellList(const std::string& item) { hs_items_.items.emplace_back(item); }
+  const HSBuySellList& GetHSBuySellList() { return hs_items_; }
 
   void SetBDBaseIndex(std::size_t index) { bd_base_index_ = index; }
   std::size_t GetBDBaseIndex() { return bd_base_index_; }

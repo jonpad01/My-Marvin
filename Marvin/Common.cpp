@@ -92,6 +92,26 @@ std::vector<std::string_view> SplitString(std::string_view string, std::string_v
   return result;
 }
 
+std::vector<std::string> SplitString(const std::string& string, const std::string& delim) {
+  std::vector<std::string> result;
+
+  std::size_t offset = 0;
+  std::size_t start = 0;
+
+  while ((offset = string.find(delim, offset)) != std::string::npos) {
+    std::string split = string.substr(start, offset - start);
+
+    result.push_back(split);
+
+    offset += delim.size();
+    start = offset;
+  }
+
+  result.push_back(string.substr(start));
+
+  return result;
+}
+
 Vector2f DiscreteToHeading(uint16_t rotation) {
   const float kToRads = (static_cast<float>(M_PI) / 180.0f);
   float rads = (((40 - (rotation + 30)) % 40) * 9.0f) * kToRads;
@@ -106,6 +126,32 @@ float DiscreteToRadians(uint16_t rotation) {
   float rads = (((40 - (rotation + 30)) % 40) * 9.0f) * kToRads;
 
   return rads;
+}
+
+std::string GetShip(uint16_t ship) {
+  switch (ship) {
+    case 0:
+      return "Warbird";
+    case 1:
+      return "Javelin";
+    case 2:
+      return "Spider";
+    case 3:
+      return "Leviathan";
+    case 4:
+      return "Terrier";
+    case 5:
+      return "Weasel";
+    case 6: 
+        return "Lancaster";
+    case 7:
+        return "Shark";
+    case 8:
+        return "Spectator";
+    default:
+        return "None";
+  }
+  return "None";
 }
 
 }  // namespace marvin

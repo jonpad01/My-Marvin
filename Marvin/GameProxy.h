@@ -15,7 +15,7 @@ namespace marvin {
 class Map;
 
 enum class UpdateState : short { Clear, Wait, Reload };
-enum class ItemAction : short {Buy, Sell, None};
+enum class ItemAction : short {Buy, Sell, DepotBuy, DepotSell, None};
 enum class CombatRole : short { Anchor, Rusher, Bomber, Camper, None };
 enum class WarpToState : short { Center, Base, None };
 enum class BDState : short { Running, Paused, Stopped, Ended };
@@ -48,11 +48,26 @@ enum StatusFlag {
   Status_InputChange = (1 << 7)
 };
 
-struct HSItems {
+struct HSBuySellList {
   std::vector<std::string> items;
-  ItemAction action;
-  HSItems() { action = ItemAction::None; }
-  HSItems(const std::vector<std::string>& items, ItemAction action) : items(items), action(action) {}
+  std::string sender;
+  ItemAction action = ItemAction::None;
+  bool action_completed = false;
+  bool action_delay = 0;
+  int action_count = 0;
+  uint64_t timestamp = 0;
+  uint16_t ship = 0;
+
+  void Clear() {
+    items.clear();
+    sender.clear();
+    action = ItemAction::None;
+    action_completed = false;
+    action_delay = 0;
+    action_count = 0;
+    timestamp = 0;
+    ship = 0;
+  }
 };
 
 struct AnchorSet {
@@ -159,6 +174,7 @@ class GameProxy {
   virtual std::vector<ChatMessage> GetChat() = 0;
   virtual void SendChatMessage(const std::string& mesg) = 0;
   virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) = 0;
+  virtual void SendPriorityMessage(const std::string& message) = 0;
   virtual void SendKey(int vKey) const = 0;
 
   virtual void SetTileId(Vector2f position, u8 id) = 0;
@@ -198,6 +214,7 @@ class GameProxy {
   virtual void Burst(KeyController& keys) = 0;
   virtual void Repel(KeyController& keys) = 0;
   virtual void SetSelectedPlayer(uint16_t id) = 0;
+  virtual std::size_t GetIDIndex() = 0;
 };
 
 }  // namespace marvin
