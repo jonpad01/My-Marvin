@@ -73,6 +73,8 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto HS_drop_flags = std::make_unique<hs::HSDropFlagsNode>();
   auto HS_buy_sell = std::make_unique<hs::HSBuySellNode>();
   auto HS_move_to_depot = std::make_unique<hs::HSMoveToDepotNode>();
+  auto HS_items = std::make_unique<hs::HSListItemsNode>();
+  auto HS_slots = std::make_unique<hs::HSListSlotsNode>();
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
@@ -133,7 +135,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   
 
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), HS_buy_sell.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(),
+      commands_.get(), HS_items.get(), HS_slots.get(), HS_buy_sell.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(),
       HS_player_sort.get(), team_sort.get(), HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(),
       HS_shipman.get(), HS_warp.get(), HS_toggle.get(), action_selector.get());
 
@@ -174,6 +176,8 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_buy_sell));
   engine_->PushNode(std::move(HS_move_to_depot_sequence));
   engine_->PushNode(std::move(HS_move_to_depot));
+  engine_->PushNode(std::move(HS_items));
+  engine_->PushNode(std::move(HS_slots));
  // engine_->PushNode(std::move(patrol_selector));
   engine_->PushNode(std::move(flagger_sequence));
   engine_->PushNode(std::move(HS_toggle));
@@ -189,6 +193,72 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(action_selector));
 }
 
+behavior::ExecuteResult HSListItemsNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  const std::string kLine = "+-";
+  const std::string kListing = "| ";
+
+  int line_count = 0;
+
+  const HSBuySellList& items = bb.GetHSBuySellList();
+
+  if (items.action != ItemAction::ListItems) {
+    g_RenderState.RenderDebugText("  HSListItemsNode(No Action Taken): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  if (!items.action_completed) {
+    game.SendChatMessage("?shipstatus " + std::to_string(items.ship + 1));
+    bb.SetHSBuySellActionCompleted(true);
+    g_RenderState.RenderDebugText("  HSListItemsNode(Sending Chat Message): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+   for (ChatMessage& msg : game.GetChat()) {
+    if (msg.type != ChatType::Arena) continue;
+
+    std::size_t found = msg.message.find(kLine);
+    if (found != std::string::npos) {
+      game.SendPrivateMessage(items.sender, msg.message);
+      line_count++;
+      continue;
+    }
+    found = msg.message.find(kListing);
+    if (found != std::string::npos) {
+      game.SendPrivateMessage(items.sender, msg.message);
+      continue;
+    }
+   }
+
+   if (line_count >= 4) {
+    bb.ClearHSBuySellAll();
+   }
+
+  g_RenderState.RenderDebugText("  HSListItemsNode(Listing Items): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult HSListSlotsNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  const HSBuySellList& items = bb.GetHSBuySellList();
+
+  if (items.action != ItemAction::ListSlots) {
+    g_RenderState.RenderDebugText("  HSListSlotsNode(No Action Taken): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  bb.ClearHSBuySellAll();
+
+  g_RenderState.RenderDebugText("  HSListSlotsNode(Listing Slots): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
 // The buy sell node looks at the buy sell list and watches the action flag
 // when the flag is set to buy or sell it sends a buy message then clears the list
 // it keeps track of the number of messages it sent and waits for that many server responces
@@ -200,15 +270,12 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  // copying struct might be better to make seprate blackboard functions to access it
-  // or make a class object 
   const HSBuySellList& items = bb.GetHSBuySellList();
   std::string command;
   std::string action;
   int count = items.action_count;
 
-
-  if (items.action == ItemAction::None || items.action == ItemAction::DepotBuy || items.action == ItemAction::DepotSell) {
+  if (items.action != ItemAction::Buy && items.action != ItemAction::Sell) {
     g_RenderState.RenderDebugText("  HSBuySellNode(No Action Taken): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   } else if (ctx.bot->GetTime().GetTime() > items.timestamp + 5000) {

@@ -5,6 +5,82 @@
 
 namespace marvin {
 
+class HSListItemsCommand : public CommandExecutor {
+ public:
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+    Blackboard& bb = bot.GetBlackboard();
+    GameProxy& game = bot.GetGame();
+
+    uint16_t ship = game.GetPlayer().ship;
+
+    if (!arg.empty() && isdigit(arg[0])) {
+      int num = arg[0] - '0';
+      if (num >= 1 && num <= 8) {
+        ship = num - 1;
+      } else {
+        game.SendPrivateMessage(sender, "Invalid ship number (1-8 only).");
+        SendUsage(game, sender);
+      }
+    }
+
+    bb.SetHSBuySellAction(ItemAction::ListItems);
+    bb.SetHSBuySellShip(ship);
+    bb.SetHSBuySellActionCompleted(false);
+    bb.SetHSBuySellSender(sender);
+    bb.SetHSBuySellTimeStamp(bot.GetTime().GetTime());
+  }
+
+  void SendUsage(GameProxy& game, std::string sender) {
+    game.SendPrivateMessage(sender, "Private command only (.items) (.items 1)");
+  }
+
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
+  CommandFlags GetFlags() { return CommandFlag_Lockable; }
+  std::vector<std::string> GetAliases() { return {"items"}; }
+  std::string GetDescription() { return "Prints a list of items the bot currently owns (.items 1 lists items for warbird)."; }
+  int GetSecurityLevel() { return 0; }
+};
+
+class HSListSlotsCommand : public CommandExecutor {
+ public:
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+    Blackboard& bb = bot.GetBlackboard();
+    GameProxy& game = bot.GetGame();
+
+        uint16_t ship = game.GetPlayer().ship;
+
+    if (!arg.empty() && isdigit(arg[0])) {
+      int num = arg[0] - '0';
+      if (num >= 1 && num <= 8) {
+        ship = num - 1;
+      } else {
+        game.SendPrivateMessage(sender, "Invalid ship number (1-8 only).");
+        SendUsage(game, sender);
+      }
+    }
+
+    bb.SetHSBuySellAction(ItemAction::ListSlots);
+    bb.SetHSBuySellShip(ship);
+    bb.SetHSBuySellActionCompleted(false);
+    bb.SetHSBuySellSender(sender);
+    bb.SetHSBuySellTimeStamp(bot.GetTime().GetTime());
+  }
+
+  void SendUsage(GameProxy& game, std::string sender) {
+    game.SendPrivateMessage(sender, "Private command only (.slots) (.slots 1)");
+  }
+
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
+  CommandFlags GetFlags() { return CommandFlag_Lockable; }
+  std::vector<std::string> GetAliases() { return {"slots"}; }
+  std::string GetDescription() {
+    return "Prints a list of free slots (.slots 1 lists free slots for warbird).";
+  }
+  int GetSecurityLevel() { return 0; }
+};
+
 class HSBuyCommand : public CommandExecutor {
   public:
   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {

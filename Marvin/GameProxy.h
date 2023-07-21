@@ -15,7 +15,7 @@ namespace marvin {
 class Map;
 
 enum class UpdateState : short { Clear, Wait, Reload };
-enum class ItemAction : short {Buy, Sell, DepotBuy, DepotSell, None};
+enum class ItemAction : short {Buy, Sell, DepotBuy, DepotSell, ListItems, ListSlots, None};
 enum class CombatRole : short { Anchor, Rusher, Bomber, Camper, None };
 enum class WarpToState : short { Center, Base, None };
 enum class BDState : short { Running, Paused, Stopped, Ended };

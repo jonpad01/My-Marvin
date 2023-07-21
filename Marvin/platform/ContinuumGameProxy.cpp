@@ -867,9 +867,11 @@ bool ContinuumGameProxy::ProcessQueuedMessages() {
   return result;
 }
 
+// this might be needed for messages that need to be sent while the bot is on a safe tile
+// such as buying items in hyperspace
 void ContinuumGameProxy::SendPriorityMessage(const std::string& message) {
-  //priority_message_queue.emplace_back(message);
-  SendMessage(message);
+  priority_message_queue.emplace_back(message);
+  //SendMessage(message);
 }
 
 void ContinuumGameProxy::SendMessage(const std::string& mesg) {
