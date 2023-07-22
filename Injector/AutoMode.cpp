@@ -209,6 +209,8 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
 
 bool AutoBot::InjectContinuum(DWORD pid) {
 
+  Sleep(1000);
+
   std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
   std::string marvin_dll = "Marvin-" + std::to_string(pid) + ".dll";
   auto process = std::make_unique<marvin::Process>(pid);
@@ -222,7 +224,7 @@ bool AutoBot::InjectContinuum(DWORD pid) {
   }
 
   // wait for the game window to exist and grab the handle
-  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, true, 10000);
+  WindowInfo iInjected = GrabWindow("Continuum (enabled) - ", pid, true, false, true, 15000);
 
   if (iInjected.hwnd == 0) {
     TerminateCont(handle);

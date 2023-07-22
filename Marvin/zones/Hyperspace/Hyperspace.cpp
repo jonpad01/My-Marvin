@@ -73,8 +73,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto HS_drop_flags = std::make_unique<hs::HSDropFlagsNode>();
   auto HS_buy_sell = std::make_unique<hs::HSBuySellNode>();
   auto HS_move_to_depot = std::make_unique<hs::HSMoveToDepotNode>();
-  auto HS_items = std::make_unique<hs::HSListItemsNode>();
-  auto HS_slots = std::make_unique<hs::HSListSlotsNode>();
+  auto HS_shipstatus = std::make_unique<hs::HSPrintShipStatusNode>();
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
@@ -135,7 +134,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   
 
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), HS_items.get(), HS_slots.get(), HS_buy_sell.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(),
+      commands_.get(), HS_shipstatus.get(), HS_buy_sell.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(),
       HS_player_sort.get(), team_sort.get(), HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(),
       HS_shipman.get(), HS_warp.get(), HS_toggle.get(), action_selector.get());
 
@@ -176,8 +175,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_buy_sell));
   engine_->PushNode(std::move(HS_move_to_depot_sequence));
   engine_->PushNode(std::move(HS_move_to_depot));
-  engine_->PushNode(std::move(HS_items));
-  engine_->PushNode(std::move(HS_slots));
+  engine_->PushNode(std::move(HS_shipstatus));
  // engine_->PushNode(std::move(patrol_selector));
   engine_->PushNode(std::move(flagger_sequence));
   engine_->PushNode(std::move(HS_toggle));
@@ -193,7 +191,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(action_selector));
 }
 
-behavior::ExecuteResult HSListItemsNode::Execute(behavior::ExecuteContext& ctx) {
+behavior::ExecuteResult HSPrintShipStatusNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
@@ -201,13 +199,17 @@ behavior::ExecuteResult HSListItemsNode::Execute(behavior::ExecuteContext& ctx) 
   const std::string kLine = "+-";
   const std::string kListing = "| ";
 
-  int line_count = 0;
-
   const HSBuySellList& items = bb.GetHSBuySellList();
+  int line_count = items.action_count;
 
   if (items.action != ItemAction::ListItems) {
     g_RenderState.RenderDebugText("  HSListItemsNode(No Action Taken): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
+  } else if (ctx.bot->GetTime().GetTime() > items.timestamp + 5000) {
+    game.SendPrivateMessage(items.sender, "I was not able to get the ship status.");
+    bb.ClearHSBuySellAll();
+    g_RenderState.RenderDebugText("  HSBuySellNode(Failed To Get Server Messages): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
   }
 
   if (!items.action_completed) {
@@ -233,29 +235,15 @@ behavior::ExecuteResult HSListItemsNode::Execute(behavior::ExecuteContext& ctx) 
     }
    }
 
+   // count how many lines that start with "+-" the 4th line is the end of the server message
+   // the bot might need more than one update to get all the messages so store the count
    if (line_count >= 4) {
     bb.ClearHSBuySellAll();
+   } else {
+    bb.SetHSBuySellActionCount(line_count);
    }
 
   g_RenderState.RenderDebugText("  HSListItemsNode(Listing Items): %llu", timer.GetElapsedTime());
-  return behavior::ExecuteResult::Failure;
-}
-
-behavior::ExecuteResult HSListSlotsNode::Execute(behavior::ExecuteContext& ctx) {
-  PerformanceTimer timer;
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.bot->GetBlackboard();
-
-  const HSBuySellList& items = bb.GetHSBuySellList();
-
-  if (items.action != ItemAction::ListSlots) {
-    g_RenderState.RenderDebugText("  HSListSlotsNode(No Action Taken): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Success;
-  }
-
-  bb.ClearHSBuySellAll();
-
-  g_RenderState.RenderDebugText("  HSListSlotsNode(Listing Slots): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -264,7 +252,7 @@ behavior::ExecuteResult HSListSlotsNode::Execute(behavior::ExecuteContext& ctx) 
 // it keeps track of the number of messages it sent and waits for that many server responces
 // it reads each responce and relays the message to the sender
 // the buy or sell flag is not cleared until it gets all the responces, or it times out while waiting
-// this node also sets a depotbuy an depotsell flag that signals another node to drive to an ammo depot
+// this node also sets a depotbuy an depotsell flag that signals another node to fly to an ammo depot
 behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
@@ -316,6 +304,9 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
 
     // run this only once then clear items
   if (!items.items.empty() && items.action_completed == false && game.GetPlayer().ship == items.ship) {
+    // when the bot warps to center it sometimes sends the buy message too fast and the server doesnt
+    // see it on a safe tile yet, so just delay this action a little bit
+      if (ctx.bot->GetTime().TimedActionDelay("serverpingdelay", 300)) {
       // prepend prefix
       command = "?";
 
@@ -338,7 +329,10 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
 
       game.SendPriorityMessage(command);
       bb.SetHSBuySellActionCompleted(true);
-      bb.ClearHSBuySellList();
+       bb.ClearHSBuySellList();
+    }
+      g_RenderState.RenderDebugText("  HSBuySellNode(Sending Message): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
   }
 
 
@@ -347,171 +341,68 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   const std::string kSellSuccess = "You sold "; 
   const std::string kSlotsFull = "You do not have enough free ";
   const std::string kTooMany = "You may only have ";
+  const std::string kDoNotHave = "You do not have any of item ";
   const std::string kNotAllowed = "is not allowed on a ";
   const std::string kNoItem = "No item ";
-  const std::string kAmmoDepot = "You cannot buy item ";
   const std::string kSpectator = "You cannot buy or sell items ";
-  const std::string kAmmoDepotSell = "You cannot sell item ";
   const std::string kNotAvalibe = " are not avalible for sale in this arena.";
   const std::string kAlreadyOwn = "You already own a ";
   const std::string kDoNotOwn = "You do not own a ";
   const std::string kUsingShip = "You cannot sell the ship you are using. ";
   const std::string kPleaseWait = "Please wait a few moments between ship buy and sell requests";
+  const std::string kGoToCenter = "Go to Center Safe to ";
+  const std::string kGoToDepotBuy = "Go to Ammo Depots to buy it!";
+  const std::string kGoToDepotSell = "Go to Ammo Depots to sell it!";
+
+  std::vector<std::string> match_list{kBuySuccess, kSellSuccess, kSlotsFull,    kTooMany,      kDoNotHave, kNotAllowed,
+                                      kNoItem,     kSpectator,   kNotAvalibe,   kAlreadyOwn,   kDoNotOwn,  kUsingShip,
+                                      kPleaseWait, kGoToCenter,  kGoToDepotBuy, kGoToDepotSell};
 
 
   for (ChatMessage& msg : game.GetChat()) {
     if (msg.type != ChatType::Arena) continue;
 
-    std::size_t found = msg.message.find(kBuySuccess);
-    if (found != std::string::npos) {
-      std::string type = "item ";
-      found = msg.message.find("item ");
-      if (found == std::string::npos) {
-        found = msg.message.find("ed a ");
-        type = "ship ";
-      }
-      std::size_t offset = found + 5;
-      std::size_t next = msg.message.find(" for", offset);
-      std::string item = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "I bought " + type + item + ".");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kSellSuccess);
-    if (found != std::string::npos) {
-      std::string type = "item ";
-      found = msg.message.find("item ");
-      // sold ship message
-      if (found == std::string::npos) {
-        found = msg.message.find("your ");
-        type = "ship ";
-      }
-      std::size_t offset = found + 5;
-      std::size_t next = msg.message.find(" for", offset);
-      std::string item = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "I sold " + type + item + ".");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kSlotsFull);
-    if (found != std::string::npos) {
-      std::size_t offset = found + kSlotsFull.size();
-      std::size_t next = msg.message.find(" spots.", offset);
-      std::string slot_type = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "I do not have enough free " + slot_type + " spots.");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kTooMany);
-    if (found != std::string::npos) {
-      found = msg.message.find("item ");
-      std::size_t offset = found + 5;
-      std::size_t next = msg.message.find(" on", offset);
-      std::string item = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "I have too many of item " + item + ".");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kNotAllowed);
-    if (found != std::string::npos) {
-      std::size_t offset = 5;
-      std::size_t next = msg.message.find(" is", offset);
-      std::string item = msg.message.substr(offset, next - offset);
-      found = msg.message.find(" a ");
-      offset = found + 3;
-      std::string ship = msg.message.substr(offset, (msg.message.size() - 1) - offset);
-      game.SendPrivateMessage(items.sender, "Item " + item + " is not allowed on my ship (" + ship + ").");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kNoItem);
-    if (found != std::string::npos) {
-      std::size_t offset = kNoItem.size();
-      // player could input a gibberish string that matches this find criteria.
-      std::size_t next = msg.message.find(" in this arena.", offset);
-      std::string item = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "No item " + item + " in this arena.");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kNotAvalibe);
-    if (found != std::string::npos) {
-      std::size_t offset = 0;
-      std::size_t next = msg.message.find(" are", offset);
-      std::string ship = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, ship + " are not avalible for sale in this arena.");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kAlreadyOwn);
-    if (found != std::string::npos) {
-      std::size_t offset = kAlreadyOwn.size();
-      std::size_t next = msg.message.find(" on", offset);
-      std::string ship = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "I already own a " + ship + ".");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kSpectator);
-    if (found != std::string::npos) {
-      game.SendPrivateMessage(items.sender, "I cannot buy or sell items as a spectator.");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kDoNotOwn);
-    if (found != std::string::npos) {
-      std::size_t offset = kDoNotOwn.size();
-      std::string ship = msg.message.substr(offset, (msg.message.size() - 1) - offset);
-      game.SendPrivateMessage(items.sender, "I do not own a " + ship + ".");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kPleaseWait);
-    if (found != std::string::npos) {
-      game.SendPrivateMessage(items.sender, "The server is blocking me for buying ships too fast.");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kUsingShip);
-    if (found != std::string::npos) {
-      game.SendPrivateMessage(items.sender,
-                              "I cannot sell the ship I am using (" + GetShip(game.GetPlayer().ship) + ").");
-      count--;
-      continue;
-    }
-    found = msg.message.find(kAmmoDepot);
-    if (found != std::string::npos) {
-      std::size_t offset = kAmmoDepot.size();
-      std::size_t next = msg.message.find(" here.", offset);
-      std::string item = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "Moving to ammo depot to buy item " + item + ".");
-
-      bb.EmplaceHSBuySellList(item);
-      bb.SetHSBuySellAction(ItemAction::DepotBuy);
-      bb.SetHSBuySellActionCompleted(false);
-      continue;
-    }
-    found = msg.message.find(kAmmoDepotSell);
-    if (found != std::string::npos) {
-      std::size_t offset = kAmmoDepot.size();
-      std::size_t next = msg.message.find(" here.", offset);
-      std::string item = msg.message.substr(offset, next - offset);
-      game.SendPrivateMessage(items.sender, "Moving to ammo depot to sell item " + item + ".");
-
-      bb.EmplaceHSBuySellList(item);
-      bb.SetHSBuySellAction(ItemAction::DepotSell);
-      bb.SetHSBuySellActionCompleted(false);
-      continue;
+    for (int i = 0; i < match_list.size(); i++) {
+       std::size_t found = msg.message.find(match_list[i]);
+       if (found != std::string::npos) {
+        if (match_list[i] == kGoToDepotBuy) {
+          std::size_t offset = 20;
+          std::size_t next = msg.message.find(" here.", offset);
+          std::string item = msg.message.substr(offset, next - offset);
+          bb.EmplaceHSBuySellList(item);
+          bb.SetHSBuySellActionCompleted(false);
+          game.SendPrivateMessage(items.sender, "Moving to ammo depot to buy " + item + ".");
+          bb.SetHSBuySellAction(ItemAction::DepotBuy);
+        } else if (match_list[i] == kGoToDepotSell) {
+          std::size_t offset = 21;
+          std::size_t next = msg.message.find(" here.", offset);
+          std::string item = msg.message.substr(offset, next - offset);
+          bb.EmplaceHSBuySellList(item);
+          bb.SetHSBuySellActionCompleted(false);
+          game.SendPrivateMessage(items.sender, "Moving to ammo depot to sell " + item + ".");
+          bb.SetHSBuySellAction(ItemAction::DepotSell);
+        }
+        else if (match_list[i] == kGoToCenter) {
+          game.SendPrivateMessage(
+              items.sender,
+              "I was supposed to be on safe before buying/selling, but something went wrong.  Please try again.");
+          count = 0;
+        } else {
+          game.SendPrivateMessage(items.sender, msg.message);
+          count--;
+        }
+        break;
+       }
     }
   }
-
-  bb.SetHSBuySellActionCount(count);
 
   if (count == 0) {
     bb.ClearHSBuySellAll();
+  } else {
+    bb.SetHSBuySellActionCount(count);
   }
   
-  g_RenderState.RenderDebugText("  HSBuySellNode(Sending Messages): %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  HSBuySellNode(Reading Server Messages): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 
@@ -692,17 +583,16 @@ AnchorResult HSPlayerSortNode::GetAnchors(Bot& bot) {
       break;
     }
 
+   // std::vector<std::string_view> list = SplitString((std::string_view)chat.message, (std::string_view)", ");
     std::vector<std::string> list = SplitString(chat.message, ", ");
 
     for (std::size_t i = 0; i < list.size(); i++) {
       
-      const std::string& entry = list[i];
+      std::string entry = list[i];
       std::vector<const Player*>* type_list = &result.anchors.no_energy;
       const Player* anchor = nullptr;
-      std::string_view name = entry;
+      std::string name = entry;
 
-      
-      
       if (entry.size() > 4 && entry[0] == '(' && entry[2] == ')') {
         name = entry.substr(4);
 

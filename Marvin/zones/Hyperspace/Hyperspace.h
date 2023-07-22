@@ -46,12 +46,7 @@ class HSBuySellNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
-class HSListItemsNode : public behavior::BehaviorNode {
- public:
-  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
-};
-
-class HSListSlotsNode : public behavior::BehaviorNode {
+class HSPrintShipStatusNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };

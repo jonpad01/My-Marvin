@@ -90,8 +90,7 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<HSFlagOffCommand>());
       RegisterCommand(std::make_shared<HSBuyCommand>());
       RegisterCommand(std::make_shared<HSSellCommand>());
-      RegisterCommand(std::make_shared<HSListItemsCommand>());
-      RegisterCommand(std::make_shared<HSListSlotsCommand>());
+      RegisterCommand(std::make_shared<HSShipStatusCommand>());
       break;
     }
     default: {
