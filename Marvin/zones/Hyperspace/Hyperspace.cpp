@@ -361,6 +361,13 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   std::string action;
   int count = items.count;
 
+  // when changing radius bot takes a long time to load so reset the timestamp after if finishes
+  if (ctx.bot->GetLastLoadTimeStamp() > items.timestamp) {
+    bb.SetHSBuySellTimeStamp(ctx.bot->GetLastLoadTimeStamp());
+    g_RenderState.RenderDebugText("  HSBuySellNode(Setting Timestamp): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
   if (items.action != ItemAction::Buy && items.action != ItemAction::Sell) {
     g_RenderState.RenderDebugText("  HSBuySellNode(No Action Taken): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
@@ -395,7 +402,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
 
   // check player ship, some ship changes in hs take a long time (lancs)
   if (game.GetPlayer().ship != items.ship && !items.set_ship_sent) {
-    bb.SetHSBuySellAllowedTime(items.allowed_time + 15000);
+    bb.SetHSBuySellAllowedTime(items.allowed_time + 5000);
     game.SetShip(items.ship);
     bb.SetHSBuySellSetShipSent(true);
     g_RenderState.RenderDebugText("  HSBuySellNode(Setting Ship): %llu", timer.GetElapsedTime());

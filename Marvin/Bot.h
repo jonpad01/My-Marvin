@@ -43,6 +43,7 @@ class Bot {
   CommandSystem& GetCommandSystem() { return *command_system_; }
   TeamGoalCreator& GetTeamGoals() { return *goals_; }
   BasePaths& GetBasePaths() { return *base_paths_; }
+  uint64_t GetLastLoadTimeStamp() { return last_load_timestamp_; }
 
   const std::vector<Vector2f>& GetBasePath() {
     //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
@@ -78,7 +79,8 @@ class Bot {
 
   float radius_;
 
-  int load_index;
+  uint64_t last_load_timestamp_ = 0;
+  int load_index = 1;
   u16 xMin = 0;
   u16 xMax = 32;
 

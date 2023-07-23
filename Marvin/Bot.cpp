@@ -215,6 +215,7 @@ void Bot::Load() {
     }
     default: {
       load_index = 0;
+      last_load_timestamp_ = time_.GetTime();
     }
   }
 }
