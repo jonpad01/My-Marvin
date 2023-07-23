@@ -52,21 +52,23 @@ struct HSBuySellList {
   std::vector<std::string> items;
   std::string sender;
   ItemAction action = ItemAction::None;
-  bool action_completed = false;
-  bool action_delay = 0;
-  int action_count = 0;
+  bool message_sent = false;
+  bool set_ship_sent = false;
+  int count = 0;
   uint64_t timestamp = 0;
+  uint64_t allowed_time = 5000;
   uint16_t ship = 0;
 
   void Clear() {
     items.clear();
     sender.clear();
     action = ItemAction::None;
-    action_completed = false;
-    action_delay = 0;
-    action_count = 0;
+    message_sent = false;
+    set_ship_sent = false;
+    count = 0;
     timestamp = 0;
     ship = 0;
+    allowed_time = 5000;
   }
 };
 

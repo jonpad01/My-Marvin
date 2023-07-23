@@ -25,7 +25,8 @@ class HSShipStatusCommand : public CommandExecutor {
 
     bb.SetHSBuySellAction(ItemAction::ListItems);
     bb.SetHSBuySellShip(ship);
-    bb.SetHSBuySellActionCompleted(false);
+    bb.SetHSBuySellMessageSent(false);
+    bb.SetHSBuySellAllowedTime(5000);
     bb.SetHSBuySellSender(sender);
     bb.SetHSBuySellTimeStamp(bot.GetTime().GetTime());
   }
@@ -69,9 +70,11 @@ class HSBuyCommand : public CommandExecutor {
      }
 
      bb.SetHSBuySellActionCount(bb.GetHSBuySellList().items.size());
+     bb.SetHSBuySellAllowedTime(5000);
      bb.SetHSBuySellTimeStamp(bot.GetTime().GetTime());
      bb.SetHSBuySellAction(ItemAction::Buy);
-     bb.SetHSBuySellActionCompleted(false);
+     bb.SetHSBuySellMessageSent(false);
+     bb.SetHSBuySellSetShipSent(false);
      bb.SetHSBuySellSender(sender);
      bb.SetHSBuySellShip(ship);
 
@@ -124,8 +127,10 @@ class HSSellCommand : public CommandExecutor {
 
      bb.SetHSBuySellActionCount(bb.GetHSBuySellList().items.size());
      bb.SetHSBuySellTimeStamp(bot.GetTime().GetTime());
+     bb.SetHSBuySellAllowedTime(5000);
      bb.SetHSBuySellAction(ItemAction::Sell);
-     bb.SetHSBuySellActionCompleted(false);
+     bb.SetHSBuySellMessageSent(false);
+     bb.SetHSBuySellSetShipSent(false);
      bb.SetHSBuySellSender(sender);
      bb.SetHSBuySellShip(ship);
 

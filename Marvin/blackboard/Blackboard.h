@@ -174,10 +174,12 @@ class Blackboard {
 
   void SetHSBuySellList(const std::vector<std::string>& items) { hs_items_.items = items; }
   void SetHSBuySellAction(ItemAction action) { hs_items_.action = action; }
-  void SetHSBuySellActionCount(int count) { hs_items_.action_count = count; }
+  void SetHSBuySellActionCount(int count) { hs_items_.count = count; }
   void SetHSBuySellShip(uint16_t ship) { hs_items_.ship = ship; }
   void SetHSBuySellTimeStamp(uint64_t timestamp) { hs_items_.timestamp = timestamp; }
-  void SetHSBuySellActionCompleted(bool state) { hs_items_.action_completed = state; }
+  void SetHSBuySellAllowedTime(uint64_t time) { hs_items_.allowed_time = time; }
+  void SetHSBuySellMessageSent(bool state) { hs_items_.message_sent = state; }
+  void SetHSBuySellSetShipSent(bool state) { hs_items_.set_ship_sent = state; }
   void SetHSBuySellSender(const std::string& sender) { hs_items_.sender = sender; }
   void ClearHSBuySellList() { hs_items_.items.clear(); }
   void ClearHSBuySellAll() { hs_items_.Clear(); }

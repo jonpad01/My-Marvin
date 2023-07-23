@@ -277,7 +277,7 @@ behavior::ExecuteResult HSPrintShipStatusNode::Execute(behavior::ExecuteContext&
   const std::string kListing = "| ";
 
   const HSBuySellList& items = bb.GetHSBuySellList();
-  int line_count = items.action_count;
+  int line_count = items.count;
 
   if (items.action != ItemAction::ListItems) {
     g_RenderState.RenderDebugText("  HSListItemsNode(No Action Taken): %llu", timer.GetElapsedTime());
@@ -289,9 +289,9 @@ behavior::ExecuteResult HSPrintShipStatusNode::Execute(behavior::ExecuteContext&
     return behavior::ExecuteResult::Failure;
   }
 
-  if (!items.action_completed) {
+  if (!items.message_sent) {
     game.SendChatMessage("?shipstatus " + std::to_string(items.ship + 1));
-    bb.SetHSBuySellActionCompleted(true);
+    bb.SetHSBuySellMessageSent(true);
     g_RenderState.RenderDebugText("  HSListItemsNode(Sending Chat Message): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -338,12 +338,12 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   const HSBuySellList& items = bb.GetHSBuySellList();
   std::string command;
   std::string action;
-  int count = items.action_count;
+  int count = items.count;
 
   if (items.action != ItemAction::Buy && items.action != ItemAction::Sell) {
     g_RenderState.RenderDebugText("  HSBuySellNode(No Action Taken): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
-  } else if (ctx.bot->GetTime().GetTime() > items.timestamp + 5000) {
+  } else if (ctx.bot->GetTime().GetTime() > items.timestamp + items.allowed_time) {
     if (game.GetPlayer().ship != items.ship) {
       game.SendPrivateMessage(items.sender, "I do not own that ship, please buy it first.");
     } else {
@@ -362,27 +362,28 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
     bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
     g_RenderState.RenderDebugText("  HSBuySellNode(Waiting for Respawn): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
-  } 
+  }
 
   // TODO: this check should look for center safe or ammo depot instead of just a safe tile
   if (!on_safe_tile && game.GetPlayer().ship != 8) {
-    bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
+    bb.SetHSBuySellAllowedTime(items.allowed_time + 3000);
     game.Warp();
     g_RenderState.RenderDebugText("  HSBuySellNode(Warping To Center): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   } 
 
-  // check player ship
-  if (game.GetPlayer().ship != items.ship) {
-    bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
+  // check player ship, some ship changes in hs take a long time (lancs)
+  if (game.GetPlayer().ship != items.ship && !items.set_ship_sent) {
+    bb.SetHSBuySellAllowedTime(items.allowed_time + 8000);
     game.SetShip(items.ship);
+    bb.SetHSBuySellSetShipSent(true);
     g_RenderState.RenderDebugText("  HSBuySellNode(Setting Ship): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
 
     // run this only once then clear items
-  if (!items.items.empty() && items.action_completed == false && game.GetPlayer().ship == items.ship) {
+  if (!items.items.empty() && items.message_sent == false && game.GetPlayer().ship == items.ship) {
     // when the bot warps to center it sometimes sends the buy message too fast and the server doesnt
     // see it on a safe tile yet, so just delay this action a little bit
       if (ctx.bot->GetTime().TimedActionDelay("serverpingdelay", 300)) {
@@ -407,8 +408,8 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
       }
 
       game.SendPriorityMessage(command);
-      bb.SetHSBuySellActionCompleted(true);
-       bb.ClearHSBuySellList();
+      bb.SetHSBuySellMessageSent(true);
+      bb.ClearHSBuySellList();
     }
       g_RenderState.RenderDebugText("  HSBuySellNode(Sending Message): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
@@ -449,7 +450,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
           std::size_t next = msg.message.find(" here.", offset);
           std::string item = msg.message.substr(offset, next - offset);
           bb.EmplaceHSBuySellList(item);
-          bb.SetHSBuySellActionCompleted(false);
+          bb.SetHSBuySellMessageSent(false);
           game.SendPrivateMessage(items.sender, "Moving to ammo depot to buy " + item + ".");
           bb.SetHSBuySellAction(ItemAction::DepotBuy);
         } else if (match_list[i] == kGoToDepotSell) {
@@ -457,7 +458,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
           std::size_t next = msg.message.find(" here.", offset);
           std::string item = msg.message.substr(offset, next - offset);
           bb.EmplaceHSBuySellList(item);
-          bb.SetHSBuySellActionCompleted(false);
+          bb.SetHSBuySellMessageSent(false);
           game.SendPrivateMessage(items.sender, "Moving to ammo depot to sell " + item + ".");
           bb.SetHSBuySellAction(ItemAction::DepotSell);
         }
