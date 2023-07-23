@@ -74,6 +74,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto HS_buy_sell = std::make_unique<hs::HSBuySellNode>();
   auto HS_move_to_depot = std::make_unique<hs::HSMoveToDepotNode>();
   auto HS_shipstatus = std::make_unique<hs::HSPrintShipStatusNode>();
+  auto HS_combat_role = std::make_unique<hs::HSSetCombatRoleNode>();
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
@@ -135,7 +136,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
       commands_.get(), HS_shipstatus.get(), HS_buy_sell.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(),
-      HS_player_sort.get(), team_sort.get(), HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(),
+      HS_combat_role.get(), HS_player_sort.get(), team_sort.get(), HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(),
       HS_shipman.get(), HS_warp.get(), HS_toggle.get(), action_selector.get());
 
   engine_->PushRoot(std::move(root_sequence));
@@ -176,6 +177,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_move_to_depot_sequence));
   engine_->PushNode(std::move(HS_move_to_depot));
   engine_->PushNode(std::move(HS_shipstatus));
+  engine_->PushNode(std::move(HS_combat_role));
  // engine_->PushNode(std::move(patrol_selector));
   engine_->PushNode(std::move(flagger_sequence));
   engine_->PushNode(std::move(HS_toggle));
@@ -189,6 +191,81 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_set_region));
   engine_->PushNode(std::move(HS_is_flagging));
   engine_->PushNode(std::move(action_selector));
+}
+
+behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  uint16_t ship = game.GetPlayer().ship;
+  bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
+  const Player* anchor = bb.GetAnchor();
+
+  if (anchor && anchor->id == game.GetPlayer().id && flagging) {
+    bb.SetCombatRole(CombatRole::Anchor);
+
+    g_RenderState.RenderDebugText("  HSSetCombatRoleNode(Select Anchor): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  } 
+
+  switch (ship) {
+    case 0: {
+      if (flagging) {
+        bb.SetCombatRole(CombatRole::Rusher);
+      } else {
+        bb.SetCombatRole(CombatRole::Gunner);
+      }
+      break;
+    }
+    case 1: {
+      if (flagging) {
+        bb.SetCombatRole(CombatRole::Bomber);
+      } else {
+        bb.SetCombatRole(CombatRole::Gunner);
+      }
+      break;
+    }
+    case 2: {
+        bb.SetCombatRole(CombatRole::Gunner); 
+      break;
+    }
+    case 3: {
+        bb.SetCombatRole(CombatRole::Bomber); 
+      break;
+    }
+    case 4: {
+        bb.SetCombatRole(CombatRole::Gunner);
+      break;
+    }
+    case 5: {
+        bb.SetCombatRole(CombatRole::Bomber);
+      break;
+    }
+    case 6: {
+        bb.SetCombatRole(CombatRole::Turret);
+      break;
+    }
+    case 7: {
+      if (flagging) {
+        bb.SetCombatRole(CombatRole::Flagger);
+      } else {
+        bb.SetCombatRole(CombatRole::EMP);
+      }
+      break;
+    }
+    case 8: {
+      bb.SetCombatRole(CombatRole::None);
+      break;
+    }
+    default: {
+      bb.SetCombatRole(CombatRole::None);
+      break;
+    }
+  }
+
+  g_RenderState.RenderDebugText("  HSSetCombatRoleNode(Success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult HSPrintShipStatusNode::Execute(behavior::ExecuteContext& ctx) {
@@ -289,6 +366,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
 
   // TODO: this check should look for center safe or ammo depot instead of just a safe tile
   if (!on_safe_tile && game.GetPlayer().ship != 8) {
+    bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
     game.Warp();
     g_RenderState.RenderDebugText("  HSBuySellNode(Warping To Center): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
@@ -296,6 +374,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
 
   // check player ship
   if (game.GetPlayer().ship != items.ship) {
+    bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
     game.SetShip(items.ship);
     g_RenderState.RenderDebugText("  HSBuySellNode(Setting Ship): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
@@ -521,6 +600,9 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
       bb.SetTeamHasSummoner(result.has_summoner);
       bb.SetUpdateLancsFlag(false);
     }
+  } else {
+    bb.SetAnchor(nullptr);
+    bb.SetTeamHasSummoner(false);
   }
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
@@ -901,19 +983,15 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  // uint64_t unique_timer = ctx.bot->GetTime().UniqueIDTimer(game.GetPlayer().id);
-  uint64_t unique_timer = (rand() % 1000) + 5000;
-
   if (game.GetPlayer().frequency != 90 && game.GetPlayer().frequency != 91) {
     if (game.GetPlayer().ship == 6) {
      // if (ctx.bot->GetTime().TimedActionDelay("hsswitchtoanchor", unique_timer)) {
         game.SetShip(SelectShip(game.GetPlayer().ship));
-        bb.SetCombatRole(CombatRole::Rusher);
         g_RenderState.RenderDebugText("  HSFlaggerShipMan(In Lanc And Not Flagging): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
       //}
     }
-    g_RenderState.RenderDebugText("  HSFlaggerShipMan(Not Flagging): %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  HSFlaggerShipManager(Not Flagging): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
@@ -926,11 +1004,7 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
     return behavior::ExecuteResult::Success;
   }
 
-
-
-  //uint64_t unique_timer = (rand() % 1000) + 5000;
   uint16_t ship = game.GetPlayer().ship;
-  bool evoker_usable = ship <= 1 || ship == 4 || ship == 5;
   
   const Player* anchor = bb.GetAnchor();
   uint16_t anchor_id = 0;
@@ -945,7 +1019,6 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
         // bb.Set<uint16_t>("Ship", 6);
         //bb.SetShip(Ship::Lancaster);
         game.SetShip((uint16_t)Ship::Lancaster);
-        bb.SetCombatRole(CombatRole::Anchor);
         bb.SetUpdateLancsFlag(true);
         g_RenderState.RenderDebugText("  HSFlaggerShipMan(Switch To Lanc): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
@@ -957,8 +1030,7 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
   // if there is more than one lanc on the team, switch back to original ship
   if (ship_counts[6] > 1 && bb.GetTeamHasSummoner() && anchor_id != game.GetPlayer().id && ship == 6) {
    // if (ctx.bot->GetTime().TimedActionDelay("hsswitchtowarbird", unique_timer)) {
-      game.SetShip(SelectShip(game.GetPlayer().ship));
-      bb.SetCombatRole(CombatRole::Rusher);
+        game.SetShip(SelectShip(game.GetPlayer().ship));
       //bb.SetShip((Ship)SelectShip(game.GetPlayer().ship));
       bb.SetUpdateLancsFlag(true);
       g_RenderState.RenderDebugText("  HSFlaggerShipMan(Switch From Lanc): %llu", timer.GetElapsedTime());
@@ -966,10 +1038,6 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
     //}
     //g_RenderState.RenderDebugText("  HSFlaggerShipMan(Awaiting Switch From Lanc):");
   }
-
-  // hs has such a long ship change cooldown, if this node decides no ship change is needed
-  // tell the setship node to stay in the current ship
-  //bb.SetShip((Ship)game.GetPlayer().ship);
 
   g_RenderState.RenderDebugText("  HSFlaggerShipMan(No Action Taken): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -1056,14 +1124,6 @@ behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
-
-  const Player* anchor = bb.GetAnchor();
-
-  if (anchor && anchor->id == game.GetPlayer().id) {
-    bb.SetCombatRole(CombatRole::Anchor);
-  } else {
-    bb.SetCombatRole(CombatRole::Rusher);
-  }
 
   if (bb.GetUseMultiFire()) {
     if (!game.GetPlayer().multifire_status && game.GetPlayer().capability.multifire) {

@@ -8,7 +8,7 @@
 #include "MapCoord.h"
 #include "platform/Platform.h"
 
-#define DEBUG_RENDER 0
+#define DEBUG_RENDER 1
 #define DEBUG_USER_CONTROL 0
 
 #define DUBUG_RENDER_PATH 0
