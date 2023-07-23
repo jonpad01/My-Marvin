@@ -28,7 +28,6 @@ class Bot {
   Bot(std::shared_ptr<GameProxy> game);
 
   void Load();
-  void LoadForRadius();
   void Update(float dt);
 
   KeyController& GetKeys() { return keys_; }

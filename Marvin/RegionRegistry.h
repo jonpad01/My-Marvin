@@ -93,12 +93,15 @@ struct RegionFiller {
 
 class RegionRegistry {
  public:
-  RegionRegistry(const Map& map) : region_count_(0) { memset(coord_regions_, 0xFF, sizeof(coord_regions_)); }
+  RegionRegistry(const Map& map) : region_count_(0) { 
+      memset(coord_regions_, 0xFF, sizeof(coord_regions_));
+    memset(region_tile_counts_, 0, sizeof(region_tile_counts_));
+  }
 
   bool IsConnected(MapCoord a, MapCoord b) const;
   bool IsEdge(MapCoord coord) const;
   int GetTileCount(MapCoord coord) const;
-  void CreateAll(const Map& map, float radius);
+  void Create(const Map& map, float radius, uint16_t xMin, uint16_t xMax);
 
   void DebugUpdate(Vector2f position);
 

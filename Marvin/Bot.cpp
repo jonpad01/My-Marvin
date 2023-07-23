@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstring>
 #include <limits>
+#include <thread>
 
 #include "Debug.h"
 #include "GameProxy.h"
@@ -75,16 +76,9 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   //Load();
 }
 
-// load these in steps, they are pretty intensive tasks and cause the game to freeze up
-void Bot::LoadForRadius() {
- 
-}
-
 void Bot::Load() {
   PerformanceTimer timer;
  
-
-
   switch (load_index) {
     case 1: {
       log.Write("LOADING BOT", timer.GetElapsedTime());
@@ -92,12 +86,22 @@ void Bot::Load() {
       radius_ = game_->GetRadius();
       command_system_ = std::make_unique<CommandSystem>(game_->GetZone());
       regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
-      regions_->CreateAll(game_->GetMap(), radius_);
-      log.Write("Regions Loaded", timer.GetElapsedTime());
       load_index++;
       break;
     }
     case 2: {
+      regions_->Create(game_->GetMap(), radius_, xMin, xMax);
+      log.Write("Regions Loaded", timer.GetElapsedTime());
+      xMin += 32;
+      xMax += 32;
+      if (xMin == 1024) {
+        xMin = 0;
+        xMax = 32;
+        load_index++;
+      }
+      break;
+    }
+    case 3: {
       auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());
       log.Write("Node Processor Loaded", timer.GetElapsedTime());
       pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
@@ -105,7 +109,7 @@ void Bot::Load() {
       load_index++;
       break;
     }
-    case 3: {
+    case 4: {
       pathfinder_->SetTraversabletiles(game_->GetMap(), radius_, xMin, xMax);
       log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
       xMin += 32;
@@ -117,8 +121,8 @@ void Bot::Load() {
       }
       break;
     }
-    case 4: {
-      pathfinder_->CalculateEdges(game_->GetMap(), radius_, xMin, xMax);
+    case 5: {
+      (pathfinder_->CalculateEdges(game_->GetMap(), radius_, xMin, xMax));
       log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
       xMin += 32;
       xMax += 32;
@@ -129,7 +133,7 @@ void Bot::Load() {
       }
       break;
     }
-    case 5: {
+    case 6: {
       pathfinder_->SetMapWeights(game_->GetMap(), xMin, xMax);
       log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());
       xMin += 32;
@@ -141,7 +145,7 @@ void Bot::Load() {
       }
       break;
     }
-    case 6: {
+    case 7: {
       if (base_paths_) {
         base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
         log.Write("Base Paths Loaded", timer.GetElapsedTime());
@@ -149,7 +153,7 @@ void Bot::Load() {
       load_index++;
       break;
     }
-    case 7: {
+    case 8: {
       std::unique_ptr<BehaviorBuilder> builder;
       std::string map_name = game_->GetMapFile();
 
