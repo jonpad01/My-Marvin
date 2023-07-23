@@ -76,10 +76,16 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   //Load();
 }
 
+// designed to run each case, increment the load index and return, so it doesnt run a bunch of stuff in
+// one update.  Cases that run path pathfinder or region registry stuff are broken down even further.
+// when the switch hits the default case it sets the load index to 0 which means its finished.
 void Bot::Load() {
   PerformanceTimer timer;
  
   switch (load_index) {
+    case 0: {
+      return;
+    }
     case 1: {
       log.Write("LOADING BOT", timer.GetElapsedTime());
 
@@ -219,6 +225,7 @@ void Bot::Update(float dt) {
 
   keys_.ReleaseAll();
 
+  // the load behavior is determined by the load index
   Load();
   if (load_index != 0) return;
 
