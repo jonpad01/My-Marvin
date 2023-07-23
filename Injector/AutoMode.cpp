@@ -188,7 +188,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
   // this means the game a successfully connected
   std::size_t module_base = process->GetModuleBase("Continuum.exe");
 
-  if (!FetchEnterMessage(handle, module_base, pid, 10000)) {
+  if (!FetchEnterMessage(handle, module_base, pid, 15000)) {
     TerminateCont(handle);
     return 0;
   }

@@ -62,7 +62,9 @@ struct Pathfinder {
 
   const std::vector<Vector2f>& CreatePath(Bot& bot, Vector2f from, Vector2f to, float radius);
 
-  void CreateMapWeights(const Map& map, float radius);
+  void SetTraversabletiles(const Map& map, float radius, u16 xMin, u16 xMax);
+  void CalculateEdges(const Map& map, float radius, u16 xMin, u16 xMax);
+  void SetMapWeights(const Map& map, u16 xMin, u16 xMax);
  // void SetPathableNodes(const Map& map, float radius);
   void DebugUpdate(const Vector2f& position);
 

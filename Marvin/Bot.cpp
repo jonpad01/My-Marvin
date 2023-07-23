@@ -67,97 +67,146 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   srand((unsigned int)(time_.GetTime() + game_->GetPlayer().id));
   base_paths_ = nullptr;
   goals_ = nullptr;
-  Load();
+
+  blackboard_ = std::make_unique<Blackboard>();
+  influence_map_ = std::make_unique<InfluenceMap>();
+
+  load_index = 1;
+  //Load();
 }
 
+// load these in steps, they are pretty intensive tasks and cause the game to freeze up
 void Bot::LoadForRadius() {
-  auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());
-  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
-  regions_->CreateAll(game_->GetMap(), radius_);
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  pathfinder_->CreateMapWeights(game_->GetMap(), radius_);
-  //pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
-
-  // if base paths isnt null then its safe to rebuild
-  if (base_paths_) {
-    base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
-  }
+ 
 }
 
 void Bot::Load() {
   PerformanceTimer timer;
-  log.Write("LOADING BOT", timer.GetElapsedTime());
-  
-  std::unique_ptr<BehaviorBuilder> builder;
-  Zone zone = game_->GetZone();
-  std::string map = game_->GetMapFile();
-  log.Write("Map " + game_->GetMapFile() + " found", timer.GetElapsedTime());
-  radius_ = game_->GetRadius();
+ 
 
-  blackboard_ = std::make_unique<Blackboard>();
-  command_system_ = std::make_unique<CommandSystem>(zone);
-  auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());
-  log.Write("Processor created", timer.GetElapsedTime());
-  influence_map_ = std::make_unique<InfluenceMap>();
-  log.Write("Influence Map created", timer.GetElapsedTime());
-  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
-  regions_->CreateAll(game_->GetMap(), radius_);
-  log.Write("Regions created", timer.GetElapsedTime());
-  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-  log.Write("Pathfinder created", timer.GetElapsedTime());
-  pathfinder_->CreateMapWeights(game_->GetMap(), radius_);
-  log.Write("Map Weights created", timer.GetElapsedTime());
-  //pathfinder_->SetPathableNodes(game_->GetMap(), radius_);
-  //log.Write("Pathable Nodes created", timer.GetElapsedTime());
 
-  
-  switch (zone) {
-    case Zone::Devastation: {
-      goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
-      if (map == "bdelite.lvl") {
-        log.Write("Building Training behavior tree.");
-        builder = std::make_unique<training::TrainingBehaviorBuilder>();
-      } else {
-        if (goals_->HasCoords()) {
-          log.Write("Building Devastation behavior tree.");
-          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
-          builder = std::make_unique<deva::DevastationBehaviorBuilder>();
-        } else {
-          game_->SendChatMessage(
-              "Warning: I don't have base duel coords for this arena, using default behavior tree.");
-          log.Write("Building Default behavior tree.");
-          builder = std::make_unique<DefaultBehaviorBuilder>();
-        }
+  switch (load_index) {
+    case 1: {
+      log.Write("LOADING BOT", timer.GetElapsedTime());
+
+      radius_ = game_->GetRadius();
+      command_system_ = std::make_unique<CommandSystem>(game_->GetZone());
+      regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
+      regions_->CreateAll(game_->GetMap(), radius_);
+      log.Write("Regions Loaded", timer.GetElapsedTime());
+      load_index++;
+      break;
+    }
+    case 2: {
+      auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());
+      log.Write("Node Processor Loaded", timer.GetElapsedTime());
+      pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
+      log.Write("Pathfinder Loaded", timer.GetElapsedTime());
+      load_index++;
+      break;
+    }
+    case 3: {
+      pathfinder_->SetTraversabletiles(game_->GetMap(), radius_, xMin, xMax);
+      log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
+      xMin += 32;
+      xMax += 32;
+      if (xMin == 1024) {
+        xMin = 0;
+        xMax = 32;
+        load_index++;
       }
-    } break;
-    case Zone::ExtremeGames: {
-      // builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
-    } break;
-    case Zone::GalaxySports: {
-      // builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
-    } break;
-    case Zone::Hockey: {
-      // builder = std::make_unique<hz::HockeyBehaviorBuilder>();
-    } break;
-    case Zone::Hyperspace: {
-      goals_ = std::make_unique<hs::HSFlagRooms>();
-      base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
-      builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
-      log.Write("Building Hyperspace behavior tree.");
-    } break;
-    case Zone::PowerBall: {
-      // builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
-    } break;
+      break;
+    }
+    case 4: {
+      pathfinder_->CalculateEdges(game_->GetMap(), radius_, xMin, xMax);
+      log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
+      xMin += 32;
+      xMax += 32;
+      if (xMin == 1024) {
+        xMin = 0;
+        xMax = 32;
+        load_index++;
+      }
+      break;
+    }
+    case 5: {
+      pathfinder_->SetMapWeights(game_->GetMap(), xMin, xMax);
+      log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());
+      xMin += 32;
+      xMax += 32;
+      if (xMin == 1024) {
+        xMin = 0;
+        xMax = 32;
+        load_index++;
+      }
+      break;
+    }
+    case 6: {
+      if (base_paths_) {
+        base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+        log.Write("Base Paths Loaded", timer.GetElapsedTime());
+      }
+      load_index++;
+      break;
+    }
+    case 7: {
+      std::unique_ptr<BehaviorBuilder> builder;
+      std::string map_name = game_->GetMapFile();
+
+      switch (game_->GetZone()) {
+        case Zone::Devastation: {
+          goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
+          if (map_name == "bdelite.lvl") {
+            log.Write("Building Training behavior tree.");
+            builder = std::make_unique<training::TrainingBehaviorBuilder>();
+          } else {
+            if (goals_->HasCoords()) {
+              log.Write("Building Devastation behavior tree.");
+              base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+              builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+            } else {
+              game_->SendChatMessage(
+                  "Warning: I don't have base duel coords for this arena, using default behavior tree.");
+              log.Write("Building Default behavior tree.");
+              builder = std::make_unique<DefaultBehaviorBuilder>();
+            }
+          }
+        } break;
+        case Zone::ExtremeGames: {
+          // builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
+        } break;
+        case Zone::GalaxySports: {
+          // builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
+        } break;
+        case Zone::Hockey: {
+          // builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+        } break;
+        case Zone::Hyperspace: {
+          goals_ = std::make_unique<hs::HSFlagRooms>();
+          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+          builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+          log.Write("Building Hyperspace behavior tree.");
+        } break;
+        case Zone::PowerBall: {
+          // builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
+        } break;
+        default: {
+          builder = std::make_unique<DefaultBehaviorBuilder>();
+        } break;
+      }
+
+      ctx_.bot = this;
+
+      this->behavior_ = builder->Build(*this);
+      //log.Write("BOT LOADED - TOTAL TIME", timer.TimeSinceConstruction());
+      log.Write("Builder Loaded", timer.GetElapsedTime());
+      load_index++;
+      break;
+    }
     default: {
-      builder = std::make_unique<DefaultBehaviorBuilder>();
-    } break;
+      load_index = 0;
+    }
   }
-
-  ctx_.bot = this;
-
-  this->behavior_ = builder->Build(*this);
-  log.Write("Behavior Built", timer.GetElapsedTime());
-  log.Write("BOT LOADED - TOTAL TIME", timer.TimeSinceConstruction());
 }
 
 void Bot::Update(float dt) {
@@ -166,9 +215,12 @@ void Bot::Update(float dt) {
 
   keys_.ReleaseAll();
 
+  Load();
+  if (load_index != 0) return;
+
   UpdateState state = game_->Update(dt);
   g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
-
+  
   if (state == UpdateState::Wait) {
     g_RenderState.RenderDebugText("Wait For Game");
     return;
@@ -176,17 +228,19 @@ void Bot::Update(float dt) {
   
   if (state == UpdateState::Reload) {
     log.Write("GAME REQUESTED RELOAD");
-    Load();
+    //Load();
+    load_index = 1;
     return;
   }
 
   float radius = game_->GetRadius();
   int ship = game_->GetPlayer().ship;
-
+  
   if (radius != radius_) {
     log.Write("SHIP RADIUS CHANGED");
     radius_ = radius;
-    LoadForRadius();
+    //LoadForRadius();
+    load_index = 1;
     return;
   }
 

@@ -16,7 +16,7 @@ class Map;
 
 enum class UpdateState : short { Clear, Wait, Reload };
 enum class ItemAction : short {Buy, Sell, DepotBuy, DepotSell, ListItems, ListSlots, None};
-enum class CombatRole : short { Anchor, Rusher, Bomber, Gunner, Flagger, Turret, EMP, None };
+enum class CombatRole : short { Anchor, Rusher, Bomber, Gunner, Flagger, Turret, EMP, PowerBaller, None };
 enum class WarpToState : short { Center, Base, None };
 enum class BDState : short { Running, Paused, Stopped, Ended };
 enum class CommandRequestType : short { ShipChange, ArenaChange, FreqChange, None };

@@ -79,6 +79,10 @@ class Bot {
 
   float radius_;
 
+  int load_index;
+  u16 xMin = 0;
+  u16 xMax = 32;
+
   Vector2f powerball_goal_;
   Vector2f powerball_goal_path_;
   std::string powerball_arena_;

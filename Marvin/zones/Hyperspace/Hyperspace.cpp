@@ -19,6 +19,27 @@
 namespace marvin {
 namespace hs {
 
+const std::string kBuySuccess = "You purchased ";
+const std::string kSellSuccess = "You sold ";
+const std::string kSlotsFull = "You do not have enough free ";
+const std::string kTooMany = "You may only have ";
+const std::string kDoNotHave = "You do not have any of item ";
+const std::string kNotAllowed = "is not allowed on a ";
+const std::string kNoItem = "No item ";
+const std::string kSpectator = "You cannot buy or sell items ";
+const std::string kNotAvalibe = " are not avalible for sale in this arena.";
+const std::string kAlreadyOwn = "You already own a ";
+const std::string kDoNotOwn = "You do not own a ";
+const std::string kUsingShip = "You cannot sell the ship you are using. ";
+const std::string kPleaseWait = "Please wait a few moments between ship buy and sell requests";
+const std::string kGoToCenter = "Go to Center Safe to ";
+const std::string kGoToDepotBuy = "Go to Ammo Depots to buy it!";
+const std::string kGoToDepotSell = "Go to Ammo Depots to sell it!";
+
+const std::vector<std::string> match_list{
+    kBuySuccess, kSellSuccess, kSlotsFull, kTooMany,   kDoNotHave,  kNotAllowed, kNoItem,       kSpectator,
+    kNotAvalibe, kAlreadyOwn,  kDoNotOwn,  kUsingShip, kPleaseWait, kGoToCenter, kGoToDepotBuy, kGoToDepotSell};
+
  // reference coord for region registry
 const MapCoord kHyperTunnelCoord = MapCoord(16, 16);
 // gates from center to tunnel
@@ -220,9 +241,9 @@ behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& c
     }
     case 1: {
       if (flagging) {
-        bb.SetCombatRole(CombatRole::Bomber);
+        bb.SetCombatRole(CombatRole::Rusher);
       } else {
-        bb.SetCombatRole(CombatRole::Gunner);
+        bb.SetCombatRole(CombatRole::Bomber);
       }
       break;
     }
@@ -250,7 +271,7 @@ behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& c
       if (flagging) {
         bb.SetCombatRole(CombatRole::Flagger);
       } else {
-        bb.SetCombatRole(CombatRole::EMP);
+        bb.SetCombatRole(CombatRole::PowerBaller);
       }
       break;
     }
@@ -374,7 +395,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
 
   // check player ship, some ship changes in hs take a long time (lancs)
   if (game.GetPlayer().ship != items.ship && !items.set_ship_sent) {
-    bb.SetHSBuySellAllowedTime(items.allowed_time + 8000);
+    bb.SetHSBuySellAllowedTime(items.allowed_time + 15000);
     game.SetShip(items.ship);
     bb.SetHSBuySellSetShipSent(true);
     g_RenderState.RenderDebugText("  HSBuySellNode(Setting Ship): %llu", timer.GetElapsedTime());
@@ -415,30 +436,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
       return behavior::ExecuteResult::Failure;
   }
 
-
   // now look for confirmation messages before clearing the item action flag
-  const std::string kBuySuccess = "You purchased "; 
-  const std::string kSellSuccess = "You sold "; 
-  const std::string kSlotsFull = "You do not have enough free ";
-  const std::string kTooMany = "You may only have ";
-  const std::string kDoNotHave = "You do not have any of item ";
-  const std::string kNotAllowed = "is not allowed on a ";
-  const std::string kNoItem = "No item ";
-  const std::string kSpectator = "You cannot buy or sell items ";
-  const std::string kNotAvalibe = " are not avalible for sale in this arena.";
-  const std::string kAlreadyOwn = "You already own a ";
-  const std::string kDoNotOwn = "You do not own a ";
-  const std::string kUsingShip = "You cannot sell the ship you are using. ";
-  const std::string kPleaseWait = "Please wait a few moments between ship buy and sell requests";
-  const std::string kGoToCenter = "Go to Center Safe to ";
-  const std::string kGoToDepotBuy = "Go to Ammo Depots to buy it!";
-  const std::string kGoToDepotSell = "Go to Ammo Depots to sell it!";
-
-  std::vector<std::string> match_list{kBuySuccess, kSellSuccess, kSlotsFull,    kTooMany,      kDoNotHave, kNotAllowed,
-                                      kNoItem,     kSpectator,   kNotAvalibe,   kAlreadyOwn,   kDoNotOwn,  kUsingShip,
-                                      kPleaseWait, kGoToCenter,  kGoToDepotBuy, kGoToDepotSell};
-
-
   for (ChatMessage& msg : game.GetChat()) {
     if (msg.type != ChatType::Arena) continue;
 

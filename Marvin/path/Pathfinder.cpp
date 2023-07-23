@@ -361,12 +361,12 @@ float Pathfinder::GetWallDistance(const Map& map, u16 x, u16 y, u16 radius) {
   return sqrt(closest_sq);
 }
 
-void Pathfinder::CreateMapWeights(const Map& map, float radius) {
+void Pathfinder::SetTraversabletiles(const Map& map, float radius, u16 xMin, u16 xMax) {
   OccupiedRect* scratch_rects = new OccupiedRect[256];
 
   // Calculate which nodes are traversable before creating edges.
   for (u16 y = 0; y < 1024; ++y) {
-    for (u16 x = 0; x < 1024; ++x) {
+    for (u16 x = xMin; x < xMax; ++x) {
       if (map.IsSolid(x, y)) continue;
 
       Node* node = processor_->GetNode(NodePoint(x, y));
@@ -389,20 +389,30 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
       }
     }
   }
+ delete[] scratch_rects;
+}
 
- 
-
-  for (u16 y = 0; y < 1024; ++y) {
-    for (u16 x = 0; x < 1024; ++x) {
+void Pathfinder::CalculateEdges(const Map& map, float radius, u16 xMin, u16 xMax) {
+ for (u16 y = 0; y < 1024; ++y) {
+    for (u16 x = xMin; x < xMax; ++x) {
       if (map.IsSolid(x, y)) continue;
 
       Node* node = this->processor_->GetNode(NodePoint(x, y));
       EdgeSet edges = processor_->CalculateEdges(node, radius);
       processor_->SetEdgeSet(x, y, edges);
+    }
+ }
+}
 
+void Pathfinder::SetMapWeights(const Map& map, u16 xMin, u16 xMax) {
+ for (u16 y = 0; y < 1024; ++y) {
+    for (u16 x = xMin; x < xMax; ++x) {
+      if (map.IsSolid(x, y)) continue;
+
+      Node* node = this->processor_->GetNode(NodePoint(x, y));
       node->weight = 1.0f;
 
-     int close_distance = 5;
+      int close_distance = 5;
       float distance = GetWallDistance(map, x, y, close_distance);
 
       if (distance < 1) distance = 1;
@@ -411,9 +421,7 @@ void Pathfinder::CreateMapWeights(const Map& map, float radius) {
         node->weight = close_distance / distance;
       }
     }
-  }
-
- delete[] scratch_rects;
+ }
 }
 
 Vector2f Pathfinder::GetPathableNeighbor(const Map& map, RegionRegistry& regions, Vector2f position, float radius) {
