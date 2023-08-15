@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BLACKBOARD_H
+#define BLACKBOARD_H
 
 #include <any>
 #include <optional>
@@ -12,7 +13,7 @@
 namespace marvin {
 
 
-#if 0
+
     enum class BB { 
         UseRepel, UseBurst, UseDecoy, UseRocket, UseThor, UseBrick, UsePortal,
         UseMultiFire, UseCloak, UseStealth, UseXRadar, UseAntiWarp,
@@ -20,7 +21,7 @@ namespace marvin {
         EnemySafe, TeamSafe, BaseIndex,
         EnemyNetBulletTravel, 
         End };
-#endif
+
 
 class Blackboard {
  private:
@@ -400,7 +401,7 @@ class Blackboard {
   void PushCombinedList(const Player* player) { combined_list_.emplace_back(player); }
   const std::vector<const Player*>& GetCombinedList() { return combined_list_; }
 
-#if 0 
+
   bool Has(const std::string& key) { return data_.find(key) != data_.end(); }
 
   bool Has(const BB& key) { return data2_.find(key) != data2_.end(); }
@@ -493,15 +494,18 @@ class Blackboard {
   }
   void Erase(const std::string& key) { data_.erase(key); }
   void Erase(const BB& key) { data2_.erase(key); }
-#endif
 
 
 
 
 
-  // std::unordered_map<std::string, std::any> data_;
-  // std::unordered_map<BB, std::any> data2_;
-  // std::unordered_map<BB, std::any> data2_default_;
+
+   std::unordered_map<std::string, std::any> data_;
+   std::unordered_map<BB, std::any> data2_;
+   std::unordered_map<BB, std::any> data2_default_;
 };
 
 }  // namespace marvin
+
+
+#endif

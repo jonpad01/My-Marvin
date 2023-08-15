@@ -189,7 +189,7 @@ void Bot::Load() {
           // builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
         } break;
         case Zone::Hockey: {
-          // builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+           builder = std::make_unique<hz::HockeyBehaviorBuilder>();
         } break;
         case Zone::Hyperspace: {
           goals_ = std::make_unique<hs::HSFlagRooms>();
@@ -457,7 +457,7 @@ bool Bot::MaxEnergyCheck() {
   else if (energy_pct >= 100.0f) {
     result = true;
   }
-  if (!game_->GetPlayer().dead) {
+  if (game_->GetPlayer().dead) {
     result = false;
   }
   return result;
@@ -501,7 +501,7 @@ behavior::ExecuteResult SetArenaNode::Execute(behavior::ExecuteContext& ctx) {
   if (bb.GetCommandRequest() == CommandRequestType::ArenaChange) {
     if (mapfile != arena) {
       if (ctx.bot->GetTime().TimedActionDelay("arenachange", 200)) {
-        game.SetEnergy(100.0f);
+        game.SetEnergy(100);
         game.SendChatMessage("?go " + arena);
       }
       g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
@@ -533,7 +533,7 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
   if (bb.GetCommandRequest() == CommandRequestType::ShipChange) {
     if (cShip != dShip) {
       if (ctx.bot->GetTime().RepeatedActionDelay("shipchange", ship_cooldown)) {
-        game.SetEnergy(100.0f);
+        game.SetEnergy(100);
         if (!game.SetShip(dShip)) {
           ctx.bot->GetTime().RepeatedActionDelay("shipchange", 0);
         }
@@ -564,7 +564,7 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
     //if (freq != 999) {
     if (freq != game.GetPlayer().frequency) {
       if (ctx.bot->GetTime().TimedActionDelay("setfreq", 200)) {
-        game.SetEnergy(100.0f);
+        game.SetEnergy(100);
         game.SetFreq(freq);
       }
 
@@ -704,7 +704,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
           //team_in_base = true;
           bb.SetTeamInBase(true);
         }
-        if (!in_center && player.dead) {
+        if (!in_center && !player.dead) {
           //last_in_base = false;
           bb.SetLastInBase(false);
         }
@@ -747,7 +747,7 @@ behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx)
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
 
-  if (!game.GetPlayer().dead) {
+  if (game.GetPlayer().dead) {
     g_RenderState.RenderDebugText("  RespawnCheckNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -890,7 +890,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     // multiply the players speed by a ratio of how "true" its flying towards the bot
     float player_speed = Normalize(player.velocity).Dot(player_to_bot) * player.velocity.Length();
     // if the target is dead, set its speed to 0
-    if (!player.dead) {
+    if (player.dead) {
       player_speed = 0.0f;
     }
     // if the player is flying at full speed in the direction of the player_fore position, then it will reach its maximum bullet travel
@@ -1079,7 +1079,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   max_enemy_speed_ = Normalize(enemy->velocity).Dot(enemy_to_bot_) * enemy->velocity.Length();
   float enemy_speed = Normalize(enemy->velocity).Dot(enemy_to_bot_) * enemy->velocity.Length();
   // if the target is dead, set its speed to 0
-  if (!enemy->dead) {
+  if (enemy->dead) {
     max_enemy_speed_ = 0.0f;
   }
   // this is not the true max travel, instead its relative to the dot product
@@ -1190,7 +1190,7 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
     // the speed that the enemy is moving toward or away from its forward path node
     float player_speed = (Normalize(player->velocity).Dot(player_to_anchor)) * player->velocity.Length();
     // if the player is dead set it's speed to 0
-    if (!player->dead) {
+    if (player->dead) {
       player_speed = 0.0f;
     }
 
@@ -1204,7 +1204,7 @@ void AnchorBasePathNode::CalculateEnemyThreat(behavior::ExecuteContext& ctx, con
     // how far the current enemy bullets will travel past the target enemy
     float net_player_bullet_travel = player_bullet_travel - player_pathlength_to_bot;
 
-    if (player->dead) {
+    if (!player->dead) {
       float threat_distance = player_bullet_travel - player_pathlength_to_enemy;
       if (threat_distance > 0.0f) {
         enemy_team_threat_ += player->energy * (threat_distance / player_bullet_travel);
@@ -1231,7 +1231,7 @@ void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, cons
   for (std::size_t i = 0; i < bb.GetTeamList().size(); i++) {
     const Player* player = bb.GetTeamList()[i];
 
-    if (!player->dead || !ctx.bot->GetRegions().IsConnected(player->position, position_)) continue;
+    if (player->dead || !ctx.bot->GetRegions().IsConnected(player->position, position_)) continue;
 
     float player_bullet_speed = game.GetShipSettings(player->ship).GetBulletSpeed();
     float player_radius = game.GetShipSettings(player->ship).GetRadius();

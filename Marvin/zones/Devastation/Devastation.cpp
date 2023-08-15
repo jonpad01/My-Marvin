@@ -353,7 +353,7 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
 
   for (std::size_t i = 0; i < team_list.size(); i++) {
     bool in_center = ctx.bot->GetRegions().IsConnected(team_list[i]->position, MapCoord(512, 512));
-    if (!in_center && team_list[i]->dead) {
+    if (!in_center && !team_list[i]->dead) {
       bool update_region = ctx.bot->GetRegions().IsConnected(team_list[i]->position, warp.t0[base_index]) == 0;
       if (update_region) {
         for (std::size_t j = 0; j < warp.t0.size(); j++) {
@@ -769,7 +769,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
       //if (bb.ValueOr<bool>("Swarm", false)) {
       if (bb.GetSwarm()) {
-        if (!game.GetPlayer().dead) {
+        if (game.GetPlayer().dead) {
           if (ctx.bot->GetTime().TimedActionDelay("respawn", 300)) {
             int ship = 1;
 
@@ -804,7 +804,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
   if (game.GetPlayer().attach_id != 65535) {
     //if (bb.ValueOr<bool>("Swarm", false)) {
     if (bb.GetSwarm()) {
-      game.SetEnergy(15.0f);
+      game.SetEnergy(15);
     }
 
     game.SendKey(VK_F7);

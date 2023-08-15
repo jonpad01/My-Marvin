@@ -78,8 +78,9 @@ UpdateState ContinuumGameProxy::Update(float dt) {
   SetWindowFocus();
 
   if (set_ship_flag_) {
-    SetShip(desired_ship_);
-    return UpdateState::Wait;
+    if (SetShip(desired_ship_)) {
+      return UpdateState::Wait;
+    }
   }
 
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
@@ -183,7 +184,7 @@ void ContinuumGameProxy::FetchPlayers() {
 
     // might not work on bot but works well on other players
     // player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
-    player.dead = *(u32*)(player_addr + kDeadOffset1) == 0 && *(u32*)(player_addr + kDeadOffset2) == 0;
+    player.dead = *(u32*)(player_addr + kDeadOffset1) == 0 && *(u32*)(player_addr + kDeadOffset2) != 0;
 
     // these are not valid when reading on other players and will result in crashes
     if (player.id == player_id_) {
@@ -676,7 +677,7 @@ void ContinuumGameProxy::SetFreq(int freq) {
     return;
   }
   ResetStatus();
-  SetEnergy(100.0f);
+  SetEnergy(100);
   SendPriorityMessage("=" + std::to_string(freq));
 #endif
 }
@@ -687,7 +688,7 @@ void ContinuumGameProxy::Attach(std::string name) {
   if (time_.GetTime() < attach_cooldown_) return;
  
   ResetStatus();
-  SetEnergy(100.0f);
+  SetEnergy(100);
 
   if (zone_ == Zone::Hyperspace) {
     SendMessage(":" + name + ":?attach");
@@ -706,7 +707,7 @@ void ContinuumGameProxy::Attach(uint16_t id) {
   if (time_.GetTime() < attach_cooldown_) return;
 
   ResetStatus();
-  SetEnergy(100.0f);
+  SetEnergy(100);
 
   if (zone_ == Zone::Hyperspace) {
     const Player* player = GetPlayerById(id);
@@ -724,7 +725,7 @@ void ContinuumGameProxy::Attach() {
   if (time_.GetTime() < attach_cooldown_) return;
 
   ResetStatus();
-  SetEnergy(100.0f);
+  SetEnergy(100);
   SendKey(VK_F7);
 
   attach_cooldown_ = time_.GetTime() + 100;
@@ -735,7 +736,7 @@ void ContinuumGameProxy::HSFlag() {
   if (time_.GetTime() < flag_cooldown_) return;
 
   ResetStatus();
-  SetEnergy(100.0f);
+  SetEnergy(100);
   SendMessage("?flag");
 
   flag_cooldown_ = time_.GetTime() + 1000;
@@ -770,22 +771,23 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
 
 void ContinuumGameProxy::SetArena(const std::string& arena) {
   ResetStatus();
-  SetEnergy(100.0f);
+  SetEnergy(100);
   SendChatMessage("?go " + arena);
 }
 
 bool ContinuumGameProxy::SetShip(uint16_t ship) {
 
+  int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
+  bool menu_open = (*menu_open_addr & 1);
+
   if (player_->ship == ship) {
+    set_ship_flag_ = false;
+    if (menu_open) SendKey(VK_ESCAPE);
     return true;
   }
 
   set_ship_flag_ = true;
   desired_ship_ = ship;
-
-  int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
-
-  bool menu_open = (*menu_open_addr & 1);
 
 #if !DEBUG_USER_CONTROL
   if (!menu_open) {
@@ -793,24 +795,24 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
   } else {
     if (ActionDelay()) {
       ResetStatus();
-      SetEnergy(100.0f);
+      SetEnergy(100);
       if (ship == 8) {
         PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
       } else {
         PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
       }
-      set_ship_flag_ = false;
+      return true;
     }
   }
 #endif
 
-  return menu_open;
+  return false;
 }
 
 void ContinuumGameProxy::Warp() {
-  if (player_->dead && player_->ship != 8) {
+  if (!player_->dead && player_->ship != 8) {
     ResetStatus();
-    SetEnergy(100.0f);
+    SetEnergy(100);
     SendKey(VK_INSERT);
   }
 }

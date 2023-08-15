@@ -69,6 +69,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   // fastest allowed for hypersppace
   bot.GetBlackboard().SetSetShipCoolDown(5000);
   bot.GetBlackboard().SetUpdateLancsFlag(true);
+  bot.GetBlackboard().SetUseMultiFire(true);
 
   auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
   auto anchor_base_path = std::make_unique<bot::AnchorBasePathNode>();
@@ -386,7 +387,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   Vector2f position = game.GetPosition();
   bool on_safe_tile = game.GetMap().GetTileId(position) == kSafeTileId;
 
-  if (!game.GetPlayer().dead) {
+  if (game.GetPlayer().dead) {
     bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
     g_RenderState.RenderDebugText("  HSBuySellNode(Waiting for Respawn): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
@@ -447,7 +448,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   for (ChatMessage& msg : game.GetChat()) {
     if (msg.type != ChatType::Arena) continue;
 
-    for (int i = 0; i < match_list.size(); i++) {
+    for (std::size_t i = 0; i < match_list.size(); i++) {
        std::size_t found = msg.message.find(match_list[i]);
        if (found != std::string::npos) {
         if (match_list[i] == kGoToDepotBuy) {
@@ -953,7 +954,8 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
   }
 
   // join a flag team
-  if (flagger_count < 14 && !flagging && bb.GetCanFlag()) {
+  //if (flagger_count < 14 && !flagging && bb.GetCanFlag()) {
+    if (!flagging && bb.GetCanFlag()) {
     //if (ctx.bot->GetTime().TimedActionDelay("joingame", unique_timer)) {
       game.HSFlag();
 
@@ -965,8 +967,8 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
   }
 
   // leave a flag team
-  if (flagging) {
-    if ((flagger_count > 16 && game.GetPlayer().ship != 6) || !bb.GetCanFlag()) {
+  if (flagging && !bb.GetCanFlag()) {
+    //if ((flagger_count > 16 && game.GetPlayer().ship != 6) || !bb.GetCanFlag()) {
       //if (ctx.bot->GetTime().TimedActionDelay("leavegame", unique_timer)) {
         game.SetFreq(FindOpenFreq(bb.GetFreqList(), 0));
         //bb.SetFreq(FindOpenFreq(bb.GetFreqList(), 0));
@@ -976,7 +978,6 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
      // }
      // g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Leave Flag Team): %llu", timer.GetElapsedTime());
      // return behavior::ExecuteResult::Success;
-    }
   }
 
   g_RenderState.RenderDebugText("  HSFreqMan(No Action Taken): %llu", timer.GetElapsedTime());
@@ -1113,7 +1114,7 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
   if (game.GetPlayer().attach_id != 65535) {
     if (bb.GetSwarm()) {
-      game.SetEnergy(15.0f);
+      game.SetEnergy(15);
     }
 
     game.SendKey(VK_F7);
@@ -1141,24 +1142,41 @@ behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Failure;
   }
 
-  bool x_active = (game.GetPlayer().status & 4) != 0;
-  bool has_xradar = (game.GetShipSettings().XRadarStatus & 1);
-  bool stealthing = (game.GetPlayer().status & 1) != 0;
-  bool cloaking = (game.GetPlayer().status & 2) != 0;
-  bool has_stealth = (game.GetShipSettings().StealthStatus & 2);
-  bool has_cloak = (game.GetShipSettings().CloakStatus & 2);
+  bool xradar_on = (game.GetPlayer().status & Status_XRadar) != 0;
+  bool has_xradar = game.GetPlayer().capability.xradar;
+  bool stealth_on = (game.GetPlayer().status & Status_Stealth) != 0;
+  bool cloak_on = (game.GetPlayer().status & Status_Cloak) != 0;
+  bool antiwarp_on = (game.GetPlayer().status & Status_Antiwarp) != 0;
+  bool has_stealth = game.GetPlayer().capability.stealth;
+  bool has_cloak = game.GetPlayer().capability.cloak;
+  bool has_antiwarp = game.GetPlayer().capability.antiwarp;
 
-  if (!stealthing && has_stealth) {
-    if (ctx.bot->GetTime().TimedActionDelay("stealth", 800)) {
+  if (bb.GetUseStealth()) {
+    if (!stealth_on && has_stealth) {
       game.Stealth();
-
-      g_RenderState.RenderDebugText("  HSToggleNode(Toggle Stealth): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
     }
+  } else if (stealth_on) {
+    game.Stealth();
+  }
+
+  if (bb.GetUseXradar()) {
+    if (!xradar_on && has_xradar) {
+      game.XRadar();
+    }
+  } else if (xradar_on) {
+    game.XRadar();
+  }
+
+  if (bb.GetUseAntiWarp()) {
+    if (!antiwarp_on && has_antiwarp) {
+      game.Antiwarp(ctx.bot->GetKeys());
+    }
+  } else if (antiwarp_on) {
+    game.Antiwarp(ctx.bot->GetKeys());
   }
 
   if (has_cloak) {
-    if (!cloaking) {
+    if (!cloak_on) {
       if (ctx.bot->GetTime().TimedActionDelay("cloak", 800)) {
         game.Cloak(ctx.bot->GetKeys());
 

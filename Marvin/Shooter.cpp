@@ -305,7 +305,7 @@ bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
   const Player& bot_player = game.GetPlayer();
 
   // anchors shoud wait until the target is no longer lag attachable
-  if (combat_role != CombatRole::Anchor && (!target.dead || !IsValidPosition(target.position))) {
+  if (combat_role != CombatRole::Anchor && (target.dead || !IsValidPosition(target.position))) {
     return false;
   }
   else if (!IsValidPosition(target.position)) {

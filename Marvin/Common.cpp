@@ -8,7 +8,7 @@
 namespace marvin {
 
   MapCoord ToNearestTile(Vector2f position) {
-    return MapCoord(std::round(position.x), std::round(position.y));
+    return MapCoord((uint16_t)std::round(position.x), (uint16_t)std::round(position.y));
   }
 
 std::string Lowercase(const std::string& str) {
