@@ -11,6 +11,8 @@
 
 namespace marvin {
 
+enum class SetShipStatus : short { Clear, SetShip };
+
 #pragma pack(push, 1)
 struct WeaponMemory {
   u32 _unused1;  // 0x00
@@ -123,7 +125,7 @@ class ContinuumGameProxy : public GameProxy {
   void Repel(KeyController& keys) override;
   bool ProcessQueuedMessages();
   void SendPriorityMessage(const std::string& message) override;
-  void SendMessage(const std::string& mesg);
+  void SendQueuedMessage(const std::string& mesg);
   void SendChatMessage(const std::string& mesg) override;
   void SendPrivateMessage(const std::string& target, const std::string& mesg) override;
   void SendKey(int vKey) const override;
@@ -177,14 +179,12 @@ class ContinuumGameProxy : public GameProxy {
   std::string mapfile_path_;
   Zone zone_;
   Time time_;
-
-  bool reload_flag_;
+  SetShipStatus set_ship_status_;
+  UpdateState game_status_;
   uint64_t attach_cooldown_;
   uint64_t flag_cooldown_;
   uint64_t message_cooldown_;
   uint64_t delay_timer_;
-  bool clear_chat_flag_;
-  bool set_ship_flag_;
   uint16_t desired_ship_;
   std::vector<uint16_t> numerical_id_list;
   std::deque<std::string> message_queue;
