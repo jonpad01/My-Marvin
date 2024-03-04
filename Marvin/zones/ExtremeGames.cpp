@@ -35,7 +35,8 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
     bot.GetBlackboard().SetPubTeam0(00);
     bot.GetBlackboard().SetPubTeam1(01);
-    bot.GetBlackboard().SetShip(Ship(ship));
+    //bot.GetBlackboard().SetShip(Ship(ship));
+    bot.GetBlackboard().SetShip(Ship::Spider);
     bot.GetBlackboard().SetCommandRequest(CommandRequestType::ShipChange);
     bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   
@@ -51,6 +52,7 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto move_to_enemy = std::make_unique<eg::MoveToEnemyNode>();
 
   auto patrol = std::make_unique<bot::PatrolNode>();
+  auto set_ship = std::make_unique<bot::SetShipNode>();
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto gun_sequence = std::make_unique<behavior::SequenceNode>(aim_with_gun.get(), shoot_gun.get());
@@ -69,12 +71,14 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
  
   auto root_selector =
       std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
-  auto root_sequence = std::make_unique<behavior::SequenceNode>(commands_.get(), respawn_check_.get(), set_ship_.get(),
-                                                                spectator_check_.get(), root_selector.get());
+
+  auto root_sequence = std::make_unique<behavior::SequenceNode>(
+      commands_.get(), respawn_check_.get(), set_ship.get(), spectator_check_.get(), root_selector.get());
+                                                              
 
   engine_->PushRoot(std::move(root_sequence));
   engine_->PushNode(std::move(root_selector));
-
+  engine_->PushNode(std::move(set_ship));
    engine_->PushNode(std::move(freq_warp_attach));
    engine_->PushNode(std::move(aim_with_gun));
   engine_->PushNode(std::move(aim_with_bomb));
@@ -133,7 +137,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
   // std::vector<std::string> chat = game.GetChat(5);
   for (ChatMessage chat : game.GetChat()) {
     if (chat.message == "!p" && no_p) {
-      game.P();
+      game.SendChatMessage("!p");
 
       ctx.blackboard.Set("!PCheck", time + 3000);
       ctx.blackboard.Set("ChatWait", time + 200);
@@ -141,7 +145,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
       g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     } else if (chat.message == "!l" && no_p) {
-      game.L();
+      game.SendChatMessage("!l");
 
       ctx.blackboard.Set("!PCheck", time + 3000);
       ctx.blackboard.Set("ChatWait", time + 200);
@@ -149,7 +153,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
       g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     } else if (chat.message == "!r" && no_p) {
-      game.R();
+      game.SendChatMessage("!r");
 
       ctx.blackboard.Set("!PCheck", time + 3000);
       ctx.blackboard.Set("ChatWait", time + 200);
@@ -170,54 +174,30 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
   // attach code
   // the region registry doesnt thing the eg center bases are connected to center
   if (in_center && duelers.size() != 0 && team_in_base && dueling) {
-    // a saved value to keep the ticker moving up or down
-    bool up_down = ctx.blackboard.ValueOr<bool>("UpDown", true);
-
-    // what player the ticker is currently on
-    const Player& selected_player = game.GetSelectedPlayer();
 
     // if ticker is on a player in base attach
     for (std::size_t i = 0; i < duelers.size(); i++) {
+      
       const Player& player = duelers[i];
+      bool not_connected = ctx.bot->GetRegions().IsConnected(player.position, game.GetPosition());
 
-      if (player.id == selected_player.id && IsValidPosition(player.position)) {
-        if (CheckStatus(ctx)) game.F7();
+      if (IsValidPosition(player.position) && not_connected) {
+        game.Attach(player.id);
         g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Success;
       }
     }
 
-    // if the ticker is not on a player in base then move the ticker for the next check
-    if (up_down)
-      game.PageUp();
-    else
-      game.PageDown();
-
-    // find the ticker position
-    int64_t ticker = game.TickerPosition();
-    // if the ticker has reached the end of the list switch direction
-    if (ticker <= 0)
-      ctx.blackboard.Set("UpDown", false);
-    else if (ticker >= game.GetPlayers().size() - 1)
-      ctx.blackboard.Set("UpDown", true);
-
     g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
 
-  Vector2f bot_position = game.GetPlayer().position;
-  bool in_safe = game.GetMap().GetTileId(bot_position) == kSafeTileId;
-  // try to detach
-  for (std::size_t i = 0; i < duelers.size(); i++) {
-    const Player& player = duelers[i];
-    if (player.position == bot_position && no_f7_spam && !in_center) {
-      game.F7();
-      ctx.blackboard.Set("F7SpamCheck", time + 150);
+if (game.GetPlayer().attach_id != 65535) {
+    game.SendKey(VK_F7);
 
-      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Success;
-    }
-  }
+    g_RenderState.RenderDebugText("  HSAttachNode(Dettaching): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+}
 
   //#if 0
 

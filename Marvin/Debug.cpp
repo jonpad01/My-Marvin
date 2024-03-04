@@ -3,6 +3,7 @@
 #include <ddraw.h>
 #include <stdarg.h>
 
+
 #include "Types.h"
 
 
@@ -146,6 +147,27 @@ void RenderState::RenderDebugText(const std::string& input) {
   RenderText(input, Vector2f(GetWindowCenter().x + 150.0f, debug_y), TextColor::Pink, 0);
   debug_y += 12.0f;
 }
+#if 0
+template <typename T>
+void RenderState::RenderDebugInBinary(std::string text, T data) {
+    std::bitset<sizeof(T) * 8> bits(data);
+    RenderText(text + bits.to_string(), Vector2f(GetWindowCenter().x + 150.0f, debug_y), TextColor::Pink, 0);
+    debug_y += 12.0f;
+}
+#endif
+#if 0
+void RenderState::RenderDebugInBinary(const std::string& input, unsigned something, int bit_depth) {
+  if (!kDisplayDebugText) return;
+
+  std::bitset<64> result;
+
+  for (int i = 0; i < bit_depth; i++) {
+    if (something >> i & 0x1) {
+        result 
+    }
+  }
+}
+#endif
 
 void RenderText(std::string text, Vector2f at, TextColor color, int flags) {
   RenderableText renderable;

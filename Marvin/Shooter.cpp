@@ -12,71 +12,65 @@ namespace marvin {
     }
 
 ShotResult Shooter::CalculateShot(Vector2f pShooter, Vector2f pTarget, Vector2f vShooter, Vector2f vTarget, float sProjectile) {
+      ShotResult result;
 
-   ShotResult result;
-   result.hit = true;
-  // directional vector poiting to target from shooter
-  Vector2f totarget = pTarget - pShooter;
-  Vector2f v = vTarget - vShooter;
+      Vector2f totarget = pTarget - pShooter;  // directional vector pointing to target from shooter
+      Vector2f v = vTarget - vShooter;         // relative velocity
 
-  // dot product
-  float a = v.Dot(v) - sProjectile * sProjectile;
-  float b = 2 * v.Dot(totarget);
-  float c = totarget.Dot(totarget);
+      // dot product
+      double a = double(v.Dot(v)) - double(sProjectile * sProjectile);
+      double b = 2.0 * double(v.Dot(totarget));
+      double c = double(totarget.Dot(totarget));
 
-  // quadratic formula
-  float disc = (b * b) - 4.0f * a * c;
-  float t = 0.0f;
+      double disc = (b * b) - 4.0 * a * c;  // quadratic formula for the discriminant
+      double t = 0.0;                       // time when the bullet intercepts the target
 
-  // if disc or t are below zero it means the target is moving away at a speed faster than the bullet
-  // the shot is impossible, t will equal 0 and the solution will be the targets position, but the hit will return false
-  // this is called the square root discriminant
-  if (disc >= 0.0f && a != 0.0f && c != 0.0f) {
-    float t1 = (-b - std::sqrt(disc)) / (2.0f * a);
-    float t2 = (-b + std::sqrt(disc)) / (2.0f * a);
+      // discriminant can't be negative, the target is probably moving away from the shooter at a 
+      // faster velocity than the bullet
+      if (disc <= 0.0 || a == 0.0) {
+        return result;
+      }
 
-    if (t1 >= 0.0f && t2 >= 0.0f) {
-      t = std::min(t1, t2);
-    } else {
-      t = std::max(t1, t2);
+      double t1 = (-b - std::sqrt(disc)) / (2.0 * a);
+      double t2 = (-b + std::sqrt(disc)) / (2.0 * a);
+
+      if (t1 >= 0.0 && t2 >= 0.0) {
+        t = std::min(t1, t2);
+      } else if (t1 >= 0.0) {
+        t = t1;
+      } else if (t2 >= 0.0) {
+        t = t2;
+      } else { // time can't be negative
+        return result;
+      }
+
+      Vector2f solution = pTarget + (v * float(t));
+
+      result.solution = solution;
+      result.hit = true;
+
+#if DEBUG_RENDER_CALCULATESHOT
+      RenderWorldBox(pShooter, result.solution - Vector2f(1, 1), result.solution + Vector2f(1, 1),
+                     RGB(0, 0, 255));
+#endif
+      return result;
     }
-    // this shouldnt happen, but im pretty sure it does sometimes
-    if (t < 0.0f) {
-      t = 0.0f;
-      result.hit = false;
-    }
 
-  } else {
-    result.hit = false;
-  }
-
-  // the solution is basically the directional vector from the shooter to this position
-  Vector2f dSolution = pTarget + (v * t);
-  // this is the intersected position
-  Vector2f pSolution = pTarget + (vTarget * t);
-  // return a position with the direcrtional solution and the magnitude solution
-  Vector2f solution = pShooter + Normalize(dSolution - pShooter) * pShooter.Distance(pSolution);
-  // check if shot is within map boundries, i think this happens with bouncing shots
-  if (!IsValidPosition(solution)) {
-    solution = pTarget;
-    result.hit = false;
-  }
-
-  // this solution is used for bouncing shots, determining hover distance, and bullet travel time to target
-  
-  result.solution = solution;
-  return result;
-}
 
 ShotResult Shooter::BouncingBombShot(Bot& bot, Vector2f target_pos, Vector2f target_vel, float target_radius) {
   auto& game = bot.GetGame();
 
   float proj_speed = game.GetShipSettings().GetBombSpeed();
   float alive_time = game.GetSettings().GetBombAliveTime();
-  float bounces = (float)game.GetShipSettings().BombBounceCount;
+  uint8_t bounces = game.GetShipSettings().BombBounceCount;
 
-  ShotResult result = BounceShot(bot, target_pos, target_vel, 2.0f, game.GetPosition(), game.GetPlayer().velocity,
-                 game.GetPlayer().GetHeading(), proj_speed, alive_time, bounces);
+  //ShotResult result = BounceShot(bot, target_pos, target_vel, 2.0f, game.GetPosition(), game.GetPlayer().velocity,
+    //             game.GetPlayer().GetHeading(), proj_speed, alive_time, bounces);
+
+  bool hit = BouncingShotHit(bot, target_pos, target_vel, target_radius, proj_speed, alive_time, bounces);
+
+  ShotResult result;
+  result.hit = hit;
 
   return result;
 }
@@ -93,7 +87,7 @@ ShotResult Shooter::BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f t
   float proj_speed = game.GetShipSettings().GetBulletSpeed();
   float alive_time = game.GetSettings().GetBulletAliveTime();
 
-  bool double_barrel = (game.GetShipSettings().DoubleBarrel & 1) != 0;
+  bool double_barrel = game.GetShipSettings().HasDoubleBarrel();
   bool multi_enabled = game.GetPlayer().multifire_status;
 
   std::vector<Vector2f> pos_adjust;
@@ -127,8 +121,13 @@ ShotResult Shooter::BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f t
         direction = game.GetPlayer().GetHeading(-game.GetShipSettings().GetMultiFireAngle());
       }
     }
-   ShotResult current_result = BounceShot(bot, target_pos, target_vel, target_radius, position, game.GetPlayer().velocity, direction, proj_speed,
-               alive_time, 100.0f);
+   //ShotResult current_result = BounceShot(bot, target_pos, target_vel, target_radius, position, game.GetPlayer().velocity, direction, proj_speed,
+     //          alive_time, 100.0f);
+
+   bool hit = BouncingShotHit(bot, target_pos, target_vel, target_radius, proj_speed, alive_time, 10);
+
+   ShotResult current_result;
+   current_result.hit = hit;
 
    if (i == 0 || current_result.hit) {
      result = current_result;
@@ -138,15 +137,17 @@ ShotResult Shooter::BouncingBulletShot(Bot& bot, Vector2f target_pos, Vector2f t
 }
 
 /*
-Bounching shot concept:  Use the calculate shot function in combination with the raycaster to look for a solution that is in line with
+Bouncing shot concept:  Use the calculate shot function in combination with the raycaster to look for a solution that is in line with
 the guns projected path. The calculate shot function starts with the player position and calculates a solution to the target, if the 
 calculated bullet trajectory is in line with the solution return true.  If not use the raycraster to find and reflect off the wall and
 calculate a new solution and check again, until it runs out of bounces or reaches the projectiles maximum travel distance.
 */
 
+#if 0
+
 ShotResult Shooter::BounceShot(Bot& bot, Vector2f pTarget, Vector2f vTarget, float rTarget, Vector2f pShooter,
                                Vector2f vShooter, Vector2f dShooter, float proj_speed, float alive_time,
-                               float bounces) {
+                               uint8_t bounces) {
   auto& game = bot.GetGame();
   ShotResult result;
   float traveled_dist = 0.0f;
@@ -158,7 +159,7 @@ ShotResult Shooter::BounceShot(Bot& bot, Vector2f pTarget, Vector2f vTarget, flo
   Vector2f sDirection = Normalize(proj_velocity);
 
 
-  for (float j = 0.0f; j <= bounces; ++j) {
+  for (uint8_t j = 0; j <= bounces; ++j) {
     /*
      Concept: When the shot is bounced off the wall, the calculate shot function will become inaccurate because
       it is not able to calculate the time it took for the bullet to travel to the next starting point.  This
@@ -191,7 +192,8 @@ ShotResult Shooter::BounceShot(Bot& bot, Vector2f pTarget, Vector2f vTarget, flo
                              RGB(0, 0, 255));
 #endif
               result.hit = true;
-              result.final_position = cResult.solution;
+              result.solution = cResult.solution; 
+              //result.final_position = cResult.solution; 
               return result;
             }
           }
@@ -217,10 +219,12 @@ ShotResult Shooter::BounceShot(Bot& bot, Vector2f pTarget, Vector2f vTarget, flo
 
       proj_travel -= wall_line.distance;
       traveled_dist += wall_line.distance;
-      result.final_position = wall_line.position;
+      //result.final_position = wall_line.position;
+      result.solution = wall_line.position;
 
     } else {
-      result.final_position = pShooter + sDirection * proj_travel;
+      //result.final_position = pShooter + sDirection * proj_travel;
+      result.solution = pShooter + sDirection * proj_travel;
 #if DEBUG_RENDER_SHOOTER
       RenderWorldLine(game.GetPosition(), pShooter, pShooter + sDirection * proj_travel, RGB(0, 100, 100));
       RenderWorldBox(game.GetPosition(), result.final_position - Vector2f(1.0f, 1.0f),
@@ -232,6 +236,90 @@ ShotResult Shooter::BounceShot(Bot& bot, Vector2f pTarget, Vector2f vTarget, flo
 
   return result;
 }
+
+#endif
+
+//#if 0
+bool Shooter::BouncingShotHit(Bot& bot, Vector2f pTarget, Vector2f vTarget, float rTarget, float proj_speed, float alive_time,
+                               uint8_t bounces) {
+  auto& game = bot.GetGame();
+  ShotResult result;
+  float traveledDist = 0.0f;
+  float maxPadding = 4.0f;
+  float padding = 0.0f;
+
+  Vector2f positionShooter = game.GetPosition();
+  Vector2f velocityShooter = game.GetPlayer().velocity;
+  Vector2f headingShooter = game.GetPlayer().GetHeading();
+
+  Vector2f projVelocity = headingShooter * proj_speed + velocityShooter;
+  float projTravel = projVelocity.Length() * alive_time;
+  float remainingTravel = projTravel;
+  Vector2f projDirection = Normalize(projVelocity);
+
+  for (uint8_t j = 0; j <= bounces; ++j) {
+
+    float totalTravelTime = (traveledDist + pTarget.Distance(positionShooter)) / proj_speed;
+    float reducedProjSpeed = pTarget.Distance(positionShooter) / totalTravelTime;
+
+    result = CalculateShot(positionShooter, pTarget, velocityShooter, vTarget, reducedProjSpeed);
+
+    if (!result.hit) return false;  // if it can't hit with a straight shot it probably won't 
+
+    Vector2f directionToSolution = Normalize(result.solution - positionShooter);
+    float distanceToSolution = result.solution.Distance(positionShooter);
+
+    CastResult lineToSolution = RayCast(bot, RayBarrier::Solid, pTarget, directionToSolution, distanceToSolution);
+
+    if (!SolidRayCast(bot, positionShooter, result.solution).hit && !SolidRayCast(bot, pTarget, result.solution).hit) {
+     if (positionShooter.Distance(result.solution) >= remainingTravel) return false;
+
+     if (FloatingRayBoxIntersect(positionShooter, projDirection, result.solution, rTarget + padding, nullptr, nullptr)) {
+#if DEBUG_RENDER_BOUNCINGSHOT
+        RenderWorldLine(game.GetPosition(), positionShooter, result.solution, RGB(100, 0, 0));
+        RenderWorldBox(game.GetPosition(), result.solution - Vector2f(1, 1), result.solution + Vector2f(1, 1),
+                       RGB(0, 0, 255));
+#endif
+        return true;
+     }
+    }
+
+    CastResult lineToWall = RayCast(bot, RayBarrier::Solid, positionShooter, projDirection, remainingTravel);
+
+    if (!lineToWall.hit) return false;
+
+    if (lineToWall.hit) {
+#if DEBUG_RENDER_BOUNCINGSHOT
+     RenderWorldLine(game.GetPosition(), positionShooter, lineToWall.position, RGB(0, 100, 100));
+      if (j == bounces) {
+        RenderWorldBox(game.GetPosition(), lineToWall.position - Vector2f(1, 1), lineToWall.position + Vector2f(1, 1),
+                       RGB(0, 0, 255));
+      }
+#endif
+
+      projDirection = Vector2f(projDirection.x * lineToWall.normal.x, projDirection.y * lineToWall.normal.y);
+      positionShooter = lineToWall.position;
+
+      remainingTravel -= lineToWall.distance;
+      traveledDist += lineToWall.distance;
+
+    } else {
+#if DEBUG_RENDER_BOUNCINGSHOT
+      Vector2f finalPosition = positionShooter + projDirection * remainingTravel;
+      RenderWorldLine(game.GetPosition(), positionShooter, positionShooter + projDirection * remainingTravel,
+                      RGB(0, 100, 100));
+      RenderWorldBox(game.GetPosition(), finalPosition - Vector2f(1.0f, 1.0f),
+                     finalPosition + Vector2f(1.0f, 1.0f), RGB(0, 0, 255));
+#endif
+      break;
+    }
+    padding = (traveledDist / projTravel) * maxPadding;
+  }
+
+  return false;
+}
+
+//#endif
 
 void Shooter::LookForWallShot(GameProxy& game, Vector2f target_pos, Vector2f target_vel, float proj_speed, int alive_time,
                      uint8_t bounces) {

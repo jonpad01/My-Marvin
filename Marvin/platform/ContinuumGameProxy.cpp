@@ -64,6 +64,7 @@ bool ContinuumGameProxy::LoadGame() {
     if (player.name == GetName()) {
       player_id_ = player.id;
       player_ = &player;
+      FetchPlayers();  // get one more time to set the player_addr_
     }
   }
 
@@ -156,6 +157,7 @@ void ContinuumGameProxy::FetchPlayers() {
     Player player;
 
     player.name = process_.ReadString(player_addr + kNameOffset, 23);
+    
 
     player.position.x = process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
 
@@ -184,7 +186,7 @@ void ContinuumGameProxy::FetchPlayers() {
 
     // might not work on bot but works well on other players
     // player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
-    player.dead = *(u32*)(player_addr + kDeadOffset1) == 0 && *(u32*)(player_addr + kDeadOffset2) != 0;
+    player.dead = *(u32*)(player_addr + kDeadOffset1) != 0 || *(u32*)(player_addr + kDeadOffset2) != 0;
 
     // these are not valid when reading on other players and will result in crashes
     if (player.id == player_id_) {
@@ -256,7 +258,19 @@ void ContinuumGameProxy::FetchPlayers() {
     if (player.id == player_id_) {
       player_ = &players_.back();
       player_addr_ = player_addr;
+
+#if DEBUG_RENDER_GAMEPROXY
+      g_RenderState.RenderDebugText("Player Name: %s", player.name.c_str());
+      g_RenderState.RenderDebugText("XRadar Capable: %u", player.capability.xradar);
+      g_RenderState.RenderDebugInBinary("Status: ", player.status);  // print in binary
+      g_RenderState.RenderDebugText("Player Energy: %u", player.energy);
+      //g_RenderState.RenderDebugText("player name: %s", player.name.c_str());
+#endif
+
     }
+
+
+
   }
   // sorted list is used to get a unique timer offset for each bot based on bots id
   std::sort(numerical_id_list.begin(), numerical_id_list.end());
@@ -777,6 +791,9 @@ void ContinuumGameProxy::SetArena(const std::string& arena) {
 
 bool ContinuumGameProxy::SetShip(uint16_t ship) {
 
+   // make sure ship is in bounds
+   if (ship > 8) ship = 0;
+
   int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
   bool menu_open = (*menu_open_addr & 1);
 
@@ -794,8 +811,8 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
     SendKey(VK_ESCAPE);
   } else {
     if (ActionDelay()) {
-      ResetStatus();
-      SetEnergy(100);
+     // ResetStatus();
+     // SetEnergy(100);
       if (ship == 8) {
         PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
       } else {

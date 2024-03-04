@@ -325,7 +325,8 @@ behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ct
   float radius = game.GetShipSettings().GetRadius();
   float proj_speed = game.GetSettings().ShipSettings[bot_player.ship].GetBulletSpeed();
 
-  ShotResult result = ctx.bot->GetShooter().CalculateShot(game.GetPosition(), target.position, bot_player.velocity,
+  ShotResult result = ctx.bot->GetShooter().CalculateShot(game.GetPosition(), target.position,
+                                                          bot_player.velocity,
                                                           target.velocity, proj_speed);
 
   if (!result.hit) {

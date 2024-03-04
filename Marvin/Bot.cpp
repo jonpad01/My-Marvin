@@ -183,7 +183,7 @@ void Bot::Load() {
           }
         } break;
         case Zone::ExtremeGames: {
-          // builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
+           builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
         } break;
         case Zone::GalaxySports: {
           // builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
@@ -532,14 +532,10 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
 
   if (bb.GetCommandRequest() == CommandRequestType::ShipChange) {
     if (cShip != dShip) {
-      if (ctx.bot->GetTime().RepeatedActionDelay("shipchange", ship_cooldown)) {
-        game.SetEnergy(100);
-        if (!game.SetShip(dShip)) {
-          ctx.bot->GetTime().RepeatedActionDelay("shipchange", 0);
-        }
-        return behavior::ExecuteResult::Failure;
-        g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
-      }
+      game.SetShip(dShip);
+      g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Failure;
+
     } else {
       bb.SetCommandRequest(CommandRequestType::None);
     }

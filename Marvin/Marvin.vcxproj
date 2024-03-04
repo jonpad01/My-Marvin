@@ -176,6 +176,7 @@
     <ClCompile Include="Steering.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="zones\Devastation\Training.cpp" />
+    <ClCompile Include="zones\ExtremeGames.cpp" />
     <ClCompile Include="zones\Hockey.cpp" />
     <ClCompile Include="zones\Hyperspace\Hyperspace.cpp" />
     <ClCompile Include="zones\Hyperspace\HyperspaceFlagRooms.cpp" />
@@ -232,6 +233,7 @@
     <ClInclude Include="Types.h" />
     <ClInclude Include="Vector2f.h" />
     <ClInclude Include="zones\Devastation\Training.h" />
+    <ClInclude Include="zones\ExtremeGames.h" />
     <ClInclude Include="zones\Hockey.h" />
     <ClInclude Include="zones\Hyperspace\Hyperspace.h" />
     <ClInclude Include="zones\Hyperspace\HyperspaceFlagRooms.h" />
