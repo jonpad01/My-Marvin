@@ -2,6 +2,7 @@
 
 #include "../Bot.h"
 #include "../Common.h"
+#include "../Debug.h"
 #include "BaseDuelCommands.h"
 #include "CombatRoleCommands.h"
 #include "CommandsCommand.h"
@@ -45,9 +46,6 @@ CommandSystem::CommandSystem(Zone zone) {
   RegisterCommand(std::make_shared<AnchorCommand>());
   RegisterCommand(std::make_shared<RushCommand>());
 
-  RegisterCommand(std::make_shared<SwarmCommand>());
-  RegisterCommand(std::make_shared<SwarmOffCommand>());
-
   RegisterCommand(std::make_shared<MultiCommand>());
   RegisterCommand(std::make_shared<MultiOffCommand>());
   RegisterCommand(std::make_shared<CloakCommand>());
@@ -83,6 +81,8 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<StopBDCommand>());
       RegisterCommand(std::make_shared<HoldBDCommand>());
       RegisterCommand(std::make_shared<ResumeBDCommand>());
+     // RegisterCommand(std::make_shared<SwarmCommand>());
+     // RegisterCommand(std::make_shared<SwarmOffCommand>());
       break;
     }
     case Zone::Hyperspace: {
@@ -121,7 +121,6 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
   // so the function here can throw out the first message, and process the next one
   // if it is recieved within the 250ms limit 
   if (chat.player == bot.GetGame().GetName()) {
-
    // reset the flag 
    if (time_.GetTime() > self_message_cooldown_) {
       ignore_self_message_ = true;
@@ -131,7 +130,7 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
       ignore_self_message_ = false;
       self_message_cooldown_ = time_.GetTime() + 250;
       return false;
-    } 
+   } 
   } 
 
   msg.erase(0, 1);

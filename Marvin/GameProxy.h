@@ -173,6 +173,7 @@ class GameProxy {
   virtual const Map& GetMap() const = 0;
 
   virtual std::vector<ChatMessage> GetChat() = 0;
+  virtual ChatMessage GetNextCommand() = 0;
   virtual void SendChatMessage(const std::string& mesg) = 0;
   virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) = 0;
   virtual void SendPriorityMessage(const std::string& message) = 0;

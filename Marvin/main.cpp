@@ -38,6 +38,20 @@ HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
 
 std::string CreateBot();
 
+// This function needs to be called whenever anything changes in Continuum's memory.
+// Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
+// normal game update would be caught. So we bypass this by manually calculating the crc at the end of the bot update
+// and replacing the expected crc in memory.
+void UpdateCRC() {
+  typedef u32(__fastcall * CRCFunction)(void* This, void* thiscall_garbage);
+  CRCFunction func_ptr = (CRCFunction)0x43BB80;
+
+  u32 game_addr = (*(u32*)0x4c1afc) + 0x127ec;
+  u32 result = func_ptr((void*)game_addr, 0);
+
+  *(u32*)(game_addr + 0x6d4) = result;
+}
+
 // text must not be stack allocated
 void SafeSetWindowText(HWND hwnd, const char* text) {
   PostMessage(hwnd, UM_SETTEXT, NULL, (LPARAM)text);
@@ -141,9 +155,14 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
         std::string name = game->GetPlayer().name;
         std::string eg_msg = "[ " + name + " ]";
+        std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
+
+        //bool eg_locked_in_spec =
+         //   chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
 
         bool eg_locked_in_spec =
-            chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
+            chat.message == eg_msg || chat.message == eg_packet_loss_msg && game->GetZone() == marvin::Zone::ExtremeGames;
+
         bool disconected = chat.message.compare(0, 9, "WARNING: ") == 0;
 
         
@@ -163,6 +182,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 #endif
         if (bot) {
           bot->Update(dt.count());
+          UpdateCRC();
         }
         g_LastUpdateTime = now;
       }

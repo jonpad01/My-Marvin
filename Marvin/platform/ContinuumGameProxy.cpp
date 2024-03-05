@@ -19,6 +19,7 @@ namespace marvin {
 ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
   set_ship_status_ = SetShipStatus::Clear;
   UpdateState game_status_ = UpdateState::Clear;
+  chat_status_ = ChatStatus::Unread;
   desired_ship_ = 0;
   attach_cooldown_ = 0;
   message_cooldown_ = 0;
@@ -340,6 +341,11 @@ void ContinuumGameProxy::FetchChat() {
     read_count += 64;
   }
 
+  // clear chat if it was read in the last update
+  if (chat_status_ == ChatStatus::ClearChat) {
+    recent_chat_.clear();
+  }
+
   // only hold onto 30 messages
   while (recent_chat_.size() > 30) {
     recent_chat_.erase(recent_chat_.begin());
@@ -351,14 +357,29 @@ void ContinuumGameProxy::FetchChat() {
     }
 
     ChatEntry* entry = chat_ptr + chat_index_;
+    ++chat_index_;
     ChatMessage chat;
 
     chat.message = entry->message;
     chat.player = entry->player;
     chat.type = (ChatType)entry->type;
 
-    recent_chat_.push_back(chat);
-    ++chat_index_;
+    if (chat.message.empty()) continue;
+
+    if (chat.message[0] == '!' || chat.message[0] == '.') {
+      //log.Write("Message name found");
+      // ignore duplicate commands
+      bool ignore = false;
+      for (std::size_t i = 0; i < player_commands_.size(); i++) {
+        if (chat.message == player_commands_[i].message) ignore = true;
+       // log.Write("Message ignored");
+      }
+
+      if (ignore) continue;
+      player_commands_.push_back(chat);
+    } else {
+      recent_chat_.push_back(chat);
+    }
   }
 }
 
@@ -466,11 +487,24 @@ const Zone ContinuumGameProxy::GetZone() {
 }
 
 std::vector<ChatMessage> ContinuumGameProxy::GetChat() {
+
+  // clear the chat during the next update if it was read
+  // don't clear it right away in case something else wants to read it during this update
+  chat_status_ = ChatStatus::ClearChat;
   
-  std::vector<ChatMessage> chat(recent_chat_);
-  recent_chat_.clear();
-  
-  return chat;
+  return recent_chat_;
+}
+
+ChatMessage ContinuumGameProxy::GetNextCommand() {
+
+  ChatMessage command;
+
+  if (!player_commands_.empty()) {
+    command = player_commands_[player_commands_.size() - 1];
+    player_commands_.pop_back();
+  }
+
+  return command;
 }
 
 const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
@@ -689,10 +723,8 @@ void ContinuumGameProxy::SetFreq(int freq) {
     return;
   }
 
-  if (zone_ != Zone::ExtremeGames) {
   ResetStatus();
   SetEnergy(100);
-  }
   
   SendPriorityMessage("=" + std::to_string(freq));
 #endif
@@ -703,10 +735,8 @@ void ContinuumGameProxy::Attach(std::string name) {
 
   if (time_.GetTime() < attach_cooldown_) return;
  
-  if (zone_ != Zone::ExtremeGames) {
     ResetStatus();
     SetEnergy(100);
-  }
 
   if (zone_ == Zone::Hyperspace) {
     SendQueuedMessage(":" + name + ":?attach");
@@ -724,10 +754,8 @@ void ContinuumGameProxy::Attach(uint16_t id) {
 
   if (time_.GetTime() < attach_cooldown_) return;
 
-  if (zone_ != Zone::ExtremeGames) {
     ResetStatus();
     SetEnergy(100);
-  }
 
   if (zone_ == Zone::Hyperspace) {
     const Player* player = GetPlayerById(id);
@@ -744,10 +772,8 @@ void ContinuumGameProxy::Attach() {
 
   if (time_.GetTime() < attach_cooldown_) return;
 
-  if (zone_ != Zone::ExtremeGames) {
     ResetStatus();
     SetEnergy(100);
-  }
 
   SendKey(VK_F7);
 
@@ -758,10 +784,8 @@ void ContinuumGameProxy::HSFlag() {
 
   if (time_.GetTime() < flag_cooldown_) return;
 
-  if (zone_ != Zone::ExtremeGames) {
     ResetStatus();
     SetEnergy(100);
-  }
 
   SendQueuedMessage("?flag");
 
@@ -797,10 +821,8 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
 
 void ContinuumGameProxy::SetArena(const std::string& arena) {
 
-  if (zone_ != Zone::ExtremeGames) {
     ResetStatus();
     SetEnergy(100);
-  }
 
   SendChatMessage("?go " + arena);
 }
@@ -827,11 +849,8 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
     SendKey(VK_ESCAPE);
   } else {
     if (ActionDelay()) {
-      if (zone_ != Zone::ExtremeGames) {
         ResetStatus();
         SetEnergy(100);
-      }
-
       if (ship == 8) {
         PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
       } else {
@@ -848,10 +867,8 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
 void ContinuumGameProxy::Warp() {
   if (!player_->dead && player_->ship != 8) {
 
-    if (zone_ != Zone::ExtremeGames) {
       ResetStatus();
       SetEnergy(100);
-    }
 
     SendKey(VK_INSERT);
   }
@@ -896,6 +913,14 @@ bool ContinuumGameProxy::ProcessQueuedMessages() {
   }
 
   if ((message_queue.empty() && priority_message_queue.empty()) || time_.GetTime() < message_cooldown_) return result;
+
+  // ignore if there is a duplicate message in the queue
+  for (std::size_t i = 0; i < message_queue.size(); i++) {
+    if (i != 0 && message_queue[0] == message_queue[i]) {
+      message_queue.pop_front();
+      return result;
+    }
+  }
   
   if (!priority_message_queue.empty()) {
     SendQueuedMessage(priority_message_queue[0]);
@@ -919,46 +944,37 @@ void ContinuumGameProxy::SendPriorityMessage(const std::string& message) {
 void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
 #if !DEBUG_USER_CONTROL
 
-    if (mesg.empty()) return;
+  if (mesg.empty()) return;
 
-    if (zone_ == Zone::ExtremeGames) {
+  typedef void(__fastcall * ChatSendFunction)(void* This, void* thiscall_garbage, char* msg, u32* unknown1,
+                                              u32* unknown2);
 
-        for (std::size_t i = 0; i < mesg.size(); i++) {
-            PostMessageA(hwnd_, WM_CHAR, (WPARAM)(mesg[i]), 0);
-        }
+  // The address to the current text input buffer
+  std::size_t chat_input_addr = game_addr_ + 0x2DD14;
+  char* input = (char*)(chat_input_addr);
+  memcpy(input, mesg.c_str(), mesg.length());
+  input[mesg.length()] = 0;
 
-        PostMessage(hwnd_, WM_KEYDOWN, VK_RETURN, 0);
-        PostMessage(hwnd_, WM_KEYUP, VK_RETURN, 0);
-  
-    } else {
-        typedef void(__fastcall * ChatSendFunction)(void* This, void* thiscall_garbage, char* msg, u32* unknown1,
-                                                    u32* unknown2);
+  ChatSendFunction send_func = (ChatSendFunction)(*(u32*)(module_base_continuum_ + 0xAC30C));
 
-        // The address to the current text input buffer
-        std::size_t chat_input_addr = game_addr_ + 0x2DD14;
-        char* input = (char*)(chat_input_addr);
-        memcpy(input, mesg.c_str(), mesg.length());
-        input[mesg.length()] = 0;
+  void* This = (void*)(game_addr_ + 0x2DBF0);
 
-        ChatSendFunction send_func = (ChatSendFunction)(*(u32*)(module_base_continuum_ + 0xAC30C));
+  // Some value that the client passes in for some reason
+  u32 value = 0x4AC370;
 
-        void* This = (void*)(game_addr_ + 0x2DBF0);
+  send_func(This, nullptr, input, &value, 0);
 
-        // Some value that the client passes in for some reason
-        u32 value = 0x4AC370;
+  // Clear the text buffer after sending the message
+  input[0] = 0;
 
-        send_func(This, nullptr, input, &value, 0);
-
-        // Clear the text buffer after sending the message
-        input[0] = 0;
-    }
 #endif
 }
 
 void ContinuumGameProxy::SendChatMessage(const std::string& mesg) {
-  // ignore duplicate messages
-  if (!message_queue.empty()) {
-    if (message_queue[message_queue.size() - 1] == mesg) return;
+
+  // don't send duplicate messages
+  for (std::size_t i = 0; i < message_queue.size(); i++) {
+    if (message_queue[i] == mesg) return;
   }
 
   message_queue.emplace_back(mesg);

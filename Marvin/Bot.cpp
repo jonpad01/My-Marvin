@@ -471,15 +471,22 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  bool executed = false;
+  ChatMessage chat = game.GetNextCommand();
 
-  for (ChatMessage& chat : game.GetChat()) {
+  while (!chat.message.empty()) {
     if (ctx.bot->GetCommandSystem().ProcessMessage(*ctx.bot, chat)) {
       // Return failure on execute so the behavior will start over next tick with the commands processed completely.
       g_RenderState.RenderDebugText("  CommandNode(fail): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
+    chat = game.GetNextCommand();
   }
+
+
+ // bool executed = false;
+
+ // for (ChatMessage& chat : game.GetChat()) {
+  //}
 
   g_RenderState.RenderDebugText("  CommandNode(success): %llu", timer.GetElapsedTime());
 
@@ -530,16 +537,16 @@ behavior::ExecuteResult SetShipNode::Execute(behavior::ExecuteContext& ctx) {
     ship_cooldown = 1000;
   }
 
-  if (bb.GetCommandRequest() == CommandRequestType::ShipChange) {
-    if (cShip != dShip) {
+  //if (bb.GetCommandRequest() == CommandRequestType::ShipChange) {
+    if (cShip != dShip && cShip == 8) {
       game.SetShip(dShip);
       g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
 
     } else {
-      bb.SetCommandRequest(CommandRequestType::None);
+     // bb.SetCommandRequest(CommandRequestType::None);
     }
-  }
+  //}
 
   g_RenderState.RenderDebugText("  SetShipNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -801,7 +808,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
     }
   }
 
-  //bb.Set<const Player*>("Target", target);
+  bb.Set<const Player*>("target", target);
   bb.SetTarget(target);
   if (result == behavior::ExecuteResult::Success) {
     g_RenderState.RenderDebugText("  FindEnemyInCenterNode(EnemyFound): %llu", timer.GetElapsedTime());
