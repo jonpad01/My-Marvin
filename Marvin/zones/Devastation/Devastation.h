@@ -55,6 +55,19 @@ class DevaFreqMan : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
+  bool ShouldJoinTeam0(behavior::ExecuteContext& ctx);
+  bool ShouldJoinTeam1(behavior::ExecuteContext& ctx);
+  bool ShouldLeaveDuelTeam(behavior::ExecuteContext& ctx);
+  bool ShouldLeaveCrowdedFreq(behavior::ExecuteContext& ctx);
+
+  std::vector<uint16_t> GetDuelTeamJoiners(behavior::ExecuteContext& ctx);
+  std::vector<uint16_t> GetTeamMates(behavior::ExecuteContext& ctx);
+  std::vector<uint16_t> GetDuelTeamMates(behavior::ExecuteContext& ctx);
+
+  uint16_t GetLowestID(behavior::ExecuteContext& ctx, std::vector<uint16_t> IDs);
+  uint16_t ChooseDueler(behavior::ExecuteContext& ctx, std::vector<uint16_t> IDs);
+  uint16_t GetLastPlayerInBase(behavior::ExecuteContext& ctx);
+
 };
 
 class DevaWarpNode : public behavior::BehaviorNode {

@@ -140,7 +140,7 @@ void Bot::Load() {
       break;
     }
     case 6: {
-      pathfinder_->SetMapWeights(game_->GetMap(), xMin, xMax);
+      pathfinder_->SetMapWeights(game_->GetMap(), xMin, xMax, radius_);
       log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());
       xMin += 32;
       xMax += 32;
@@ -225,6 +225,7 @@ void Bot::Update(float dt) {
   g_RenderState.debug_y = 30.0f;
 
   keys_.ReleaseAll();
+  time_.Update();
 
   // the load behavior is determined by the load index
   Load();
@@ -464,6 +465,18 @@ bool Bot::MaxEnergyCheck() {
 }
 
 namespace bot {
+
+behavior::ExecuteResult FailureNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  g_RenderState.RenderDebugText("  FailureNode(Fail): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult SuccessNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  g_RenderState.RenderDebugText("  SuccessNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
 
 behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
@@ -707,7 +720,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
           //team_in_base = true;
           bb.SetTeamInBase(true);
         }
-        if (!in_center && !player.dead) {
+        if (!in_center && !player.dead && player.id != game.GetPlayer().id) {
           //last_in_base = false;
           bb.SetLastInBase(false);
         }
@@ -847,6 +860,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
 
   // bool in_center = bb.ValueOr<bool>("InCenter", false);
   bool in_center = bb.GetInCenter();
+  bool last_in_base = bb.GetLastInBase();
   // bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
   CombatRole combat_role = bb.GetCombatRole();
   const Path& base_path = ctx.bot->GetBasePath();
@@ -857,6 +871,10 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   }
   if (in_center) {
     g_RenderState.RenderDebugText("  FindEnemyInBaseNode(bot in center): %llu", timer.GetElapsedTime());
+    return result;
+  }
+  if (last_in_base) {
+    g_RenderState.RenderDebugText("  FindEnemyInBaseNode(last in base): %llu", timer.GetElapsedTime());
     return result;
   }
 
@@ -1440,6 +1458,36 @@ behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   g_RenderState.RenderDebugText("  IsAnchorNode(fail): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult NotInCenterNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& bb = ctx.bot->GetBlackboard();
+
+  bool in_center = ctx.bot->GetRegions().IsConnected(Vector2f(512, 512), ctx.bot->GetGame().GetPlayer().position);
+
+ if (!in_center) {
+    g_RenderState.RenderDebugText("  NotInCenterNode(success): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  g_RenderState.RenderDebugText("  NotInCenterNode(fail): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
+behavior::ExecuteResult InCenterNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& bb = ctx.bot->GetBlackboard();
+
+  bool in_center = ctx.bot->GetRegions().IsConnected(Vector2f(512, 512), ctx.bot->GetGame().GetPlayer().position);
+
+  if (in_center) {
+    g_RenderState.RenderDebugText("  InCenterNode(success): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  g_RenderState.RenderDebugText("  InCenterNode(fail): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
 

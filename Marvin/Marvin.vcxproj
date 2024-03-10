@@ -191,6 +191,7 @@
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="commands\BaseDuelCommands.h" />
     <ClInclude Include="commands\CombatRoleCommands.h" />
+    <ClInclude Include="commands\EGCommands.h" />
     <ClInclude Include="commands\HSCommands.h" />
     <ClInclude Include="commands\SetArenaCommand.h" />
     <ClInclude Include="commands\StatusCommands.h" />

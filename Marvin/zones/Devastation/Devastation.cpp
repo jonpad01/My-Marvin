@@ -144,7 +144,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().SetCloakDefault(true);
     bot.GetBlackboard().SetXradarDeufault(true);
     bot.GetBlackboard().SetDecoyDefault(true);
-    bot.GetBlackboard().SetRepelDefault(true);
+    bot.GetBlackboard().SetRepelDefault(false);
     bot.GetBlackboard().SetBurstDefault(true);
 
    // bot.GetBlackboard().Set<bool>(BB::UseMultiFire, false);
@@ -160,7 +160,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().SetUseCloak(true);
     bot.GetBlackboard().SetUseXradar(true);
     bot.GetBlackboard().SetUseDecoy(true);
-    bot.GetBlackboard().SetUseRepel(true);
+    bot.GetBlackboard().SetUseRepel(false);
     bot.GetBlackboard().SetUseBurst(true);
 
   //  bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
@@ -182,8 +182,10 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   
   
     // behavior nodes
+  auto failure = std::make_unique<bot::FailureNode>();
   auto DEVA_debug = std::make_unique<deva::DevaDebugNode>();
   auto is_anchor = std::make_unique<bot::IsAnchorNode>();
+  auto not_in_center = std::make_unique<bot::NotInCenterNode>();
   auto cast_weapon_influence = std::make_unique<bot::CastWeaponInfluenceNode>();
   auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
   auto DEVA_repel_enemy = std::make_unique<deva::DevaRepelEnemyNode>();
@@ -221,7 +223,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto anchor_los_parallel = std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), mine_sweeper_.get(),
                                                                       anchor_base_path_sequence.get());
   auto anchor_los_sequence =
-      std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
+      std::make_unique<behavior::SequenceNode>(is_anchor.get(), not_in_center.get(), anchor_los_parallel.get());
   auto los_role_selector =
       std::make_unique<behavior::SelectorNode>(anchor_los_sequence.get(), parallel_shoot_enemy.get());
 
@@ -247,12 +249,12 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto enemy_or_patrol_selector = std::make_unique<behavior::SelectorNode>(find_enemy_selector.get(), patrol_selector.get());
 
-  auto anchor_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), cast_weapon_influence.get(),
-                                                                  enemy_or_patrol_selector.get());
+  auto anchor_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), not_in_center.get(), cast_weapon_influence.get(),
+                                                                  failure.get());
   auto role_selector = std::make_unique<behavior::SelectorNode>(anchor_sequence.get(), enemy_or_patrol_selector.get());
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      DEVA_debug.get(), commands_.get(), respawn_check_.get(), DEVA_runBD.get(), spectator_check_.get(),
-      team_sort.get(), DEVA_set_region.get(), DEVA_freqman.get(), DEVA_warp.get(), DEVA_attach.get(),
+      DEVA_debug.get(), commands_.get(), DEVA_runBD.get(), spectator_check_.get(), team_sort.get(),
+      DEVA_set_region.get(), DEVA_freqman.get(), DEVA_attach.get(), respawn_check_.get(), DEVA_warp.get(),
       DEVA_toggle_status.get(), role_selector.get());
 
   engine_->PushRoot(std::move(root_sequence));
@@ -267,6 +269,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(DEVA_repel_enemy));
   engine_->PushNode(std::move(DEVA_burst_enemy));
   engine_->PushNode(std::move(is_anchor));
+  engine_->PushNode(std::move(failure));
+  engine_->PushNode(std::move(not_in_center));
   engine_->PushNode(std::move(anchor_los_parallel));
   engine_->PushNode(std::move(anchor_los_sequence));
   engine_->PushNode(std::move(los_role_selector));
@@ -658,6 +662,12 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.bot->GetBlackboard();
 
   bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
+  //std::vector<uint16_t> team_mates = GetTeamMates(ctx);
+  //uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), team_mates);
+  //g_RenderState.RenderDebugText("BOT OFFSET:  %llu", offset);
+  uint16_t test = 1000;
+  uint64_t max_offset = kBotNames.size() * 200;
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
 
   //if (bb.ValueOr<bool>("FreqLock", false) || (bb.ValueOr<bool>("IsAnchor", false) && dueling)) {
   if (bb.GetFreqLock() || (bb.GetCombatRole() == CombatRole::Anchor && dueling)) {
@@ -665,8 +675,74 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Success;
   }
 
-  //uint64_t offset = ctx.bot->GetTime().DevaFreqTimer(kBotNames);
-  // uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(game.GetPlayer().id);
+  // do this before looking at joining a dueling team
+  if (ShouldLeaveCrowdedFreq(ctx)) {
+    std::vector<uint16_t> team_mates = GetTeamMates(ctx);
+    uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), team_mates);
+
+   // game.SendChatMessage("My timer was to leave a crowded freq: " + std::to_string(offset));
+ 
+    if (ctx.bot->GetTime().TimedActionDelay("leave_crowded", offset)) {
+   //   game.SendChatMessage("My timer was triggered: " + std::to_string(offset));
+      game.SetFreq(FindOpenFreq(fList, 2));
+    }
+    g_RenderState.RenderDebugText("  DevaFreqMan:(Find Open Freq) %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  if (ShouldJoinTeam0(ctx)) {
+    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
+    uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), joiners);
+
+     // game.SendChatMessage("My timer to join team 0: " + std::to_string(offset));
+
+    if (ctx.bot->GetTime().TimedActionDelay("join0", offset)) {
+    //  game.SendChatMessage("My timer was triggered: " + std::to_string(offset));
+      game.SetFreq(0);
+    }
+    g_RenderState.RenderDebugText("  DevaFreqMan:(Join Team 0) %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  if (ShouldJoinTeam1(ctx)) {
+    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
+    uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), joiners);
+
+   // game.SendChatMessage("My timer to join team 1: " + std::to_string(offset));
+
+    if (ctx.bot->GetTime().TimedActionDelay("join1", offset)) {
+   //   game.SendChatMessage("My timer was triggered: " + std::to_string(offset));
+      game.SetFreq(1);
+    }
+    g_RenderState.RenderDebugText("  DevaFreqMan:(Join Team 1) %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  if (ShouldLeaveDuelTeam(ctx)) {
+    std::vector<uint16_t> team_mates = GetTeamMates(ctx);
+    uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), team_mates);
+    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
+    if (!joiners.empty()) offset += max_offset + 5001;  // add time for respawn
+
+
+   // game.SendChatMessage("My timer to leave the duel team: " + std::to_string(offset));
+
+
+    if (ctx.bot->GetTime().TimedActionDelay("leaveduelteam", offset)) {
+     // game.SendChatMessage("My timer was triggered: " + std::to_string(offset));
+      game.SetFreq(FindOpenFreq(fList, 2));
+    }
+    g_RenderState.RenderDebugText("  DevaFreqMan:(Leave Duel Team) %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+
+
+
+
+  #if 0
+  uint64_t offset = ctx.bot->GetTime().DevaFreqTimer(ctx.bot->GetGame(), kBotNames);
+  //uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), game.GetPlayer().id);
 
   //std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>("FreqList", std::vector<uint16_t>());
   const std::vector<uint16_t>& fList = bb.GetFreqList();
@@ -675,9 +751,9 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   if (game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01) {
     if (fList[game.GetPlayer().frequency] > 1) {
       g_RenderState.RenderDebugText("  FList 0: %i", fList[game.GetPlayer().frequency]);
-     // if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
+      if (ctx.bot->GetTime().TimedActionDelay("get_off_large_freq", offset)) {
         game.SetFreq(FindOpenFreq(fList, 2));
-    //  }
+      }
 
       g_RenderState.RenderDebugText("  DevaFreqMan:(jump from oversized team) %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
@@ -687,23 +763,24 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   // duel team is uneven
   if (fList[0] != fList[1]) {
     if (!dueling) {
-     // if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
+      if (ctx.bot->GetTime().TimedActionDelay("join_duel_team", offset)) {
         if (fList[0] < fList[1]) {
           game.SetFreq(0);
         } else {
           // get on freq 1
           game.SetFreq(1);
         }
-     // }
+      }
       g_RenderState.RenderDebugText("  DevaFreqMan:(jump onto dueling team) %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
       // } else if (bb.ValueOr<bool>("InCenter", true) ||
-    } else if (bb.GetInCenter() || bb.GetTeamInBase()) {  // bot is on a duel team
+    } else if (bb.GetInCenter()) {  // bot is on a duel team
       // bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>()).size() == 0 ||
       // bb.ValueOr<bool>("TeamInBase", false)) {  // bot is on a duel team
 
       if ((game.GetPlayer().frequency == 00 && fList[0] > fList[1]) ||
           (game.GetPlayer().frequency == 01 && fList[0] < fList[1])) {
+          #if 0
         // look for players not on duel team, make bot wait longer to see if the other player will get in
         for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
           const Player& player = game.GetPlayers()[i];
@@ -716,10 +793,10 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
             }
           }
         }
-
-       // if (ctx.bot->GetTime().TimedActionDelay("freqchange", offset)) {
+        #endif
+        if (ctx.bot->GetTime().TimedActionDelay("get_off_duel_team", offset)) {
           game.SetFreq(FindOpenFreq(fList, 2));
-       // }
+        }
 
         g_RenderState.RenderDebugText("  FList 0: %i", fList[0]);
         g_RenderState.RenderDebugText("  Flist 1: %i", fList[1]);
@@ -728,9 +805,268 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
       }
     }
   }
+  #endif
 
   g_RenderState.RenderDebugText("  DevaFreqMan:(success) %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
+}
+
+bool DevaFreqMan::ShouldJoinTeam0(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  if (fList[0] < fList[1] && !dueling) {
+      return true;
+  }
+ // g_RenderState.RenderDebugText("  DevaFreqMan:(Not Chosen) %llu", timer.GetElapsedTime());
+  return false;
+}
+
+bool DevaFreqMan::ShouldJoinTeam1(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  if (fList[1] < fList[0] && !dueling) {
+      return true;
+  }
+  return false;
+}
+
+bool DevaFreqMan::ShouldLeaveDuelTeam(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  uint16_t freq = game.GetPlayer().frequency;
+  bool should_leave = (fList[0] > fList[1] && freq == 00) || (fList[1] > fList[0] && freq == 01);
+
+  if (should_leave) {
+      return true;
+  }
+  return false;
+}
+
+bool DevaFreqMan::ShouldLeaveCrowdedFreq(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
+  bool crowded = fList[game.GetPlayer().frequency] > 1;
+
+  if (crowded && !dueling) {
+      return true;
+  }
+  return false;
+}
+
+#if 0
+bool DevaFreqMan::ShouldJoinTeam0(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  if (fList[0] < fList[1] && !dueling) {
+    g_RenderState.RenderDebugText("  DevaFreqMan:(Should Join Team 0) %llu", timer.GetElapsedTime());
+    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
+    uint16_t chosen = GetLowestID(ctx, joiners);
+
+    if (chosen == game.GetPlayer().id) {
+      g_RenderState.RenderDebugText("  DevaFreqMan:(Chosen) %llu", timer.GetElapsedTime());
+      return true;
+    }
+  }
+  g_RenderState.RenderDebugText("  DevaFreqMan:(Not Chosen) %llu", timer.GetElapsedTime());
+  return false;
+}
+
+bool DevaFreqMan::ShouldJoinTeam1(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  if (fList[1] < fList[0] && !dueling) {
+    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
+    uint16_t chosen = GetLowestID(ctx, joiners);
+
+    if (chosen == game.GetPlayer().id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DevaFreqMan::ShouldLeaveDuelTeam(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  uint16_t freq = game.GetPlayer().frequency;
+  bool should_leave = (fList[0] > fList[1] && freq == 00) || (fList[1] > fList[0] && freq == 01);
+
+  if (should_leave) {
+    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
+
+    if (!joiners.empty()) return false;
+
+    std::vector<uint16_t> team_mates = GetDuelTeamMates(ctx);
+
+    uint16_t chosen = GetLowestID(ctx, team_mates);
+
+    if (chosen == game.GetPlayer().id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DevaFreqMan::ShouldLeaveCrowdedFreq(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+  const std::vector<uint16_t>& fList = bb.GetFreqList();
+
+  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
+  bool crowded = fList[game.GetPlayer().frequency] > 1;
+
+  if (crowded && !dueling) {
+    std::vector<uint16_t> team_mates = GetTeamMates(ctx);
+    uint16_t chosen = GetLowestID(ctx, team_mates);
+
+    if (chosen == game.GetPlayer().id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+#endif
+
+// get a list of bots that also want to join
+std::vector<uint16_t> DevaFreqMan::GetDuelTeamJoiners(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  std::vector<uint16_t> list;
+
+  for (std::size_t i = 0; i < kBotNames.size(); i++) {
+    const Player* player = game.GetPlayerByName(kBotNames[i]);
+    if (!player) continue;
+    
+    bool dueling = player->frequency == 00 || player->frequency == 01;
+
+    if (!dueling && player->ship < 8) {
+      list.push_back(player->id);
+    }
+  }
+  return list;
+}
+
+std::vector<uint16_t> DevaFreqMan::GetTeamMates(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  std::vector<uint16_t> list;
+
+  for (std::size_t i = 0; i < kBotNames.size(); i++) {
+    const Player* player = game.GetPlayerByName(kBotNames[i]);
+    if (!player) continue;
+
+    if (player->frequency == game.GetPlayer().frequency) {
+      list.push_back(player->id);
+     // g_RenderState.RenderDebugText("Team Mate Found: " + kBotNames[i]);
+    }
+  }
+
+  return list;
+}
+
+// a list of dueling team mates that can leave without disrupting the game
+std::vector<uint16_t> DevaFreqMan::GetDuelTeamMates(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  std::vector<uint16_t> list;
+
+  for (std::size_t i = 0; i < kBotNames.size(); i++) {
+    const Player* player = game.GetPlayerByName(kBotNames[i]);
+    if (!player) continue;
+
+    bool in_center = ctx.bot->GetRegions().IsConnected(Vector2f(512, 512), player->position);
+
+    if (player->frequency == game.GetPlayer().frequency && in_center) {
+      list.push_back(player->id);
+    }
+  }
+
+  return list;
+}
+
+uint16_t DevaFreqMan::GetLowestID(behavior::ExecuteContext& ctx, std::vector<uint16_t> IDs) {
+
+  if (IDs.empty()) return ctx.bot->GetGame().GetPlayer().id;
+
+  uint16_t lowest = IDs[0];
+
+  for (std::size_t i = 0; i < IDs.size(); i++) {
+    if (IDs[i] < lowest) {
+      lowest = IDs[i];
+    }
+  }
+
+  return lowest;
+}
+
+uint16_t DevaFreqMan::ChooseDueler(behavior::ExecuteContext& ctx, std::vector<uint16_t> IDs) {
+
+  uint16_t lowest = ctx.bot->GetGame().GetPlayer().id;
+  uint16_t last = GetLastPlayerInBase(ctx);
+
+  if (lowest == last) lowest = 0xFFFF;
+
+  for (std::size_t i = 0; i < IDs.size(); i++) {
+    if (IDs[i] < lowest && IDs[i] != last) {
+      lowest = IDs[i];
+    }
+  }
+
+  return lowest;
+}
+
+uint16_t DevaFreqMan::GetLastPlayerInBase(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  Path base_path = ctx.bot->GetBasePath();
+
+  if (base_path.empty()) {
+    return 0xFFFF;
+  }
+
+  int count = 0;
+  uint16_t id = 0xFFFF;
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+
+    bool in_base = ctx.bot->GetRegions().IsConnected(player.position, base_path[0]);
+
+    if (in_base && !player.dead) {
+      count++;
+      id = player.id;
+    }
+
+    if (count > 1) return 0xFFFF;
+  }
+
+  return id;
 }
 
 behavior::ExecuteResult DevaWarpNode::Execute(behavior::ExecuteContext& ctx) {
@@ -771,7 +1107,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
       if (bb.GetSwarm()) {
         if (game.GetPlayer().dead) {
           if (ctx.bot->GetTime().TimedActionDelay("respawn", 300)) {
-            int ship = 1;
+            uint16_t ship = 1;
 
             if (game.GetPlayer().ship == 1) {
               ship = 7;
@@ -779,7 +1115,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
               ship = 1;
             }
 
-            game.SetShip(ship);
+            game.ResetShip();
           }
 
           g_RenderState.RenderDebugText("  DevaAttachNode:(Swarming) %llu", timer.GetElapsedTime());
@@ -789,7 +1125,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
       // if this check is valid the bot will halt here untill it attaches
       //if (bb.ValueOr<bool>("InCenter", true)) {
-      if (bb.GetInCenter()) {
+      if (bb.GetInCenter() && !game.GetPlayer().dead) {
 
         SetAttachTarget(ctx);
         game.Attach();
@@ -1023,7 +1359,9 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
   auto& bb = ctx.bot->GetBlackboard();
 
   //MapCoord enemy_safe = bb.ValueOr<MapCoord>(BB::EnemySafe, MapCoord());
+  bool last_in_base = bb.GetLastInBase();
   MapCoord enemy_safe = bb.GetEnemySafe();
+  MapCoord team_safe = bb.GetTeamSafe();
   bool on_safe_tile = game.GetMap().GetTileId(game.GetPlayer().position) == kSafeTileId;
   bool moving = game.GetPlayer().velocity.Length() > 0.0f;
 
@@ -1033,7 +1371,11 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
     return behavior::ExecuteResult::Failure;
   }
 
-  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
+  if (last_in_base) {
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), team_safe, game.GetShipSettings().GetRadius());
+  } else {
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
+  }
 
   g_RenderState.RenderDebugText("  DevaPatrolBaseNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

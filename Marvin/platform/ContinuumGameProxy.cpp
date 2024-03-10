@@ -18,13 +18,20 @@ namespace marvin {
 
 ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
   set_ship_status_ = SetShipStatus::Clear;
+  reset_ship_status_ = SetShipStatus::Clear;
   UpdateState game_status_ = UpdateState::Clear;
+  set_freq_flag_ = 0;
   chat_status_ = ChatStatus::Unread;
   desired_ship_ = 0;
+  desired_freq_ = 0;
+  original_ship_ = 0;
   attach_cooldown_ = 0;
   message_cooldown_ = 0;
+  setfreq_cooldown_ = 0;
+  setship_cooldown_ = 0;
   flag_cooldown_ = 0;
   delay_timer_ = 0;
+  tries_ = 0;
 
   module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
   module_base_menu_ = process_.GetModuleBase("menu040.dll");
@@ -79,12 +86,6 @@ UpdateState ContinuumGameProxy::Update(float dt) {
   // to make it think it always has focus.
   SetWindowFocus();
 
-  if (set_ship_status_ == SetShipStatus::SetShip) {
-    if (SetShip(desired_ship_)) {
-      return UpdateState::Wait;
-    }
-  }
-
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
   if (game_status_ == UpdateState::Reload) {
@@ -110,6 +111,22 @@ UpdateState ContinuumGameProxy::Update(float dt) {
   FetchGreens();
   FetchChat();
   FetchWeapons();
+
+  if (set_ship_status_ == SetShipStatus::SetShip) {
+    if (SetShip(desired_ship_)) {
+      return UpdateState::Wait;
+    }
+  }
+
+  if (reset_ship_status_ == SetShipStatus::ResetShip) {
+    ResetShip();
+    return UpdateState::Wait;
+  }
+
+  if (set_freq_flag_) {
+    SetFreq(desired_freq_);  // must fetch players before this check to update player the frequency
+    return UpdateState::Wait;
+  }
   
   if (ProcessQueuedMessages()) {
     return UpdateState::Wait;
@@ -148,7 +165,8 @@ void ContinuumGameProxy::FetchPlayers() {
   std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
 
   players_.clear();
-  numerical_id_list.clear();
+  id_list_.clear();
+  name_list_.clear();
 
   for (std::size_t i = 0; i < count; ++i) {
     std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
@@ -250,7 +268,8 @@ void ContinuumGameProxy::FetchPlayers() {
 
     // only include players in ships and ignore hyperspace fake players
     if (player.ship != 8 && player.name.size() > 0 && player.name[0] != '<') {
-      numerical_id_list.emplace_back(player.id);
+      id_list_.emplace_back(player.id);
+      name_list_.emplace_back(player.name);
     }
 
     // sort all players into this
@@ -273,8 +292,11 @@ void ContinuumGameProxy::FetchPlayers() {
 
 
   }
+
+
   // sorted list is used to get a unique timer offset for each bot based on bots id
-  std::sort(numerical_id_list.begin(), numerical_id_list.end());
+  std::sort(id_list_.begin(), id_list_.end());
+  std::sort(name_list_.begin(), name_list_.end());
 }
 
 void ContinuumGameProxy::FetchBallData() {
@@ -719,15 +741,98 @@ void ContinuumGameProxy::SetEnergy(uint64_t percent) {
 
 void ContinuumGameProxy::SetFreq(int freq) {
 #if !DEBUG_USER_CONTROL
-  if (!ActionDelay() || freq == player_->frequency) {
+  if (time_.GetTime() < setfreq_cooldown_) {
+  //if (!ActionDelay() || freq == player_->frequency) {
     return;
   }
+
+  if (freq == player_->frequency) {
+    set_freq_flag_ = false;
+    return;
+  }
+
+  if (player_->dead) ResetShip();
+
+  set_freq_flag_ = true;
+  desired_freq_ = freq;
+  tries_++;
+
+  if (tries_ > 10) {
+    set_freq_flag_ = false;
+    tries_ = 0;
+    return;
+  }
+  
 
   ResetStatus();
   SetEnergy(100);
   
-  SendPriorityMessage("=" + std::to_string(freq));
+  //SendPriorityMessage("=" + std::to_string(freq));
+  SendQueuedMessage("=" + std::to_string(freq));
+  setfreq_cooldown_ = time_.GetTime() + 175;
 #endif
+}
+
+bool ContinuumGameProxy::ResetShip() {
+#if !DEBUG_USER_CONTROL
+
+  if (time_.GetTime() < setship_cooldown_) return false;
+
+  uint16_t ship = player_->ship + 1;
+  if (ship >= 8) ship -= 2;
+
+  if (reset_ship_status_ == SetShipStatus::Clear) {
+    SetShip(ship);
+    original_ship_ = player_->ship;
+    reset_ship_status_ = SetShipStatus::ResetShip;
+    setship_cooldown_ = time_.GetTime() + 175;
+  } else if (original_ship_ != player_->ship) {
+     SetShip(original_ship_);
+     reset_ship_status_ = SetShipStatus::Clear;
+     setship_cooldown_ = time_.GetTime() + 175;
+     return true;
+  }
+  return false;
+#endif
+}
+
+bool ContinuumGameProxy::SetShip(uint16_t ship) {
+    // make sure ship is in bounds
+    if (ship > 8) ship = 0;
+
+    if (time_.GetTime() < setship_cooldown_) return false;
+
+    int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
+    bool menu_open = (*menu_open_addr & 1);
+
+    if (player_->ship == ship) {
+      set_ship_status_ = SetShipStatus::Clear;
+      if (menu_open) SendKey(VK_ESCAPE);
+      return true;
+    }
+
+    set_ship_status_ = SetShipStatus::SetShip;
+    desired_ship_ = ship;
+
+#if !DEBUG_USER_CONTROL
+    if (!menu_open) {
+      SendKey(VK_ESCAPE);
+    } else {
+      // if (ActionDelay()) {
+      ResetStatus();
+      SetEnergy(100);
+      if (ship == 8) {
+      PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
+      } else {
+      PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
+      }
+      setship_cooldown_ = time_.GetTime() + 175;
+      return true;
+      // }
+    }
+#endif
+
+    return false;
 }
 
 // prefered method for hyperspace
@@ -827,42 +932,7 @@ void ContinuumGameProxy::SetArena(const std::string& arena) {
   SendChatMessage("?go " + arena);
 }
 
-bool ContinuumGameProxy::SetShip(uint16_t ship) {
 
-   // make sure ship is in bounds
-   if (ship > 8) ship = 0;
-
-  int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
-  bool menu_open = (*menu_open_addr & 1);
-
-  if (player_->ship == ship) {
-    set_ship_status_ = SetShipStatus::Clear;
-    if (menu_open) SendKey(VK_ESCAPE);
-    return true;
-  }
-
-  set_ship_status_ = SetShipStatus::SetShip;
-  desired_ship_ = ship;
-
-#if !DEBUG_USER_CONTROL
-  if (!menu_open) {
-    SendKey(VK_ESCAPE);
-  } else {
-    if (ActionDelay()) {
-        ResetStatus();
-        SetEnergy(100);
-      if (ship == 8) {
-        PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
-      } else {
-        PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
-      }
-      return true;
-    }
-  }
-#endif
-
-  return false;
-}
 
 void ContinuumGameProxy::Warp() {
   if (!player_->dead && player_->ship != 8) {
@@ -908,26 +978,27 @@ void ContinuumGameProxy::SendKey(int vKey) const {
 // currently used for buying items in hyperspace
 bool ContinuumGameProxy::ProcessQueuedMessages() {
   bool result = false;
-  if (!priority_message_queue.empty()) {
+  if (!priority_message_queue_.empty()) {
     result = true;
   }
 
-  if ((message_queue.empty() && priority_message_queue.empty()) || time_.GetTime() < message_cooldown_) return result;
+  if ((message_queue_.empty() && priority_message_queue_.empty()) || time_.GetTime() < message_cooldown_) return result;
 
   // ignore if there is a duplicate message in the queue
-  for (std::size_t i = 0; i < message_queue.size(); i++) {
-    if (i != 0 && message_queue[0] == message_queue[i]) {
-      message_queue.pop_front();
+  for (std::size_t i = 0; i < message_queue_.size(); i++) {
+    if (i != 0 && message_queue_[0] == message_queue_[i]) {
+      message_queue_.pop_front();
+      i--;
       return result;
     }
   }
   
-  if (!priority_message_queue.empty()) {
-    SendQueuedMessage(priority_message_queue[0]);
-    priority_message_queue.pop_front();
-  } else {
-    SendQueuedMessage(message_queue[0]);
-    message_queue.pop_front();
+  if (!priority_message_queue_.empty()) {
+    SendQueuedMessage(priority_message_queue_[0]);
+    priority_message_queue_.pop_front();
+  } else if (!message_queue_.empty()) {
+    SendQueuedMessage(message_queue_[0]);
+    message_queue_.pop_front();
   }
 
   message_cooldown_ = time_.GetTime() + 1000;
@@ -937,15 +1008,24 @@ bool ContinuumGameProxy::ProcessQueuedMessages() {
 // this might be needed for messages that need to be sent while the bot is on a safe tile
 // such as buying items in hyperspace
 void ContinuumGameProxy::SendPriorityMessage(const std::string& message) {
-  priority_message_queue.emplace_back(message);
+  priority_message_queue_.emplace_back(message);
   //SendMessage(message);
 }
 
 void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
 #if !DEBUG_USER_CONTROL
 
+ #if 0
   if (mesg.empty()) return;
 
+  for (std::size_t i = 0; i < mesg.size(); i++) {
+    PostMessage(g_hWnd, WM_CHAR, mesg[i], 0);
+  }
+
+  PostMessage(hwnd_, WM_KEYDOWN, VK_RETURN, 0);
+  PostMessage(hwnd_, WM_KEYUP, VK_RETURN, 0);
+  #endif
+  #if 1
   typedef void(__fastcall * ChatSendFunction)(void* This, void* thiscall_garbage, char* msg, u32* unknown1,
                                               u32* unknown2);
 
@@ -966,6 +1046,7 @@ void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
 
   // Clear the text buffer after sending the message
   input[0] = 0;
+  #endif
 
 #endif
 }
@@ -973,11 +1054,11 @@ void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
 void ContinuumGameProxy::SendChatMessage(const std::string& mesg) {
 
   // don't send duplicate messages
-  for (std::size_t i = 0; i < message_queue.size(); i++) {
-    if (message_queue[i] == mesg) return;
+  for (std::size_t i = 0; i < message_queue_.size(); i++) {
+    if (message_queue_[i] == mesg) return;
   }
 
-  message_queue.emplace_back(mesg);
+  message_queue_.emplace_back(mesg);
 }
 
 void ContinuumGameProxy::SendPrivateMessage(const std::string& target, const std::string& mesg) {
@@ -1024,7 +1105,7 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
 // a bunch of bots all jumping onto the same freq
 bool ContinuumGameProxy::ActionDelay() {
   if (delay_timer_ == 0) {
-    delay_timer_ = time_.GetTime() + ((uint64_t)GetIDIndex() * 100) + 100;
+    delay_timer_ = time_.GetTime() + (((uint64_t)GetIDIndex() * 200) + 100);
   } else if (time_.GetTime() > delay_timer_) {
     delay_timer_ = 0;
     return true;
@@ -1032,10 +1113,14 @@ bool ContinuumGameProxy::ActionDelay() {
   return false;
 }
 
+// if all player names are sorted aphabetically, get this bots index in the list
 std::size_t ContinuumGameProxy::GetIDIndex() {
   std::size_t i = 0;
-  for (i = 0; i < numerical_id_list.size(); i++) {
-    if (numerical_id_list[i] == player_id_) {
+
+  if (!player_) return i;
+
+  for (i = 0; i < id_list_.size(); i++) {
+    if (id_list_[i] == player_->id) {
       return i;
     }
   }

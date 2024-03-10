@@ -132,7 +132,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
       team_in_base = true;
     }
   }
-
+  #if 0
   // read private messages for !p and send the same message to join a duel team
   // std::vector<std::string> chat = game.GetChat(5);
   for (ChatMessage chat : game.GetChat()) {
@@ -168,6 +168,7 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
     g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
+  #endif
 
   bool dueling = game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01;
 

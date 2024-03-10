@@ -287,6 +287,9 @@
     <ClInclude Include="zones\ExtremeGames.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="commands\EGCommands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="MathCheatSheet.txt" />

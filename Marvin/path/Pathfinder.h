@@ -64,7 +64,7 @@ struct Pathfinder {
 
   void SetTraversabletiles(const Map& map, float radius, u16 xMin, u16 xMax);
   void CalculateEdges(const Map& map, float radius, u16 xMin, u16 xMax);
-  void SetMapWeights(const Map& map, u16 xMin, u16 xMax);
+  void SetMapWeights(const Map& map, u16 xMin, u16 xMax, float radius);
  // void SetPathableNodes(const Map& map, float radius);
   void DebugUpdate(const Vector2f& position);
 

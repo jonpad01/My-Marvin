@@ -11,7 +11,7 @@
 
 namespace marvin {
 
-enum class SetShipStatus : short { Clear, SetShip };
+enum class SetShipStatus : short { Clear, SetShip, ResetShip };
 enum class ChatStatus : short { Unread, ClearChat };
 
 #pragma pack(push, 1)
@@ -113,6 +113,7 @@ class ContinuumGameProxy : public GameProxy {
   bool SetShip(uint16_t ship) override;
   void SetArena(const std::string& arena) override;
   void ResetStatus() override;
+  bool ResetShip() override;
   void Attach(std::string name) override;
   void Attach(uint16_t id) override;
   void Attach() override;
@@ -127,7 +128,7 @@ class ContinuumGameProxy : public GameProxy {
   void Repel(KeyController& keys) override;
   bool ProcessQueuedMessages();
   void SendPriorityMessage(const std::string& message) override;
-  void SendQueuedMessage(const std::string& mesg);
+  void SendQueuedMessage(const std::string& mesg) override;
   void SendChatMessage(const std::string& mesg) override;
   void SendPrivateMessage(const std::string& target, const std::string& mesg) override;
   void SendKey(int vKey) const override;
@@ -183,16 +184,24 @@ class ContinuumGameProxy : public GameProxy {
   Zone zone_;
   Time time_;
   SetShipStatus set_ship_status_;
+  SetShipStatus reset_ship_status_;
+  bool set_freq_flag_;
+  int tries_;
   UpdateState game_status_;
   ChatStatus chat_status_;
   uint64_t attach_cooldown_;
   uint64_t flag_cooldown_;
+  uint64_t setfreq_cooldown_;
+  uint64_t setship_cooldown_;
   uint64_t message_cooldown_;
   uint64_t delay_timer_;
   uint16_t desired_ship_;
-  std::vector<uint16_t> numerical_id_list;
-  std::deque<std::string> message_queue;
-  std::deque<std::string> priority_message_queue;
+  uint16_t desired_freq_;
+  uint16_t original_ship_;
+  std::vector<uint16_t> id_list_;
+  std::vector<std::string> name_list_;
+  std::deque<std::string> message_queue_;
+  std::deque<std::string> priority_message_queue_;
 };
 
 }  // namespace marvin

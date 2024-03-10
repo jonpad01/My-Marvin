@@ -177,6 +177,7 @@ class GameProxy {
   virtual void SendChatMessage(const std::string& mesg) = 0;
   virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) = 0;
   virtual void SendPriorityMessage(const std::string& message) = 0;
+  virtual void SendQueuedMessage(const std::string& mesg) = 0;
   virtual void SendKey(int vKey) const = 0;
 
   virtual void SetTileId(Vector2f position, u8 id) = 0;
@@ -200,6 +201,7 @@ class GameProxy {
   // Returns true if it attempts to set the ship this call.
   virtual void SetEnergy(uint64_t percent) = 0;
   virtual bool SetShip(uint16_t ship) = 0;
+  virtual bool ResetShip() = 0;
   virtual void SetFreq(int freq) = 0;
   virtual void SetArena(const std::string& arena) = 0;
   virtual void ResetStatus() = 0;

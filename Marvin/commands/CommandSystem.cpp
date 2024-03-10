@@ -18,6 +18,7 @@
 #include "SetArenaCommand.h"
 #include "SwarmCommand.h"
 #include "HSCommands.h"
+#include "EGCommands.h"
 
 namespace marvin {
 
@@ -42,9 +43,6 @@ CommandSystem::CommandSystem(Zone zone) {
 
   RegisterCommand(std::make_shared<LockFreqCommand>());
   RegisterCommand(std::make_shared<UnlockFreqCommand>());
-
-  RegisterCommand(std::make_shared<AnchorCommand>());
-  RegisterCommand(std::make_shared<RushCommand>());
 
   RegisterCommand(std::make_shared<MultiCommand>());
   RegisterCommand(std::make_shared<MultiOffCommand>());
@@ -81,8 +79,10 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<StopBDCommand>());
       RegisterCommand(std::make_shared<HoldBDCommand>());
       RegisterCommand(std::make_shared<ResumeBDCommand>());
-     // RegisterCommand(std::make_shared<SwarmCommand>());
-     // RegisterCommand(std::make_shared<SwarmOffCommand>());
+      RegisterCommand(std::make_shared<AnchorCommand>());
+      RegisterCommand(std::make_shared<RushCommand>());
+      RegisterCommand(std::make_shared<SwarmCommand>());
+      RegisterCommand(std::make_shared<SwarmOffCommand>());
       break;
     }
     case Zone::Hyperspace: {
@@ -91,6 +91,14 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<HSBuyCommand>());
       RegisterCommand(std::make_shared<HSSellCommand>());
       RegisterCommand(std::make_shared<HSShipStatusCommand>());
+      RegisterCommand(std::make_shared<AnchorCommand>());
+      RegisterCommand(std::make_shared<RushCommand>());
+      break;
+    }
+    case Zone::ExtremeGames: {
+      RegisterCommand(std::make_shared<EGPCommand>());
+      RegisterCommand(std::make_shared<EGLCommand>());
+      RegisterCommand(std::make_shared<EGRCommand>());
       break;
     }
     default: {
@@ -120,7 +128,7 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
   // this works because pm'ing self causes a double message
   // so the function here can throw out the first message, and process the next one
   // if it is recieved within the 250ms limit 
-  if (chat.player == bot.GetGame().GetName()) {
+  if (chat.player == bot.GetGame().GetName() && chat.type == ChatType::Private) {
    // reset the flag 
    if (time_.GetTime() > self_message_cooldown_) {
       ignore_self_message_ = true;

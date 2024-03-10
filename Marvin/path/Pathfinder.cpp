@@ -404,7 +404,10 @@ void Pathfinder::CalculateEdges(const Map& map, float radius, u16 xMin, u16 xMax
  }
 }
 
-void Pathfinder::SetMapWeights(const Map& map, u16 xMin, u16 xMax) {
+void Pathfinder::SetMapWeights(const Map& map, u16 xMin, u16 xMax, float radius) {
+
+    int int_radius = int(radius + 0.5f);
+
  for (u16 y = 0; y < 1024; ++y) {
     for (u16 x = xMin; x < xMax; ++x) {
       if (map.IsSolid(x, y)) continue;
@@ -412,12 +415,14 @@ void Pathfinder::SetMapWeights(const Map& map, u16 xMin, u16 xMax) {
       Node* node = this->processor_->GetNode(NodePoint(x, y));
       node->weight = 1.0f;
 
-      int close_distance = 5;
+      int close_distance = 5 + int_radius;
       float distance = GetWallDistance(map, x, y, close_distance);
 
       if (distance < 1) distance = 1;
 
-      if (distance < close_distance) {
+      if (distance <= int_radius) {
+        node->weight = 20.0f;
+      } else if (distance < close_distance) {
         node->weight = close_distance / distance;
       }
     }
