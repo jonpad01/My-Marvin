@@ -108,7 +108,7 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Weapon*> GetEnemyMines() override;
   const std::vector<Flag>& GetDroppedFlags() override;
 
-  void SetEnergy(uint64_t percent) override;
+  void SetEnergy(uint64_t percent, std::string reason) override;
   void SetFreq(int freq) override;
   bool SetShip(uint16_t ship) override;
   void SetArena(const std::string& arena) override;

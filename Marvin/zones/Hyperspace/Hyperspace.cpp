@@ -1114,7 +1114,7 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
   if (game.GetPlayer().attach_id != 65535) {
     if (bb.GetSwarm()) {
-      game.SetEnergy(15);
+        game.SetEnergy(15, "Swarm");
     }
 
     game.SendKey(VK_F7);

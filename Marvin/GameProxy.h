@@ -199,7 +199,7 @@ class GameProxy {
 
   // May need to be called more than once to transition the game menu
   // Returns true if it attempts to set the ship this call.
-  virtual void SetEnergy(uint64_t percent) = 0;
+  virtual void SetEnergy(uint64_t percent, std::string reason) = 0;
   virtual bool SetShip(uint16_t ship) = 0;
   virtual bool ResetShip() = 0;
   virtual void SetFreq(int freq) = 0;

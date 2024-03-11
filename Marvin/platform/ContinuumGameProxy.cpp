@@ -127,6 +127,7 @@ UpdateState ContinuumGameProxy::Update(float dt) {
     SetFreq(desired_freq_);  // must fetch players before this check to update player the frequency
     return UpdateState::Wait;
   }
+
   
   if (ProcessQueuedMessages()) {
     return UpdateState::Wait;
@@ -720,13 +721,15 @@ const std::string ContinuumGameProxy::GetMapFile() const {
   return file;
 }
 
-void ContinuumGameProxy::SetEnergy(uint64_t percent) {
+void ContinuumGameProxy::SetEnergy(uint64_t percent, std::string reason) {
 #if !DEBUG_USER_CONTROL
   const uint64_t overflow = 4294967296;
 
   if (percent > 100) {
     percent = 100;
   }
+
+  //SendChatMessage("Energy was set to " + std::to_string(percent) + " percent for reason: " + reason + ".");
 
   u64 max_energy = (u64)GetMaxEnergy();
 
@@ -765,7 +768,7 @@ void ContinuumGameProxy::SetFreq(int freq) {
   
 
   ResetStatus();
-  SetEnergy(100);
+  SetEnergy(100, "frequency change");
   
   //SendPriorityMessage("=" + std::to_string(freq));
   SendQueuedMessage("=" + std::to_string(freq));
@@ -820,7 +823,7 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
     } else {
       // if (ActionDelay()) {
       ResetStatus();
-      SetEnergy(100);
+      SetEnergy(100, "ship change");
       if (ship == 8) {
       PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
       } else {
@@ -841,7 +844,7 @@ void ContinuumGameProxy::Attach(std::string name) {
   if (time_.GetTime() < attach_cooldown_) return;
  
     ResetStatus();
-    SetEnergy(100);
+  SetEnergy(100, "attach to player");
 
   if (zone_ == Zone::Hyperspace) {
     SendQueuedMessage(":" + name + ":?attach");
@@ -860,7 +863,7 @@ void ContinuumGameProxy::Attach(uint16_t id) {
   if (time_.GetTime() < attach_cooldown_) return;
 
     ResetStatus();
-    SetEnergy(100);
+  SetEnergy(100, "attach to player");
 
   if (zone_ == Zone::Hyperspace) {
     const Player* player = GetPlayerById(id);
@@ -878,7 +881,7 @@ void ContinuumGameProxy::Attach() {
   if (time_.GetTime() < attach_cooldown_) return;
 
     ResetStatus();
-    SetEnergy(100);
+  SetEnergy(100, "attach to player");
 
   SendKey(VK_F7);
 
@@ -890,7 +893,7 @@ void ContinuumGameProxy::HSFlag() {
   if (time_.GetTime() < flag_cooldown_) return;
 
     ResetStatus();
-    SetEnergy(100);
+  SetEnergy(100, "hs flag");
 
   SendQueuedMessage("?flag");
 
@@ -927,7 +930,7 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
 void ContinuumGameProxy::SetArena(const std::string& arena) {
 
     ResetStatus();
-    SetEnergy(100);
+  SetEnergy(100, "arena change");
 
   SendChatMessage("?go " + arena);
 }
@@ -938,7 +941,7 @@ void ContinuumGameProxy::Warp() {
   if (!player_->dead && player_->ship != 8) {
 
       ResetStatus();
-      SetEnergy(100);
+    SetEnergy(100, "warping");
 
     SendKey(VK_INSERT);
   }

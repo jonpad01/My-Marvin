@@ -1140,7 +1140,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
   if (game.GetPlayer().attach_id != 65535) {
     //if (bb.ValueOr<bool>("Swarm", false)) {
     if (bb.GetSwarm()) {
-      game.SetEnergy(15);
+      game.SetEnergy(15, "swarm");
     }
 
     game.SendKey(VK_F7);

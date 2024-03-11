@@ -421,7 +421,7 @@ void Pathfinder::SetMapWeights(const Map& map, u16 xMin, u16 xMax, float radius)
       if (distance < 1) distance = 1;
 
       if (distance <= int_radius) {
-        node->weight = 20.0f;
+        node->weight = 100.0f;
       } else if (distance < close_distance) {
         node->weight = close_distance / distance;
       }

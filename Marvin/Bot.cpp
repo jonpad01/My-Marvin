@@ -521,7 +521,7 @@ behavior::ExecuteResult SetArenaNode::Execute(behavior::ExecuteContext& ctx) {
   if (bb.GetCommandRequest() == CommandRequestType::ArenaChange) {
     if (mapfile != arena) {
       if (ctx.bot->GetTime().TimedActionDelay("arenachange", 200)) {
-        game.SetEnergy(100);
+        game.SetEnergy(100, "Set Arena Node");
         game.SendChatMessage("?go " + arena);
       }
       g_RenderState.RenderDebugText("  SetShipNode(fail): %llu", timer.GetElapsedTime());
@@ -580,7 +580,7 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
     //if (freq != 999) {
     if (freq != game.GetPlayer().frequency) {
       if (ctx.bot->GetTime().TimedActionDelay("setfreq", 200)) {
-        game.SetEnergy(100);
+        game.SetEnergy(100, "Set Freq Node");
         game.SetFreq(freq);
       }
 
@@ -873,7 +873,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     g_RenderState.RenderDebugText("  FindEnemyInBaseNode(bot in center): %llu", timer.GetElapsedTime());
     return result;
   }
-  if (last_in_base) {
+  if (last_in_base && combat_role != CombatRole::Anchor) {  // anchors will follow anchor logic
     g_RenderState.RenderDebugText("  FindEnemyInBaseNode(last in base): %llu", timer.GetElapsedTime());
     return result;
   }
