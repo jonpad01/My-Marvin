@@ -19,6 +19,7 @@
 #include "SwarmCommand.h"
 #include "HSCommands.h"
 #include "EGCommands.h"
+#include "UFOCommand.h"
 
 namespace marvin {
 
@@ -70,6 +71,8 @@ CommandSystem::CommandSystem(Zone zone) {
   RegisterCommand(std::make_shared<PortalOffCommand>());
   RegisterCommand(std::make_shared<ThorCommand>());
   RegisterCommand(std::make_shared<ThorOffCommand>());
+  RegisterCommand(std::make_shared<UFOCommand>());
+  RegisterCommand(std::make_shared<UFOOffCommand>());
 
    switch (zone) {
     case Zone::Devastation: {

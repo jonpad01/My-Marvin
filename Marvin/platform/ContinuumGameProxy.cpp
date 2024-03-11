@@ -908,6 +908,18 @@ void ContinuumGameProxy::ResetStatus() {
   *(u8*)(player_addr_ + 0x60) = status;
 }
 
+void ContinuumGameProxy::SetStatus(StatusFlag status, bool on_off) {
+  uint8_t current_status = player_->status;
+
+  if (on_off) {
+    current_status ^= status;
+  } else {
+    current_status &= ~(status);
+  }
+
+  *(u8*)(player_addr_ + 0x60) = current_status;
+}
+
 void ContinuumGameProxy::XRadar() {
   SendKey(VK_END);
 }

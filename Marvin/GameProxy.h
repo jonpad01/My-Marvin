@@ -168,6 +168,7 @@ class GameProxy {
   virtual const float GetThrust() = 0;
   virtual const uint64_t GetRespawnTime() = 0;
 
+
   virtual const Zone GetZone() = 0;
   virtual const std::string GetMapFile() const = 0;
   virtual const Map& GetMap() const = 0;
@@ -205,6 +206,7 @@ class GameProxy {
   virtual void SetFreq(int freq) = 0;
   virtual void SetArena(const std::string& arena) = 0;
   virtual void ResetStatus() = 0;
+  virtual void SetStatus(StatusFlag status, bool on_off) = 0;
   virtual void Attach(std::string name) = 0;
   virtual void Attach(uint16_t id) = 0;
   virtual void Attach() = 0;
@@ -219,6 +221,7 @@ class GameProxy {
   virtual void Repel(KeyController& keys) = 0;
   virtual void SetSelectedPlayer(uint16_t id) = 0;
   virtual std::size_t GetIDIndex() = 0;
+
 };
 
 }  // namespace marvin

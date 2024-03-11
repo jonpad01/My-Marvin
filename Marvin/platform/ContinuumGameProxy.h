@@ -134,6 +134,7 @@ class ContinuumGameProxy : public GameProxy {
   void SendKey(int vKey) const override;
   void SetSelectedPlayer(uint16_t id) override;
   std::size_t GetIDIndex() override;
+  void SetStatus(StatusFlag status, bool on_off) override;
 
  
   
