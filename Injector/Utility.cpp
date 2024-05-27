@@ -64,6 +64,8 @@ int RemoveMatchingFiles(const std::string& substring)
     std::size_t found = path.find(substring);
     if (found != std::string::npos) {
       DeleteFile(path.c_str());
+      return 0;
     }
   }
+  return 1;
 }
