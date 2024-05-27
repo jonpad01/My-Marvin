@@ -111,6 +111,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>detours.lib;detours.h;detours.cpp%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>B:\Code\MarvNew\lib\detours\lib.X86;B:\Code\MarvNew\lib\detours\include;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
