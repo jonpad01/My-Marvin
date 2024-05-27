@@ -30,6 +30,13 @@ bool ExeProcess::WriteU32(std::size_t address, uint32_t value) {
   return true;
 }
 
+bool ExeProcess::WriteI32(std::size_t address, int32_t value) {
+  int32_t* data = (int32_t*)address;
+  *data = value;
+
+  return true;
+}
+
 std::string ExeProcess::ReadString(std::size_t address, std::size_t length) const {
   std::string value;
   char* data = (char*)address;

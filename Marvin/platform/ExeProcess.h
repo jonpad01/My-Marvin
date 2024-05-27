@@ -23,6 +23,7 @@ class ExeProcess {
   std::string ReadString(std::size_t address, std::size_t length) const;
 
   bool WriteU32(std::size_t address, uint32_t value);
+  bool WriteI32(std::size_t address, int32_t value);
 
   std::size_t GetModuleBase(const char* module_name);
 

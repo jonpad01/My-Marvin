@@ -5,6 +5,7 @@
 #include <limits>
 #include <vector>
 #include <algorithm>
+//#include <stdint.h>
 
 namespace marvin {
 
@@ -24,6 +25,7 @@ class Vector2f {
 
   Vector2f() : x(0), y(0) {}
   Vector2f(float x, float y) : x(x), y(y) {}
+  //Vector2f(uint16_t x, uint16_t y) : x((float)x), y((float)y) {}
 
   Vector2f(const Vector2f& other) : x(other.x), y(other.y) {}
   Vector2f(const MapCoord& other);

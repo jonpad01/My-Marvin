@@ -45,6 +45,9 @@ CommandSystem::CommandSystem(Zone zone) {
   RegisterCommand(std::make_shared<LockFreqCommand>());
   RegisterCommand(std::make_shared<UnlockFreqCommand>());
 
+  RegisterCommand(std::make_shared<NerfCommand>());
+  RegisterCommand(std::make_shared<NormalCommand>());
+
   RegisterCommand(std::make_shared<MultiCommand>());
   RegisterCommand(std::make_shared<MultiOffCommand>());
   RegisterCommand(std::make_shared<CloakCommand>());
@@ -71,8 +74,6 @@ CommandSystem::CommandSystem(Zone zone) {
   RegisterCommand(std::make_shared<PortalOffCommand>());
   RegisterCommand(std::make_shared<ThorCommand>());
   RegisterCommand(std::make_shared<ThorOffCommand>());
-  RegisterCommand(std::make_shared<UFOCommand>());
-  RegisterCommand(std::make_shared<UFOOffCommand>());
 
    switch (zone) {
     case Zone::Devastation: {
@@ -86,6 +87,8 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<RushCommand>());
       RegisterCommand(std::make_shared<SwarmCommand>());
       RegisterCommand(std::make_shared<SwarmOffCommand>());
+      RegisterCommand(std::make_shared<UFOCommand>());
+      RegisterCommand(std::make_shared<UFOOffCommand>());
       break;
     }
     case Zone::Hyperspace: {
@@ -96,6 +99,8 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<HSShipStatusCommand>());
       RegisterCommand(std::make_shared<AnchorCommand>());
       RegisterCommand(std::make_shared<RushCommand>());
+      RegisterCommand(std::make_shared<UFOCommand>());
+      RegisterCommand(std::make_shared<UFOOffCommand>());
       break;
     }
     case Zone::ExtremeGames: {
