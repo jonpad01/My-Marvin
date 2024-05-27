@@ -634,6 +634,7 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
     g_RenderState.RenderDebugText("  HSPlayerSortNode: %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
+  return behavior::ExecuteResult::Failure;
 }
 
 /*
