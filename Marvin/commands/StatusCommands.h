@@ -8,252 +8,222 @@ namespace marvin {
 
 class MultiCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>(BB::UseMultiFire, false) == true) {
-    if (bb.GetUseMultiFire()) {
-      game.SendPrivateMessage(sender, "Multifire is already on.");
-    } else {
-      game.SendPrivateMessage(sender, "Turning on multifire.");
-    }
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
 
-    //bb.Set<bool>(BB::UseMultiFire, true);
-    bb.SetUseMultiFire(true);
+    if (args.empty()) status = true;
+
+    if (status && alias == "multi") {
+      if (bb.GetUseMultiFire()) {
+        game.SendPrivateMessage(sender, "multi currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "multi currently OFF.");
+      }
+    } else {
+      if (alias == "multion" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning multi ON.");
+        bb.SetUseMultiFire(true);
+      } else if (alias == "multioff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning multi OFF.");
+        bb.SetUseMultiFire(false);
+      } else {
+        SendUsage(game, sender);
+      }
+    }
+  }
+
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!multi on\" or \"!multi off\" or \"!multi\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"multi"}; }
-  std::string GetDescription() { return "Sets multifire on"; }
+  std::vector<std::string> GetAliases() { return {"multi", "multion", "multioff"}; }
+  std::string GetDescription() { return "Sets bot to use multifire with arguments \"on\" \"off\""; }
   int GetSecurityLevel() { return 0; }
-};
-
-class MultiOffCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    //if (bb.ValueOr<bool>(BB::UseMultiFire, false) == false) {
-      if (!bb.GetUseMultiFire()) {
-      game.SendPrivateMessage(sender, "Multifire is already off.");
-    } else {
-      game.SendPrivateMessage(sender, "Turning off multifire.");
-    }
-
-   // bb.Set<bool>(BB::UseMultiFire, false);
-    bb.SetUseMultiFire(false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"multioff"}; }
-  std::string GetDescription() { return "Sets multifire off"; }
-  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Status; }
 };
 
 class CloakCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>(BB::UseCloak, false) == true) {
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
+
+    if (args.empty()) status = true;
+
+    if (status && alias == "cloak") {
       if (bb.GetUseCloak()) {
-      game.SendPrivateMessage(sender, "Cloaking is already on.");
+        game.SendPrivateMessage(sender, "cloak currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "cloak currently OFF.");
+      }
     } else {
-      game.SendPrivateMessage(sender, "Now cloaking.");
+      if (alias == "cloakon" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning cloak ON.");
+        bb.SetUseCloak(true);
+      } else if (alias == "cloakoff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning cloak OFF.");
+        bb.SetUseCloak(false);
+      } else {
+        SendUsage(game, sender);
+      }
     }
+  }
 
-    //bb.Set<bool>(BB::UseCloak, true);
-    bb.SetUseCloak(true);
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!cloak on\" or \"!cloak off\" or \"!cloak\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"cloak"}; }
-  std::string GetDescription() { return "Sets cloak on"; }
+  std::vector<std::string> GetAliases() { return {"cloak", "cloakon", "cloakoff"}; }
+  std::string GetDescription() { return "Sets bot to use cloak with arguments \"on\" \"off\""; }
   int GetSecurityLevel() { return 0; }
-};
-
-class CloakOffCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    //if (bb.ValueOr<bool>(BB::UseCloak, false) == false) {
-      if (!bb.GetUseCloak()) {
-      game.SendPrivateMessage(sender, "Cloaking is already off.");
-    } else {
-      game.SendPrivateMessage(sender, "Turning off cloaking.");
-    }
-
-    //bb.Set<bool>(BB::UseCloak, false);
-    bb.SetUseCloak(false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"cloakoff"}; }
-  std::string GetDescription() { return "Sets cloak off"; }
-  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Status; }
 };
 
 class StealthCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>(BB::UseStealth, false) == true) {
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
+
+    if (args.empty()) status = true;
+
+    if (status && alias == "stealth") {
       if (bb.GetUseStealth()) {
-      game.SendPrivateMessage(sender, "Stealth is already on.");
+        game.SendPrivateMessage(sender, "stealth currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "stealth currently OFF.");
+      }
     } else {
-      game.SendPrivateMessage(sender, "Now using stealth.");
+      if (alias == "stealthon" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning stealth ON.");
+        bb.SetUseStealth(true);
+      } else if (alias == "stealthoff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning stealth OFF.");
+        bb.SetUseStealth(false);
+      } else {
+        SendUsage(game, sender);
+      }
     }
+  }
 
-    //bb.Set<bool>(BB::UseStealth, true);
-    bb.SetUseStealth(true);
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!stealth on\" or \"!stealth off\" or \"!stealth\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"stealth"}; }
-  std::string GetDescription() { return "Sets stealth on"; }
+  std::vector<std::string> GetAliases() { return {"stealth", "stealthon", "stealthoff"}; }
+  std::string GetDescription() { return "Sets bot to use stealth with arguments \"on\" \"off\""; }
   int GetSecurityLevel() { return 0; }
-};
-
-class StealthOffCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    //if (bb.ValueOr<bool>(BB::UseStealth, false) == false) {
-      if (!bb.GetUseStealth()) {
-      game.SendPrivateMessage(sender, "Stealth is already off.");
-    } else {
-      game.SendPrivateMessage(sender, "Turning off stealth.");
-    }
-
-    //bb.Set<bool>(BB::UseStealth, false);
-    bb.SetUseStealth(false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"stealthoff"}; }
-  std::string GetDescription() { return "Sets stealth off"; }
-  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Status; }
 };
 
 class XRadarCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>(BB::UseXRadar, false) == true) {
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
+
+    if (args.empty()) status = true;
+
+    if (status && alias == "xradar") {
       if (bb.GetUseXradar()) {
-      game.SendPrivateMessage(sender, "XRadar is already on.");
+        game.SendPrivateMessage(sender, "xradar currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "xradar currently OFF.");
+      }
     } else {
-      game.SendPrivateMessage(sender, "Now using XRadar.");
+      if (alias == "xradaron" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning xradar ON.");
+        bb.SetUseXradar(true);
+      } else if (alias == "xradaroff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning xradar OFF.");
+        bb.SetUseXradar(false);
+      } else {
+        SendUsage(game, sender);
+      }
     }
+  }
 
-    //bb.Set<bool>(BB::UseXRadar, true);
-    bb.SetUseXradar(true);
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!xradar on\" or \"!xradar off\" or \"!xradar\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"xradar"}; }
-  std::string GetDescription() { return "Sets XRadar on"; }
+  std::vector<std::string> GetAliases() { return {"xradar", "xradaron", "xradaroff"}; }
+  std::string GetDescription() { return "Sets bot to use xradar with arguments \"on\" \"off\""; }
   int GetSecurityLevel() { return 0; }
-};
-
-class XRadarOffCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    //if (bb.ValueOr<bool>(BB::UseXRadar, false) == false) {
-      if (!bb.GetUseXradar()) {
-      game.SendPrivateMessage(sender, "XRadar is already off.");
-    } else {
-      game.SendPrivateMessage(sender, "Turning off XRadar.");
-    }
-
-    //bb.Set<bool>(BB::UseXRadar, false);
-    bb.SetUseXradar(false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"xradaroff"}; }
-  std::string GetDescription() { return "Sets XRadar off"; }
-  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Status; }
 };
 
 class AntiWarpCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>(BB::UseAntiWarp, false) == true) {
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
+
+    if (args.empty()) status = true;
+
+    if (status && alias == "anti") {
       if (bb.GetUseAntiWarp()) {
-      game.SendPrivateMessage(sender, "AntiWarp is already on.");
+        game.SendPrivateMessage(sender, "anti currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "anti currently OFF.");
+      }
     } else {
-      game.SendPrivateMessage(sender, "Now using AntiWarp.");
+      if (alias == "antion" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning anti ON.");
+        bb.SetUseAntiWarp(true);
+      } else if (alias == "antioff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning anti OFF.");
+        bb.SetUseAntiWarp(false);
+      } else {
+        SendUsage(game, sender);
+      }
     }
+  }
 
-    //bb.Set<bool>(BB::UseAntiWarp, true);
-    bb.SetUseAntiWarp(true);
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!anti on\" or \"!anti off\" or \"!anti\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"anti"}; }
-  std::string GetDescription() { return "Sets AntiWarp on"; }
+  std::vector<std::string> GetAliases() { return {"anti", "antion", "antioff"}; }
+  std::string GetDescription() { return "Sets bot to use antiwarp with arguments \"on\" \"off\""; }
   int GetSecurityLevel() { return 0; }
-};
-
-class AntiWarpOffCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    //if (bb.ValueOr<bool>(BB::UseAntiWarp, false) == false) {
-      if (!bb.GetUseAntiWarp()) {
-      game.SendPrivateMessage(sender, "AntiWarp is already off.");
-    } else {
-      game.SendPrivateMessage(sender, "Turning off AntiWarp.");
-    }
-
-    //bb.Set<bool>(BB::UseAntiWarp, false);
-    bb.SetUseAntiWarp(false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"antioff"}; }
-  std::string GetDescription() { return "Sets AntiWarp off"; }
-  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Status; }
 };
 
 }  // namespace marvin

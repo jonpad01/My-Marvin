@@ -1037,22 +1037,51 @@ void ContinuumGameProxy::SendKey(int vKey) const {
 #endif
 }
 
+bool ContinuumGameProxy::LimitMessageRate() {
+  const int kFloodLimit = 3;
+  const u64 kFloodCooldown = 1200;
+
+  if (IsKnownBot()) return false;  // bypass rate limiter if the zone allows bot to spam
+
+  if (time_.GetTime() > message_cooldown_) {
+    sent_message_count_ = 0;
+    message_cooldown_ = time_.GetTime() + kFloodCooldown;
+  }
+
+  if (sent_message_count_ >= kFloodLimit) return true;
+
+  return false;
+}
+
+bool ContinuumGameProxy::IsKnownBot() {
+
+  if (zone_ != Zone::Devastation) return false;  // currently deva is the only zone whitelisting bots
+
+  for (std::string name : kBotNames) {
+    if (name == player_->name) return true;
+  }
+  return false;
+}
+
 // priority messages will make the bot stop until it sends the messages
 // currently used for buying items in hyperspace
 bool ContinuumGameProxy::ProcessQueuedMessages() {
   bool result = false;
+
   if (!priority_message_queue_.empty()) {
     result = true;
   }
 
-  if ((message_queue_.empty() && priority_message_queue_.empty()) || time_.GetTime() < message_cooldown_) return result;
+  if ((message_queue_.empty() && priority_message_queue_.empty())) return result;
 
+  if (LimitMessageRate()) return false;
+      
   // ignore if there is a duplicate message in the queue
   for (std::size_t i = 0; i < message_queue_.size(); i++) {
     if (i != 0 && message_queue_[0] == message_queue_[i]) {
-      message_queue_.pop_front();
-      i--;
-      return result;
+     // message_queue_.pop_front();
+    //  i--;
+    //  return result;
     }
   }
   
@@ -1063,8 +1092,9 @@ bool ContinuumGameProxy::ProcessQueuedMessages() {
     SendQueuedMessage(message_queue_[0]);
     message_queue_.pop_front();
   }
+   
+  if (!IsKnownBot()) sent_message_count_++;
 
-  message_cooldown_ = time_.GetTime() + 1000;
   return result;
 }
 
@@ -1118,7 +1148,7 @@ void ContinuumGameProxy::SendChatMessage(const std::string& mesg) {
 
   // don't send duplicate messages
   for (std::size_t i = 0; i < message_queue_.size(); i++) {
-    if (message_queue_[i] == mesg) return;
+    //if (message_queue_[i] == mesg) return;
   }
 
   message_queue_.emplace_back(mesg);

@@ -10,7 +10,8 @@ namespace marvin {
 
 class ModListCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     if (sender.empty()) return;
 
     std::string output;
@@ -27,9 +28,10 @@ class ModListCommand : public CommandExecutor {
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
-  std::vector<std::string> GetAliases() { return {"modlist", "ml"}; }
+  std::vector<std::string> GetAliases() { return {"modlist"}; }
   std::string GetDescription() { return "See who can lock marv"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Info; }
 };
 
 }  // namespace marvin

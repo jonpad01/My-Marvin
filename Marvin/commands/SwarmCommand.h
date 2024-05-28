@@ -7,54 +7,48 @@ namespace marvin {
 
 class SwarmCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>("Swarm", false) == true) {
-      if (bb.GetSwarm()) {
-      game.SendPrivateMessage(sender, "Marv was already swarming.");
-    } else {
-      game.SendPrivateMessage(sender, "Switching swarm mode on.");
-    }
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
 
-    //bb.Set<bool>("Swarm", true);
-    bb.SetSwarm(true);
+    if (args.empty()) status = true;
+
+    if (status && alias == "swarm") {
+      if (bb.GetSwarm()) {
+        game.SendPrivateMessage(sender, "swarm currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "swarm currently OFF.");
+      }
+    } else {
+      if (alias == "swarmon" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning swarm ON.");
+        bb.SetSwarm(true);
+      } else if (alias == "swarmoff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning swarm OFF.");
+        bb.SetSwarm(false);
+      } else {
+        SendUsage(game, sender);
+      }
+    }
+  }
+
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!swarm on\" or \"!swarm off\" or \"!swarm\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"swarm"}; }
+  std::vector<std::string> GetAliases() { return {"swarm", "swarmon", "swarmoff"}; }
   std::string GetDescription() {
     return "Enable swarm behavior. Bots will respawn quickly with low health when basing";
   }
   int GetSecurityLevel() { return 1; }
-};
-
-class SwarmOffCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    //if (bb.ValueOr<bool>("Swarm", false) == false) {
-      if (!bb.GetSwarm()) {
-      game.SendPrivateMessage(sender, "Swarm mode was already off.");
-    } else {
-      game.SendPrivateMessage(sender, "Switching swarm mode off.");
-    }
-
-    //bb.Set<bool>("Swarm", false);
-    bb.SetSwarm(false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"swarmoff"}; }
-  std::string GetDescription() { return "Sets swarm off"; }
-  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; }
 };
 
 }  // namespace marvin

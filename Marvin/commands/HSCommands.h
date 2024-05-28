@@ -7,7 +7,8 @@ namespace marvin {
 
 class HSShipStatusCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -41,11 +42,13 @@ class HSShipStatusCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"shipstatus"}; }
   std::string GetDescription() { return "Prints a list of items the bot currently owns (.items 1 lists items for warbird)."; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Action; };
 };
 
 class HSBuyCommand : public CommandExecutor {
   public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
      Blackboard& bb = bot.GetBlackboard();
      GameProxy& game = bot.GetGame();
      
@@ -98,11 +101,13 @@ class HSBuyCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"buy"}; }
   std::string GetDescription() { return "Tell the bot to buy items (use  a '|' delimiter to buy multiple items)."; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Action; };
 };
 
 class HSSellCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
      Blackboard& bb = bot.GetBlackboard();
      GameProxy& game = bot.GetGame();
 
@@ -152,11 +157,13 @@ class HSSellCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"sell"}; }
   std::string GetDescription() { return "Example format: /.sell 2|close combat|radiating coils"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Action; };
 };
 
 class HSFlagCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -175,13 +182,15 @@ class HSFlagCommand : public CommandExecutor {
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"flag"}; }
-  std::string GetDescription() { return "Allows bot to jump on to a flag team"; }
+  std::string GetDescription() { return "Bot will start flagging behavior"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
-class HSFlagOffCommand : public CommandExecutor {
+class HSCenterCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -199,9 +208,10 @@ class HSFlagOffCommand : public CommandExecutor {
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"flagoff"}; }
-  std::string GetDescription() { return "Disallows bot to jump on to a flag team"; }
+  std::vector<std::string> GetAliases() { return {"center"}; }
+  std::string GetDescription() { return "Bot will start centering behavior"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
 }  // namespace marvin

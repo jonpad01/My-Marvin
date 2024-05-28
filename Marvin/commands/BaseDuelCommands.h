@@ -7,7 +7,8 @@ namespace marvin {
 
 class BDPublicCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -33,11 +34,13 @@ class BDPublicCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"bdpublic"}; }
   std::string GetDescription() { return "Allow the bot to accept public baseduel commands."; }
   int GetSecurityLevel() { return 1; }
+  CommandType GetCommandType() { return CommandType::Hosting; };
 };
 
 class BDPrivateCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -61,14 +64,16 @@ class BDPrivateCommand : public CommandExecutor {
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdprivate"}; }
-  std::string GetDescription() { return "Set the bot to only allow private baseduel commands."; }
+  std::string GetDescription() { return "Set the bot to only accept private baseduel commands."; }
   int GetSecurityLevel() { return 1; }
+  CommandType GetCommandType() { return CommandType::Hosting; };
 };
 
 
 class StartBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -104,6 +109,7 @@ class StartBDCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"bdstart"}; }
   std::string GetDescription() { return "Start a base duel game."; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
   CommandAccessFlags access;
@@ -111,7 +117,8 @@ class StartBDCommand : public CommandExecutor {
 
 class StopBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -144,6 +151,7 @@ class StopBDCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"bdstop"}; }
   std::string GetDescription() { return "Stop a base duel game (resets score)."; }
   int GetSecurityLevel() { return 1; }
+  CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
   CommandAccessFlags access;
@@ -151,7 +159,8 @@ class StopBDCommand : public CommandExecutor {
 
 class HoldBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -181,6 +190,7 @@ class HoldBDCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"bdhold"}; }
   std::string GetDescription() { return "Hold a base duel game (score is saved)"; }
   int GetSecurityLevel() { return 1; }
+  CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
   CommandAccessFlags access;
@@ -188,7 +198,8 @@ class HoldBDCommand : public CommandExecutor {
 
 class ResumeBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -220,6 +231,7 @@ class ResumeBDCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"bdresume"}; }
   std::string GetDescription() { return "Resume a base duel game"; }
   int GetSecurityLevel() { return 1; }
+  CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
   CommandAccessFlags access;

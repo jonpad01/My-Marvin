@@ -19,8 +19,7 @@
 namespace marvin {
 namespace deva {
 
-const std::vector<std::string> kBotNames = {"LilMarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1", "Marv2", "Marv3", "Marv4", "Marv5", "Marv6",
-                                            "Marv7", "Marv8", "FrogBot"};
+
 
 #if 0
 
@@ -140,8 +139,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
 
     bot.GetBlackboard().SetCombatRoleDefault(CombatRole::Rusher);
     bot.GetBlackboard().SetMultiFireDefault(false);
-    bot.GetBlackboard().SetStealthDefault(true);
-    bot.GetBlackboard().SetCloakDefault(true);
+    bot.GetBlackboard().SetStealthDefault(false);
+    bot.GetBlackboard().SetCloakDefault(false);
     bot.GetBlackboard().SetXradarDeufault(true);
     bot.GetBlackboard().SetDecoyDefault(true);
     bot.GetBlackboard().SetRepelDefault(false);
@@ -156,8 +155,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     //bot.GetBlackboard().Set<bool>(BB::UseBurst, true);
 
     bot.GetBlackboard().SetUseMultiFire(false);
-    bot.GetBlackboard().SetUseStealth(true);
-    bot.GetBlackboard().SetUseCloak(true);
+    bot.GetBlackboard().SetUseStealth(false);
+    bot.GetBlackboard().SetUseCloak(false);
     bot.GetBlackboard().SetUseXradar(true);
     bot.GetBlackboard().SetUseDecoy(true);
     bot.GetBlackboard().SetUseRepel(false);

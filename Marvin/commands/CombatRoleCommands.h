@@ -7,7 +7,8 @@ namespace marvin {
 
 class AnchorCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -29,11 +30,13 @@ class AnchorCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"anchor", "a"}; }
   std::string GetDescription() { return "Enable anchor behavior when basing"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
 class RushCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -54,11 +57,13 @@ class RushCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"rush", "r"}; }
   std::string GetDescription() { return "Enable rush behavior when basing"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
 class NerfCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -74,11 +79,13 @@ class NerfCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"nerf"}; }
   std::string GetDescription() { return "Make the bot easier to fight."; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
 class NormalCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -94,6 +101,7 @@ class NormalCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"normal"}; }
   std::string GetDescription() { return "Set bot to normal difficulty"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
 }  // namespace marvin

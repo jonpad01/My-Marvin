@@ -10,8 +10,31 @@ namespace marvin {
 
 class CommandsCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     if (sender.empty()) return;
+    GameProxy& game = bot.GetGame();
+    Zone zone = bot.GetGame().GetZone();
+
+    std::vector<std::string> args = Tokenize(arg, ' ');
+
+    uint16_t number = 0;
+
+    if (!args.empty()) {
+      if (std::isdigit(args[0][0])) {
+        number = atoi(args[0].c_str());
+      } else {
+        SendUsage(game, sender);
+        return;
+      }
+    }
+
+    if (number >= kCommandTypeStr.size()) {
+      SendUsage(game, sender);
+      return;
+    }
+
+    CommandType type = (CommandType)number;
 
     int requester_level = cmd.GetSecurityLevel(sender);
     Commands& commands = cmd.GetCommands();
@@ -32,23 +55,35 @@ class CommandsCommand : public CommandExecutor {
     for (auto& entry : commands) {
       CommandExecutor* executor = entry.second.get();
 
+      if (type != CommandType::All && executor->GetCommandType() != type) continue;
+
       if (std::find(executors.begin(), executors.end(), executor) == executors.end()) {
         std::string output;
 
-        if (requester_level >= executor->GetSecurityLevel()) {
-          std::vector<std::string> aliases = executor->GetAliases();
+        std::vector<std::string> aliases = executor->GetAliases();
 
-          // Combine all the aliases
-          for (std::size_t i = 0; i < aliases.size(); ++i) {
-            if (i != 0) {
-              output += "/";
+        // Combine all the aliases
+        for (std::size_t i = 0; i < aliases.size(); ++i) {
+          if (i == 0) output += "-- !" + aliases[i];
+
+          if (i == 0 && aliases.size() > 1) output += " (";
+
+          if (i != 0) {
+            output += "!" + aliases[i];
+
+            if (i != aliases.size() - 1) {
+              output += ", ";
+            } else {
+              output += ")";
             }
-
-            output += "-- !" + aliases[i];
           }
-
-          triggers.emplace_back(executor, output);
         }
+
+        if (requester_level < executor->GetSecurityLevel()) {
+          output += " - ACCESS DENIED";
+        }
+
+        triggers.emplace_back(executor, output);
 
         executors.push_back(executor);
       }
@@ -69,11 +104,16 @@ class CommandsCommand : public CommandExecutor {
     }
   }
 
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Argument must be a number.  (!commands 1)");
+  }
+
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   std::vector<std::string> GetAliases() { return {"commands", "c"}; }
   std::string GetDescription() { return "Shows available commands"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Info; };
 };
 
 }  // namespace marvin

@@ -7,7 +7,8 @@ namespace marvin {
 
 class SetArenaCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -41,6 +42,7 @@ class SetArenaCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"setarena"}; }
   std::string GetDescription(){return "Sends the bot to an arena. Leave argument empty or type \"go\" to return to pub (.setarena) (.setarena ?go)"; }
   int GetSecurityLevel() { return 5; }
+  CommandType GetCommandType() { return CommandType::Action; }
 };
 
 }  // namespace marv.

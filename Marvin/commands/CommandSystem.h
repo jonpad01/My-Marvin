@@ -11,6 +11,9 @@ namespace marvin {
 
 class Bot;
 
+enum class CommandType {All, Info, Behavior, Consumable, Status, Action, Hosting};
+const std::vector<std::string> kCommandTypeStr {"all", "info", "behavior", "consumable", "status", "action", "hosting"}; 
+
 // Match bits with the internal chat type numbers to simplify access check
 enum {
   CommandAccess_Arena = (1 << 0),
@@ -40,13 +43,14 @@ class CommandSystem;
 
 class CommandExecutor {
  public:
-  virtual void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) = 0;
+  virtual void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& alias, const std::string& arg) = 0;
   virtual CommandAccessFlags GetAccess() = 0;
   virtual void SetAccess(CommandAccessFlags flags) = 0;
   virtual CommandFlags GetFlags() { return 0; }
   virtual std::vector<std::string> GetAliases() = 0;
   virtual std::string GetDescription() = 0;
   virtual int GetSecurityLevel() = 0;
+  virtual CommandType GetCommandType() = 0;
 };
 
 using Operators = std::unordered_map<std::string, int>;

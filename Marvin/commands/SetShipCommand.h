@@ -7,7 +7,8 @@ namespace marvin {
 
 class SetShipCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -54,6 +55,7 @@ class SetShipCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"setship", "ss"}; }
   std::string GetDescription() { return "Sets the ship (9 = spec)"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Action; }
 };
 
 }  // namespace marvin

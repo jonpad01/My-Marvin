@@ -7,52 +7,46 @@ namespace marvin {
 
 class LockFreqCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>("FreqLock", false) == true) {
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
+
+    if (args.empty()) status = true;
+
+    if (status && alias == "lockfreq") {
       if (bb.GetFreqLock()) {
-      game.SendPrivateMessage(sender, "Marv was already locked.");
+        game.SendPrivateMessage(sender, "lockfreq currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "lockfreq currently OFF.");
+      }
     } else {
-      game.SendPrivateMessage(sender, "Switching from unlocked to locked.");
+      if (alias == "lockfreqon" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning lockfreq ON.");
+        bb.SetFreqLock(true);
+      } else if (alias == "lockfreqoff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning lockfreq OFF.");
+        bb.SetFreqLock(false);
+      } else {
+        SendUsage(game, sender);
+      }
     }
+  }
 
-    //bb.Set<bool>("FreqLock", true);
-    bb.SetFreqLock(true);
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!lockfreq on\" or \"!lockfreq off\" or \"!lockfreq\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"lockfreq", "lf"}; }
-  std::string GetDescription() { return "Locks frequency"; }
+  std::vector<std::string> GetAliases() { return {"lockfreq", "lockfreqon", "lockfreqoff"}; }
+  std::string GetDescription() { return "Locks/unlocks automatic frequency selection"; }
   int GetSecurityLevel() { return 1; }
-};
-
-class UnlockFreqCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    //if (bb.ValueOr<bool>("FreqLock", false) == false) {
-      if (!bb.GetFreqLock()) {
-      game.SendPrivateMessage(sender, "Marv was already unlocked.");
-    } else {
-      game.SendPrivateMessage(sender, "Switching from locked to unlocked.");
-    }
-
-    //bb.Set<bool>("FreqLock", false);
-    bb.SetFreqLock(false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_All; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"unlockfreq", "uf"}; }
-  std::string GetDescription() { return "Unlocks frequency"; }
-  int GetSecurityLevel() { return 1; }
+  CommandType GetCommandType() { return CommandType::Action; }
 };
 
 }  // namespace marvin

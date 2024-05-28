@@ -206,6 +206,7 @@
     <ClInclude Include="commands\SetFreqCommand.h" />
     <ClInclude Include="commands\SetShipCommand.h" />
     <ClInclude Include="commands\SwarmCommand.h" />
+    <ClInclude Include="commands\TipCommand.h" />
     <ClInclude Include="commands\UFOCommand.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />

@@ -7,13 +7,40 @@ namespace marvin {
 
 class UFOCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    game.SendPrivateMessage(sender, "Turning on UFO mode.");
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
 
-    game.SetStatus(StatusFlag::Status_UFO, true);
+    uint8_t ufo_status = game.GetPlayer().status;
+    bool ufo_enabled = (ufo_status & Status_UFO) != 0;
+
+    if (args.empty()) status = true;
+
+    if (status && alias == "ufo") {
+      if (ufo_enabled) {
+        game.SendPrivateMessage(sender, "ufo currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "ufo currently OFF.");
+      }
+    } else {
+      if (alias == "ufoon" || args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning ufo ON.");
+        game.SetStatus(StatusFlag::Status_UFO, true);
+      } else if (alias == "ufooff" || args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning ufo OFF.");
+        game.SetStatus(StatusFlag::Status_UFO, false);
+      } else {
+        SendUsage(game, sender);
+      }
+    }
+  }
+
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!ufo on\" or \"!ufo off\" or \"!ufo\" (sends current status).");
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
@@ -21,30 +48,10 @@ class UFOCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"ufo"}; }
   std::string GetDescription() {
-    return "Turn UFO status on.";
+    return "Sets bot to switch ufo status with arguments \"on\" \"off\"";
   }
   int GetSecurityLevel() { return 5; }
-};
-
-class UFOOffCommand : public CommandExecutor {
- public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
-
-    game.SendPrivateMessage(sender, "Turning off UFO mode.");
-
-    game.SetStatus(StatusFlag::Status_UFO, false);
-  }
-
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
-  void SetAccess(CommandAccessFlags flags) { return; }
-  CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"ufooff"}; }
-  std::string GetDescription() {
-    return "Turn UFO status off.";
-  }
-  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Action; }
 };
 
 }  // namespace marvin

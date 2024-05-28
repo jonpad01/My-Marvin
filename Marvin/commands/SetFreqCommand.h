@@ -7,7 +7,8 @@ namespace marvin {
 
 class SetFreqCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -47,6 +48,7 @@ class SetFreqCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"setfreq", "sf"}; }
   std::string GetDescription() { return "Sets the bot to a public frequency"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Action; }
 };
 
 }  // namespace marvin

@@ -19,6 +19,7 @@
 #include "SwarmCommand.h"
 #include "HSCommands.h"
 #include "EGCommands.h"
+#include "TipCommand.h"
 #include "UFOCommand.h"
 
 namespace marvin {
@@ -34,46 +35,31 @@ CommandSystem::CommandSystem(Zone zone) {
   RegisterCommand(std::make_shared<CommandsCommand>());
   RegisterCommand(std::make_shared<DelimiterCommand>());
   RegisterCommand(std::make_shared<ModListCommand>());
+  RegisterCommand(std::make_shared<TipCommand>());
 
   RegisterCommand(std::make_shared<LockCommand>());
-  RegisterCommand(std::make_shared<UnlockCommand>());
-
   RegisterCommand(std::make_shared<SetShipCommand>());
   RegisterCommand(std::make_shared<SetFreqCommand>());
   RegisterCommand(std::make_shared<SetArenaCommand>());
 
   RegisterCommand(std::make_shared<LockFreqCommand>());
-  RegisterCommand(std::make_shared<UnlockFreqCommand>());
 
   RegisterCommand(std::make_shared<NerfCommand>());
   RegisterCommand(std::make_shared<NormalCommand>());
 
   RegisterCommand(std::make_shared<MultiCommand>());
-  RegisterCommand(std::make_shared<MultiOffCommand>());
   RegisterCommand(std::make_shared<CloakCommand>());
-  RegisterCommand(std::make_shared<CloakOffCommand>());
   RegisterCommand(std::make_shared<StealthCommand>());
-  RegisterCommand(std::make_shared<StealthOffCommand>());
   RegisterCommand(std::make_shared<XRadarCommand>());
-  RegisterCommand(std::make_shared<XRadarOffCommand>());
   RegisterCommand(std::make_shared<AntiWarpCommand>());
-  RegisterCommand(std::make_shared<AntiWarpOffCommand>());
-
 
   RegisterCommand(std::make_shared<RepelCommand>());
-  RegisterCommand(std::make_shared<RepelOffCommand>());
   RegisterCommand(std::make_shared<BurstCommand>());
-  RegisterCommand(std::make_shared<BurstOffCommand>());
   RegisterCommand(std::make_shared<DecoyCommand>());
-  RegisterCommand(std::make_shared<DecoyOffCommand>());
   RegisterCommand(std::make_shared<RocketCommand>());
-  RegisterCommand(std::make_shared<RocketOffCommand>());
   RegisterCommand(std::make_shared<BrickCommand>());
-  RegisterCommand(std::make_shared<BrickOffCommand>());
   RegisterCommand(std::make_shared<PortalCommand>());
-  RegisterCommand(std::make_shared<PortalOffCommand>());
   RegisterCommand(std::make_shared<ThorCommand>());
-  RegisterCommand(std::make_shared<ThorOffCommand>());
 
    switch (zone) {
     case Zone::Devastation: {
@@ -86,21 +72,18 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<AnchorCommand>());
       RegisterCommand(std::make_shared<RushCommand>());
       RegisterCommand(std::make_shared<SwarmCommand>());
-      RegisterCommand(std::make_shared<SwarmOffCommand>());
       RegisterCommand(std::make_shared<UFOCommand>());
-      RegisterCommand(std::make_shared<UFOOffCommand>());
       break;
     }
     case Zone::Hyperspace: {
       RegisterCommand(std::make_shared<HSFlagCommand>());
-      RegisterCommand(std::make_shared<HSFlagOffCommand>());
+      RegisterCommand(std::make_shared<HSCenterCommand>());
       RegisterCommand(std::make_shared<HSBuyCommand>());
       RegisterCommand(std::make_shared<HSSellCommand>());
       RegisterCommand(std::make_shared<HSShipStatusCommand>());
       RegisterCommand(std::make_shared<AnchorCommand>());
       RegisterCommand(std::make_shared<RushCommand>());
       RegisterCommand(std::make_shared<UFOCommand>());
-      RegisterCommand(std::make_shared<UFOOffCommand>());
       break;
     }
     case Zone::ExtremeGames: {
@@ -193,7 +176,7 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
             // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
             // if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
             if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock() || security_level > 0) {
-              command.Execute(*this, bot, chat.player, arg);
+              command.Execute(*this, bot, chat.player, trigger, arg);
               result = true;
             }
           }

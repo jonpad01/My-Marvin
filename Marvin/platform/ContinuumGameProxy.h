@@ -163,6 +163,9 @@ class ContinuumGameProxy : public GameProxy {
   void FetchWeapons();
 
   bool ActionDelay();
+
+  bool LimitMessageRate();
+  bool IsKnownBot();  // Zone allows bot to bypass rate limter for chat.
   
   std::vector<BallData> balls_;
   std::vector<Green> greens_;
@@ -192,6 +195,7 @@ class ContinuumGameProxy : public GameProxy {
   SetShipStatus reset_ship_status_;
   bool set_freq_flag_;
   int tries_;
+  int sent_message_count_;
   UpdateState game_status_;
   ChatStatus chat_status_;
   uint64_t attach_cooldown_;

@@ -7,7 +7,8 @@ namespace marvin {
 
 class DelimiterCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
+               const std::string& alias, const std::string& arg) override {
     if (sender.empty()) return;
 
     bot.GetGame().SendPrivateMessage(sender, "The ';' character can be used to send more than one command in a single message." );
@@ -23,6 +24,7 @@ class DelimiterCommand : public CommandExecutor {
   std::vector<std::string> GetAliases() { return {"delimiter"}; }
   std::string GetDescription() { return "Delimiter usage"; }
   int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Info; };
 };
 
 }  // namespace marvin
