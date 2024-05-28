@@ -156,26 +156,29 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         std::string name = game->GetPlayer().name;
         std::string eg_msg = "[ " + name + " ]";
         std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
+        std::string hs_lag_msg = "You are too lagged to play in this arena.";
 
-        //bool eg_locked_in_spec =
-         //   chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
+        bool eg_lag_locked =
+            chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
 
         bool eg_locked_in_spec =
-            chat.message == eg_msg || chat.message == eg_packet_loss_msg && game->GetZone() == marvin::Zone::ExtremeGames;
+            eg_lag_locked || chat.message == eg_packet_loss_msg && game->GetZone() == marvin::Zone::ExtremeGames;
+
+        bool hs_locked_in_spec = chat.message == hs_lag_msg && game->GetZone() == marvin::Zone::Hyperspace;
 
         bool disconected = chat.message.compare(0, 9, "WARNING: ") == 0;
 
         
 
         if (chat.type == marvin::ChatType::Arena) {
-          if (disconected || eg_locked_in_spec) {
+          if (disconected || eg_locked_in_spec || hs_locked_in_spec) {
             PostQuitMessage(0);
             return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
           }
         }
       }
 
-      if (dt.count() > (float)(1.0f / 60.0f)) {
+      if (dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
 #if DEBUG_RENDER
         marvin::g_RenderState.renderable_texts.clear();
         marvin::g_RenderState.renderable_lines.clear();

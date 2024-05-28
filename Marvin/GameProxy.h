@@ -16,6 +16,7 @@ class Map;
 enum class UpdateState : short { Clear, Wait, Reload };
 enum class ItemAction : short {Buy, Sell, DepotBuy, DepotSell, ListItems, ListSlots, None};
 enum class CombatRole : short { Anchor, Rusher, Bomber, Gunner, Flagger, Turret, EMP, PowerBaller, None };
+enum class CombatDifficulty : short { Nerf, Normal, None };
 enum class WarpToState : short { Center, Base, None };
 enum class BDState : short { Running, Paused, Stopped, Ended };
 enum class CommandRequestType : short { ShipChange, ArenaChange, FreqChange, None };
@@ -201,6 +202,10 @@ class GameProxy {
   // May need to be called more than once to transition the game menu
   // Returns true if it attempts to set the ship this call.
   virtual void SetEnergy(uint64_t percent, std::string reason) = 0;
+  virtual void SetVelocity(Vector2f desired) = 0;
+  virtual void SetPosition(Vector2f desired) = 0;
+  virtual void SetSpeed(float desired) = 0;
+  virtual void SetThrust(uint32_t desired) = 0;
   virtual bool SetShip(uint16_t ship) = 0;
   virtual bool ResetShip() = 0;
   virtual void SetFreq(int freq) = 0;

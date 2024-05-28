@@ -1289,9 +1289,9 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
   bool cloaking = (status & Status_Cloak) != 0;
   bool multi_on = game.GetPlayer().multifire_status;
 
-  bool has_xradar = game.GetShipSettings().XRadarStatus == 2;
-  bool has_stealth = game.GetShipSettings().StealthStatus == 2;
-  bool has_cloak = game.GetShipSettings().CloakStatus == 2;
+  bool has_xradar = game.GetShipSettings().XRadarStatus != 0;
+  bool has_stealth = game.GetShipSettings().StealthStatus != 0;
+  bool has_cloak = game.GetShipSettings().CloakStatus != 0;
 
   //bool use_xradar = bb.ValueOr<bool>(BB::UseXRadar, true);
   //bool use_stealth = bb.ValueOr<bool>(BB::UseStealth, true);
@@ -1348,7 +1348,7 @@ behavior::ExecuteResult DevaToggleStatusNode::Execute(behavior::ExecuteContext& 
     }
   }
 
-  g_RenderState.RenderDebugText("  DevaToggleStatusNode: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  DevaToggleStatusNode(No Action Taken): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
@@ -1456,7 +1456,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
     return behavior::ExecuteResult::Failure;
   }
 
-  float player_energy_pct = target->energy / (float)game.GetShipSettings().MaximumEnergy;
+  float player_energy_pct = target->energy / (float)game.GetShipSettings(target->ship).MaximumEnergy;
 
   bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
 
@@ -1468,20 +1468,27 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
   if (in_safe) {
     hover_distance = 0.0f;
   } else {
-    //if (bb.ValueOr<bool>("InCenter", true)) {
-      if (bb.GetInCenter()) {
-      float diff = (energy_pct - player_energy_pct) * 10.0f;
-      hover_distance = 10.0f - diff;
+    // if (bb.ValueOr<bool>("InCenter", true)) {
+    if (bb.GetInCenter()) {
+      float diff = energy_pct - player_energy_pct;
+      hover_distance = 15.0f - diff;
 
-      if (hover_distance < 0.0f) hover_distance = 0.0f;
+      if (hover_distance < 5.0f) {
+        hover_distance = 5.0f;
+      }
+
     } else {
-      //if (bb.ValueOr<bool>("IsAnchor", false)) {
-        if (bb.GetCombatRole() == CombatRole::Anchor) {
+      // if (bb.ValueOr<bool>("IsAnchor", false)) {
+      if (bb.GetCombatRole() == CombatRole::Anchor) {
         hover_distance = 20.0f;
       } else {
         hover_distance = 7.0f;
       }
     }
+  }
+
+  if (bb.GetCombatDifficulty() == CombatDifficulty::Nerf) {
+    hover_distance += 5;
   }
 
   ctx.bot->Move(shot_position, hover_distance);

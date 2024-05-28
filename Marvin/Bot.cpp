@@ -257,8 +257,19 @@ void Bot::Update(float dt) {
     return;
   }
 
+ // game_->SetSpeed(10000000);
+  //game_->SetThrust(200);
+
+  if (blackboard_->GetCombatDifficulty() == CombatDifficulty::Nerf) {
+    update_interval_ = 10;
+  } else {
+    update_interval_ = 60;
+  }
+
   steering_.Reset();
   ctx_.dt = dt;
+
+  //game_->SetVelocity(Vector2f(200, 200));
 
   if (game_->GetZone() == Zone::Devastation) {
     if (game_->GetPlayer().name == "FrogBot") {
@@ -1647,6 +1658,10 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
           if (target.status & 2) {
             radius_multiplier = 3.0f;
           }
+        }
+
+        if (bb.GetCombatDifficulty() == CombatDifficulty::Nerf) {
+          radius_multiplier += 1.0f;
         }
 
         float nearby_radius = target_radius * radius_multiplier;

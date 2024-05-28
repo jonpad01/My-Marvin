@@ -50,6 +50,8 @@ class Blackboard {
   // 2 bytes
   CombatRole combat_role_;
   CombatRole combat_role_default_;
+  CombatDifficulty combat_difficulty_;
+  CombatDifficulty combat_difficulty_default_;
   BDState bd_state_;
   CommandRequestType command_request_;
   WarpToState warp_to_state_;
@@ -128,6 +130,8 @@ class Blackboard {
     freq_list_.resize(100, 0);
     combat_role_ = CombatRole::Rusher;
     combat_role_default_ = CombatRole::Rusher;
+    combat_difficulty_ = CombatDifficulty::Normal;
+    combat_difficulty_default_ = CombatDifficulty::Normal;
     bd_state_ = BDState::Stopped;
     warp_to_state_ = WarpToState::None;
     command_request_ = CommandRequestType::None;
@@ -274,6 +278,10 @@ class Blackboard {
   void SetCombatRole(CombatRole role) { combat_role_ = role; }
   void SetCombatRoleDefault(CombatRole role) { combat_role_default_ = role; }
   CombatRole GetCombatRole() { return combat_role_; }
+
+  void SetCombatDifficulty(CombatDifficulty difficulty) { combat_difficulty_ = difficulty; }
+  void SetCombatRoleDifficulty(CombatDifficulty difficulty) { combat_difficulty_default_ = difficulty; }
+  CombatDifficulty GetCombatDifficulty() { return combat_difficulty_; }
 
  // void SetBDChatType(ChatType type) { bd_chat_type_ = type; }
  // ChatType GetBDChatType() { return bd_chat_type_; }

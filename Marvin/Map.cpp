@@ -627,8 +627,8 @@ Vector2f Map::GetOccupyCenter(const Vector2f& position, float radius) const {
           found_end_y = check_y + d;
         }
 
-        Vector2f min(found_start_x, found_start_y);
-        Vector2f max(found_end_x + 1, found_end_y + 1);
+        Vector2f min((float)found_start_x, (float)found_start_y);
+        Vector2f max((float)found_end_x + 1, (float)found_end_y + 1);
 
         accum += (min + max) * 0.5f;
         ++count;

@@ -44,6 +44,8 @@ class Bot {
   TeamGoalCreator& GetTeamGoals() { return *goals_; }
   BasePaths& GetBasePaths() { return *base_paths_; }
   uint64_t GetLastLoadTimeStamp() { return last_load_timestamp_; }
+  float GetUpdateInterval() { return update_interval_; }
+  void SetUpdateInterval(float value) { update_interval_ = value; }
 
   const std::vector<Vector2f>& GetBasePath() {
     //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
@@ -78,6 +80,7 @@ class Bot {
  private:
 
   float radius_;
+  float update_interval_ = 60;
 
   uint64_t last_load_timestamp_ = 0;
   int load_index = 1;

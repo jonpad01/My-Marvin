@@ -119,8 +119,15 @@ void SteeringBehavior::Face(Bot& bot, Vector2f target) {
 
 void SteeringBehavior::Steer(Bot& bot, bool backwards) {
   auto& game = bot.GetGame();
+  auto& bb = bot.GetBlackboard();
   auto& keys = bot.GetKeys();
   // bool afterburners = GetAfterburnerState();
+  
+  float free_play = 80.0f / 81.0f;
+
+  if (bb.GetCombatDifficulty() == CombatDifficulty::Nerf) {
+    free_play = 0.97f;
+  }
 
   Vector2f heading = game.GetPlayer().GetHeading();
   if (backwards) {
@@ -188,7 +195,7 @@ void SteeringBehavior::Steer(Bot& bot, bool backwards) {
   }
 
   // above 0.996 and bot is constantly correcting creating a wobble
-  if (heading.Dot(steering_direction) < 0.996f) {  // 1.0f
+  if (heading.Dot(steering_direction) < free_play) {  // 1.0f
 
     // ensure that only one arrow key is pressed at any given time
     keys.Set(VK_RIGHT, clockwise);

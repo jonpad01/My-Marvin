@@ -135,6 +135,10 @@ class ContinuumGameProxy : public GameProxy {
   void SetSelectedPlayer(uint16_t id) override;
   std::size_t GetIDIndex() override;
   void SetStatus(StatusFlag status, bool on_off) override;
+  void SetVelocity(Vector2f desired) override;
+  void SetPosition(Vector2f desired) override;
+  void SetSpeed(float desired) override;
+  void SetThrust(uint32_t desired) override;
 
  
   

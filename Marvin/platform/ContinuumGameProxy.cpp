@@ -214,6 +214,9 @@ void ContinuumGameProxy::FetchPlayers() {
       player.flight_status.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
       player.flight_status.shrapnel = *(u32*)(player_addr + 0x2A8) + *(u32*)(player_addr + 0x2AC);
       player.flight_status.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
+      g_RenderState.RenderDebugText("Player Thrust 1: %u", *(u32*)(player_addr + 0x244));
+      g_RenderState.RenderDebugText("Player Thrust 2: %u", *(u32*)(player_addr + 0x248));
+      g_RenderState.RenderDebugText("Player Thrust: %u", *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248));
       player.flight_status.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
       player.flight_status.max_energy = *(u32*)(player_addr + 0x1C8) + *(u32*)(player_addr + 0x1C4);
 
@@ -719,6 +722,51 @@ const std::string ContinuumGameProxy::GetMapFile() const {
   std::string file = process_.ReadString((*(u32*)(game_addr_ + 0x127ec + 0x6C4)) + 0x01, 16);
 
   return file;
+}
+
+void ContinuumGameProxy::SetVelocity(Vector2f desired) {
+
+  int32_t vel_x = int32_t(desired.x * 10.0f * 16.0f);
+  int32_t vel_y = int32_t(desired.y * 10.0f * 16.0f);
+
+  process_.WriteI32(player_addr_ + 0x10, vel_x);
+  process_.WriteI32(player_addr_ + (0x10 + 4), vel_y);
+}
+
+void ContinuumGameProxy::SetPosition(Vector2f desired) {
+  uint32_t vel_x = uint32_t(desired.x * 10.0f * 16.0f);
+  uint32_t vel_y = uint32_t(desired.y * 10.0f * 16.0f);
+
+  process_.WriteU32(player_addr_ + 0x04, vel_x);
+  process_.WriteU32(player_addr_ + (0x04 + 4), vel_y);
+}
+
+void ContinuumGameProxy::SetSpeed(float desired) {
+
+    uint32_t speed = (uint32_t)desired;
+
+    speed *= 10;
+    speed *= 16;
+
+    process_.WriteU32(player_addr_ + 0x350, speed / 2);
+    process_.WriteU32(player_addr_ + 0x354, speed / 2);
+
+  //player.flight_status.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
+}
+
+void ContinuumGameProxy::SetThrust(uint32_t desired) {
+
+    const uint64_t overflow = 4294967296;
+
+    desired *= 16;
+    desired /= 10;
+
+    u64 large_value = desired + overflow;
+
+    process_.WriteU32(player_addr_ + 0x244, (u32)(large_value / 2));
+    process_.WriteU32(player_addr_ + 0x248, (u32)(large_value / 2));
+
+    //player.flight_status.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
 }
 
 void ContinuumGameProxy::SetEnergy(uint64_t percent, std::string reason) {

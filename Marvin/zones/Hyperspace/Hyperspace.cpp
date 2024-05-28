@@ -628,13 +628,10 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
         }
       }
     }
-
-    bb.SetEnemyAnchor(enemy_anchor);
-
-    g_RenderState.RenderDebugText("  HSPlayerSortNode: %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Success;
   }
-  return behavior::ExecuteResult::Failure;
+  bb.SetEnemyAnchor(enemy_anchor);
+  g_RenderState.RenderDebugText("  HSPlayerSortNode: %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
 }
 
 /*
