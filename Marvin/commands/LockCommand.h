@@ -24,10 +24,10 @@ class LockCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "lock currently OFF.");
       }
     } else {
-      if (alias == "lockon" || args[0] == "on") {
+      if (alias == "lockon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning lock ON.");
         bb.SetCommandLock(true);
-      } else if (alias == "lockoff" || args[0] == "off") {
+      } else if (alias == "lockoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning lock OFF.");
         bb.SetCommandLock(false);
       } else {

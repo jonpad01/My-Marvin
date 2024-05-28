@@ -27,10 +27,10 @@ class UFOCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "ufo currently OFF.");
       }
     } else {
-      if (alias == "ufoon" || args[0] == "on") {
+      if (alias == "ufoon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning ufo ON.");
         game.SetStatus(StatusFlag::Status_UFO, true);
-      } else if (alias == "ufooff" || args[0] == "off") {
+      } else if (alias == "ufooff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning ufo OFF.");
         game.SetStatus(StatusFlag::Status_UFO, false);
       } else {

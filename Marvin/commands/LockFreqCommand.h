@@ -24,10 +24,10 @@ class LockFreqCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "lockfreq currently OFF.");
       }
     } else {
-      if (alias == "lockfreqon" || args[0] == "on") {
+      if (alias == "lockfreqon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning lockfreq ON.");
         bb.SetFreqLock(true);
-      } else if (alias == "lockfreqoff" || args[0] == "off") {
+      } else if (alias == "lockfreqoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning lockfreq OFF.");
         bb.SetFreqLock(false);
       } else {

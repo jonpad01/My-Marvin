@@ -25,10 +25,10 @@ class MultiCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "multi currently OFF.");
       }
     } else {
-      if (alias == "multion" || args[0] == "on") {
+      if (alias == "multion" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning multi ON.");
         bb.SetUseMultiFire(true);
-      } else if (alias == "multioff" || args[0] == "off") {
+      } else if (alias == "multioff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning multi OFF.");
         bb.SetUseMultiFire(false);
       } else {
@@ -69,10 +69,10 @@ class CloakCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "cloak currently OFF.");
       }
     } else {
-      if (alias == "cloakon" || args[0] == "on") {
+      if (alias == "cloakon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning cloak ON.");
         bb.SetUseCloak(true);
-      } else if (alias == "cloakoff" || args[0] == "off") {
+      } else if (alias == "cloakoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning cloak OFF.");
         bb.SetUseCloak(false);
       } else {
@@ -113,10 +113,10 @@ class StealthCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "stealth currently OFF.");
       }
     } else {
-      if (alias == "stealthon" || args[0] == "on") {
+      if (alias == "stealthon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning stealth ON.");
         bb.SetUseStealth(true);
-      } else if (alias == "stealthoff" || args[0] == "off") {
+      } else if (alias == "stealthoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning stealth OFF.");
         bb.SetUseStealth(false);
       } else {
@@ -157,10 +157,10 @@ class XRadarCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "xradar currently OFF.");
       }
     } else {
-      if (alias == "xradaron" || args[0] == "on") {
+      if (alias == "xradaron" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning xradar ON.");
         bb.SetUseXradar(true);
-      } else if (alias == "xradaroff" || args[0] == "off") {
+      } else if (alias == "xradaroff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning xradar OFF.");
         bb.SetUseXradar(false);
       } else {
@@ -201,10 +201,10 @@ class AntiWarpCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "anti currently OFF.");
       }
     } else {
-      if (alias == "antion" || args[0] == "on") {
+      if (alias == "antion" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning anti ON.");
         bb.SetUseAntiWarp(true);
-      } else if (alias == "antioff" || args[0] == "off") {
+      } else if (alias == "antioff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning anti OFF.");
         bb.SetUseAntiWarp(false);
       } else {

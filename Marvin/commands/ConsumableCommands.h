@@ -24,10 +24,10 @@ class RepelCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "repel currently OFF.");
       }
     } else {
-      if (alias == "repelon" || args[0] == "on") {  // could be an access violation
+      if (alias == "repelon" || !args.empty() && args[0] == "on") {  // could be an access violation
         game.SendPrivateMessage(sender, "Turning repel ON.");
         bb.SetUseRepel(true);
-      } else if (alias == "repeloff" || args[0] == "off") {
+      } else if (alias == "repeloff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning repel OFF.");
         bb.SetUseRepel(false);
       } else {
@@ -68,10 +68,10 @@ class BurstCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "burst currently OFF.");
       }
     } else {
-      if (alias == "burston" || args[0] == "on") {
+      if (alias == "burston" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning burst ON.");
         bb.SetUseBurst(true);
-      } else if (alias == "burstoff" || args[0] == "off") {
+      } else if (alias == "burstoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning burst OFF.");
         bb.SetUseBurst(false);
       } else {
@@ -113,10 +113,10 @@ class DecoyCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "decoy currently OFF.");
       }
     } else {
-      if (alias == "decoyon" || args[0] == "on") {
+      if (alias == "decoyon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning decoy ON.");
         bb.SetUseDecoy(true);
-      } else if (alias == "decoyoff" || args[0] == "off") {
+      } else if (alias == "decoyoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning decoy OFF.");
         bb.SetUseDecoy(false);
       } else {
@@ -157,10 +157,10 @@ class RocketCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "rocket currently OFF.");
       }
     } else {
-      if (alias == "rocketon" || args[0] == "on") {
+      if (alias == "rocketon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning rocket ON.");
         bb.SetUseRocket(true);
-      } else if (alias == "rocketoff" || args[0] == "off") {
+      } else if (alias == "rocketoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning rocket OFF.");
         bb.SetUseRocket(false);
       } else {
@@ -201,10 +201,10 @@ class BrickCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "brick currently OFF.");
       }
     } else {
-      if (alias == "brickon" || args[0] == "on") {
+      if (alias == "brickon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning brick ON.");
         bb.SetUseBrick(true);
-      } else if (alias == "brickoff" || args[0] == "off") {
+      } else if (alias == "brickoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning brick OFF.");
         bb.SetUseBrick(false);
       } else {
@@ -245,10 +245,10 @@ class PortalCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "portal currently OFF.");
       }
     } else {
-      if (alias == "portalon" || args[0] == "on") {
+      if (alias == "portalon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning portal ON.");
         bb.SetUsePortal(true);
-      } else if (alias == "portaloff" || args[0] == "off") {
+      } else if (alias == "portaloff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning portal OFF.");
         bb.SetUsePortal(false);
       } else {
@@ -289,10 +289,10 @@ class ThorCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "thor currently OFF.");
       }
     } else {
-      if (alias == "thoron" || args[0] == "on") {
+      if (alias == "thoron" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning thor ON.");
         bb.SetUseThor(true);
-      } else if (alias == "thoroff" || args[0] == "off") {
+      } else if (alias == "thoroff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning thor OFF.");
         bb.SetUseThor(false);
       } else {

@@ -24,10 +24,10 @@ class SwarmCommand : public CommandExecutor {
         game.SendPrivateMessage(sender, "swarm currently OFF.");
       }
     } else {
-      if (alias == "swarmon" || args[0] == "on") {
+      if (alias == "swarmon" || !args.empty() && args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning swarm ON.");
         bb.SetSwarm(true);
-      } else if (alias == "swarmoff" || args[0] == "off") {
+      } else if (alias == "swarmoff" || !args.empty() && args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning swarm OFF.");
         bb.SetSwarm(false);
       } else {
