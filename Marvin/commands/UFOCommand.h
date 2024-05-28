@@ -46,7 +46,7 @@ class UFOCommand : public CommandExecutor {
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"ufo"}; }
+  std::vector<std::string> GetAliases() { return {"ufo", "ufoon", "ufooff"}; }
   std::string GetDescription() {
     return "Sets bot to switch ufo status with arguments \"on\" \"off\"";
   }
