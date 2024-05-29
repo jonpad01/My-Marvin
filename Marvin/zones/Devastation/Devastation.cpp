@@ -1448,8 +1448,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
   float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
 
   // attempt to give each bot a random hover distance
-  float base_distance = (float)(game.GetPlayer().id % 15);
-  if (base_distance < 5) base_distance += 5;
+  float base_distance = (float)(game.GetPlayer().id % 10) + 5.0f;
 
   //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
   const Player* target = bb.GetTarget();
