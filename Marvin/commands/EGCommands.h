@@ -7,8 +7,7 @@ namespace marvin {
 
 class EGPCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -30,8 +29,7 @@ class EGPCommand : public CommandExecutor {
 
 class EGLCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -51,8 +49,7 @@ class EGLCommand : public CommandExecutor {
 
 class EGRCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 

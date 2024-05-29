@@ -318,7 +318,7 @@ behavior::ExecuteResult HSPrintShipStatusNode::Execute(behavior::ExecuteContext&
     return behavior::ExecuteResult::Failure;
   }
 
-   for (ChatMessage& msg : game.GetChat()) {
+   for (ChatMessage& msg : game.GetCurrentChat()) {
     if (msg.type != ChatType::Arena) continue;
 
     std::size_t found = msg.message.find(kLine);
@@ -445,7 +445,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   // now look for confirmation messages before clearing the item action flag
-  for (ChatMessage& msg : game.GetChat()) {
+  for (ChatMessage& msg : game.GetCurrentChat()) {
     if (msg.type != ChatType::Arena) continue;
 
     for (std::size_t i = 0; i < match_list.size(); i++) {
@@ -657,7 +657,7 @@ AnchorResult HSPlayerSortNode::GetAnchors(Bot& bot) {
 
   //                 (summoner)      (evoker)   (in a lanc but no summoner/evoker)
   // example format: (S) Baked Cake, (E) marv1, marv2
-  for (ChatMessage& chat : game.GetChat()) {
+  for (ChatMessage& chat : game.GetCurrentChat()) {
 
     // make sure message is a server message
     if (chat.type != ChatType::Arena) {

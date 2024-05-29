@@ -494,23 +494,16 @@ behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
+ 
+ // bool executed = false;
 
-  ChatMessage chat = game.GetNextCommand();
-
-  while (!chat.message.empty()) {
+  for (ChatMessage& chat : game.GetCurrentChat()) {
     if (ctx.bot->GetCommandSystem().ProcessMessage(*ctx.bot, chat)) {
       // Return failure on execute so the behavior will start over next tick with the commands processed completely.
       g_RenderState.RenderDebugText("  CommandNode(fail): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     }
-    chat = game.GetNextCommand();
   }
-
-
- // bool executed = false;
-
- // for (ChatMessage& chat : game.GetChat()) {
-  //}
 
   g_RenderState.RenderDebugText("  CommandNode(success): %llu", timer.GetElapsedTime());
 
@@ -595,7 +588,7 @@ behavior::ExecuteResult SetFreqNode::Execute(behavior::ExecuteContext& ctx) {
         game.SetFreq(freq);
       }
 
-      for (ChatMessage& chat : game.GetChat()) {
+      for (ChatMessage& chat : game.GetCurrentChat()) {
         if (chat.message == balancer_msg && chat.type == ChatType::Arena) {
           game.SendChatMessage("The zone balancer has prevented me from joining that team.");
           // bb.Set<uint16_t>("Freq", 999);

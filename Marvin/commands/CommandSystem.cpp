@@ -116,21 +116,28 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
   if (msg.empty()) return false;
   if (msg[0] != '!' && msg[0] != '.') return false;
 
-  // ignore messages sent from self unless the message is pm'd to self
-  // this works because pm'ing self causes a double message
-  // so the function here can throw out the first message, and process the next one
-  // if it is recieved within the 250ms limit 
+  // the chat fetcher picks up public/private commands sent from the bot to other bots in chat
+  // the chat fetcher also picks up double messages when the bot pm's itself
+  // the command proccessor needs to handle commands sent from itself
+  // 
+  // this behavior should:
+  // 1. Trigger on it's own public commands
+  // 2. Not trigger on private commands sent to other bots
+  // 3. Trigger on private commands sent to itself one time
   if (chat.player == bot.GetGame().GetName() && chat.type == ChatType::Private) {
    // reset the flag 
    if (time_.GetTime() > self_message_cooldown_) {
       ignore_self_message_ = true;
    }
 
+   // always throw out the first message, and allow any after if sent within a short time window
    if (ignore_self_message_) {
       ignore_self_message_ = false;
       self_message_cooldown_ = time_.GetTime() + 250;
       return false;
-   } 
+   } else {
+      ignore_self_message_ = true;
+   }
   } 
 
   msg.erase(0, 1);
@@ -138,15 +145,54 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
   std::vector<std::string> tokens = Tokenize(msg, ';');
 
   for (std::string current_msg : tokens) {
+
+    // search for commands that are delimited with a space
     std::size_t split = current_msg.find(' ');
-    std::string trigger = Lowercase(current_msg.substr(0, split));
+    const std::string trigger = Lowercase(current_msg.substr(0, split));
+    std::string temp_trigger = trigger;
     std::string arg;
+
+    auto iter = commands_.find(trigger);
+
+    // search for commands that have no delimiter, but contain a digit.
+    if (iter == commands_.end()) {
+      
+      auto digit_iter = std::find_if(trigger.begin(), trigger.end(), isdigit);
+
+      if (digit_iter != trigger.begin() && digit_iter != trigger.end()) {
+        split = digit_iter - trigger.begin() - 1;
+        temp_trigger = trigger.substr(0, split + 1);
+        iter = commands_.find(temp_trigger);
+      }
+    }
+
+    // search for commands that end with the phrase "on"
+    if (iter == commands_.end()) {
+      split = trigger.find_last_of("on");
+
+      if (split != std::string::npos) {
+        split--;
+        temp_trigger = trigger.substr(0, split + 1);
+        iter = commands_.find(temp_trigger);
+      }
+    }
+
+    // search for commands that end with the phrase "off"
+    if (iter == commands_.end()) {
+      split = trigger.find_last_of("off");
+
+      if (split != std::string::npos) {
+        split--;
+        temp_trigger = trigger.substr(0, split + 1);
+        iter = commands_.find(temp_trigger);
+      }
+    }
 
     if (split != std::string::npos) {
       arg = current_msg.substr(split + 1);
     }
 
-    auto iter = commands_.find(trigger);
+    //iter = commands_.find(trigger);
     if (iter != commands_.end()) {
       CommandExecutor& command = *iter->second;
       u32 access_request = (1 << (u32)chat.type);
@@ -177,7 +223,7 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
             // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
             // if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
             if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock() || security_level > 0) {
-              command.Execute(*this, bot, chat.player, trigger, arg);
+              command.Execute(*this, bot, chat.player, arg);
               result = true;
             }
           }

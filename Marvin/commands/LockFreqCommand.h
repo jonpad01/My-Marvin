@@ -7,8 +7,7 @@ namespace marvin {
 
 class LockFreqCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -17,17 +16,17 @@ class LockFreqCommand : public CommandExecutor {
 
     if (args.empty()) status = true;
 
-    if (status && alias == "lockfreq") {
+    if (status) {
       if (bb.GetFreqLock()) {
         game.SendPrivateMessage(sender, "lockfreq currently ON.");
       } else {
         game.SendPrivateMessage(sender, "lockfreq currently OFF.");
       }
     } else {
-      if (alias == "lockfreqon" || !args.empty() && args[0] == "on") {
+      if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning lockfreq ON.");
         bb.SetFreqLock(true);
-      } else if (alias == "lockfreqoff" || !args.empty() && args[0] == "off") {
+      } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning lockfreq OFF.");
         bb.SetFreqLock(false);
       } else {
@@ -43,7 +42,7 @@ class LockFreqCommand : public CommandExecutor {
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"lockfreq", "lockfreqon", "lockfreqoff"}; }
+  std::vector<std::string> GetAliases() { return {"lockfreq"}; }
   std::string GetDescription() { return "Locks/unlocks automatic frequency selection"; }
   int GetSecurityLevel() { return 1; }
   CommandType GetCommandType() { return CommandType::Action; }

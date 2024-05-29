@@ -10,8 +10,7 @@ namespace marvin {
 
 class ModListCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     if (sender.empty()) return;
 
     std::string output;

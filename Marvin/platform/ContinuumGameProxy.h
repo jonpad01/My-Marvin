@@ -12,7 +12,6 @@
 namespace marvin {
 
 enum class SetShipStatus : short { Clear, SetShip, ResetShip };
-enum class ChatStatus : short { Unread, ClearChat };
 
 #pragma pack(push, 1)
 struct WeaponMemory {
@@ -71,8 +70,8 @@ class ContinuumGameProxy : public GameProxy {
   UpdateState Update(float dt) override;
 
   std::string GetName() const override;
-  std::vector<ChatMessage> GetChat() override;
-  ChatMessage GetNextCommand() override;
+  std::vector<ChatMessage> GetCurrentChat() override;
+  std::vector<ChatMessage> GetChatHistory() override;
   int GetEnergy() const override;
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
@@ -173,8 +172,8 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<ContinuumWeapon> enemy_mines_;
  // ShipFlightStatus ship_status_;
   ShipCapability capability_;
-  std::vector<ChatMessage> recent_chat_;
-  std::vector<ChatMessage> player_commands_;
+  std::vector<ChatMessage> chat_;
+  std::vector<ChatMessage> current_chat_;
   std::size_t chat_index_;
   ExeProcess process_;
   HWND hwnd_;
@@ -197,7 +196,6 @@ class ContinuumGameProxy : public GameProxy {
   int tries_;
   int sent_message_count_;
   UpdateState game_status_;
-  ChatStatus chat_status_;
   uint64_t attach_cooldown_;
   uint64_t flag_cooldown_;
   uint64_t setfreq_cooldown_;

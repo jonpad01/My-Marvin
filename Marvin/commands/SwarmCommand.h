@@ -7,8 +7,7 @@ namespace marvin {
 
 class SwarmCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -17,17 +16,17 @@ class SwarmCommand : public CommandExecutor {
 
     if (args.empty()) status = true;
 
-    if (status && alias == "swarm") {
+    if (status) {
       if (bb.GetSwarm()) {
         game.SendPrivateMessage(sender, "swarm currently ON.");
       } else {
         game.SendPrivateMessage(sender, "swarm currently OFF.");
       }
     } else {
-      if (alias == "swarmon" || !args.empty() && args[0] == "on") {
+      if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning swarm ON.");
         bb.SetSwarm(true);
-      } else if (alias == "swarmoff" || !args.empty() && args[0] == "off") {
+      } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning swarm OFF.");
         bb.SetSwarm(false);
       } else {
@@ -43,7 +42,7 @@ class SwarmCommand : public CommandExecutor {
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"swarm", "swarmon", "swarmoff"}; }
+  std::vector<std::string> GetAliases() { return {"swarm"}; }
   std::string GetDescription() {
     return "Enable swarm behavior. Bots will respawn quickly with low health when basing";
   }

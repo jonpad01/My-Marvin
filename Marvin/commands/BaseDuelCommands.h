@@ -7,8 +7,7 @@ namespace marvin {
 
 class BDPublicCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -39,8 +38,7 @@ class BDPublicCommand : public CommandExecutor {
 
 class BDPrivateCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -72,8 +70,7 @@ class BDPrivateCommand : public CommandExecutor {
 
 class StartBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -117,8 +114,7 @@ class StartBDCommand : public CommandExecutor {
 
 class StopBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -159,8 +155,7 @@ class StopBDCommand : public CommandExecutor {
 
 class HoldBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -198,8 +193,7 @@ class HoldBDCommand : public CommandExecutor {
 
 class ResumeBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 

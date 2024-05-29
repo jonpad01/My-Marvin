@@ -10,8 +10,7 @@ namespace marvin {
 
 class CommandsCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     if (sender.empty()) return;
     GameProxy& game = bot.GetGame();
     Zone zone = bot.GetGame().GetZone();

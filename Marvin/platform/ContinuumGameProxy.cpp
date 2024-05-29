@@ -21,7 +21,6 @@ ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
   reset_ship_status_ = SetShipStatus::Clear;
   UpdateState game_status_ = UpdateState::Clear;
   set_freq_flag_ = 0;
-  chat_status_ = ChatStatus::Unread;
   desired_ship_ = 0;
   desired_freq_ = 0;
   original_ship_ = 0;
@@ -345,6 +344,9 @@ void ContinuumGameProxy::FetchGreens() {
 
 // Retrieves every chat message since the last call
 void ContinuumGameProxy::FetchChat() {
+
+  current_chat_.clear();  // flush out old chat 
+
   struct ChatEntry {
     char message[256];
     char player[24];
@@ -367,16 +369,6 @@ void ContinuumGameProxy::FetchChat() {
     read_count += 64;
   }
 
-  // clear chat if it was read in the last update
-  if (chat_status_ == ChatStatus::ClearChat) {
-    recent_chat_.clear();
-  }
-
-  // only hold onto 30 messages
-  while (recent_chat_.size() > 30) {
-    recent_chat_.erase(recent_chat_.begin());
-  }
-
   for (int i = 0; i < read_count; ++i) {
     if (chat_index_ >= 1024) {
       chat_index_ -= 64;
@@ -392,20 +384,8 @@ void ContinuumGameProxy::FetchChat() {
 
     if (chat.message.empty()) continue;
 
-    if (chat.message[0] == '!' || chat.message[0] == '.') {
-      //log.Write("Message name found");
-      // ignore duplicate commands
-      bool ignore = false;
-      for (std::size_t i = 0; i < player_commands_.size(); i++) {
-        if (chat.message == player_commands_[i].message) ignore = true;
-       // log.Write("Message ignored");
-      }
-
-      if (ignore) continue;
-      player_commands_.push_back(chat);
-    } else {
-      recent_chat_.push_back(chat);
-    }
+    current_chat_.push_back(chat);
+    chat_.push_back(chat);  
   }
 }
 
@@ -508,30 +488,11 @@ void ContinuumGameProxy::SetZone() {
 //   return ship_status_;
 // }
 
-const Zone ContinuumGameProxy::GetZone() {
-  return zone_;
-}
+const Zone ContinuumGameProxy::GetZone() { return zone_; }
 
-std::vector<ChatMessage> ContinuumGameProxy::GetChat() {
 
-  // clear the chat during the next update if it was read
-  // don't clear it right away in case something else wants to read it during this update
-  chat_status_ = ChatStatus::ClearChat;
-  
-  return recent_chat_;
-}
-
-ChatMessage ContinuumGameProxy::GetNextCommand() {
-
-  ChatMessage command;
-
-  if (!player_commands_.empty()) {
-    command = player_commands_[player_commands_.size() - 1];
-    player_commands_.pop_back();
-  }
-
-  return command;
-}
+std::vector<ChatMessage> ContinuumGameProxy::GetChatHistory() { return chat_; }
+std::vector<ChatMessage> ContinuumGameProxy::GetCurrentChat() { return current_chat_; }
 
 const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
   return balls_;
@@ -891,7 +852,7 @@ void ContinuumGameProxy::Attach(std::string name) {
 
   if (time_.GetTime() < attach_cooldown_) return;
  
-    ResetStatus();
+  ResetStatus();
   SetEnergy(100, "attach to player");
 
   if (zone_ == Zone::Hyperspace) {
@@ -910,7 +871,7 @@ void ContinuumGameProxy::Attach(uint16_t id) {
 
   if (time_.GetTime() < attach_cooldown_) return;
 
-    ResetStatus();
+  ResetStatus();
   SetEnergy(100, "attach to player");
 
   if (zone_ == Zone::Hyperspace) {
@@ -1145,12 +1106,6 @@ void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
 }
 
 void ContinuumGameProxy::SendChatMessage(const std::string& mesg) {
-
-  // don't send duplicate messages
-  for (std::size_t i = 0; i < message_queue_.size(); i++) {
-    //if (message_queue_[i] == mesg) return;
-  }
-
   message_queue_.emplace_back(mesg);
 }
 

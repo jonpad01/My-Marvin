@@ -7,8 +7,7 @@ namespace marvin {
 
 class UFOCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -20,17 +19,17 @@ class UFOCommand : public CommandExecutor {
 
     if (args.empty()) status = true;
 
-    if (status && alias == "ufo") {
+    if (status) {
       if (ufo_enabled) {
         game.SendPrivateMessage(sender, "ufo currently ON.");
       } else {
         game.SendPrivateMessage(sender, "ufo currently OFF.");
       }
     } else {
-      if (alias == "ufoon" || !args.empty() && args[0] == "on") {
+      if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning ufo ON.");
         game.SetStatus(StatusFlag::Status_UFO, true);
-      } else if (alias == "ufooff" || !args.empty() && args[0] == "off") {
+      } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning ufo OFF.");
         game.SetStatus(StatusFlag::Status_UFO, false);
       } else {
@@ -46,7 +45,7 @@ class UFOCommand : public CommandExecutor {
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"ufo", "ufoon", "ufooff"}; }
+  std::vector<std::string> GetAliases() { return {"ufo"}; }
   std::string GetDescription() {
     return "Sets bot to switch ufo status with arguments \"on\" \"off\"";
   }

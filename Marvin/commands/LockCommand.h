@@ -7,8 +7,7 @@ namespace marvin {
 
 class LockCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -17,17 +16,17 @@ class LockCommand : public CommandExecutor {
 
     if (args.empty()) status = true;
 
-    if (status && alias == "lock") {
+    if (status) {
       if (bb.GetCommandLock()) {
         game.SendPrivateMessage(sender, "lock currently ON.");
       } else {
         game.SendPrivateMessage(sender, "lock currently OFF.");
       }
     } else {
-      if (alias == "lockon" || !args.empty() && args[0] == "on") {
+      if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning lock ON.");
         bb.SetCommandLock(true);
-      } else if (alias == "lockoff" || !args.empty() && args[0] == "off") {
+      } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning lock OFF.");
         bb.SetCommandLock(false);
       } else {
@@ -43,7 +42,7 @@ class LockCommand : public CommandExecutor {
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
-  std::vector<std::string> GetAliases() { return {"lock", "lockon", "lockoff"}; }
+  std::vector<std::string> GetAliases() { return {"lock"}; }
   std::string GetDescription() { return "Locks/unlocks bot so only mods can make changes"; }
   int GetSecurityLevel() { return 5; }
   CommandType GetCommandType() { return CommandType::Action; }

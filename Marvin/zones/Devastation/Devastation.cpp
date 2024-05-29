@@ -1447,6 +1447,10 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 
   float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
 
+  // attempt to give each bot a random hover distance
+  float base_distance = (float)(game.GetPlayer().id % 15);
+  if (base_distance < 5) base_distance += 5;
+
   //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
   const Player* target = bb.GetTarget();
 
@@ -1469,11 +1473,11 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
   } else {
     // if (bb.ValueOr<bool>("InCenter", true)) {
     if (bb.GetInCenter()) {
-      float diff = energy_pct - player_energy_pct;
-      hover_distance = 15.0f - diff;
+      float diff = base_distance * (energy_pct - player_energy_pct);
+      hover_distance = base_distance - diff;
 
-      if (hover_distance < 5.0f) {
-        hover_distance = 5.0f;
+      if (hover_distance < 1.0f) {
+        hover_distance = 1.0f;
       }
 
     } else {

@@ -151,7 +151,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
     
     if (g_Enabled) {
-      for (marvin::ChatMessage chat : game->GetChat()) {
+      for (marvin::ChatMessage chat : game->GetCurrentChat()) {
 
         std::string name = game->GetPlayer().name;
         std::string eg_msg = "[ " + name + " ]";

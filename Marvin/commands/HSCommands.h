@@ -7,8 +7,7 @@ namespace marvin {
 
 class HSShipStatusCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -47,8 +46,7 @@ class HSShipStatusCommand : public CommandExecutor {
 
 class HSBuyCommand : public CommandExecutor {
   public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
      Blackboard& bb = bot.GetBlackboard();
      GameProxy& game = bot.GetGame();
      
@@ -106,8 +104,7 @@ class HSBuyCommand : public CommandExecutor {
 
 class HSSellCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
      Blackboard& bb = bot.GetBlackboard();
      GameProxy& game = bot.GetGame();
 
@@ -162,8 +159,7 @@ class HSSellCommand : public CommandExecutor {
 
 class HSFlagCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
@@ -189,8 +185,7 @@ class HSFlagCommand : public CommandExecutor {
 
 class HSCenterCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender,
-               const std::string& alias, const std::string& arg) override {
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
