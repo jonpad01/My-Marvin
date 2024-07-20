@@ -74,6 +74,9 @@ class CommandSystem {
   const Operators& GetOperators() const;
 
  private:
+  static std::pair<std::string_view, Commands::const_iterator> GetTrigger(const Commands& commands,
+                                                                          std::string_view candidate);
+
   Commands commands_;
   bool ignore_self_message_ = true;
   Time time_;

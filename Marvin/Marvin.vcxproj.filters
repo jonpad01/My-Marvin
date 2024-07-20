@@ -117,6 +117,9 @@
     <ClCompile Include="zones\ExtremeGames.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="commands\SayCommand.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameProxy.h">
@@ -294,6 +297,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\TipCommand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\CommandAnnouncerCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -153,6 +153,7 @@
     <ClCompile Include="behavior\BehaviorTree.cpp" />
     <ClCompile Include="Bot.cpp" />
     <ClCompile Include="commands\CommandSystem.cpp" />
+    <ClCompile Include="commands\SayCommand.h" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="MapCoord.cpp" />
@@ -191,6 +192,7 @@
     <ClInclude Include="ClientSettings.h" />
     <ClInclude Include="commands\BaseDuelCommands.h" />
     <ClInclude Include="commands\CombatRoleCommands.h" />
+    <ClInclude Include="commands\CommandAnnouncerCommands.h" />
     <ClInclude Include="commands\EGCommands.h" />
     <ClInclude Include="commands\HSCommands.h" />
     <ClInclude Include="commands\SetArenaCommand.h" />

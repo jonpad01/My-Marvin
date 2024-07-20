@@ -21,14 +21,17 @@
 #include "EGCommands.h"
 #include "TipCommand.h"
 #include "UFOCommand.h"
+#include "CommandAnnouncerCommands.h"
+#include "SayCommand.h"
 
 namespace marvin {
 
 constexpr int kArenaSecurityLevel = 5;
 // add names in lowercase
 const std::unordered_map<std::string, int> kOperators = {
-    {"tm_master", 10}, {"baked cake", 10}, {"x-demo", 10}, {"lyra.", 5}, {"profile", 5}, {"monkey", 5},
-    {"neostar", 5},    {"geekgrrl", 5},    {"sed", 5},     {"sk", 5},    {"b.o.x.", 10}};
+    {"tm_master", 10}, {"baked cake", 10}, {"x-demo", 10}, {"lyra.", 5}, {"profile", 5}, {"monkey", 10},    
+    {"neostar", 5},     {"geekgrrl", 5},  {"sed", 5},   {"frog", 5},
+    {"sk", 5},         {"b.o.x.", 10},     {"devastated", 5}};
 
 CommandSystem::CommandSystem(Zone zone) {
 
@@ -37,11 +40,13 @@ CommandSystem::CommandSystem(Zone zone) {
   RegisterCommand(std::make_shared<DelimiterCommand>());
   RegisterCommand(std::make_shared<ModListCommand>());
   RegisterCommand(std::make_shared<TipCommand>());
+  RegisterCommand(std::make_shared<StaffChatAnnouncerCommand>());
 
   RegisterCommand(std::make_shared<LockCommand>());
   RegisterCommand(std::make_shared<SetShipCommand>());
   RegisterCommand(std::make_shared<SetFreqCommand>());
   RegisterCommand(std::make_shared<SetArenaCommand>());
+  RegisterCommand(std::make_shared<SayCommand>());
 
   RegisterCommand(std::make_shared<LockFreqCommand>());
 
@@ -144,15 +149,79 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
 
   std::vector<std::string> tokens = Tokenize(msg, ';');
 
+    for (std::string current_msg : tokens) {
+   std::size_t split = current_msg.find(' ');
+   std::string candidate_trigger = Lowercase(current_msg.substr(0, split));
+
+   auto [trigger, iter] = GetTrigger(commands_, candidate_trigger);
+
+   std::string arg = current_msg.substr(trigger.size());
+
+   if (iter != commands_.end()) {
+      CommandExecutor& command = *iter->second;
+      u32 access_request = (1 << (u32)chat.type);
+
+      /*
+       * bitfield evaluation example (showing 4 bits):
+       * chat type is 0000 for arena message
+       * request_access evaluates to 0001
+       * command access can be 0001 for arena or 0101 for both arena and public
+       * 0001 & 0101 = 0001 which evaluates to true or non zero
+       */
+      if (access_request & command.GetAccess()) {
+        int security_level = 0;
+
+        if (chat.type == ChatType::Arena) {
+          security_level = kArenaSecurityLevel;
+        } else {
+          auto op_iter = kOperators.find(Lowercase(chat.player));
+
+          if (op_iter != kOperators.end()) {
+            security_level = op_iter->second;
+          }
+        }
+
+        if (security_level >= command.GetSecurityLevel()) {
+          Blackboard& bb = bot.GetBlackboard();
+
+          // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
+          // if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
+          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock() || security_level > 0) {
+            command.Execute(*this, bot, chat.player, arg);
+            if (bb.ValueOr<bool>("staffchatannouncer", false) || trigger == "cmdlogger") {
+              bot.GetGame().SendChatMessage("\\" + chat.player + " has sent me command: " + std::string(trigger) + " " +
+                                            arg);
+            }
+            result = true;
+          }
+        }
+      }
+   }
+  }
+
+  return result;
+
+
+  #if 0
+
   for (std::string current_msg : tokens) {
 
     // search for commands that are delimited with a space
     std::size_t split = current_msg.find(' ');
-    const std::string trigger = Lowercase(current_msg.substr(0, split));
-    std::string temp_trigger = trigger;
-    std::string arg;
+    std::string candidate_trigger = Lowercase(current_msg.substr(0, split));
 
-    auto iter = commands_.find(trigger);
+    auto [trigger, iter] = GetTrigger(commands_, candidate_trigger);
+
+    std::string arg = current_msg.substr(trigger.size());
+
+
+
+    
+    //const std::string trigger = Lowercase(current_msg.substr(0, split));
+    //std::string temp_trigger = trigger;
+    //std::string arg;
+
+    //auto iter = commands_.find(trigger);
 
     // search for commands that have no delimiter, but contain a digit.
     if (iter == commands_.end()) {
@@ -232,6 +301,8 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
   }
 
   return result;
+
+  #endif
 }
 
 const Operators& CommandSystem::GetOperators() const {
@@ -258,6 +329,44 @@ std::vector<std::string> Tokenize(std::string message, char delim) {
   }
 
   return tokens;
+}
+
+// Gets a trigger by removing common suffixes.
+std::pair<std::string_view, Commands::const_iterator> CommandSystem::GetTrigger(const Commands& commands,
+                                                                        std::string_view candidate) {
+  auto iter = commands.find(std::string(candidate));
+
+  // This trigger is already a perfect match so use it.
+  if (iter != commands.end()) return std::make_pair(candidate, iter);
+
+  // Start by stripping digits.
+  auto digit_iter = std::find_if(candidate.begin(), candidate.end(), isdigit);
+
+  if (digit_iter != candidate.begin() && digit_iter != candidate.end()) {
+    size_t split = digit_iter - candidate.begin();
+
+    candidate = candidate.substr(0, split);
+    iter = commands.find(std::string(candidate));
+
+    if (iter != commands.end()) return std::make_pair(candidate, iter);
+  }
+
+  // Search for common endings.
+  const char* kSuffixSet[] = {"on", "off"};
+
+  for (size_t i = 0; i < sizeof(kSuffixSet) / sizeof(*kSuffixSet); ++i) {
+    if (candidate.ends_with(kSuffixSet[i])) {
+      candidate = candidate.substr(0, candidate.size() - strlen(kSuffixSet[i]));
+
+      iter = commands.find(std::string(candidate));
+
+      // Always return here even if it fails so it doesn't strip off a bunch of suffixes.
+      return std::make_pair(candidate, iter);
+    }
+  }
+
+  // No triggers were found.
+  return std::make_pair(candidate, commands.end());
 }
 
 }  // namespace marvin
