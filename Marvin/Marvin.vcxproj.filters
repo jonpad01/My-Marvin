@@ -120,6 +120,9 @@
     <ClCompile Include="commands\SayCommand.h">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="zones\Devastation\BaseDuel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameProxy.h">
@@ -236,9 +239,6 @@
     <ClInclude Include="commands\CombatRoleCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="commands\SwarmCommand.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="commands\ConsumableCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -300,6 +300,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\CommandAnnouncerCommands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zones\Devastation\BaseDuel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

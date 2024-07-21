@@ -16,7 +16,6 @@
 #include "SetFreqCommand.h"
 #include "SetShipCommand.h"
 #include "SetArenaCommand.h"
-#include "SwarmCommand.h"
 #include "HSCommands.h"
 #include "EGCommands.h"
 #include "TipCommand.h"
@@ -78,6 +77,7 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<AnchorCommand>());
       RegisterCommand(std::make_shared<RushCommand>());
       RegisterCommand(std::make_shared<SwarmCommand>());
+      RegisterCommand(std::make_shared<LagAttachCommand>());
       RegisterCommand(std::make_shared<UFOCommand>());
       break;
     }

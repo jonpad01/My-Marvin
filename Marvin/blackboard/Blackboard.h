@@ -54,7 +54,7 @@ class Blackboard {
   CombatDifficulty combat_difficulty_default_;
   BDState bd_state_;
   CommandRequestType command_request_;
-  WarpToState warp_to_state_;
+  //WarpToState warp_to_state_;
   Ship ship_;
   uint16_t pub_team0_;
   uint16_t pub_team1_;
@@ -133,7 +133,7 @@ class Blackboard {
     combat_difficulty_ = CombatDifficulty::Normal;
     combat_difficulty_default_ = CombatDifficulty::Normal;
     bd_state_ = BDState::Stopped;
-    warp_to_state_ = WarpToState::None;
+   // warp_to_state_ = WarpToState::None;
     command_request_ = CommandRequestType::None;
     team0_score_ = 0;
     team1_score_ = 0;
@@ -334,8 +334,8 @@ class Blackboard {
   void SetBDState(BDState state) { bd_state_ = state; }
   BDState GetBDState() { return bd_state_; }
 
-  void SetWarpToState(WarpToState state) { warp_to_state_ = state; }
-  WarpToState GetWarpToState() { return warp_to_state_; }
+ // void SetWarpToState(WarpToState state) { warp_to_state_ = state; }
+ // WarpToState GetWarpToState() { return warp_to_state_; }
 
   void SetUseRepel(bool state) { use_repel_ = state; }
   void SetRepelDefault(bool state) { use_repel_default_ = state; }

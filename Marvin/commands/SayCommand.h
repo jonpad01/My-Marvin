@@ -11,15 +11,10 @@ class SayCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    std::vector<std::string> args = Tokenize(arg, ' ');
-
      game.SendChatMessage(arg);
 
   }
 
-  void SendUsage(GameProxy& game, const std::string& sender) {
-   // game.SendPrivateMessage(sender, "Invalid selection. !setarena XXXX");
-  }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
   void SetAccess(CommandAccessFlags flags) { return; }

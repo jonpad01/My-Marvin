@@ -162,6 +162,7 @@
     <ClCompile Include="Vector2i.h" />
     <ClCompile Include="zones\Devastation\BaseDuelWarpCoords.cpp" />
     <ClCompile Include="BasePaths.cpp" />
+    <ClCompile Include="zones\Devastation\BaseDuel.cpp" />
     <ClCompile Include="zones\Devastation\Devastation.cpp" />
     <ClCompile Include="InfluenceMap.cpp" />
     <ClCompile Include="KeyController.cpp" />
@@ -207,7 +208,6 @@
     <ClInclude Include="commands\ConsumableCommands.h" />
     <ClInclude Include="commands\SetFreqCommand.h" />
     <ClInclude Include="commands\SetShipCommand.h" />
-    <ClInclude Include="commands\SwarmCommand.h" />
     <ClInclude Include="commands\TipCommand.h" />
     <ClInclude Include="commands\UFOCommand.h" />
     <ClInclude Include="Common.h" />
@@ -216,6 +216,7 @@
     <ClInclude Include="Radar.h" />
     <ClInclude Include="TeamGoals.h" />
     <ClInclude Include="zones\Devastation\BaseDuelWarpCoords.h" />
+    <ClInclude Include="zones\Devastation\BaseDuel.h" />
     <ClInclude Include="zones\Devastation\Devastation.h" />
     <ClInclude Include="Hash.h" />
     <ClInclude Include="InfluenceMap.h" />

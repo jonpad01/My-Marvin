@@ -146,13 +146,17 @@ void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kFlagOffset1 = 0x30;
   const std::size_t kFlagOffset2 = 0x34;
   const std::size_t kRotOffset = 0x3C;
-  const std::size_t kDeadOffset1 = 0x40;
-  const std::size_t kDeadOffset2 = 0x4C;
+  const std::size_t kExplodeTimerOffset1 = 0x40; // count down timer for the exploding graphic when player dies
+  const std::size_t kDeadOffset = 0x4C;  // a possible death flag
   const std::size_t kShipOffset = 0x5C;
   const std::size_t kFreqOffset = 0x58;
   const std::size_t kStatusOffset = 0x60;
   const std::size_t kNameOffset = 0x6D;
-  const std::size_t kDeadOffset = 0x178;
+  const std::size_t kDeathCountOffset = 0xD0; // total player death count tracked by the server
+  const std::size_t kUnknownTimestampOffset = 0x13C;  // don't know what this is
+  const std::size_t kPlayerLastPositionTimestampOffset = 0x14C;  // 0 for the main player in most cases
+  const std::size_t kPlayerPing = 0x164;  // same number that's displayed by player names
+  const std::size_t kPlayerActiveOffset = 0x178;  // triggers if the player is just idling in a ship at near 0 velocity, or dead
   const std::size_t kEnergyOffset1 = 0x208;
   const std::size_t kEnergyOffset2 = 0x20C;
   const std::size_t kMultiFireCapableOffset = 0x2EC;
@@ -205,7 +209,7 @@ void ContinuumGameProxy::FetchPlayers() {
 
     // might not work on bot but works well on other players
     // player.active = *(u32*)(player_addr + kActiveOffset1) == 0 && *(u32*)(player_addr + kActiveOffset2) == 0;
-    player.dead = *(u32*)(player_addr + kDeadOffset1) != 0 || *(u32*)(player_addr + kDeadOffset2) != 0;
+    player.dead = *(u32*)(player_addr + kExplodeTimerOffset1) != 0 || *(u32*)(player_addr + kDeadOffset) != 0;
 
     // these are not valid when reading on other players and will result in crashes
     if (player.id == player_id_) {

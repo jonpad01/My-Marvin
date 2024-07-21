@@ -20,6 +20,7 @@
 #include "zones/Hyperspace/HyperspaceFlagRooms.h"
 #include "zones/PowerBall.h"
 #include "zones/Devastation/Training.h"
+#include "zones/Devastation/BaseDuel.h"
 
 namespace marvin {
 
@@ -160,54 +161,11 @@ void Bot::Load() {
       break;
     }
     case 8: {
-      std::unique_ptr<BehaviorBuilder> builder;
-      std::string map_name = game_->GetMapFile();
 
-      switch (game_->GetZone()) {
-        case Zone::Devastation: {
-          goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
-          if (map_name == "bdelite.lvl") {
-            log.Write("Building Training behavior tree.");
-            builder = std::make_unique<training::TrainingBehaviorBuilder>();
-          } else {
-            if (goals_->HasCoords()) {
-              log.Write("Building Devastation behavior tree.");
-              base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
-              builder = std::make_unique<deva::DevastationBehaviorBuilder>();
-            } else {
-              game_->SendChatMessage(
-                  "Warning: I don't have base duel coords for this arena, using default behavior tree.");
-              log.Write("Building Default behavior tree.");
-              builder = std::make_unique<DefaultBehaviorBuilder>();
-            }
-          }
-        } break;
-        case Zone::ExtremeGames: {
-           builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
-        } break;
-        case Zone::GalaxySports: {
-          // builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
-        } break;
-        case Zone::Hockey: {
-           builder = std::make_unique<hz::HockeyBehaviorBuilder>();
-        } break;
-        case Zone::Hyperspace: {
-          goals_ = std::make_unique<hs::HSFlagRooms>();
-          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
-          builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
-          log.Write("Building Hyperspace behavior tree.");
-        } break;
-        case Zone::PowerBall: {
-          // builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
-        } break;
-        default: {
-          builder = std::make_unique<DefaultBehaviorBuilder>();
-        } break;
-      }
+      SelectBehaviorTree();
 
       ctx_.bot = this;
 
-      this->behavior_ = builder->Build(*this);
       //log.Write("BOT LOADED - TOTAL TIME", timer.TimeSinceConstruction());
       log.Write("Builder Loaded", timer.GetElapsedTime());
       load_index++;
@@ -239,8 +197,9 @@ void Bot::Update(float dt) {
     return;
   }
   
-  if (state == UpdateState::Reload) {
+  if (state == UpdateState::Reload || blackboard_->ValueOr<bool>("reloadbot", false)) {
     log.Write("GAME REQUESTED RELOAD");
+    blackboard_->Set<bool>("reloadbot", false);
     //Load();
     load_index = 1;
     return;
@@ -348,6 +307,59 @@ void Bot::Update(float dt) {
   }
 
   g_RenderState.RenderDebugText("Steering: %llu", timer.GetElapsedTime());
+}
+
+void Bot::SelectBehaviorTree() {
+
+  std::unique_ptr<BehaviorBuilder> builder;
+  std::string map_name = game_->GetMapFile(); 
+
+  switch (game_->GetZone()) {
+    case Zone::Devastation: {
+      goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
+      if (map_name == "bdelite.lvl") {
+        log.Write("Building Training behavior tree.");
+        builder = std::make_unique<training::TrainingBehaviorBuilder>();
+      } else {
+        if (blackboard_->ValueOr<BDState>("bdstate", BDState::Stopped) == BDState::Start) {
+          //builder = std::make_unique<deva::DevaBaseDuelBehaviorBuilder>();
+        }
+        else if (goals_->HasCoords()) {
+          log.Write("Building Devastation behavior tree.");
+          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+          builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+        } else {
+          game_->SendChatMessage("Warning: I don't have base duel coords for this arena, using default behavior tree.");
+          log.Write("Building Default behavior tree.");
+          builder = std::make_unique<DefaultBehaviorBuilder>();
+        }
+      }
+    } break;
+    case Zone::ExtremeGames: {
+      builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
+    } break;
+    case Zone::GalaxySports: {
+      // builder = std::make_unique<gs::GalaxySportsBehaviorBuilder>();
+    } break;
+    case Zone::Hockey: {
+      builder = std::make_unique<hz::HockeyBehaviorBuilder>();
+    } break;
+    case Zone::Hyperspace: {
+      goals_ = std::make_unique<hs::HSFlagRooms>();
+      base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+      builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+      log.Write("Building Hyperspace behavior tree.");
+    } break;
+    case Zone::PowerBall: {
+      // builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
+    } break;
+    default: {
+      builder = std::make_unique<DefaultBehaviorBuilder>();
+    } break;
+  }
+
+  this->behavior_ = builder->Build(*this);
+
 }
 
 void Bot::Move(const Vector2f& target, float target_distance) {
@@ -639,6 +651,21 @@ behavior::ExecuteResult SpectatorCheckNode::Execute(behavior::ExecuteContext& ct
 
   if (game.GetPlayer().ship == 8) {
     g_RenderState.RenderDebugText("  ShipCheckNode(fail): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  g_RenderState.RenderDebugText("  ShipCheckNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult SpectatorLockNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+
+  if (game.GetPlayer().ship != 8) {
+    game.SetShip(8);
+    g_RenderState.RenderDebugText("  SpecLockNode(setting ship): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 

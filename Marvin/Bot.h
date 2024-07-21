@@ -83,6 +83,8 @@ class Bot {
 
  private:
 
+  void SelectBehaviorTree();
+
   float radius_;
   float update_interval_ = 60;
 
@@ -146,6 +148,13 @@ class SetFreqNode : public behavior::BehaviorNode {
 };
 
 class SpectatorCheckNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+};
+
+class SpectatorLockNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 

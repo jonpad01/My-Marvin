@@ -79,6 +79,10 @@ class StartBDCommand : public CommandExecutor {
       game.SendPrivateMessage(sender, "I am currently running a baseduel game.");
       return;
       }
+      if (bb.GetBDState() == BDState::Start) {
+      game.SendPrivateMessage(sender, "I am currently starting a baseduel game.");
+      return;
+      }
       if (bb.GetBDState() == BDState::Paused) {
       game.SendPrivateMessage(sender, "I am currently paused in the middle of a game.");
       return;
@@ -91,8 +95,9 @@ class StartBDCommand : public CommandExecutor {
     if (game.GetZone() == Zone::Devastation) {
      // bb.Set<bool>("RunBD", true);
      // bb.Set<bool>("BDWarpToBase", true);
-      bb.SetBDState(BDState::Running);
-      bb.SetWarpToState(WarpToState::Base);
+      bb.Set<BDState>("bdstate", BDState::Start);
+      bb.Set<bool>("reloadbot", true);
+      //bb.SetWarpToState(WarpToState::Base);
       game.SendChatMessage("Starting a base duel game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -229,6 +234,96 @@ class ResumeBDCommand : public CommandExecutor {
 
   private:
   CommandAccessFlags access;
+};
+
+class SwarmCommand : public CommandExecutor {
+ public:
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+    Blackboard& bb = bot.GetBlackboard();
+    GameProxy& game = bot.GetGame();
+
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
+
+    if (args.empty()) status = true;
+
+    if (status) {
+      if (bb.GetSwarm()) {
+        game.SendPrivateMessage(sender, "swarm currently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "swarm currently OFF.");
+      }
+    } else {
+      if (args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning swarm ON.");
+        bb.SetSwarm(true);
+      } else if (args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning swarm OFF.");
+        bb.SetSwarm(false);
+      } else {
+        SendUsage(game, sender);
+      }
+    }
+  }
+
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!swarm on\" or \"!swarm off\" or \"!swarm\" (sends current status).");
+  }
+
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
+  CommandFlags GetFlags() { return CommandFlag_Lockable; }
+  std::vector<std::string> GetAliases() { return {"swarm"}; }
+  std::string GetDescription() {
+    return "Enable swarm behavior. Bots will respawn quickly with low health when basing";
+  }
+  int GetSecurityLevel() { return 1; }
+  CommandType GetCommandType() { return CommandType::Behavior; }
+};
+
+class LagAttachCommand : public CommandExecutor {
+ public:
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+    Blackboard& bb = bot.GetBlackboard();
+    GameProxy& game = bot.GetGame();
+
+    std::vector<std::string> args = Tokenize(arg, ' ');
+    bool status = false;
+
+    if (args.empty()) status = true;
+
+    if (status) {
+      if (bb.ValueOr<bool>("allowlagattaching", true)) {
+        game.SendPrivateMessage(sender, "lag attaching acurrently ON.");
+      } else {
+        game.SendPrivateMessage(sender, "lag attaching currently OFF.");
+      }
+    } else {
+      if (args[0] == "on") {
+        game.SendPrivateMessage(sender, "Turning lag attaching ON.");
+        bb.Set<bool>("allowlagattaching", true);
+      } else if (args[0] == "off") {
+        game.SendPrivateMessage(sender, "Turning lag attaching OFF.");
+        bb.Set<bool>("allowlagattaching", false);
+      } else {
+        SendUsage(game, sender);
+      }
+    }
+  }
+
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "Use \"!lagattach on\" or \"!lagattach off\" or \"!lagattach\" (sends current status).");
+  }
+
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
+  void SetAccess(CommandAccessFlags flags) { return; }
+  CommandFlags GetFlags() { return CommandFlag_Lockable; }
+  std::vector<std::string> GetAliases() { return {"lagattach"}; }
+  std::string GetDescription() {
+    return "Enable lag attach behavior.";
+  }
+  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; }
 };
 
 }  // namespace marvin
