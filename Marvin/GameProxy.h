@@ -174,6 +174,7 @@ class GameProxy {
   virtual const std::string GetMapFile() const = 0;
   virtual const Map& GetMap() const = 0;
 
+  virtual ChatMessage FindChatMessage(std::string match) = 0;
   virtual std::vector<ChatMessage> GetChatHistory() = 0;
   virtual std::vector<ChatMessage> GetCurrentChat() = 0;
   virtual void SendChatMessage(const std::string& mesg) = 0;

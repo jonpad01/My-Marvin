@@ -70,6 +70,7 @@ class ContinuumGameProxy : public GameProxy {
   UpdateState Update(float dt) override;
 
   std::string GetName() const override;
+  ChatMessage FindChatMessage(std::string match) override;
   std::vector<ChatMessage> GetCurrentChat() override;
   std::vector<ChatMessage> GetChatHistory() override;
   int GetEnergy() const override;

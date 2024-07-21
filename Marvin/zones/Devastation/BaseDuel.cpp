@@ -16,6 +16,10 @@
 namespace marvin {
 namespace deva {
 
+    const std::string BD_RUN_QUERY = ";bdstart-query";
+    const std::string BD_RUN_CONFIRM = ";bdrunning";
+
+
 void BaseDuelBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto spectator_lock = std::make_unique<bot::SpectatorLockNode>();
@@ -28,12 +32,15 @@ void BaseDuelBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto endbd = std::make_unique<deva::EndBDNode>();
 
+  auto query = std::make_unique<deva::BDQueryResponderNode>();
 
 
+  auto bd_selector =
+      std::make_unique<behavior::SelectorNode>(startbd.get(), runbd.get(), endbd.get());
 
-  auto bd_selector = std::make_unique<behavior::SelectorNode>(startbd.get(), runbd.get(), endbd.get());
-
-  auto root_sequence = std::make_unique<behavior::SequenceNode>(commands_.get(), spectator_lock.get(), pausebd.get(), bd_selector.get());
+  auto root_sequence = 
+      std::make_unique<behavior::SequenceNode>(commands_.get(), spectator_lock.get(),
+                                                                query.get(), pausebd.get(), bd_selector.get());
 
   engine_->PushRoot(std::move(root_sequence));
   engine_->PushNode(std::move(bd_selector));
@@ -42,24 +49,89 @@ void BaseDuelBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(startbd));
   engine_->PushNode(std::move(pausebd));
   engine_->PushNode(std::move(runbd));
+  engine_->PushNode(std::move(query));
 }
 
 behavior::ExecuteResult StartBDNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
-  g_RenderState.RenderDebugText("  DevaStartDBNode(success): %llu", timer.GetElapsedTime());
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+
+  if (state != BDState::Start) {
+    g_RenderState.RenderDebugText("  DevaStartDBNode(not running): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  bb.Set<int>("team0score", 0);
+  bb.Set<int>("team1score", 0);
+
+  if (ctx.bot->GetTime().RepeatedActionDelay("bdgamequery", 10000)) {
+    game.SendChatMessage(BD_RUN_QUERY);
+    g_RenderState.RenderDebugText("  DevaStartDBNode(sending query): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  ChatMessage msg = game.FindChatMessage(BD_RUN_CONFIRM);
+
+  if (!msg.message.empty()) {
+    for (std::string name : kBotNames) {
+      if (name == msg.player) {
+        game.SendChatMessage("I cannot start a base duel game because " + msg.player + " is already hosting one.");
+        bb.Set<BDState>("bdstate", BDState::Stopped);
+        bb.Set<bool>("reloadbot", true);
+        g_RenderState.RenderDebugText("  DevaStartDBNode(shutting down): %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Success;
+      }
+    }
+  }
+
+  if (ctx.bot->GetTime().TimedActionDelay("bdgamestartdelay", 3000)) {
+    bb.Set<BDState>("bdstate", BDState::Running);
+    g_RenderState.RenderDebugText("  DevaStartDBNode(starting game): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+
+  g_RenderState.RenderDebugText("  DevaStartDBNode(waiting): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult PauseBDNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
-  g_RenderState.RenderDebugText("  DevaPauseDBNode(success): %llu", timer.GetElapsedTime());
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  bool paused = bb.ValueOr<BDState>("bdstate", BDState::Stopped) == BDState::Paused;
+
+  if (paused) {
+    g_RenderState.RenderDebugText("  DevaPauseDBNode(paused): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  g_RenderState.RenderDebugText("  DevaPauseDBNode(not paused): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult EndBDNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
+
+    auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+   BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+
+  if (state != BDState::Ended) {
+    g_RenderState.RenderDebugText("  DevaEndDBNode(not running): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  bb.Set<BDState>("bdstate", BDState::Stopped);
+  bb.Set<bool>("reloadbot", true);
+
 
   g_RenderState.RenderDebugText("  DevaEndDBNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -74,6 +146,13 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
+
+  BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+
+  if (state != BDState::Running) {
+    g_RenderState.RenderDebugText("  DevaRunDBNode(not running): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
 
   uint64_t respawn_time = game.GetRespawnTime();
 
@@ -276,10 +355,8 @@ void RunBDNode::ClearScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  // bb.Set<int>("Team0Score", 0);
-  // bb.Set<int>("Team1Score", 0);
-  bb.SetTeam0Score(0);
-  bb.SetTeam1Score(0);
+  bb.Set<int>("team0score", 0);
+  bb.Set<int>("team1score", 0);
 }
 
 void RunBDNode::WarpAllToCenter(behavior::ExecuteContext& ctx) {
@@ -333,6 +410,35 @@ void RunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   }
   // bb.Set<uint64_t>("BDWarpCooldown", ctx.bot->GetTime().GetTime());
   bb.SetBDWarpCoolDown(ctx.bot->GetTime().GetTime());
+}
+
+behavior::ExecuteResult BDQueryResponderNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  ChatMessage msg = game.FindChatMessage(BD_RUN_QUERY);
+
+  if (!msg.message.empty()) {
+    for (std::string name : kBotNames) {
+      if (name == msg.player) {
+        game.SendChatMessage(BD_RUN_CONFIRM);
+        g_RenderState.RenderDebugText("  DevaQueryResponderDBNode(responding): %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Failure;
+      }
+    }
+  }
+
+  g_RenderState.RenderDebugText("  DevaQueryResponderDBNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
+
+behavior::ExecuteResult BDClearScoreNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
 }
 
 }  // namespace training

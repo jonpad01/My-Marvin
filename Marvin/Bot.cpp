@@ -73,6 +73,8 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
 
+  game_->SendChatMessage("?chat=marvin");
+
   load_index = 1;
   //Load();
 }
@@ -322,7 +324,7 @@ void Bot::SelectBehaviorTree() {
         builder = std::make_unique<training::TrainingBehaviorBuilder>();
       } else {
         if (blackboard_->ValueOr<BDState>("bdstate", BDState::Stopped) == BDState::Start) {
-          //builder = std::make_unique<deva::DevaBaseDuelBehaviorBuilder>();
+          builder = std::make_unique<deva::BaseDuelBehaviorBuilder>();
         }
         else if (goals_->HasCoords()) {
           log.Write("Building Devastation behavior tree.");

@@ -192,6 +192,10 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
               bot.GetGame().SendChatMessage("\\" + chat.player + " has sent me command: " + std::string(trigger) + " " +
                                             arg);
             }
+
+            bot.GetGame().SendChatMessage(";" + chat.player + " has sent me command: " + std::string(trigger) + " " +
+                                          arg);
+
             result = true;
           }
         }

@@ -498,6 +498,20 @@ const Zone ContinuumGameProxy::GetZone() { return zone_; }
 std::vector<ChatMessage> ContinuumGameProxy::GetChatHistory() { return chat_; }
 std::vector<ChatMessage> ContinuumGameProxy::GetCurrentChat() { return current_chat_; }
 
+ChatMessage ContinuumGameProxy::FindChatMessage(std::string match) {
+  
+  ChatMessage result;
+    
+  for (ChatMessage msg : current_chat_) {
+    if (msg.message == match) {
+      result = msg;
+      break;
+    }
+  }
+
+  return result;
+}
+
 const std::vector<BallData>& ContinuumGameProxy::GetBalls() const {
   return balls_;
 }

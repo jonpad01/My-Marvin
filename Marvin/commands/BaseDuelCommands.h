@@ -32,7 +32,7 @@ class BDPublicCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdpublic"}; }
   std::string GetDescription() { return "Allow the bot to accept public baseduel commands."; }
-  int GetSecurityLevel() { return 1; }
+  int GetSecurityLevel() { return 0; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 };
 
@@ -63,7 +63,7 @@ class BDPrivateCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdprivate"}; }
   std::string GetDescription() { return "Set the bot to only accept private baseduel commands."; }
-  int GetSecurityLevel() { return 1; }
+  int GetSecurityLevel() { return 0; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 };
 
@@ -74,30 +74,28 @@ class StartBDCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>("RunBD", false)) {
-      if (bb.GetBDState() == BDState::Running) {
+    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+
+    if (state == BDState::Running) {
       game.SendPrivateMessage(sender, "I am currently running a baseduel game.");
       return;
       }
-      if (bb.GetBDState() == BDState::Start) {
+    if (state == BDState::Start) {
       game.SendPrivateMessage(sender, "I am currently starting a baseduel game.");
       return;
       }
-      if (bb.GetBDState() == BDState::Paused) {
-      game.SendPrivateMessage(sender, "I am currently paused in the middle of a game.");
+    if (state == BDState::Paused) {
+      game.SendPrivateMessage(sender, "I am currently holding a baseduel game.");
       return;
       }
-      if (bb.GetBDState() == BDState::Ended) {
+    if (state == BDState::Ended) {
       game.SendPrivateMessage(sender, "I am currently ending a game, please try the command again.");
       return;
       }
 
     if (game.GetZone() == Zone::Devastation) {
-     // bb.Set<bool>("RunBD", true);
-     // bb.Set<bool>("BDWarpToBase", true);
       bb.Set<BDState>("bdstate", BDState::Start);
-      bb.Set<bool>("reloadbot", true);
-      //bb.SetWarpToState(WarpToState::Base);
+      bb.Set<bool>("reloadbot", true);  // reload so it switches the behavior tree
       game.SendChatMessage("Starting a base duel game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -123,21 +121,23 @@ class StopBDCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
+    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+
     if (game.GetZone() == Zone::Devastation) {
-      // if (!bb.ValueOr<bool>("RunBD", false)) {
-      if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Ended) {
+      if (state == BDState::Stopped || state == BDState::Ended) {
         game.SendPrivateMessage(sender, "I am not running a baseduel game.");
         return;
       }
 
-      //if (bb.ValueOr<bool>("HoldBD", false) == false) {
-      if (bb.GetBDState() != BDState::Paused) {
+      if (state == BDState::Start) {
+        game.SendPrivateMessage(sender, "I am currently starting a baseduel game, please try again.");
+        return;
+      }
+
+      if (state != BDState::Paused) {
         game.SendPrivateMessage(sender, "You must hold the game first before using this command.");
       } else {
-        //bb.Set<bool>("RunBD", false);
-        //bb.Set<bool>("BDManualStop", true);
-        //bb.Set<bool>("HoldBD", false);
-        bb.SetBDState(BDState::Ended);
+        bb.Set<BDState>("bdstate", BDState::Ended);
         game.SendChatMessage("The baseduel game has been stopped. (Command sent by: " + sender + ")");
       }
     } else {
@@ -151,7 +151,7 @@ class StopBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdstop"}; }
   std::string GetDescription() { return "Stop a base duel game (resets score)."; }
-  int GetSecurityLevel() { return 1; }
+  int GetSecurityLevel() { return 0; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
@@ -164,19 +164,25 @@ class HoldBDCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
+    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+
     if (game.GetZone() == Zone::Devastation) {
-      // if (bb.ValueOr<bool>("HoldBD", false)) {
-      if (bb.GetBDState() == BDState::Paused) {
+     if (state == BDState::Paused) {
         game.SendPrivateMessage(sender, "I am already holding a baseduel game.");
         return;
       }
-      if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Ended) {
+      if (state == BDState::Stopped || state == BDState::Ended) {
         game.SendPrivateMessage(sender, "I am not running a baseduel game.");
         return;
       }
 
-      //bb.Set<bool>("HoldBD", true);
-      bb.SetBDState(BDState::Paused);
+      if (state == BDState::Start) {
+        game.SendPrivateMessage(sender, "I am currently starting a baseduel game, please try again.");
+        return;
+      }
+
+      bb.Set<BDState>("bdstate", BDState::Paused);
+
       game.SendChatMessage("Holding game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -189,7 +195,7 @@ class HoldBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdhold"}; }
   std::string GetDescription() { return "Hold a base duel game (score is saved)"; }
-  int GetSecurityLevel() { return 1; }
+  int GetSecurityLevel() { return 0; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
@@ -202,21 +208,22 @@ class ResumeBDCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
+    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+
     if (game.GetZone() == Zone::Devastation) {
-      
-        //if (!bb.ValueOr<bool>("HoldBD", false)) {
-      if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Ended) {
+
+      if (state == BDState::Stopped || state == BDState::Ended) {
         game.SendPrivateMessage(sender, "I am not running a baseduel game.");
         return;
       }
 
-        if (bb.GetBDState() != BDState::Paused) {
+      if (bb.GetBDState() != BDState::Paused) {
         game.SendPrivateMessage(sender, "I am not holding a baseduel game. (it's currently running)");
         return;
-        }
+      }
 
-     // bb.Set<bool>("HoldBD", false);
-      bb.SetBDState(BDState::Running);
+      bb.Set<BDState>("bdstate", BDState::Running);
+
       game.SendChatMessage("Resuming game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -229,7 +236,7 @@ class ResumeBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdresume"}; }
   std::string GetDescription() { return "Resume a base duel game"; }
-  int GetSecurityLevel() { return 1; }
+  int GetSecurityLevel() { return 0; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
@@ -287,14 +294,16 @@ class LagAttachCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
+    bool allow_la = bb.ValueOr<bool>("allowlagattaching", true);
+
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.ValueOr<bool>("allowlagattaching", true)) {
-        game.SendPrivateMessage(sender, "lag attaching acurrently ON.");
+      if (allow_la) {
+        game.SendPrivateMessage(sender, "lag attaching currently ON.");
       } else {
         game.SendPrivateMessage(sender, "lag attaching currently OFF.");
       }

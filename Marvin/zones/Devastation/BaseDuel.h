@@ -57,5 +57,20 @@ class RunBDNode : public behavior::BehaviorNode {
   void WarpAllToBase(behavior::ExecuteContext& ctx);
 };
 
+class BDQueryResponderNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+
+};
+
+class BDClearScoreNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+};
+
 }  // namespace training
 }  // namespace marvin
