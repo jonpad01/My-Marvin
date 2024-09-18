@@ -217,7 +217,7 @@ class ResumeBDCommand : public CommandExecutor {
         return;
       }
 
-      if (bb.GetBDState() != BDState::Paused) {
+      if (state != BDState::Paused) {
         game.SendPrivateMessage(sender, "I am not holding a baseduel game. (it's currently running)");
         return;
       }

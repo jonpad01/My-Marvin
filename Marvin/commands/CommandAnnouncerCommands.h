@@ -17,7 +17,7 @@ class StaffChatAnnouncerCommand : public CommandExecutor {
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetFreqLock()) {
+      if (bb.ValueOr<bool>("staffchatannouncer", false)) {
         game.SendPrivateMessage(sender, "Staff chat announcer currently ON.");
       } else {
         game.SendPrivateMessage(sender, "Staff chat announcer currently OFF.");

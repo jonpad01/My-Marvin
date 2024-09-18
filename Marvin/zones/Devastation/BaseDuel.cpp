@@ -34,9 +34,10 @@ void BaseDuelBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   auto query = std::make_unique<deva::BDQueryResponderNode>();
 
+  auto warpto = std::make_unique<deva::BDWarpTeamNode>();
 
-  auto bd_selector =
-      std::make_unique<behavior::SelectorNode>(startbd.get(), runbd.get(), endbd.get());
+
+  auto bd_selector = std::make_unique<behavior::SelectorNode>(startbd.get(), warpto.get(), runbd.get(), endbd.get());
 
   auto root_sequence = 
       std::make_unique<behavior::SequenceNode>(commands_.get(), spectator_lock.get(),
@@ -49,7 +50,9 @@ void BaseDuelBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(startbd));
   engine_->PushNode(std::move(pausebd));
   engine_->PushNode(std::move(runbd));
+  engine_->PushNode(std::move(endbd));
   engine_->PushNode(std::move(query));
+  engine_->PushNode(std::move(warpto));
 }
 
 behavior::ExecuteResult StartBDNode::Execute(behavior::ExecuteContext& ctx) {
@@ -90,6 +93,7 @@ behavior::ExecuteResult StartBDNode::Execute(behavior::ExecuteContext& ctx) {
 
   if (ctx.bot->GetTime().TimedActionDelay("bdgamestartdelay", 3000)) {
     bb.Set<BDState>("bdstate", BDState::Running);
+    bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Base);
     g_RenderState.RenderDebugText("  DevaStartDBNode(starting game): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
@@ -129,8 +133,16 @@ behavior::ExecuteResult EndBDNode::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Failure;
   }
 
-  bb.Set<BDState>("bdstate", BDState::Stopped);
-  bb.Set<bool>("reloadbot", true);
+  if (ctx.bot->GetTime().RepeatedActionDelay("bdendwarp", 10000)) {
+    bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Center);
+    g_RenderState.RenderDebugText("  DevaEndDBNode(setting warp): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  if (bb.ValueOr<BDWarpTo>("bdwarpto", BDWarpTo::None) == BDWarpTo::None) {
+    bb.Set<BDState>("bdstate", BDState::Stopped);
+    bb.Set<bool>("reloadbot", true);
+  }
 
 
   g_RenderState.RenderDebugText("  DevaEndDBNode(success): %llu", timer.GetElapsedTime());
@@ -148,6 +160,10 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.bot->GetBlackboard();
 
   BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+  BDWarpTo warpto = bb.ValueOr<BDWarpTo>("bdwarpto", BDWarpTo::None);
+
+  int team0_score = bb.ValueOr<int>("team0score", 0);
+  int team1_score = bb.ValueOr<int>("team1score", 0);
 
   if (state != BDState::Running) {
     g_RenderState.RenderDebugText("  DevaRunDBNode(not running): %llu", timer.GetElapsedTime());
@@ -156,75 +172,19 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
 
   uint64_t respawn_time = game.GetRespawnTime();
 
-  uint64_t current_time = ctx.bot->GetTime().GetTime();
-  // uint64_t warp_time = bb.ValueOr<uint64_t>("BDWarpCooldown", 0);
-  uint64_t warp_time = bb.GetBDWarpCoolDown();
-
-  // wait a second after warping players to base
-  if (current_time - warp_time < 1000) {
-    g_RenderState.RenderDebugText("  DevaRunDBNode(WaitingAfterWarp): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
-  }
-
-  // check if the bot wants to warp players to center
-  if (bb.ValueOr<BDWarpTo>("bdwarpto", BDWarpTo::None) == BDWarpTo::Center) {
-    // if (bb.GetWarpToState() == BDWarpTo::Center) {
-    if (ctx.bot->GetTime().TimedActionDelay("BDWarpToCenter", 5000)) {
-      WarpAllToCenter(ctx);
-      // bb.SetWarpToState(BDWarpTo::None);
-      bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::None);
-    }
-    g_RenderState.RenderDebugText("  DevaRunDBNode(WarpToCenter): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
-  }
-
-  // check if the bot wants to warp players to a base
-  // if (bb.ValueOr<bool>("BDWarpToBase", false)) {
-  if (bb.ValueOr<BDWarpTo>("bdwarpto", BDWarpTo::None) == BDWarpTo::Base) {
-    if (ctx.bot->GetTime().TimedActionDelay("BDWarpToBase", 5000)) {
-      WarpAllToBase(ctx);
-      // bb.Set<bool>("BDWarpToBase", false);
-      bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::None);
-    }
-    g_RenderState.RenderDebugText("  DevaRunDBNode(WarpToBase): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
-  }
-
-  if (bb.GetBDState() == BDState::Stopped || bb.GetBDState() == BDState::Paused) {
-    g_RenderState.RenderDebugText("  DevaRunDBNode(Stopped/Paused): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Success;
-  }
-
-  // check if the runBD flag is true
-  // if (!bb.ValueOr<bool>("RunBD", false)) {
-  // check if the game was manually stopped
-  // if (bb.ValueOr<bool>("BDManualStop", false)) {
-  if (bb.GetBDState() == BDState::Ended) {
-    PrintFinalScore(ctx);
-    ClearScore(ctx);
-    // bb.Set<bool>("BDManualStop", false);
-    // bb.Set<bool>("BDWarpToCenter", true);
-    bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Center);
-    bb.SetBDState(BDState::Stopped);
-  }
 
   // check the score for win conditions
-  // int team0_score = bb.ValueOr<int>("Team0Score", 0);
-  // int team1_score = bb.ValueOr<int>("Team1Score", 0);
-  int team0_score = bb.GetTeam0Score();
-  int team1_score = bb.GetTeam1Score();
 
-  bool end_condition =
-      (team0_score >= 5 && (team0_score - team1_score) >= 2) || (team1_score >= 5 && (team1_score - team0_score) >= 2);
+  bool end_condition = team0_score >= 5 || team1_score >= 5;
 
   if (end_condition) {
-    // PrintFinalScore(ctx);
+     PrintFinalScore(ctx);
     // ClearScore(ctx);
-    // bb.Set<bool>("RunBD", false);
+    bb.Set<BDState>("bdstate", BDState::Ended);
     // bb.Set<bool>("BDWarpToCenter", true);
-    bb.SetBDState(BDState::Ended);
+    //bb.SetBDState(BDState::Ended);
     g_RenderState.RenderDebugText("  DevaRunDBNode(Game Ended): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
+    return behavior::ExecuteResult::Success;
   }
 
   // set conditions for scoring points
@@ -278,15 +238,15 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
     bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Base);
   } else if (team0_on_safe) {
     game.SendChatMessage("Team 0 is on team 1's safe!");
-    // bb.Set<int>("Team0Score", ++team0_score);
-    bb.SetTeam0Score(++team0_score);
+    bb.Set<int>("team0score", ++team0_score);
+    //bb.SetTeam0Score(++team0_score);
     PrintCurrentScore(ctx);
     // bb.Set<bool>("BDWarpToBase", true);
     bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Base);
   } else if (team1_on_safe) {
     game.SendChatMessage("Team 1 is on team 0's safe!");
-    // bb.Set<int>("Team1Score", ++team1_score);
-    bb.SetTeam1Score(++team1_score);
+    bb.Set<int>("team1score", ++team1_score);
+    //bb.SetTeam1Score(++team1_score);
     PrintCurrentScore(ctx);
     // bb.Set<bool>("BDWarpToBase", true);
     bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Base);
@@ -298,8 +258,8 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
   } else if (team0_dead) {
     if (ctx.bot->GetTime().TimedActionDelay("Team0Dead", respawn_time)) {
       game.SendChatMessage("Team 0 dead!");
-      // bb.Set<int>("Team1Score", ++team1_score);
-      bb.SetTeam1Score(++team1_score);
+      bb.Set<int>("team1score", ++team1_score);
+      //bb.SetTeam1Score(++team1_score);
       PrintCurrentScore(ctx);
       // bb.Set<bool>("BDWarpToBase", true);
       bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Base);
@@ -307,8 +267,8 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
   } else if (team1_dead) {
     if (ctx.bot->GetTime().TimedActionDelay("Team1Dead", respawn_time)) {
       game.SendChatMessage("Team 1 dead!");
-      // bb.Set<int>("Team0Score", ++team0_score);
-      bb.SetTeam0Score(++team0_score);
+      bb.Set<int>("team0score", ++team0_score);
+      //bb.SetTeam0Score(++team0_score);
       PrintCurrentScore(ctx);
       // bb.Set<bool>("BDWarpToBase", true);
       bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::Base);
@@ -322,10 +282,10 @@ void RunBDNode::PrintCurrentScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  // int team0_score = bb.ValueOr<int>("Team0Score", 0);
-  // int team1_score = bb.ValueOr<int>("Team1Score", 0);
-  int team0_score = bb.GetTeam0Score();
-  int team1_score = bb.GetTeam1Score();
+  int team0_score = bb.ValueOr<int>("team0score", 0);
+  int team1_score = bb.ValueOr<int>("team1score", 0);
+  //int team0_score = bb.GetTeam0Score();
+  //int team1_score = bb.GetTeam1Score();
 
   std::string msg = "Team 0 score: " + std::to_string(team0_score);
   msg += "   Team 1 score: " + std::to_string(team1_score);
@@ -337,10 +297,10 @@ void RunBDNode::PrintFinalScore(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  // int team0_score = bb.ValueOr<int>("Team0Score", 0);
-  // int team1_score = bb.ValueOr<int>("Team1Score", 0);
-  int team0_score = bb.GetTeam0Score();
-  int team1_score = bb.GetTeam1Score();
+   int team0_score = bb.ValueOr<int>("team0score", 0);
+   int team1_score = bb.ValueOr<int>("team1score", 0);
+  //int team0_score = bb.GetTeam0Score();
+  //int team1_score = bb.GetTeam1Score();
 
   if (team0_score > team1_score) {
     game.SendChatMessage("Team 0 Wins!  Game Over!");
@@ -359,20 +319,78 @@ void RunBDNode::ClearScore(behavior::ExecuteContext& ctx) {
   bb.Set<int>("team1score", 0);
 }
 
-void RunBDNode::WarpAllToCenter(behavior::ExecuteContext& ctx) {
+
+
+
+
+behavior::ExecuteResult BDQueryResponderNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
-    const Player& player = game.GetPlayers()[i];
+  ChatMessage msg = game.FindChatMessage(BD_RUN_QUERY);
 
-    if (player.frequency == 00 || player.frequency == 01) {
-      game.SendPrivateMessage(player.name, "?warpto 512 512");
+  if (!msg.message.empty()) {
+    for (std::string name : kBotNames) {
+      if (name == msg.player) {
+        game.SendChatMessage(BD_RUN_CONFIRM);
+        g_RenderState.RenderDebugText("  DevaQueryResponderDBNode(responding): %llu", timer.GetElapsedTime());
+        return behavior::ExecuteResult::Failure;
+      }
     }
   }
+
+  g_RenderState.RenderDebugText("  DevaQueryResponderDBNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
 }
 
-void RunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
+behavior::ExecuteResult BDWarpTeamNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+  BDWarpTo warpto = bb.ValueOr<BDWarpTo>("bdwarpto", BDWarpTo::None);
+
+  if (state == BDState::Paused) {
+    g_RenderState.RenderDebugText("  DevaWarpDBNode(not running): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  if (warpto == BDWarpTo::Center) {
+    if (ctx.bot->GetTime().RepeatedActionDelay("warpalltocenter", 3000)) {
+      WarpAllToCenter(ctx);
+    }
+
+    if (AllInCenter(ctx)) {
+      game.SendChatMessage("All players have been warped to center!");
+      bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::None);
+    }
+    g_RenderState.RenderDebugText("  DevaWarpDBNode(warping to center): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  if (warpto == BDWarpTo::Base) {
+    if (ctx.bot->GetTime().RepeatedActionDelay("warpalltobase", 3000)) {
+      WarpAllToBase(ctx);
+    }
+
+    if (AllInBase(ctx)) {
+      game.SendChatMessage("All players have been warped to base!");
+      bb.Set<BDWarpTo>("bdwarpto", BDWarpTo::None);
+    }
+
+    g_RenderState.RenderDebugText("  DevaWarpDBNode(warping to base): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  g_RenderState.RenderDebugText("  DevaWarpDBNode(not warping): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
+}
+
+void BDWarpTeamNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
@@ -412,26 +430,65 @@ void RunBDNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   bb.SetBDWarpCoolDown(ctx.bot->GetTime().GetTime());
 }
 
-behavior::ExecuteResult BDQueryResponderNode::Execute(behavior::ExecuteContext& ctx) {
-  PerformanceTimer timer;
-
+bool BDWarpTeamNode::AllInBase(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  ChatMessage msg = game.FindChatMessage(BD_RUN_QUERY);
+  std::size_t index = bb.GetBDBaseIndex();
+  const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
 
-  if (!msg.message.empty()) {
-    for (std::string name : kBotNames) {
-      if (name == msg.player) {
-        game.SendChatMessage(BD_RUN_CONFIRM);
-        g_RenderState.RenderDebugText("  DevaQueryResponderDBNode(responding): %llu", timer.GetElapsedTime());
-        return behavior::ExecuteResult::Failure;
+  bool result = true;
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+
+    if (player.frequency == 00 || player.frequency == 01) {
+      bool connected = ctx.bot->GetRegions().IsConnected(player.position, warp.t0[index]);
+
+      if (!connected) {
+        result = false;
+        break;
       }
     }
   }
 
-  g_RenderState.RenderDebugText("  DevaQueryResponderDBNode(success): %llu", timer.GetElapsedTime());
-  return behavior::ExecuteResult::Success;
+  return result;
+}
+
+void BDWarpTeamNode::WarpAllToCenter(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+
+    if (player.frequency == 00 || player.frequency == 01) {
+      game.SendPrivateMessage(player.name, "?shipreset");
+      game.SendPrivateMessage(player.name, "?warpto 512 512");
+    }
+  }
+}
+
+bool BDWarpTeamNode::AllInCenter(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  bool result = true;
+
+    for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+
+    if (player.frequency == 00 || player.frequency == 01) {
+      bool connected = ctx.bot->GetRegions().IsConnected(player.position, MapCoord(512, 512));
+
+      if (!connected) {
+        result = false;
+        break;
+      }
+    }
+  }
+
+    return result;
 }
 
 behavior::ExecuteResult BDClearScoreNode::Execute(behavior::ExecuteContext& ctx) {

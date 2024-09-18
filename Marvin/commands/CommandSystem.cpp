@@ -68,12 +68,13 @@ CommandSystem::CommandSystem(Zone zone) {
 
    switch (zone) {
     case Zone::Devastation: {
-      RegisterCommand(std::make_shared<BDPublicCommand>());
-      RegisterCommand(std::make_shared<BDPrivateCommand>());
-      RegisterCommand(std::make_shared<StartBDCommand>());
-      RegisterCommand(std::make_shared<StopBDCommand>());
-      RegisterCommand(std::make_shared<HoldBDCommand>());
-      RegisterCommand(std::make_shared<ResumeBDCommand>());
+     // RegisterCommand(std::make_shared<BDPublicCommand>());
+     // RegisterCommand(std::make_shared<BDPrivateCommand>());
+    //  RegisterCommand(std::make_shared<StartBDCommand>());
+    //  RegisterCommand(std::make_shared<StopBDCommand>());
+    //  RegisterCommand(std::make_shared<HoldBDCommand>());
+    //  RegisterCommand(std::make_shared<ResumeBDCommand>());
+
       RegisterCommand(std::make_shared<AnchorCommand>());
       RegisterCommand(std::make_shared<RushCommand>());
       RegisterCommand(std::make_shared<SwarmCommand>());

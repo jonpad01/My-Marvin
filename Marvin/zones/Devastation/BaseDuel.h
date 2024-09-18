@@ -53,8 +53,7 @@ class RunBDNode : public behavior::BehaviorNode {
   void PrintCurrentScore(behavior::ExecuteContext& ctx);
   void PrintFinalScore(behavior::ExecuteContext& ctx);
   void ClearScore(behavior::ExecuteContext& ctx);
-  void WarpAllToCenter(behavior::ExecuteContext& ctx);
-  void WarpAllToBase(behavior::ExecuteContext& ctx);
+
 };
 
 class BDQueryResponderNode : public behavior::BehaviorNode {
@@ -63,6 +62,17 @@ class BDQueryResponderNode : public behavior::BehaviorNode {
 
  private:
 
+};
+
+class BDWarpTeamNode : public behavior::BehaviorNode {
+ public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+ private:
+  void WarpAllToCenter(behavior::ExecuteContext& ctx);
+  void WarpAllToBase(behavior::ExecuteContext& ctx);
+  bool AllInBase(behavior::ExecuteContext& ctx);
+  bool AllInCenter(behavior::ExecuteContext& ctx);
 };
 
 class BDClearScoreNode : public behavior::BehaviorNode {
