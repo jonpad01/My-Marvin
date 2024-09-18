@@ -1,0 +1,14 @@
+LIBRARY "dsound"
+EXPORTS
+	FuseDirectSoundCreate				@1
+	FuseDirectSoundEnumerateA			@2
+	FuseDirectSoundEnumerateW			@3
+	FuseDllCanUnloadNow					@4
+	FuseDllGetClassObject				@5
+	FuseDirectSoundCaptureCreate		@6
+	FuseDirectSoundCaptureEnumerateA	@7
+	FuseDirectSoundCaptureEnumerateW	@8
+	FuseGetDeviceID						@9
+	FuseDirectSoundFullDuplexCreate		@10
+	FuseDirectSoundCreate8				@11
+	FuseDirectSoundCaptureCreate8		@12
