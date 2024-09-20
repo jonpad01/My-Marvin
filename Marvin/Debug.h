@@ -33,8 +33,6 @@
 
 #define DEBUG_DISABLE_BEHAVIOR 0
 
-extern HWND g_hWnd;
-
 namespace marvin {
 
 enum class TextColor { White, Green, Blue, Red, Yellow, Fuchsia, DarkRed, Pink };
@@ -98,8 +96,8 @@ class LogFile {
   std::ofstream log;
 };
 
-//extern std::ofstream debug_log;
-extern LogFile log;
+extern std::ofstream log;
+//extern LogFile log;
 
 struct RenderState {
   static const bool kDisplayDebugText;
