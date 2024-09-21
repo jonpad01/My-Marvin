@@ -13,6 +13,28 @@
 namespace marvin {
 
 class Map;
+enum class ConnectState : u32 {
+  // This is the ConnectState when the client is on the menu and not attempting to join any zone.
+  None = 0,
+  // @4478D8
+  Connecting,
+  // @451962
+  Connected,
+  // @42284F
+  // This is used for news and biller popups.
+  JoiningZone,
+  // @42E0C0
+  // The client will transition to this while switching arenas.
+  JoiningArena,
+  // @436B36
+  // This state also includes map downloading.
+  Playing,
+  // @451AFD
+  // Normally this only occurs when the server sends the disconnect packet, but Fuse will set it
+  // to this if no packet is received within 1500 ticks.
+  // This is the same tick count that Continuum uses for the "No data" notification.
+  Disconnected
+};
 enum class UpdateState : short { Clear, Wait, Reload };
 enum class ItemAction : short {Buy, Sell, DepotBuy, DepotSell, ListItems, ListSlots, None};
 enum class CombatRole : short { Anchor, Rusher, Bomber, Gunner, Flagger, Turret, EMP, PowerBaller, None };
@@ -146,9 +168,10 @@ class GameProxy {
  public:
   virtual ~GameProxy() {}
 
-  virtual UpdateState Update(float dt) = 0;
+  virtual UpdateState Update() = 0;
 
   virtual std::string GetName() const = 0;
+  //virtual HWND GetGameWindowHandle() = 0;
   virtual int GetEnergy() const = 0;
   virtual const float GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
@@ -181,7 +204,7 @@ class GameProxy {
   virtual void SendPrivateMessage(const std::string& target, const std::string& mesg) = 0;
   virtual void SendPriorityMessage(const std::string& message) = 0;
   virtual void SendQueuedMessage(const std::string& mesg) = 0;
-  virtual void SendKey(int vKey) const = 0;
+  virtual void SendKey(int vKey) = 0;
 
   virtual void SetTileId(Vector2f position, u8 id) = 0;
   

@@ -14,8 +14,8 @@ namespace marvin {
 
 RenderState g_RenderState;
 
-//std::ofstream debug_log;
-LogFile log;
+std::ofstream log;
+//LogFile log;
 
 
 const bool RenderState::kDisplayDebugText = true;
@@ -235,6 +235,8 @@ void RenderPath(Vector2f position, std::vector<Vector2f> path) {}
 
 Vector2f GetWindowCenter() {
   RECT rect;
+
+  HWND g_hWnd = *(HWND*)((*(u32*)0x4C1AFC) + 0x8C);
 
   GetClientRect(g_hWnd, &rect);
 

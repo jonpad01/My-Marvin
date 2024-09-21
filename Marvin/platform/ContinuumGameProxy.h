@@ -64,10 +64,13 @@ class ContinuumWeapon : public Weapon {
 
 class ContinuumGameProxy : public GameProxy {
  public:
-  ContinuumGameProxy(HWND hwnd);
-  bool LoadGame();
+  ContinuumGameProxy();
 
-  UpdateState Update(float dt) override;
+  bool UpdateBaseAddress();
+  UpdateState Update() override;
+
+  ConnectState GetConnectState() const;
+  void ExitGame();
 
   std::string GetName() const override;
   ChatMessage FindChatMessage(std::string match) override;
@@ -76,6 +79,7 @@ class ContinuumGameProxy : public GameProxy {
   int GetEnergy() const override;
   const float GetEnergyPercent() override;
   Vector2f GetPosition() const override;
+  HWND GetGameWindowHandle();
   //const ShipFlightStatus& GetShipStatus() const override;
 
   const Player& GetPlayer() const override;
@@ -131,7 +135,7 @@ class ContinuumGameProxy : public GameProxy {
   void SendQueuedMessage(const std::string& mesg) override;
   void SendChatMessage(const std::string& mesg) override;
   void SendPrivateMessage(const std::string& target, const std::string& mesg) override;
-  void SendKey(int vKey) const override;
+  void SendKey(int vKey) override;
   void SetSelectedPlayer(uint16_t id) override;
   std::size_t GetIDIndex() override;
   void SetStatus(StatusFlag status, bool on_off) override;
@@ -140,7 +144,8 @@ class ContinuumGameProxy : public GameProxy {
   void SetSpeed(float desired) override;
   void SetThrust(uint32_t desired) override;
 
- 
+  bool IsOnMenu() const;
+  bool IsInGame() const;
   
 
   void SetWindowFocus() override;
@@ -172,40 +177,38 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Flag> dropped_flags_;
   std::vector<ContinuumWeapon> enemy_mines_;
  // ShipFlightStatus ship_status_;
-  ShipCapability capability_;
+  ShipCapability capability_{0, 0, 0, 0, 0, 0, 0, 0};
   std::vector<ChatMessage> chat_;
   std::vector<ChatMessage> current_chat_;
-  std::size_t chat_index_;
+  std::size_t chat_index_ = 0;
   ExeProcess process_;
-  HWND hwnd_;
-  std::size_t module_base_continuum_;
-  std::size_t module_base_menu_;
-  std::size_t game_addr_;
-  std::size_t player_addr_;
-  uint32_t* position_data_;
-  uint16_t player_id_;
-  std::unique_ptr<Map> map_;
-  Player* player_;
+  std::size_t module_base_continuum_ = 0;
+  std::size_t module_base_menu_ = 0;
+  std::size_t game_addr_ = 0;
+  std::size_t player_addr_ = 0;
+  uint32_t* position_data_ = nullptr;
+  uint16_t player_id_ = 0xFFFF;
+  std::unique_ptr<Map> map_ = nullptr;
+  Player* player_ = nullptr;
   std::vector<Player> players_;
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
-  Zone zone_;
+  Zone zone_ = Zone::Other;
   Time time_;
-  SetShipStatus set_ship_status_;
-  SetShipStatus reset_ship_status_;
-  bool set_freq_flag_;
-  int tries_;
-  int sent_message_count_;
-  UpdateState game_status_;
-  uint64_t attach_cooldown_;
-  uint64_t flag_cooldown_;
-  uint64_t setfreq_cooldown_;
-  uint64_t setship_cooldown_;
-  uint64_t message_cooldown_;
-  uint64_t delay_timer_;
-  uint16_t desired_ship_;
-  uint16_t desired_freq_;
-  uint16_t original_ship_;
+  SetShipStatus set_ship_status_ = SetShipStatus::Clear;
+  SetShipStatus reset_ship_status_ = SetShipStatus::Clear;
+  bool set_freq_flag_ = false;
+  int tries_ = 0;
+  int sent_message_count_ = 0;
+  uint64_t attach_cooldown_ = 0;
+  uint64_t flag_cooldown_ = 0;
+  uint64_t setfreq_cooldown_ = 0;
+  uint64_t setship_cooldown_ = 0;
+  uint64_t message_cooldown_ = 0;
+  uint64_t delay_timer_ = 0;
+  uint16_t desired_ship_ = 0;
+  uint16_t desired_freq_ = 0;
+  uint16_t original_ship_ = 0;
   std::vector<uint16_t> id_list_;
   std::vector<std::string> name_list_;
   std::deque<std::string> message_queue_;

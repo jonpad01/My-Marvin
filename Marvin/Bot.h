@@ -32,7 +32,7 @@ class Bot {
   Bot(std::shared_ptr<GameProxy> game);
 
   void Load();
-  void Update(float dt);
+  void Update(bool reload, float dt);
 
   KeyController& GetKeys() { return keys_; }
   GameProxy& GetGame() { return *game_; }

@@ -16,93 +16,79 @@ Last fix:  reading multifire status and item counts on other players was not the
 
 namespace marvin {
 
-ContinuumGameProxy::ContinuumGameProxy(HWND hwnd) : hwnd_(hwnd) {
-  set_ship_status_ = SetShipStatus::Clear;
-  reset_ship_status_ = SetShipStatus::Clear;
-  UpdateState game_status_ = UpdateState::Clear;
-  set_freq_flag_ = 0;
-  desired_ship_ = 0;
-  desired_freq_ = 0;
-  original_ship_ = 0;
-  attach_cooldown_ = 0;
-  message_cooldown_ = 0;
-  setfreq_cooldown_ = 0;
-  setship_cooldown_ = 0;
-  flag_cooldown_ = 0;
-  delay_timer_ = 0;
-  tries_ = 0;
-
-  module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
-  module_base_menu_ = process_.GetModuleBase("menu040.dll");
-  player_id_ = 0xFFFF;
-
-  log.Open(GetName());
-  log.Write("Log file created.");
-
-  LoadGame();
+ContinuumGameProxy::ContinuumGameProxy() : module_base_menu_(0), module_base_continuum_(0) {
+  UpdateBaseAddress();
 }
 
-bool ContinuumGameProxy::LoadGame() {
-  PerformanceTimer timer;
-  log.Write("LOADING GAME.", timer.GetElapsedTime());
-  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
-  position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+bool ContinuumGameProxy::UpdateBaseAddress() {
+  if (!module_base_menu_) {
+    module_base_menu_ = process_.GetModuleBase("menu040.dll");
 
-  mapfile_path_ = GetServerFolder() + "\\" + GetMapFile();
-  map_ = Map::Load(mapfile_path_);
-
-  // map will be null if downloading a new map file
-  if (map_ == nullptr) {
-    game_status_ = UpdateState::Reload;
-    return false;
-  }
-
-  log.Write("Map loaded: " + mapfile_path_, timer.GetElapsedTime());
-
-  SetZone();
-  FetchPlayers();
-  log.Write("Players fetched.", timer.GetElapsedTime());
-
-  // Skip over existing messages on load
-  u32 chat_base_addr = game_addr_ + 0x2DD08;
-  chat_index_ = *(u32*)(chat_base_addr + 8);
-
-  for (auto& player : players_) {
-    if (player.name == GetName()) {
-      player_id_ = player.id;
-      player_ = &player;
-      FetchPlayers();  // get one more time to set the player_addr_ private variable
+    if (!module_base_menu_) {
+      return false;
     }
   }
 
-  log.Write("Game Loaded. TOTAL TIME", timer.TimeSinceConstruction());
-  game_status_ = UpdateState::Clear;
+  if (!module_base_continuum_) {
+    module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
+
+    if (!module_base_continuum_) {
+      return false;
+    }
+
+    game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
+
+    if (game_addr_) {
+      // Skip over existing messages on load
+      u32 chat_base_addr = game_addr_ + 0x2DD08;
+      chat_index_ = *(u32*)(chat_base_addr + 8);
+    }
+
+  }
+
+  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
+  position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+  
+
+  if (game_addr_ == 0) {
+    //player_ = nullptr;
+    //player_id_ = 0xFFFF;
+    return false;
+  }
+
   return true;
 }
 
-UpdateState ContinuumGameProxy::Update(float dt) {
+UpdateState ContinuumGameProxy::Update() {
   // Continuum stops processing input when it loses focus, so update the memory
   // to make it think it always has focus.
   SetWindowFocus();
 
+  if (!UpdateBaseAddress()) {
+    return UpdateState::Wait;
+  }
+
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
-  if (game_status_ == UpdateState::Reload) {
-    if (LoadGame()) {
-      return UpdateState::Reload;
-    } else {
-      return UpdateState::Wait;
-    }
-  }
-
+  // load new map
   if (mapfile_path_ != map_file_path) {
-    log.Write("New map file detected.");
-    log.Write("Old map - " + mapfile_path_ + "  New map - " + map_file_path);
-    if (!LoadGame()) {
+    mapfile_path_ = map_file_path;
+    map_ = Map::Load(mapfile_path_);
+
+    // map is downloading
+    if (!map_) {
+      mapfile_path_ = "";
       return UpdateState::Wait;
     }
+
     return UpdateState::Reload;
   }
+
+  if (!IsInGame()) {
+    return UpdateState::Wait;
+  }
+
+  SetZone();
 
   FetchPlayers();
   FetchBallData();
@@ -110,6 +96,16 @@ UpdateState ContinuumGameProxy::Update(float dt) {
   FetchGreens();
   FetchChat();
   FetchWeapons();
+
+ // if (player_id_ == 0xFFFF) {
+    for (auto& player : players_) {
+      if (player.name == GetName()) {
+        player_id_ = player.id;
+        player_ = &player;
+        if (!player_addr_) FetchPlayers();  // get one more time to set the player_addr_
+      }
+    }
+ // }
 
   if (set_ship_status_ == SetShipStatus::SetShip) {
     if (SetShip(desired_ship_)) {
@@ -162,15 +158,24 @@ void ContinuumGameProxy::FetchPlayers() {
   const std::size_t kMultiFireCapableOffset = 0x2EC;
   const std::size_t kMultiFireStatusOffset = 0x32C;
 
+  if (!game_addr_) return;
+
   std::size_t base_addr = game_addr_ + 0x127EC;
   std::size_t players_addr = base_addr + 0x884;
   std::size_t count_addr = base_addr + 0x1884;
+
+  if (players_addr == 0 || count_addr == 0) return;
 
   std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
 
   players_.clear();
   id_list_.clear();
   name_list_.clear();
+
+  //player_ = nullptr;
+  //player_id_ = 0xFFFF;
+
+  std::string my_name = GetName();
 
   for (std::size_t i = 0; i < count; ++i) {
     std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
@@ -212,14 +217,13 @@ void ContinuumGameProxy::FetchPlayers() {
     player.dead = *(u32*)(player_addr + kExplodeTimerOffset1) != 0 || *(u32*)(player_addr + kDeadOffset) != 0;
 
     // these are not valid when reading on other players and will result in crashes
-    if (player.id == player_id_) {
+    if (my_name == player.name) {
+      player_id_ = player.id;
+
       player.flight_status.rotation = *(u32*)(player_addr + 0x278) + *(u32*)(player_addr + 0x274);
       player.flight_status.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
       player.flight_status.shrapnel = *(u32*)(player_addr + 0x2A8) + *(u32*)(player_addr + 0x2AC);
       player.flight_status.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
-      g_RenderState.RenderDebugText("Player Thrust 1: %u", *(u32*)(player_addr + 0x244));
-      g_RenderState.RenderDebugText("Player Thrust 2: %u", *(u32*)(player_addr + 0x248));
-      g_RenderState.RenderDebugText("Player Thrust: %u", *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248));
       player.flight_status.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
       player.flight_status.max_energy = *(u32*)(player_addr + 0x1C8) + *(u32*)(player_addr + 0x1C4);
 
@@ -349,6 +353,8 @@ void ContinuumGameProxy::FetchGreens() {
 // Retrieves every chat message since the last call
 void ContinuumGameProxy::FetchChat() {
 
+  if (!game_addr_) return;
+
   current_chat_.clear();  // flush out old chat 
 
   struct ChatEntry {
@@ -363,11 +369,16 @@ void ContinuumGameProxy::FetchChat() {
     char unknown2[3];
   };
 
+  module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
+  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
   u32 chat_base_addr = game_addr_ + 0x2DD08;
 
   ChatEntry* chat_ptr = *(ChatEntry**)(chat_base_addr);
   u32 entry_count = *(u32*)(chat_base_addr + 8);
   int read_count = entry_count - chat_index_;
+
+  if (!IsInGame()) return;
+  if (!chat_ptr) return;
 
   if (read_count < 0) {
     read_count += 64;
@@ -380,6 +391,8 @@ void ContinuumGameProxy::FetchChat() {
 
     ChatEntry* entry = chat_ptr + chat_index_;
     ++chat_index_;
+
+    if (!entry) continue;
     ChatMessage chat;
 
     chat.message = entry->message;
@@ -464,6 +477,48 @@ void ContinuumGameProxy::FetchDroppedFlags() {
     u32 frequency = *(u32*)(current + 0x14);
     dropped_flags_.emplace_back(flag_id, frequency, Vector2f(x / 16000.0f, y / 16000.0f));
   }
+}
+
+ConnectState ContinuumGameProxy::GetConnectState() const {
+  if (IsOnMenu()) return ConnectState::None;
+
+  if (game_addr_ == 0) return ConnectState::None;
+
+  ConnectState state = *(ConnectState*)(game_addr_ + 0x127EC + 0x588);
+
+  if (state == ConnectState::Playing) {
+    // Check if the client has timed out.
+    u32 ticks_since_recv = *(u32*)(game_addr_ + 0x127EC + 0x590);
+
+    // @453420
+    if (ticks_since_recv > 1500) {
+      return ConnectState::Disconnected;
+    }
+  }
+
+  return state;
+}
+
+void ContinuumGameProxy::ExitGame() {
+
+    if (!game_addr_) return;
+
+  u8* leave_ptr = (u8*)(game_addr_ + 0x127ec + 0x58c);
+  *leave_ptr = 1;
+}
+
+bool ContinuumGameProxy::IsOnMenu() const {
+  if (module_base_menu_ == 0) return true;
+
+  return *(u8*)(module_base_menu_ + 0x47a84) == 0;
+}
+
+bool ContinuumGameProxy::IsInGame() const {
+  if (map_ && GetConnectState() == ConnectState::Playing) {
+    return true;
+  }
+
+  return false;
 }
 
 const std::vector<Flag>& ContinuumGameProxy::GetDroppedFlags() {
@@ -587,6 +642,16 @@ std::string ContinuumGameProxy::GetName() const {
   name = name.substr(0, strlen(name.c_str()));
 
   return name;
+}
+
+HWND ContinuumGameProxy::GetGameWindowHandle() {
+  HWND handle = 0;
+
+  if (game_addr_) {
+    handle = *(HWND*)(game_addr_ + 0x8C);
+  }
+
+  return handle;
 }
 
 int ContinuumGameProxy::GetEnergy() const {
@@ -852,9 +917,9 @@ bool ContinuumGameProxy::SetShip(uint16_t ship) {
       ResetStatus();
       SetEnergy(100, "ship change");
       if (ship == 8) {
-      PostMessage(hwnd_, WM_CHAR, (WPARAM)('s'), 0);
+      PostMessage(GetGameWindowHandle(), WM_CHAR, (WPARAM)('s'), 0);
       } else {
-      PostMessage(hwnd_, WM_CHAR, (WPARAM)('1' + ship), 0);
+      PostMessage(GetGameWindowHandle(), WM_CHAR, (WPARAM)('1' + ship), 0);
       }
       setship_cooldown_ = time_.GetTime() + 175;
       return true;
@@ -1009,10 +1074,10 @@ ExeProcess& ContinuumGameProxy::GetProcess() {
   return process_;
 }
 
-void ContinuumGameProxy::SendKey(int vKey) const {
+void ContinuumGameProxy::SendKey(int vKey) {
 #if !DEBUG_USER_CONTROL
-  PostMessage(hwnd_, WM_KEYDOWN, (WPARAM)vKey, 0);
-  PostMessage(hwnd_, WM_KEYUP, (WPARAM)vKey, 0);
+  PostMessage(GetGameWindowHandle(), WM_KEYDOWN, (WPARAM)vKey, 0);
+  PostMessage(GetGameWindowHandle(), WM_KEYUP, (WPARAM)vKey, 0);
 #endif
 }
 
