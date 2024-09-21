@@ -16,7 +16,8 @@
 #include <TlHelp32.h>
 #include <stdio.h>
 
-#define INJECT_MODULE_NAME "Loader.dll"
+//#define INJECT_MODULE_NAME "Loader.dll"
+#define INJECT_MODULE_NAME "Injector-Loader.dll"
 
 namespace marvin {
 

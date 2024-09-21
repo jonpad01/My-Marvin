@@ -377,8 +377,8 @@ void ContinuumGameProxy::FetchChat() {
   u32 entry_count = *(u32*)(chat_base_addr + 8);
   int read_count = entry_count - chat_index_;
 
-  if (!IsInGame()) return;
-  if (!chat_ptr) return;
+ // if (!IsInGame()) return;
+  //if (!chat_ptr) return;
 
   if (read_count < 0) {
     read_count += 64;

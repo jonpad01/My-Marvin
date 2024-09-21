@@ -17,9 +17,10 @@
 
 #define UM_SETTEXT WM_USER + 0x69
 
-std::string kEnabledText = "Continuum (enabled) - ";
-std::string kDisabledText = "Continuum (disabled) - ";
-std::string name;
+static std::string kEnabledText = "Continuum (enabled) - ";
+static std::string kDisabledText = "Continuum (disabled) - ";
+//std::string name;
+
 
 using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
@@ -32,8 +33,8 @@ std::unique_ptr<marvin::Bot> bot = nullptr;
 std::shared_ptr<marvin::ContinuumGameProxy> game = nullptr;
 
 static bool enabled = true;
-static bool memory_initialized = false;
 static bool initialize_debug = true;
+static bool initialize_title = true;
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -53,11 +54,6 @@ void CreateBot() {
   game = std::make_shared<marvin::ContinuumGameProxy>();
   auto game2(game);
   bot = std::make_unique<marvin::Bot>(std::move(game2));
-}
-
-// text must not be stack allocated
-void SafeSetWindowText(HWND hwnd, const char* text) {
-  PostMessage(hwnd, UM_SETTEXT, NULL, (LPARAM)text);
 }
 
 bool GameLoaded() {
@@ -145,14 +141,13 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 
   if (!game->UpdateBaseAddress()) {
     return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
-  } else {
-    memory_initialized = true;
   }
 
   // wipe the bot so it can be rebuit after entering the game
   // if not there will be a memory error with fetch chat function
   if (game->IsOnMenu()) {
     bot = nullptr;
+    initialize_title = true;
     enabled = false;
   }
 
@@ -170,40 +165,46 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     enabled = true;
   }
 
-  #if 1
   if (!game->UpdateBaseAddress()) {
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
-  } else {
-    memory_initialized = true;
   }
-  #endif
 
-  name = game->GetName();
   marvin::ConnectState state = game->GetConnectState();
 
   if (state != marvin::ConnectState::Playing) {
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
+  std::string name = game->GetName();
+  HWND g_hWnd = game->GetGameWindowHandle();
+
+  // wait until after bot is in the game
+  if (initialize_title) {
+    SetWindowText(g_hWnd, (kEnabledText + name).c_str());
+    initialize_title = false;
+    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+  }
+
+#if DEBUG_RENDER
   if (initialize_debug) {
+
     u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
     LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
     void** vtable = (*(void***)surface);
     RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD,
                                            LPDDBLTFX))vtable[5];
 
-#if DEBUG_RENDER
     DetourRestoreAfterWith();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
     DetourAttach(&(PVOID&)RealBlt, OverrideBlt);
     DetourTransactionCommit();
-#endif
-    initialize_debug = false;
-  }
 
-  HWND g_hWnd = game->GetGameWindowHandle();
+    initialize_debug = false;
+    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+  }
+#endif
 
   time_point now = time_clock::now();
   seconds dt = now - g_LastUpdateTime;
@@ -212,10 +213,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     if (GetFocus() == g_hWnd) {
       if (RealGetAsyncKeyState(VK_F10)) {
         enabled = false;
-        SafeSetWindowText(g_hWnd, (kDisabledText + name).c_str());
+        SetWindowText(g_hWnd, (kDisabledText + name).c_str());
       } else if (RealGetAsyncKeyState(VK_F9)) {
         enabled = true;
-        SafeSetWindowText(g_hWnd, (kEnabledText + name).c_str());
+        SetWindowText(g_hWnd, (kEnabledText + name).c_str());
       }
     }
     
@@ -223,7 +224,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
       for (marvin::ChatMessage chat : game->GetCurrentChat()) {
 
-        std::string name = game->GetPlayer().name;
+        //std::string name = game->GetPlayer().name;
         std::string eg_msg = "[ " + name + " ]";
         std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
         std::string hs_lag_msg = "You are too lagged to play in this arena.";
@@ -279,21 +280,10 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   marvin::PerformanceTimer timer; 
 
   //create a generic log file name for now
-  marvin::log.open("Marvin.log", std::ios::out | std::ios::trunc);
-  marvin::log << "INITIALIZE MARVIN - NEW TIMER: " + std::to_string(timer.GetElapsedTime()) + "\n";
+  //marvin::log.open("Marvin.log", std::ios::out | std::ios::trunc);
+ // marvin::log << "INITIALIZE MARVIN - NEW TIMER: " + std::to_string(timer.GetElapsedTime()) + "\n";
   
   CreateBot();
-
-  
-
- #if 0  // can't dereference memory untill menu or game is loaded
-  u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
-  LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
-  void** vtable = (*(void***)surface);
-  RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD,
-     LPDDBLTFX))vtable[5];
-  #endif
-
   
   DetourRestoreAfterWith();
 
@@ -304,17 +294,14 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
 
-#if DEBUG_RENDER
-  //DetourAttach(&(PVOID&)RealBlt, OverrideBlt);
-#endif
   DetourTransactionCommit();
 
-  marvin::log << "FINISH INITIALIZE MARVIN - TOTAL TIME: " + std::to_string(timer.TimeSinceConstruction()) + "\n";
+ // marvin::log << "FINISH INITIALIZE MARVIN - TOTAL TIME: " + std::to_string(timer.TimeSinceConstruction()) + "\n";
 }
 
 extern "C" __declspec(dllexport) void CleanupMarvin() {
- // HWND g_hWnd = game->GetGameWindowHandle();
-  marvin::log << "CLEANUP MARVIN.\n";
+ HWND g_hWnd = game->GetGameWindowHandle();
+ // marvin::log << "CLEANUP MARVIN.\n";
   DetourTransactionBegin();
   DetourUpdateThread(GetCurrentThread());
   DetourDetach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
@@ -328,10 +315,10 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 #endif
   DetourTransactionCommit();
 
-  //SafeSetWindowText(g_hWnd, "Continuum");
+  SetWindowText(g_hWnd, "Continuum");
   bot = nullptr;
-  marvin::log << "CLEANUP MARVIN FINISHED.\n";
-  marvin::log.close();
+ // marvin::log << "CLEANUP MARVIN FINISHED.\n";
+ // marvin::log.close();
 }
 
 // the dsound file calls this using loadlibrary

@@ -1082,6 +1082,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   role_ = bb.GetCombatRole();
   bool last_in_base = bb.GetLastInBase();
   const Player* enemy = bb.GetTarget();
+  int manual_distance_adjustment = bb.ValueOr<int>("anchordistance", 0);
 
   if (!enemy || in_center || (role_ != CombatRole::Anchor && !last_in_base)) {
     g_RenderState.RenderDebugText("  AnchorBasePathNode(fail): %llu", timer.GetElapsedTime());
@@ -1177,6 +1178,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   // will range from 0.25 * desired to -0.25 * desired
   float threat_adjustment = desired_distance * 0.5f * (0.5f - (team_threat_ / (team_threat_ + enemy_team_threat_)));
   desired_distance += threat_adjustment;
+  desired_distance += (float)manual_distance_adjustment;
 
   // get the distance to the enemy
   float pathlength = search_->GetPathDistance(bot_node_, enemy_node_);

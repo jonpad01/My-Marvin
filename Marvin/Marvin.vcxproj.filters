@@ -117,9 +117,6 @@
     <ClCompile Include="zones\ExtremeGames.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="commands\SayCommand.h">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="zones\Devastation\BaseDuel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -303,6 +300,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zones\Devastation\BaseDuel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\SayCommand.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

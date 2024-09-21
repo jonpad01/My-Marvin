@@ -395,6 +395,8 @@ class Blackboard {
     use_decoy_ = use_decoy_default_;
     use_burst_ = use_burst_default_;
     swarm_ = false;
+
+    data_.clear();
   }
 
   void ClearTeamList() { team_list_.clear(); }

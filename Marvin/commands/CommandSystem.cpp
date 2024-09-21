@@ -79,7 +79,9 @@ CommandSystem::CommandSystem(Zone zone) {
       RegisterCommand(std::make_shared<RushCommand>());
       RegisterCommand(std::make_shared<SwarmCommand>());
       RegisterCommand(std::make_shared<LagAttachCommand>());
+      RegisterCommand(std::make_shared<AdjustAnchorDistanceCommand>());
       RegisterCommand(std::make_shared<UFOCommand>());
+
       break;
     }
     case Zone::Hyperspace: {

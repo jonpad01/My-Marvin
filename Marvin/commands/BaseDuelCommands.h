@@ -335,4 +335,43 @@ class LagAttachCommand : public CommandExecutor {
   CommandType GetCommandType() { return CommandType::Behavior; }
 };
 
+class AdjustAnchorDistanceCommand : public CommandExecutor {
+ public:
+  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+    Blackboard& bb = bot.GetBlackboard();
+    GameProxy& game = bot.GetGame();
+
+    std::vector<std::string> args = Tokenize(arg, ' ');
+
+    if (args.empty()) {
+      SendUsage(game, sender);
+      return;
+    }
+
+    int distance = 0;
+
+    if (std::isdigit(args[0][0])) {
+      distance = std::stoi(args[0]);
+    } else {
+      SendUsage(game, sender);
+      return;
+    }
+
+    game.SendPrivateMessage(sender, "Setting anchor distance adjustment to " + std::to_string(distance));
+    bb.Set<int>("anchordistance", distance);
+  }
+
+  void SendUsage(GameProxy& game, const std::string& sender) {
+    game.SendPrivateMessage(sender, "This command requires args ?anchordistance -10 (anchors 10 tiles closer to target).");
+  }
+
+  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  void SetAccess(CommandAccessFlags flags) { return; }
+  CommandFlags GetFlags() { return CommandFlag_Lockable; }
+  std::vector<std::string> GetAliases() { return {"anchordistance"}; }
+  std::string GetDescription() { return "Adjusts calculated distance.  ?anchordistance -10 (anchors 10 tiles closer) ?anchordistance 5"; }
+  int GetSecurityLevel() { return 0; }
+  CommandType GetCommandType() { return CommandType::Behavior; }
+};
+
 }  // namespace marvin
