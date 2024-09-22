@@ -71,6 +71,8 @@ void RenderPath(Vector2f position, std::vector<Vector2f> path);
 
 Vector2f GetWindowCenter();
 
+
+// writing to the log file must end with std::endl
 class LogFile {
  public:
      ~LogFile() { 
@@ -96,8 +98,8 @@ class LogFile {
   std::ofstream log;
 };
 
-extern std::ofstream log;
-//extern LogFile log;
+//extern std::ofstream log;
+extern LogFile log;
 
 struct RenderState {
   static const bool kDisplayDebugText;

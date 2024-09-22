@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+const std::string MARVIN_DLL_PATH = "E:\\Code_Projects\\My-Marvin\\bin\\Marvin.dll";
+
 std::ofstream debug_log;
 
 static std::string GetLocalPath() {
@@ -51,8 +53,6 @@ static std::vector<std::string> GetLoadRequests(const char* filename) {
 void InitializeLoader() {
   std::string base_path = GetLocalPath();
 
-  debug_log.open("fuse_loader.log", std::ios::out);
-
   debug_log << "Reading config file." << std::endl;
 
   std::vector<std::string> requests = GetLoadRequests("fuse.cfg");
@@ -62,6 +62,8 @@ void InitializeLoader() {
 
   for (size_t i = 0; i < load_count; ++i) {
     std::string full_path = base_path + "\\" + requests[i];
+
+  
 
     HMODULE loaded_module = LoadLibrary(full_path.c_str());
     debug_log << full_path << ": " << (loaded_module ? "Success" : "Failure") << std::endl;
@@ -83,9 +85,25 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
 
       fuse::g_DirectSound = fuse::DirectSound::Load(dsound);
 
-      //HMODULE marvin = LoadLibrary((GetLocalPath() + "\\Marvin.dll").c_str());
+      debug_log.open("fuse_loader.log", std::ios::out);
 
-      InitializeLoader();
+      HMODULE loaded = LoadLibrary((GetLocalPath() + "\\Marvin.dll").c_str());
+
+      if (!loaded) {
+        loaded = LoadLibrary(MARVIN_DLL_PATH.c_str());
+        if (loaded) {
+          debug_log << "File found in location : " << MARVIN_DLL_PATH << std::endl;
+        } else {
+          debug_log << "Could not find Marvin.dll" << std::endl;
+        }
+        
+      } else {
+        debug_log << "File found in location : " << (GetLocalPath() + "\\Marvin.dll") << std::endl;
+      }
+
+
+      //debug_log << "Marvin result : " << (loaded ? " Success " : " Failure ") << std::endl;
+      //InitializeLoader();
 
       //size_t hook_count = fuse::Fuse::Get().GetHooks().size();
      // debug_log << "Hook count: " << hook_count << std::endl;

@@ -17,10 +17,8 @@
 
 #define UM_SETTEXT WM_USER + 0x69
 
-static std::string kEnabledText = "Continuum (enabled) - ";
-static std::string kDisabledText = "Continuum (disabled) - ";
-//std::string name;
-
+const std::string kEnabledText = "Continuum (enabled) - ";
+const std::string kDisabledText = "Continuum (disabled) - ";
 
 using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
@@ -34,7 +32,8 @@ std::shared_ptr<marvin::ContinuumGameProxy> game = nullptr;
 
 static bool enabled = true;
 static bool initialize_debug = true;
-static bool initialize_title = true;
+static bool open_log = true;
+static bool set_title = true;
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -56,7 +55,7 @@ void CreateBot() {
   bot = std::make_unique<marvin::Bot>(std::move(game2));
 }
 
-bool GameLoaded() {
+bool GameLoaded() { // not used
   u32 game_addr = *(u32*)0x4C1AFC;
 
   if (game_addr) {
@@ -80,13 +79,9 @@ static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECT
 HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface,
                                       LPRECT src_rect, DWORD flags, LPDDBLTFX fx) {
 
-    if (!game->UpdateBaseAddress()) {
+    if (!game || !game->UpdateMemory() || game->IsOnMenu()) {
       return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
     } 
-
-    if (game->IsOnMenu()) {
-      return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
-    }
 
   u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
   LPDIRECTDRAWSURFACE primary_surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x40);
@@ -114,6 +109,10 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
 
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 
+  if (!game || !game->UpdateMemory()) {
+    return 0;
+  } 
+
  HWND g_hWnd = game->GetGameWindowHandle();
 
 #if DEBUG_USER_CONTROL
@@ -137,26 +136,35 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 
 // actions in the menu happen here
 // the dsound injection method will start here
+// will not update if the game is running the game window
+// but probably updates if the game is also running the chat window
 BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) { 
 
-  if (!game->UpdateBaseAddress()) {
+  if (!game || !game->UpdateMemory()) {
     return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  }
+
+  if (open_log) {
+    std::string name = game->GetName();
+    marvin::log.Open(name);
+    marvin::log.Write("Log file opened\n");
+    open_log = false;
   }
 
   // wipe the bot so it can be rebuit after entering the game
   // if not there will be a memory error with fetch chat function
   if (game->IsOnMenu()) {
     bot = nullptr;
-    initialize_title = true;
+    set_title = true;
     enabled = false;
   }
 
   return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 }
 
-// This is used to hook into the main update loop in Continuum so the bot can be
-// updated.
-//the marvin injection method will start here
+// This is used to hook into the main update loop in Continuum so the bot can be updated.
+// the marvin injection method will start here
+// will not run/update if the game is in the menu
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
   BOOL result = 0;
 
@@ -165,7 +173,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     enabled = true;
   }
 
-  if (!game->UpdateBaseAddress()) {
+  if (!game || !game->UpdateMemory()) {
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
@@ -179,13 +187,19 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   HWND g_hWnd = game->GetGameWindowHandle();
 
   // wait until after bot is in the game
-  if (initialize_title) {
+  if (set_title) {
     SetWindowText(g_hWnd, (kEnabledText + name).c_str());
-    initialize_title = false;
+    set_title = false;
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
-#if DEBUG_RENDER
+  if (open_log) {
+    marvin::log.Open(name);
+    marvin::log.Write("Log file opened\n");
+    open_log = false;
+  }
+
+  #if DEBUG_RENDER
   if (initialize_debug) {
 
     u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
@@ -200,11 +214,12 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     DetourUpdateThread(GetCurrentThread());
     DetourAttach(&(PVOID&)RealBlt, OverrideBlt);
     DetourTransactionCommit();
-
+    
     initialize_debug = false;
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
-#endif
+
+  #endif
 
   time_point now = time_clock::now();
   seconds dt = now - g_LastUpdateTime;
@@ -277,12 +292,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 * A call to get the module base will return 0.
 */ 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
-  marvin::PerformanceTimer timer; 
 
-  //create a generic log file name for now
-  //marvin::log.open("Marvin.log", std::ios::out | std::ios::trunc);
- // marvin::log << "INITIALIZE MARVIN - NEW TIMER: " + std::to_string(timer.GetElapsedTime()) + "\n";
-  
   CreateBot();
   
   DetourRestoreAfterWith();
@@ -296,7 +306,6 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 
   DetourTransactionCommit();
 
- // marvin::log << "FINISH INITIALIZE MARVIN - TOTAL TIME: " + std::to_string(timer.TimeSinceConstruction()) + "\n";
 }
 
 extern "C" __declspec(dllexport) void CleanupMarvin() {

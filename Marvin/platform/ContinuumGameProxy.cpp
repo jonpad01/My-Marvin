@@ -17,43 +17,35 @@ Last fix:  reading multifire status and item counts on other players was not the
 namespace marvin {
 
 ContinuumGameProxy::ContinuumGameProxy() : module_base_menu_(0), module_base_continuum_(0) {
-  UpdateBaseAddress();
+  UpdateMemory();
 }
 
-bool ContinuumGameProxy::UpdateBaseAddress() {
+// bot can get all of these when sitting in the menu or the game.
+bool ContinuumGameProxy::UpdateMemory() {
   if (!module_base_menu_) {
     module_base_menu_ = process_.GetModuleBase("menu040.dll");
 
-    if (!module_base_menu_) {
-      return false;
-    }
+    if (!module_base_menu_) return false;
   }
 
   if (!module_base_continuum_) {
     module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
 
-    if (!module_base_continuum_) {
-      return false;
-    }
+    if (!module_base_continuum_) return false;
+  }
 
+  if (module_base_continuum_  && !game_addr_) {
     game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
 
     if (game_addr_) {
+      position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+
       // Skip over existing messages on load
       u32 chat_base_addr = game_addr_ + 0x2DD08;
       chat_index_ = *(u32*)(chat_base_addr + 8);
+    } else {
+      return false;
     }
-
-  }
-
-  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
-  position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
-  
-
-  if (game_addr_ == 0) {
-    //player_ = nullptr;
-    //player_id_ = 0xFFFF;
-    return false;
   }
 
   return true;
@@ -64,7 +56,9 @@ UpdateState ContinuumGameProxy::Update() {
   // to make it think it always has focus.
   SetWindowFocus();
 
-  if (!UpdateBaseAddress()) {
+  UpdateMemory();
+
+  if (!module_base_menu_ || !game_addr_) {
     return UpdateState::Wait;
   }
 

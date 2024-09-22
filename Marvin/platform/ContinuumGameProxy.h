@@ -66,7 +66,7 @@ class ContinuumGameProxy : public GameProxy {
  public:
   ContinuumGameProxy();
 
-  bool UpdateBaseAddress();
+  bool UpdateMemory();
   UpdateState Update() override;
 
   ConnectState GetConnectState() const;
