@@ -26,6 +26,7 @@ using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
 
 static time_point g_LastUpdateTime;
+static time_point g_LastJoinAttemptTime;
 static time_point g_StartTime = time_clock::now();
 
 std::unique_ptr<marvin::Bot> bot = nullptr;
@@ -35,6 +36,7 @@ static bool enabled = true;
 static bool initialize_debug = true;
 static bool open_log = true;
 static bool set_title = true;
+static bool rejoin_game = true;
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -54,6 +56,33 @@ void CreateBot() {
   game = std::make_shared<marvin::ContinuumGameProxy>();
   auto game2(game);
   bot = std::make_unique<marvin::Bot>(std::move(game2));
+}
+
+bool LockedInSpec() {
+
+  std::string name = game->GetName();
+
+  for (marvin::ChatMessage chat : game->GetCurrentChat()) {
+    
+    std::string eg_msg = "[ " + name + " ]";
+    std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
+    std::string hs_lag_msg = "You are too lagged to play in this arena.";
+
+    bool eg_lag_locked =
+        chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
+
+    bool eg_locked_in_spec =
+        eg_lag_locked || chat.message == eg_packet_loss_msg && game->GetZone() == marvin::Zone::ExtremeGames;
+
+    bool hs_locked_in_spec = chat.message == hs_lag_msg && game->GetZone() == marvin::Zone::Hyperspace;
+
+    if (chat.type == marvin::ChatType::Arena) {
+      if (eg_locked_in_spec || hs_locked_in_spec) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool GameLoaded() { // not used
@@ -120,10 +149,22 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
 int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
   bool suppress = false;
 
-  // return 0 to supress message boxes 
+  std::string text = lpText;
+  std::string caption = lpCaption;
 
-  if (suppress) {
-    return 0;
+  const std::string fail_to_connect_msg =
+      "Failed to connect to server. Check to make sure the server is online (it should appear yellow or green in the "
+      "zone list) and that you are currently connected to the internet. If problem persists, seek help at the Tech "
+      "Support Forums found at www.subspacehq.com";
+
+
+
+  if (caption == "Information") {
+    // return 0 to supress msg box
+    if (text == fail_to_connect_msg) {
+      rejoin_game = true;
+      return 0;
+    }
   }
 
   return RealMessageBoxA(hWnd, lpText, lpCaption, uType);
@@ -173,12 +214,24 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
     open_log = false;
   }
 
-  // wipe the bot so it can be rebuit after entering the game
+  // wipe the bot so it can be rebuilt after entering the game
   // if not there will be a memory error with fetch chat function
   if (game->IsOnMenu()) {
     bot = nullptr;
     set_title = true;
-    enabled = false;
+
+    if (rejoin_game && enabled) {
+      bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+      
+      if (result && lpMsg->message == WM_TIMER) {
+        lpMsg->message = WM_KEYDOWN;
+        lpMsg->wParam = VK_RETURN;
+        lpMsg->lParam = 0;
+
+        rejoin_game = false;
+        return true;
+      } 
+    }
   }
 
   return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
@@ -208,6 +261,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
+  rejoin_game = true;
   std::string name = game->GetName();
   HWND g_hWnd = game->GetGameWindowHandle();
 
@@ -261,33 +315,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     }
     
     if (enabled) {
-
-      for (marvin::ChatMessage chat : game->GetCurrentChat()) {
-  
-        //std::string name = game->GetPlayer().name;
-        std::string eg_msg = "[ " + name + " ]";
-        std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
-        std::string hs_lag_msg = "You are too lagged to play in this arena.";
-
-        bool eg_lag_locked =
-            chat.message.compare(0, 4 + name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
-
-        bool eg_locked_in_spec =
-            eg_lag_locked || chat.message == eg_packet_loss_msg && game->GetZone() == marvin::Zone::ExtremeGames;
-
-        bool hs_locked_in_spec = chat.message == hs_lag_msg && game->GetZone() == marvin::Zone::Hyperspace;
-
-        //bool disconected = chat.message.compare(0, 9, "WARNING: ") == 0;
-
-        if (chat.type == marvin::ChatType::Arena) {
-          if (eg_locked_in_spec || hs_locked_in_spec) {
-            enabled = false;
-            game->ExitGame();
-          }
-        }
-      }
-
-      if (dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
+      if (LockedInSpec()) {
+        enabled = false;
+        game->ExitGame();
+      } else if (dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
 #if DEBUG_RENDER
         marvin::g_RenderState.renderable_texts.clear();
         marvin::g_RenderState.renderable_lines.clear();
