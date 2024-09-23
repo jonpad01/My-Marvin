@@ -26,7 +26,7 @@ using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
 
 static time_point g_LastUpdateTime;
-static time_point g_LastJoinAttemptTime;
+static time_point g_RejoinTime;
 static time_point g_StartTime = time_clock::now();
 
 std::unique_ptr<marvin::Bot> bot = nullptr;
@@ -36,7 +36,7 @@ static bool enabled = true;
 static bool initialize_debug = true;
 static bool open_log = true;
 static bool set_title = true;
-static bool rejoin_game = true;
+static bool set_rejoin_timer = true;
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -162,7 +162,7 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   if (caption == "Information") {
     // return 0 to supress msg box
     if (text == fail_to_connect_msg) {
-      rejoin_game = true;
+      set_rejoin_timer = true;
       return 0;
     }
   }
@@ -220,7 +220,14 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
     bot = nullptr;
     set_title = true;
 
-    if (rejoin_game && enabled) {
+    if (set_rejoin_timer) {
+      g_RejoinTime = time_clock::now();
+      set_rejoin_timer = false;
+    }
+
+    seconds elapsed = time_clock::now() - g_RejoinTime;
+
+    if (enabled && elapsed.count() > 2) {
       bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
       
       if (result && lpMsg->message == WM_TIMER) {
@@ -228,7 +235,6 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
 
-        rejoin_game = false;
         return true;
       } 
     }
@@ -261,7 +267,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
-  rejoin_game = true;
+  set_rejoin_timer = true;
   std::string name = game->GetName();
   HWND g_hWnd = game->GetGameWindowHandle();
 
