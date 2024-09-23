@@ -348,10 +348,11 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
 
 /*
-* The injector method calls this after the player is already logged into the game.
+* Both loaders call this.
 * 
-* The dsound method also uses this but it's called when the game is in the menu or even before that,
-* A call to get the module base will return 0.
+* The injector method calls this when the game is logged in
+* 
+* The dsound method calls this the game is in the menu or even before that, so a call to get the module base will return 0.
 */ 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
 
@@ -373,7 +374,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
 }
 
 extern "C" __declspec(dllexport) void CleanupMarvin() {
- HWND g_hWnd = game->GetGameWindowHandle();
+ //HWND g_hWnd = game->GetGameWindowHandle();
  // marvin::log << "CLEANUP MARVIN.\n";
   DetourTransactionBegin();
   DetourUpdateThread(GetCurrentThread());
@@ -388,20 +389,20 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 #endif
   DetourTransactionCommit();
 
-  SetWindowText(g_hWnd, "Continuum");
+  //SetWindowText(g_hWnd, "Continuum");
   bot = nullptr;
  // marvin::log << "CLEANUP MARVIN FINISHED.\n";
  // marvin::log.close();
 }
 
-// the dsound file calls this using loadlibrary
+
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
       case DLL_PROCESS_ATTACH: {
-        InitializeMarvin();
+       // InitializeMarvin();
       } break;
       case DLL_PROCESS_DETACH: {
-        CleanupMarvin();
+       // CleanupMarvin();
       } break;
   }
 
