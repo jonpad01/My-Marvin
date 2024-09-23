@@ -20,7 +20,7 @@ ContinuumGameProxy::ContinuumGameProxy() : module_base_menu_(0), module_base_con
   UpdateMemory();
 }
 
-// bot can get all of these when sitting in the menu or the game.
+// can get all of these while in the menu or the game.
 bool ContinuumGameProxy::UpdateMemory() {
   if (!module_base_menu_) {
     module_base_menu_ = process_.GetModuleBase("menu040.dll");
@@ -495,7 +495,7 @@ ConnectState ContinuumGameProxy::GetConnectState() const {
 
 void ContinuumGameProxy::ExitGame() {
 
-    if (!game_addr_) return;
+  if (!game_addr_) return;
 
   u8* leave_ptr = (u8*)(game_addr_ + 0x127ec + 0x58c);
   *leave_ptr = 1;

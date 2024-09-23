@@ -17,6 +17,7 @@
 
 #define UM_SETTEXT WM_USER + 0x69
 
+const char* kMutexName = "mtxsscont";
 const std::string kEnabledText = "Continuum (enabled) - ";
 const std::string kDisabledText = "Continuum (disabled) - ";
 
@@ -66,6 +67,11 @@ bool GameLoaded() { // not used
   return false;
 }
 
+// multicont functionallity
+static HANDLE(WINAPI* RealCreateMutexA)(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) = CreateMutexA;
+// multicont functionallity
+static HANDLE(WINAPI* RealOpenMutexA)(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCSTR lpName) = OpenMutexA;
+
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
 
 static BOOL(WINAPI* RealPeekMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
@@ -75,6 +81,22 @@ static BOOL(WINAPI* RealGetMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
 static int(WINAPI* RealMessageBoxA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) = MessageBoxA;
 
 static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
+
+HANDLE WINAPI OverrideCreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) {
+  if (lpName && strcmp(lpName, kMutexName) == 0) {
+    return NULL;
+  }
+
+  return RealCreateMutexA(lpMutexAttributes, bInitialOwner, lpName);
+}
+
+HANDLE WINAPI OverrideOpenMutexA(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCSTR lpName) {
+  if (lpName && strcmp(lpName, kMutexName) == 0) {
+    return NULL;
+  }
+
+  return RealOpenMutexA(dwDesiredAccess, bInheritHandle, lpName);
+}
 
 HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface,
                                       LPRECT src_rect, DWORD flags, LPDDBLTFX fx) {
@@ -180,6 +202,9 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   marvin::ConnectState state = game->GetConnectState();
 
   if (state != marvin::ConnectState::Playing) {
+    if (state == marvin::ConnectState::Disconnected) {
+      game->ExitGame();
+    }
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
@@ -238,7 +263,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     if (enabled) {
 
       for (marvin::ChatMessage chat : game->GetCurrentChat()) {
-
+  
         //std::string name = game->GetPlayer().name;
         std::string eg_msg = "[ " + name + " ]";
         std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
@@ -255,9 +280,9 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         //bool disconected = chat.message.compare(0, 9, "WARNING: ") == 0;
 
         if (chat.type == marvin::ChatType::Arena) {
-          if (state == marvin::ConnectState::Disconnected || eg_locked_in_spec || hs_locked_in_spec) {
+          if (eg_locked_in_spec || hs_locked_in_spec) {
+            enabled = false;
             game->ExitGame();
-            return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
           }
         }
       }
@@ -303,6 +328,8 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
+  DetourAttach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
+  DetourAttach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
 
   DetourTransactionCommit();
 
