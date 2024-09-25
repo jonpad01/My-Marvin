@@ -382,6 +382,9 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourDetach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
+  // is this right?
+  DetourDetach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
+  DetourDetach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
 #if DEBUG_RENDER
   if (!initialize_debug) {
       DetourDetach(&(PVOID&)RealBlt, OverrideBlt);
