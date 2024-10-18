@@ -154,11 +154,25 @@ class ContinuumGameProxy : public GameProxy {
 
  private:
 
+  struct ChatEntry {
+    char message[256];
+    char player[24];
+    char unknown[8];
+    /*  Arena = 0,
+      Public = 2,
+      Private = 5,
+      Channel = 9 */
+    unsigned char type;
+    char unknown2[3];
+  };
+
   const ClientSettings& GetSettings() const override;
   const ShipSettings& GetShipSettings() const override;
   const ShipSettings& GetShipSettings(int ship) const override;
 
   std::string GetServerFolder();
+  void SetWeaponLevels(Player& player);
+  void SetDefaultWeaponLevels(Player& player);
   void SetZone();
   void FetchChat();
   void FetchPlayers();
@@ -209,10 +223,9 @@ class ContinuumGameProxy : public GameProxy {
   uint16_t desired_ship_ = 0;
   uint16_t desired_freq_ = 0;
   uint16_t original_ship_ = 0;
-  std::vector<uint16_t> id_list_;
-  std::vector<std::string> name_list_;
   std::deque<std::string> message_queue_;
   std::deque<std::string> priority_message_queue_;
+  int player_generation_id_ = 0;
 };
 
 }  // namespace marvin

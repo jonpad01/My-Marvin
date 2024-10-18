@@ -45,7 +45,43 @@ struct BallData {
 
 
 struct Player {
+
+  void Update(const Player& o) { 
+    name = o.name;
+    generation_id = o.generation_id;
+    multifire_status = o.multifire_status;
+    dead = o.dead;
+    energy = o.energy;
+    id = o.id;
+    attach_id = o.attach_id;
+    ship = o.ship;
+    bounty = o.bounty;
+    flags = o.flags;
+    emp_ticks = o.emp_ticks;
+
+    position = o.position;
+    velocity = o.velocity;
+
+    frequency = o.frequency;
+    discrete_rotation = o.discrete_rotation;
+
+    repels = o.repels;
+    bursts = o.bursts;
+    decoys = o.decoys;
+    thors = o.thors;
+    bricks = o.bricks;
+    rockets = o.rockets;
+    portals = o.portals;
+
+    capability = o.capability;
+    flight_status = o.flight_status;
+
+    // bitfield
+    status = o.status;
+  }
+
   std::string name;
+  int generation_id;
 
   bool dead;
 //  bool active;
@@ -56,7 +92,8 @@ struct Player {
   int32_t energy;
   uint16_t id;
   uint16_t attach_id;
-  uint16_t ship;
+  uint16_t ship; // 0 = warbird, 8 = spectator 
+  uint16_t previous_ship = 9999;
   int32_t bounty;
   int32_t flags;
   uint32_t emp_ticks;
@@ -74,6 +111,10 @@ struct Player {
   uint32_t bricks;
   uint32_t rockets;
   uint32_t portals;
+
+  // 0 = disabled, 1 = red, 2 = yellow, 3 = blue
+  uint32_t gun_level;
+  uint32_t bomb_level;
 
   ShipCapability capability;
   ShipFlightStatus flight_status;
@@ -132,6 +173,9 @@ struct BotPlayer {
   uint32_t bricks;
   uint32_t rockets;
   uint32_t portals;
+
+  uint32_t gun_level;
+  uint32_t bomb_level;
 
   ShipCapability capability;
   ShipFlightStatus flight_status;

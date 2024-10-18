@@ -9,8 +9,8 @@
 #include "MapCoord.h"
 #include "platform/Platform.h"
 
-#define DEBUG_RENDER 0
-#define DEBUG_USER_CONTROL 0
+#define DEBUG_RENDER 1
+#define DEBUG_USER_CONTROL 1
 
 #define DEBUG_RENDER_GAMEPROXY 0
 
@@ -29,7 +29,7 @@
 #define DEBUG_RENDER_CALCULATESHOT 0
 #define DEBUG_RENDER_BOUNCINGSHOT 0
 
-#define DEBUG_RENDER_FIND_ENEMY_IN_BASE_NODE 0
+#define DEBUG_RENDER_FIND_ENEMY_IN_BASE_NODE 1
 
 #define DEBUG_DISABLE_BEHAVIOR 0
 

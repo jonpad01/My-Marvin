@@ -224,43 +224,21 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
+  struct Enemy {
+    const Player* enemy;
+    float threat_distance = -9999.0f;
+    float speed = 0.0f;
+    float weapon_travel = 0.0f;
+  };
+
   bool AvoidInfluence(behavior::ExecuteContext& ctx);
-  void CalculateEnemyThreat(behavior::ExecuteContext& ctx, const Player* enemy);
+  Enemy GetEnemy(behavior::ExecuteContext& ctx);
   void CalculateTeamThreat(behavior::ExecuteContext& ctx, const Player* enemy);
 
-  std::unique_ptr<path::PathNodeSearch> search_;
-  bool high_side_;
-  std::vector<Vector2f> base_path_;
+ // std::unique_ptr<path::PathNodeSearch> search_;
+  //const Player* enemy_ = nullptr;
 
-  CombatRole role_;
-  bool enemy_is_leaker_;
-  float enemy_bullet_speed_;
-  float alive_time_;
-  Vector2f position_;
-  float radius_;
-  float enemy_radius_;
-  size_t bot_node_;
-  size_t enemy_node_;
-  size_t team_safe_node_;
-  size_t enemy_safe_node_;
 
-  Vector2f enemy_fore_;
-  Vector2f enemy_aft_;
-  Vector2f bot_fore_;
-  Vector2f bot_aft_;
-
-  Vector2f enemy_to_bot_;
-  Vector2f bot_to_enemy_;
-
-  float enemy_team_threat_;
-  float team_threat_;
-
-  float max_enemy_speed_;
-  float max_enemy_bullet_travel_;
-  float max_net_enemy_bullet_travel_;
-  float min_enemy_time_to_bot_;
-
-  Vector2f desired_position_;
 
 };
 

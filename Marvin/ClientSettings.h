@@ -17,27 +17,23 @@ class ShipSettings {
     return r / 16.0f;
   }
 
-  float GetMultiFireAngle() const { return MultiFireAngle / (40000.0f / 360.0f); }
-
+  // gets the gun level
+  float GetInitialGuns() const { return (float)(InitialGuns); }
+  float GetMaxGuns() const { return (float)(MaxGuns); }
   float GetBulletSpeed() const { return BulletSpeed / 10.0f / 16.0f; }
-
   float GetBulletFireDelay() const { return BulletFireDelay / 100.0f; }
 
+  bool HasDoubleBarrel() const { return (DoubleBarrel & 1) != 0; }
+  float GetMultiFireAngle() const { return MultiFireAngle / (40000.0f / 360.0f); }
   float GetMultiFireDelay() const { return MultiFireDelay / 100.0f; }
 
-  // gets the gun level
-  float GetMaxGuns() const { return (float)(MaxGuns & 3); }
-
+  // gets the bomb level
+  float GetInitialBombs() const { return (float)(InitialBombs); }
+  float GetMaxBombs() const { return (float)(MaxBombs); }
   float GetBombSpeed() const { return BombSpeed / 10.0f / 16.0f; }
-
   float GetBombFireDelay() const { return BombFireDelay / 100.0f; }
 
   float GetLandmineFireDelay() const { return LandmineFireDelay / 100.0f; }
-
-  // gets the bomb level
-  float GetMaxBombs() const { return (float)(MaxBombs & 3); }
-
-  bool HasDoubleBarrel() const { return (DoubleBarrel & 1) != 0; }
 
   float GetInitialSpeed() const { return InitialSpeed / 10.0f / 16.0f; }
   float GetMaximumSpeed() const { return MaximumSpeed / 10.0f / 16.0f; }
@@ -316,17 +312,20 @@ struct PrizeWeightSettings {
 class ClientSettings {
  public:
 
-     float GetBulletAliveTime() const { return BulletAliveTime / 100.0f; }
+     float GetBulletAliveTime() const { return (float)(BulletAliveTime / 100.0f); }
+     float GetBulletDamageLevel() const { return (float)(BulletDamageLevel / 1000.0f); }
+     float GetBulletDamageUpgrade() const { return (float)(BulletDamageUpgrade / 1000.0f); }
 
-     float GetBombAliveTime() const { return BombAliveTime / 100.0f; }
+     float GetBombAliveTime() const { return (float)(BombAliveTime / 100.0f); }
+     float GetBombDamageLevel() const { return (float)(BombDamageLevel / 1000.0f); }
+     float GetBombExplodePixels() const { return (float)(BombExplodePixels / 16.0f); }
 
-     float GetDecoyAliveTime() const { return DecoyAliveTime / 100.0f; }
+     float GetDecoyAliveTime() const { return (float)(DecoyAliveTime / 100.0f); }
 
-     float GetMineAliveTime() const { return MineAliveTime / 100.0f; }
+     float GetMineAliveTime() const { return (float)(MineAliveTime / 100.0f); }
 
-     float GetRepelTime() const { return RepelTime / 100.0f; }
+     float GetRepelTime() const { return (float)(RepelTime / 100.0f); }
 
-     float GetBombExplodePixels() const { return BombExplodePixels / 16.0f; }
 
   struct {
     unsigned int Type : 8;

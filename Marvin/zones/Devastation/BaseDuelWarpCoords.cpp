@@ -9,9 +9,19 @@
 namespace marvin {
 namespace deva {
 
-BaseDuelWarpCoords::BaseDuelWarpCoords(const std::string& mapName) {
+BaseDuelWarpCoords::BaseDuelWarpCoords(const std::string& mapName) : mapName(mapName) {
   foundMapFiles = false;
   LoadBaseDuelFile(mapName);
+}
+
+// TODO:  check timestamps on existing file
+bool BaseDuelWarpCoords::CheckFiles() {
+  
+  if (HasCoords()) return false;
+
+  // might be resouce heave to constantly check this
+  LoadBaseDuelFile(mapName);
+  return false;
 }
 
 bool BaseDuelWarpCoords::LoadBaseDuelFile(const std::string& mapName) {
@@ -19,7 +29,7 @@ bool BaseDuelWarpCoords::LoadBaseDuelFile(const std::string& mapName) {
   std::ifstream file;
   bool fileFound = false;
   bool result = false;
-  warps_.Clear();
+  safes.Clear();
 
   // file name format is basewarp-XXX.ini where XXX = map name
   // searches the Continuum folder in C:\Program Files\ for the basewarp.ini files
@@ -61,14 +71,14 @@ bool BaseDuelWarpCoords::LoadFile(std::ifstream& file) {
     temp.y = GetIntMatch(file, "Y1=");
 
     if (temp.x != -1 && temp.y != -1) {
-      warps_.t0.push_back(temp);
+      safes.t0.push_back(temp);
     }
 
     temp.x = GetIntMatch(file, "X2=");
     temp.y = GetIntMatch(file, "Y2=");
 
     if (temp.x != -1 && temp.y != -1) {
-      warps_.t1.push_back(temp);
+      safes.t1.push_back(temp);
     }
   }
   return true;

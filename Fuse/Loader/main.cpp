@@ -36,20 +36,55 @@ static std::string GetLocalPath() {
   return std::string(path);
 }
 
+std::vector<std::string> GetArguments() {
+  std::vector<std::string> result;
+
+  int argv = 0;
+  LPWSTR* args = CommandLineToArgvW(GetCommandLineW(), &argv);
+
+  for (int i = 0; i < argv; ++i) {
+    size_t size = wcslen(args[0]);
+
+    std::string str;
+    str.resize(size);
+
+    wcstombs(&str[0], args[i], size);
+    result.push_back(std::move(str));
+  }
+
+  return result;
+}
+
 void SetMarvinPath() {
-  std::string path = GetLocalPath();
-  std::string name = path + "\\Marvin.dll";
+  std::string curr_dir = GetLocalPath();
+  std::string name = "\\Marvin.dll";
+  std::string full_path;
+  std::vector<std::string> args = GetArguments();
 
-  bool exists = std::filesystem::exists(name);
+  // check if path to Marvin.dll was given to continuum as an arg and use that first
+  for (std::string arg : args) {
+    if (std::filesystem::exists(arg + name)) {
+      g_MarvinDirectory = arg;
+      g_MarvinPath = arg + name;
+      g_MarvinLoadedPath = arg + "\\" + g_MarvinDll;
+      return;
+    }
+  }
 
-  if (exists) {
-    g_MarvinDirectory = path;
-    g_MarvinPath = name;
-    g_MarvinLoadedPath = path + "\\" + g_MarvinDll;
-  } else {
+  // check if path was manually set as const variable
+  if (std::filesystem::exists(MARVIN_DLL_FOLDER + name)) {
     g_MarvinDirectory = MARVIN_DLL_FOLDER;
-    g_MarvinPath = MARVIN_DLL_FOLDER + "\\Marvin.dll";
+    g_MarvinPath = MARVIN_DLL_FOLDER + name;
     g_MarvinLoadedPath = MARVIN_DLL_FOLDER + "\\" + g_MarvinDll;
+    return;
+  }
+
+  // look in current directory (Continuum directory)
+  if (std::filesystem::exists(curr_dir + name)) {
+    g_MarvinDirectory = curr_dir;
+    g_MarvinPath = curr_dir + name;
+    g_MarvinLoadedPath = curr_dir + "\\" + g_MarvinDll;
+    return;
   }
 
 }

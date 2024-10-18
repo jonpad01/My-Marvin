@@ -343,14 +343,18 @@ class AdjustAnchorDistanceCommand : public CommandExecutor {
 
     std::vector<std::string> args = Tokenize(arg, ' ');
 
+    int distance = bb.ValueOr<int>("anchordistance", 0);
+
     if (args.empty()) {
-      SendUsage(game, sender);
+      game.SendPrivateMessage(sender, "Anchor distance is currently set to: " + std::to_string(distance));
       return;
     }
 
-    int distance = 0;
+    
 
-    if (std::isdigit(args[0][0])) {
+    bool is_negative = args[0][0] == '-' && std::isdigit(args[0][1]);
+
+    if (is_negative || std::isdigit(args[0][0])) {
       distance = std::stoi(args[0]);
     } else {
       SendUsage(game, sender);
