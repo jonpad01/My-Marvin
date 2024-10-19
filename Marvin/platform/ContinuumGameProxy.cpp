@@ -292,7 +292,7 @@ void ContinuumGameProxy::FetchPlayers() {
 
     // sort all players into this
     //players_.emplace_back(player);
-
+ 
     if (players_.empty()) {
       players_.emplace_back(player);
     } else {
@@ -304,7 +304,7 @@ void ContinuumGameProxy::FetchPlayers() {
             players_[i] = player;
           } else {
             // Update player
-            SetWeaponLevels(players_[i]);
+            //SetWeaponLevels(players_[i]);
             players_[i].Update(player);
           }
           break;
@@ -337,37 +337,6 @@ void ContinuumGameProxy::FetchPlayers() {
       // remove the existing player
       players_.erase(players_.begin() + i);
       i--;
-    }
-  }
-}
-
-void ContinuumGameProxy::SetWeaponLevels(Player& player) {
-  bool bomb_found = false;
-  bool bullet_found = false;
-
-  // dont waste cpu time looking at spectators
-  if (player.ship > 7) return;
-  // bot can find it's own in memory
-  if (player.name == GetName()) return;
-  
-  //for (const Weapon* weapon : GetWeapons()) {
-  for (const ContinuumWeapon& weapon : weapons_) {
-    if (weapon.GetPlayerId() != player.id) continue;
-
-    bool is_bomb = weapon.GetData().type == WeaponType::Bomb || weapon.GetData().type == WeaponType::ProximityBomb;
-    bool is_bullet =
-        weapon.GetData().type == WeaponType::Bullet || weapon.GetData().type == WeaponType::BouncingBullet;
-
-    if (is_bomb) {
-      bomb_found = true;
-      player.bomb_level = weapon.GetData().level + 1;  // align level with default and self memory
-    } else if (is_bullet) {
-      bullet_found = true;
-      player.gun_level = weapon.GetData().level + 1;
-    }
-
-    if (bomb_found && bullet_found) {
-      break;
     }
   }
 }
@@ -494,7 +463,14 @@ void ContinuumGameProxy::FetchWeapons() {
     WeaponType type = data->data.type;
     float alive_milliseconds = data->alive_ticks / 100.0f;
     
-    const Player* player = GetPlayerById(data->pid);
+    Player* player = nullptr;
+
+    for (std::size_t i = 0; i < players_.size(); ++i) {
+      if (players_[i].id == data->pid) {
+        player = &players_[i];
+        break;
+      }
+    }
     
     float total_milliseconds = 0.0f;
     bool is_mine = false;
@@ -504,6 +480,7 @@ void ContinuumGameProxy::FetchWeapons() {
       case WeaponType::ProximityBomb:
       case WeaponType::Thor: {
         total_milliseconds = this->GetSettings().GetBombAliveTime();
+        if (player) player->bomb_level = data->data.level + 1;
         if (data->data.alternate) {
           total_milliseconds = this->GetSettings().GetMineAliveTime();
           is_mine = true;        
@@ -513,6 +490,7 @@ void ContinuumGameProxy::FetchWeapons() {
       case WeaponType::Bullet:
       case WeaponType::BouncingBullet: {
         total_milliseconds = this->GetSettings().GetBulletAliveTime();
+        if (player) player->gun_level = data->data.level + 1;
       } break;
       case WeaponType::Repel: {
         total_milliseconds = this->GetSettings().GetRepelTime();

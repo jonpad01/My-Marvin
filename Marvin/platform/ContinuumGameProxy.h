@@ -171,7 +171,7 @@ class ContinuumGameProxy : public GameProxy {
   const ShipSettings& GetShipSettings(int ship) const override;
 
   std::string GetServerFolder();
-  void SetWeaponLevels(Player& player);
+
   void SetDefaultWeaponLevels(Player& player);
   void SetZone();
   void FetchChat();
