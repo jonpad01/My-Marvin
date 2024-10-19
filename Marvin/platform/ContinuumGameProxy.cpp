@@ -25,7 +25,11 @@ bool ContinuumGameProxy::UpdateMemory() {
   if (!module_base_menu_) {
     module_base_menu_ = process_.GetModuleBase("menu040.dll");
 
-    if (!module_base_menu_) return false;
+    if (!module_base_menu_) {
+      return false;
+    } else {
+      player_name_ = GetName();
+    }
   }
 
   if (!module_base_continuum_) {
@@ -100,16 +104,6 @@ UpdateState ContinuumGameProxy::Update() {
   FetchWeapons();
   //g_RenderState.RenderDebugText("Game: Fetch Weapons: %llu", timer.GetElapsedTime());
 
- // if (player_id_ == 0xFFFF) {
-    for (auto& player : players_) {
-      if (player.name == GetName()) {
-        player_id_ = player.id;
-        player_ = &player;
-        if (!player_addr_) FetchPlayers();  // get one more time to set the player_addr_
-      }
-    }
- // }
-
   if (set_ship_status_ == SetShipStatus::SetShip) {
     if (SetShip(desired_ship_)) {
       return UpdateState::Wait;
@@ -138,7 +132,6 @@ UpdateState ContinuumGameProxy::Update() {
 
 void ContinuumGameProxy::FetchPlayers() {
   PerformanceTimer timer;
-
   const std::size_t kPosOffset = 0x04;
   const std::size_t kVelocityOffset = 0x10;
   const std::size_t kIdOffset = 0x18;
@@ -172,15 +165,8 @@ void ContinuumGameProxy::FetchPlayers() {
   if (players_addr == 0 || count_addr == 0) return;
 
   std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
-
-  //players_.clear();
   
   player_generation_id_++;
-
-  // player_ = nullptr;
-  // player_id_ = 0xFFFF;
-
-  std::string my_name = GetName();
 
   for (std::size_t i = 0; i < count; ++i) {
     std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
@@ -191,7 +177,7 @@ void ContinuumGameProxy::FetchPlayers() {
 
     player.generation_id = player_generation_id_;
 
-    player.name = process_.ReadString(player_addr + kNameOffset, 23);
+    player.name = (char*)(player_addr + kNameOffset);
 
     player.position.x = process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
 
@@ -223,8 +209,9 @@ void ContinuumGameProxy::FetchPlayers() {
     player.dead = *(u32*)(player_addr + kExplodeTimerOffset1) != 0 || *(u32*)(player_addr + kDeadOffset) != 0;
 
     // these are not valid when reading on other players and will result in crashes
-    if (my_name == player.name) {
+    if (player_name_ == player.name) {
       player_id_ = player.id;
+      player_addr_ = player_addr;
 
       player.flight_status.rotation = *(u32*)(player_addr + 0x278) + *(u32*)(player_addr + 0x274);
       player.flight_status.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
@@ -276,22 +263,21 @@ void ContinuumGameProxy::FetchPlayers() {
       u64 energy = ((combined * (u64)0x10624DD3) >> 32) >> 6;
 
       player.energy = static_cast<uint16_t>(energy);
+
     } else {
+
       u32 first = *(u32*)(player_addr + 0x150);
       u32 second = *(u32*)(player_addr + 0x154);
 
       player.energy = static_cast<uint16_t>(first + second);   
-
+   
       SetDefaultWeaponLevels(player);
     }
-
+ 
     // remove "^" that gets placed on names when biller is down
     if (!player.name.empty() && player.name[0] == '^') {
       player.name.erase(0, 1);
     }
-
-    // sort all players into this
-    //players_.emplace_back(player);
  
     if (players_.empty()) {
       players_.emplace_back(player);
@@ -304,7 +290,6 @@ void ContinuumGameProxy::FetchPlayers() {
             players_[i] = player;
           } else {
             // Update player
-            //SetWeaponLevels(players_[i]);
             players_[i].Update(player);
           }
           break;
@@ -315,12 +300,8 @@ void ContinuumGameProxy::FetchPlayers() {
         }
       }
     }
-    
 
     if (player.id == player_id_) {
-      player_ = &players_.back();
-      player_addr_ = player_addr;
-
 #if DEBUG_RENDER_GAMEPROXY
       g_RenderState.RenderDebugText("Player Name: %s", player.name.c_str());
       g_RenderState.RenderDebugText("XRadar Capable: %u", player.capability.xradar);
@@ -328,15 +309,24 @@ void ContinuumGameProxy::FetchPlayers() {
       g_RenderState.RenderDebugText("Player Energy: %u", player.energy);
       g_RenderState.RenderDebugText("Player Max Energy: %u", player.flight_status.max_energy);
 #endif
-    }
+    } 
   }
 
+  //g_RenderState.RenderDebugText("End: %llu", timer.TimeSinceConstruction());
   // remove players that left the arena
   for (std::size_t i = 0; i < players_.size(); i++) {
     if (players_[i].generation_id != player_generation_id_) {
       // remove the existing player
       players_.erase(players_.begin() + i);
       i--;
+    }
+  }
+
+  // if the players list is changed after this is set the player_ pointer will be invalid
+  for (std::size_t i = 0; i < players_.size(); i++) {
+    if (players_[i].id == player_id_) {
+      player_ = &players_[i];
+      break;
     }
   }
 }
@@ -346,19 +336,19 @@ void ContinuumGameProxy::SetDefaultWeaponLevels(Player& player) {
   uint16_t ship = player.ship;
 
   // bot can find it's own in memory 
-  if (player.name == GetName()) return;
+  if (player.name == player_name_) return;
 
   uint32_t bomb_level = 0;
   uint32_t gun_level = 0;
 
     switch (zone) {
       case Zone::Devastation:
-        bomb_level = (uint32_t)GetShipSettings(ship).GetMaxBombs();
-        gun_level = (uint32_t)GetShipSettings(ship).GetMaxGuns();
+        bomb_level = GetShipSettings(ship).MaxBombs;
+        gun_level = GetShipSettings(ship).MaxGuns;
         break;
       default:
-        bomb_level = (uint32_t)GetShipSettings(ship).GetInitialBombs();
-        gun_level = (uint32_t)GetShipSettings(ship).GetInitialGuns();
+        bomb_level = GetShipSettings(ship).InitialBombs;
+        gun_level = GetShipSettings(ship).InitialGuns;
     }
 
     player.gun_level = gun_level;

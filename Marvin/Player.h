@@ -54,41 +54,6 @@ struct Player {
 
     gun_level = temp_gun;
     bomb_level = temp_bomb;
-
-    #if 0
-    name = o.name;
-    generation_id = o.generation_id;
-    multifire_status = o.multifire_status;
-    dead = o.dead;
-    energy = o.energy;
-    id = o.id;
-    attach_id = o.attach_id;
-    ship = o.ship;
-    bounty = o.bounty;
-    flags = o.flags;
-    emp_ticks = o.emp_ticks;
-
-    position = o.position;
-    velocity = o.velocity;
-
-    frequency = o.frequency;
-    discrete_rotation = o.discrete_rotation;
-
-    repels = o.repels;
-    bursts = o.bursts;
-    decoys = o.decoys;
-    thors = o.thors;
-    bricks = o.bricks;
-    rockets = o.rockets;
-    portals = o.portals;
-
-    capability = o.capability;
-    flight_status = o.flight_status;
-
-    // bitfield
-    status = o.status;
-
-    #endif
   }
 
   std::string name;

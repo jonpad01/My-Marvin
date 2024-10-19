@@ -202,6 +202,7 @@ class ContinuumGameProxy : public GameProxy {
   std::size_t player_addr_ = 0;
   uint32_t* position_data_ = nullptr;
   uint16_t player_id_ = 0xFFFF;
+  std::string player_name_;
   std::unique_ptr<Map> map_ = nullptr;
   Player* player_ = nullptr;
   std::vector<Player> players_;
