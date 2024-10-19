@@ -46,11 +46,11 @@ struct BallData {
 
 struct Player {
 
-  void Update(const Player& o) { 
+  void Update(const Player& other) { 
     uint32_t temp_gun = gun_level;
     uint32_t temp_bomb = bomb_level;
 
-    *this = o;
+    *this = other;
 
     gun_level = temp_gun;
     bomb_level = temp_bomb;

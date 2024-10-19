@@ -336,6 +336,7 @@ void ContinuumGameProxy::FetchPlayers() {
     if (players_[i].generation_id != player_generation_id_) {
       // remove the existing player
       players_.erase(players_.begin() + i);
+      i--;
     }
   }
 }
