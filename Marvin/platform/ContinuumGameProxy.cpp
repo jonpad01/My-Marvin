@@ -137,6 +137,8 @@ UpdateState ContinuumGameProxy::Update() {
 }
 
 void ContinuumGameProxy::FetchPlayers() {
+  PerformanceTimer timer;
+
   const std::size_t kPosOffset = 0x04;
   const std::size_t kVelocityOffset = 0x10;
   const std::size_t kIdOffset = 0x18;
@@ -279,6 +281,8 @@ void ContinuumGameProxy::FetchPlayers() {
       u32 second = *(u32*)(player_addr + 0x154);
 
       player.energy = static_cast<uint16_t>(first + second);   
+
+      SetDefaultWeaponLevels(player);
     }
 
     // remove "^" that gets placed on names when biller is down
@@ -290,16 +294,13 @@ void ContinuumGameProxy::FetchPlayers() {
     //players_.emplace_back(player);
 
     if (players_.empty()) {
-      SetDefaultWeaponLevels(player);
       players_.emplace_back(player);
     } else {
       // update players list with new player
       for (std::size_t i = 0; i < players_.size(); i++) {
         if (players_[i].name == player.name) {
-          if (players_[i].previous_ship != player.ship) {
+          if (players_[i].ship != player.ship) {
             // overwrite everything
-            player.previous_ship = player.ship;
-            SetDefaultWeaponLevels(player);
             players_[i] = player;
           } else {
             // Update player
@@ -309,7 +310,6 @@ void ContinuumGameProxy::FetchPlayers() {
           break;
         } else if (i == players_.size() - 1) {
           // add the new player to the list
-          SetDefaultWeaponLevels(player);
           players_.emplace_back(player);
           break;
         }
@@ -344,25 +344,30 @@ void ContinuumGameProxy::SetWeaponLevels(Player& player) {
   bool bomb_found = false;
   bool bullet_found = false;
 
+  // dont waste cpu time looking at spectators
+  if (player.ship > 7) return;
   // bot can find it's own in memory
   if (player.name == GetName()) return;
   
-  for (const Weapon* weapon : GetWeapons()) {
-    if (weapon->GetPlayerId() != player.id) continue;
+  //for (const Weapon* weapon : GetWeapons()) {
+  for (const ContinuumWeapon& weapon : weapons_) {
+    if (weapon.GetPlayerId() != player.id) continue;
 
-    bool is_bomb = weapon->GetData().type == WeaponType::Bomb || weapon->GetData().type == WeaponType::ProximityBomb;
+    bool is_bomb = weapon.GetData().type == WeaponType::Bomb || weapon.GetData().type == WeaponType::ProximityBomb;
     bool is_bullet =
-        weapon->GetData().type == WeaponType::Bullet || weapon->GetData().type == WeaponType::BouncingBullet;
+        weapon.GetData().type == WeaponType::Bullet || weapon.GetData().type == WeaponType::BouncingBullet;
 
     if (is_bomb) {
       bomb_found = true;
-      player.bomb_level = weapon->GetData().level + 1;  // align level with default and self memory
+      player.bomb_level = weapon.GetData().level + 1;  // align level with default and self memory
     } else if (is_bullet) {
       bullet_found = true;
-      player.gun_level = weapon->GetData().level + 1;
+      player.gun_level = weapon.GetData().level + 1;
     }
 
-    if (bomb_found && bullet_found) break;
+    if (bomb_found && bullet_found) {
+      break;
+    }
   }
 }
 
@@ -372,16 +377,22 @@ void ContinuumGameProxy::SetDefaultWeaponLevels(Player& player) {
 
   // bot can find it's own in memory 
   if (player.name == GetName()) return;
-  
+
+  uint32_t bomb_level = 0;
+  uint32_t gun_level = 0;
+
     switch (zone) {
       case Zone::Devastation:
-        player.bomb_level = (uint32_t)GetShipSettings(ship).GetMaxBombs();
-        player.gun_level = (uint32_t)GetShipSettings(ship).GetMaxGuns();
+        bomb_level = (uint32_t)GetShipSettings(ship).GetMaxBombs();
+        gun_level = (uint32_t)GetShipSettings(ship).GetMaxGuns();
         break;
       default:
-        player.bomb_level = (uint32_t)GetShipSettings(ship).GetInitialBombs();
-        player.gun_level = (uint32_t)GetShipSettings(ship).GetInitialGuns();
+        bomb_level = (uint32_t)GetShipSettings(ship).GetInitialBombs();
+        gun_level = (uint32_t)GetShipSettings(ship).GetInitialGuns();
     }
+
+    player.gun_level = gun_level;
+    player.bomb_level = bomb_level;
 }
 
 void ContinuumGameProxy::FetchBallData() {

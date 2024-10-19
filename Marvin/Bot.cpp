@@ -213,6 +213,11 @@ void Bot::Update(bool reload, float dt) {
     return;
   }
 
+  for (const Player& player : game_->GetPlayers()) {
+    if (player.ship > 7) continue;
+    g_RenderState.RenderDebugText("%s %u", player.name.c_str(), player.gun_level);
+  }
+
   if (blackboard_->GetCombatDifficulty() == CombatDifficulty::Nerf) {
     update_interval_ = 10;
   } else {

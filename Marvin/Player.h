@@ -47,6 +47,15 @@ struct BallData {
 struct Player {
 
   void Update(const Player& o) { 
+    uint32_t temp_gun = gun_level;
+    uint32_t temp_bomb = bomb_level;
+
+    *this = o;
+
+    gun_level = temp_gun;
+    bomb_level = temp_bomb;
+
+    #if 0
     name = o.name;
     generation_id = o.generation_id;
     multifire_status = o.multifire_status;
@@ -78,6 +87,8 @@ struct Player {
 
     // bitfield
     status = o.status;
+
+    #endif
   }
 
   std::string name;
@@ -93,7 +104,6 @@ struct Player {
   uint16_t id;
   uint16_t attach_id;
   uint16_t ship; // 0 = warbird, 8 = spectator 
-  uint16_t previous_ship = 9999;
   int32_t bounty;
   int32_t flags;
   uint32_t emp_ticks;
