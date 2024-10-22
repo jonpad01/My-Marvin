@@ -26,12 +26,25 @@ namespace marvin
 
 class AutoBot 
 {
+ private:
+  struct ProcessInfo {
+    DWORD pid = 0;
+    HANDLE handle = nullptr;
+  };
+
  public:
   AutoBot();
   AutoBot(int startup_arg);
+
+  ~AutoBot() {
+    for (std::size_t i = 0; i < process_list_.size(); i++) {
+      CloseHandle(process_list_[i].handle);
+    }
+  }
  
   void StartBot(int bots);
-  DWORD StartBot(std::size_t index);
+  //DWORD StartBot(std::size_t index);
+  ProcessInfo StartBot(std::size_t index);
   DWORD StartContinuum(std::size_t index);
   bool InjectContinuum(DWORD pid);
   void MonitorBots();
@@ -47,8 +60,11 @@ class AutoBot
   void TerminateCont(HANDLE handle);
 
  private:
+
   std::vector<WindowInfo> windows_;
-  std::vector<DWORD> pids_;
+  //std::vector<DWORD> pids_;
+  std::vector<ProcessInfo> process_list_;
+  ProcessInfo process_list__[1000];
   int num_bots_;
   int window_state_;
 };

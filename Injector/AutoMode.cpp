@@ -9,7 +9,7 @@
 namespace marvin 
 {
 
-AutoBot::AutoBot() : pids_() 
+AutoBot::AutoBot() 
 {
   num_bots_ = 0;
 
@@ -35,7 +35,7 @@ AutoBot::AutoBot() : pids_()
   std::cout << "Bot starting loop has finished, this process will monitor and restart bots that get disconected." << std::endl;
 };
 
-AutoBot::AutoBot(int startup_arg) : pids_() 
+AutoBot::AutoBot(int startup_arg) 
 {
   num_bots_ = startup_arg;
   window_state_ = 6;
@@ -74,7 +74,10 @@ void AutoBot::CloseErrorWindows()
   }
 }
 
-DWORD AutoBot::StartBot(std::size_t index) {
+//DWORD AutoBot::StartBot(std::size_t index) {
+ AutoBot::ProcessInfo AutoBot::StartBot(std::size_t index) {
+
+  ProcessInfo result;
 
   DWORD pid = StartContinuum(index);
 
@@ -84,10 +87,16 @@ DWORD AutoBot::StartBot(std::size_t index) {
 
   std::cout << "Restart successfull" << std::endl << std::endl;
 
-  return pid;
-}
+  result.pid = pid;
+  result.handle = result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+
+  //return pid;
+  return result;
+ }
 
 void AutoBot::StartBot(int bots) {
+
+    ProcessInfo result;
 
     for (int i = 0; i < bots; i++) {
 
@@ -101,7 +110,13 @@ void AutoBot::StartBot(int bots) {
         std::cout << "Bot failed to inject, this attempt has been terminated." << std::endl;
       }
 
-      pids_.push_back(pid);
+      //pids_.push_back(pid);
+
+      result.pid = pid;
+      // holding the handle ensures the process wont fully exit until the handle is closed
+      result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+
+      process_list_.push_back(result);
       Sleep(1000);
     }
 }
@@ -236,23 +251,32 @@ bool AutoBot::InjectContinuum(DWORD pid) {
   return true;
 }
 
-
 void AutoBot::MonitorBots() {
   // cycle through each pid and see if it matches to an existing window
-  for (std::size_t i = 0; i < pids_.size(); i++) {
-    Sleep(1000);
+  for (std::size_t i = 0; i < process_list_.size(); i++) {
+  //for (std::size_t i = 0; i < pids_.size(); i++) {
+    Sleep(2000);
 
-    auto process = std::make_unique<marvin::Process>(pids_[i]);
-    HANDLE handle = process->GetHandle();
+    //auto process = std::make_unique<marvin::Process>(pids_[i]);
+    //HANDLE handle = process->GetHandle();
 
     ULONG exitcode;
-    bool bRestart = GetExitCodeProcess(handle, &exitcode);
+    bool bRestart = GetExitCodeProcess(process_list_[i].handle, &exitcode);
+
+    if ((bRestart && exitcode != STILL_ACTIVE) || process_list_[i].pid == 0) {
+        //pids_[i] = StartBot(i);
+        CloseHandle(process_list_[i].handle);
+        process_list_[i] = StartBot(i);
+    }
+
+    //CloseHandle(handle);
+#if 0 
 
     if (bRestart) {
-      if (exitcode != 259) {
-        std::cout << "Exit code found: " << (int)exitcode << std::endl;
+      //if (exitcode != STILL_ACTIVE) {
+        std::cout << "Exit code found: " << exitcode << std::endl;
         
-      }
+     // }
     }
 
     CloseHandle(handle);
@@ -283,6 +307,8 @@ void AutoBot::MonitorBots() {
       }
       pids_[i] = pid;
     }
+
+#endif
   }
 }
 
