@@ -24,7 +24,8 @@ struct Player;
 
 const std::vector<std::string> kBotNames = {"LilMarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1",
                                             "Marv2",   "Marv3",   "Marv4",      "Marv5",      "Marv6",
-                                            "Marv7",   "Marv8",   "FrogBot"};
+                                            "Marv7",   "Marv8",   "FrogBot",    "X-Marv1",    "X-Marv2", 
+                                            "X-Marv3", "X-Marv4", "X-Marv5",    "X-Notify2"};
 
 
 class Bot {
