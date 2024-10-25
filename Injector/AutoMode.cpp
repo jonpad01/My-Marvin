@@ -88,7 +88,7 @@ void AutoBot::CloseErrorWindows()
   std::cout << "Restart successfull" << std::endl << std::endl;
 
   result.pid = pid;
-  result.handle = result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+ // result.handle = result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 
   //return pid;
   return result;
@@ -114,7 +114,7 @@ void AutoBot::StartBot(int bots) {
 
       result.pid = pid;
       // holding the handle ensures the process wont fully exit until the handle is closed
-      result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+      //result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 
       process_list_.push_back(result);
       Sleep(1000);

@@ -225,22 +225,10 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
-  struct Enemy {
-    const Player* enemy;
-    float threat_distance = -9999.0f;
-    float speed = 0.0f;
-    float weapon_travel = 0.0f;
-  };
 
   bool AvoidInfluence(behavior::ExecuteContext& ctx);
-  Enemy GetEnemy(behavior::ExecuteContext& ctx);
+  const Player* GetEnemy(behavior::ExecuteContext& ctx);
   void CalculateTeamThreat(behavior::ExecuteContext& ctx, const Player* enemy);
-
- // std::unique_ptr<path::PathNodeSearch> search_;
-  //const Player* enemy_ = nullptr;
-
-
-
 };
 
 class FailureNode : public behavior::BehaviorNode {
