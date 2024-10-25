@@ -88,9 +88,8 @@ UpdateState ContinuumGameProxy::Update() {
     return UpdateState::Wait;
   }
 
-  SetZone();
+  FetchZone();
   //g_RenderState.RenderDebugText("Game: Set Zone: %llu", timer.GetElapsedTime());
-
   FetchPlayers();
   //g_RenderState.RenderDebugText("Game: Fetch Players: %llu", timer.GetElapsedTime());
   FetchBallData();
@@ -168,6 +167,8 @@ void ContinuumGameProxy::FetchPlayers() {
   
   player_generation_id_++;
 
+  // players are arranged in memory in the same order as the player list is in the game
+  // pressing F2 while in the game will rearange this list
   for (std::size_t i = 0; i < count; ++i) {
     std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
 
@@ -178,6 +179,7 @@ void ContinuumGameProxy::FetchPlayers() {
     player.generation_id = player_generation_id_;
 
     player.name = (char*)(player_addr + kNameOffset);
+    //g_RenderState.RenderDebugText("Player Name: %s", player.name.c_str());
 
     player.position.x = process_.ReadU32(player_addr + kPosOffset) / 1000.0f / 16.0f;
 
@@ -565,20 +567,21 @@ const std::vector<Flag>& ContinuumGameProxy::GetDroppedFlags() {
   return dropped_flags_;
 }
 
-void ContinuumGameProxy::SetZone() {
-  zone_ = Zone::Devastation;
+void ContinuumGameProxy::FetchZone() {
+  zone_ = Zone::Other;
+  zone_name_ = GetServerFolder().substr(6);
 
-  if (GetServerFolder() == "zones\\SSCJ Devastation") {
+  if (zone_name_ == "SSCJ Devastation") {
     zone_ = Zone::Devastation;
-  } else if (GetServerFolder() == "zones\\SSCU Extreme Games") {
+  } else if (zone_name_ == "SSCU Extreme Games") {
     zone_ = Zone::ExtremeGames;  // EG does not allow any memory writing and will kick the bot
-  } else if (GetServerFolder() == "zones\\SSCJ Galaxy Sports") {
+  } else if (zone_name_ == "SSCJ Galaxy Sports") {
     zone_ = Zone::GalaxySports;
-  } else if (GetServerFolder() == "zones\\SSCE HockeyFootball Zone") {
+  } else if (zone_name_ == "SSCE HockeyFootball Zone") {
     zone_ = Zone::Hockey;
-  } else if (GetServerFolder() == "zones\\SSCE Hyperspace") {
+  } else if (zone_name_ == "SSCE Hyperspace") {
     zone_ = Zone::Hyperspace;
-  } else if (GetServerFolder() == "zones\\SSCJ PowerBall") {
+  } else if (zone_name_ == "SSCJ PowerBall") {
     zone_ = Zone::PowerBall;
   }
 }
@@ -588,6 +591,7 @@ void ContinuumGameProxy::SetZone() {
 // }
 
 const Zone ContinuumGameProxy::GetZone() { return zone_; }
+const std::string ContinuumGameProxy::GetZoneName() { return zone_name_; }
 
 
 std::vector<ChatMessage> ContinuumGameProxy::GetChatHistory() { return chat_; }
@@ -1241,32 +1245,38 @@ void ContinuumGameProxy::SendPrivateMessage(const std::string& target, const std
   }
 }
 
-int64_t ContinuumGameProxy::TickerPosition() {
-  // this reads the same adress as get selected player but returns a number
-  // used to determine if the bot should page up or page down
-  u32 addr = game_addr_ + 0x2DF44;
-
-  int64_t selected = process_.ReadU32(addr) & 0xFFFF;
-  return selected;
-}
-
 const Player& ContinuumGameProxy::GetSelectedPlayer() const {
   u32 selected_index = *(u32*)(game_addr_ + 0x127EC + 0x1B758);
+  std::size_t base_addr = game_addr_ + 0x127EC;
+  std::size_t players_addr = base_addr + 0x884;
+  std::size_t player_addr = process_.ReadU32(players_addr + (selected_index * 4));
+  uint16_t player_id = static_cast<uint16_t>(process_.ReadU32(player_addr + 0x18));
 
-  return players_[selected_index];
-}
+  for (std::size_t i = 0; i < players_.size(); i++) {
+   if (players_[i].id == player_id) {
+      return players_[i];
+   }
+  }
 
-const uint32_t ContinuumGameProxy::GetSelectedPlayerIndex() const {
-  u32 selected_index = *(u32*)(game_addr_ + 0x127EC + 0x1B758);
-  return selected_index;
+  return *player_;
 }
 
 void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
 #if !DEBUG_USER_CONTROL
-  for (std::size_t i = 0; i < players_.size(); ++i) {
-    const Player& player = players_[i];
 
-    if (player.id == id) {
+  std::size_t base_addr = game_addr_ + 0x127EC;
+  std::size_t players_addr = base_addr + 0x884;
+  std::size_t count_addr = base_addr + 0x1884;
+  std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
+
+  for (std::size_t i = 0; i < count; ++i) {
+   std::size_t player_addr = process_.ReadU32(players_addr + (i * 4));
+   uint16_t player_id = static_cast<uint16_t>(process_.ReadU32(player_addr + 0x18));
+
+  //for (std::size_t i = 0; i < players_.size(); ++i) {
+  //  const Player& player = players_[i];
+
+    if (player_id == id) {
       *(u32*)(game_addr_ + 0x2DED0) = i;
       return;
     }

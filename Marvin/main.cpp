@@ -27,6 +27,7 @@ using seconds = std::chrono::duration<float>;
 
 static time_point g_LastUpdateTime;
 static time_point g_RejoinTime;
+static float g_RejoinDelay = 5.0f;
 static time_point g_StartTime = time_clock::now();
 
 std::unique_ptr<marvin::Bot> bot = nullptr;
@@ -37,6 +38,7 @@ static bool initialize_debug = true;
 static bool open_log = true;
 static bool set_title = true;
 static bool set_rejoin_timer = true;
+static int biller_box_occurrences = 0;
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -107,7 +109,14 @@ static BOOL(WINAPI* RealPeekMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin
                                       UINT wRemoveMsg) = PeekMessageA;
 static BOOL(WINAPI* RealGetMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) = GetMessageA;
 
+static int(WINAPI* RealDialogBoxParamA)(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND hWndParent, DLGPROC lpDialogFunc,
+                                   LPARAM dwInitParam) = DialogBoxParamA;
+
 static int(WINAPI* RealMessageBoxA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) = MessageBoxA;
+
+static int(WINAPI* RealMessageBoxExA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType, WORD uLanguageId) = MessageBoxExA;
+
+static int(WINAPI* RealMessageBoxIndirectA)(const MSGBOXPARAMSA* lpmbp) = MessageBoxIndirectA;
 
 static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
 
@@ -146,6 +155,78 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
   return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
 }
 
+int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND hWndParent, DLGPROC lpDialogFunc,
+                                   LPARAM dwInitParam) {
+
+    enum class MenuDialogBoxId {
+    AddZone = 104,
+    TraceZone = 107,
+    AdvancedOptions = 113,
+    SelectProfile = 118,
+    EditMacro = 120,
+    DevTeam = 121,
+    EditKeybinds = 122,
+    FirstTimeSetup = 134,
+    ProfileEmptyPassword = 142,
+    NotCentralDatabase = 144,
+    ProxySettings = 151,
+    OptionsDisplay = 154,
+    OptionsChat = 156,
+    OptionsWindow = 159,
+    TipOfTheDay = 160,
+    BannerEditor = 161,
+    ChatFindText = 175,
+    AddCustomZone = 176,
+    BillerPlayerInformation = 183,
+    OptionsSound = 185,
+    OptionsRadar = 186,
+    OptionsGraphics = 187,
+    OptionsMenu = 188,
+    OptionsOther = 189
+  };
+
+    MenuDialogBoxId dialog_id = (MenuDialogBoxId)(unsigned int)lpTemplate;
+
+   if (dialog_id == MenuDialogBoxId::NotCentralDatabase) {
+    set_rejoin_timer = true;
+    // when zone is rebooted, it takes a couple minutes for the biller to reconnect
+    if (biller_box_occurrences < (600 / g_RejoinDelay)) {
+      biller_box_occurrences++;
+        return 2;
+    } else {
+        biller_box_occurrences = 0;
+        return 1;
+    }
+   }
+
+  return RealDialogBoxParamA(hInstance, lpTemplate, hWndParent, lpDialogFunc, dwInitParam);
+}
+
+int WINAPI OverrideMessageBoxIndirectA(const MSGBOXPARAMSA* lpmbp) {
+  bool suppress = false;
+
+  //std::string text = lpText;
+  std::string caption = lpmbp->lpszCaption;
+
+  //marvin::log.Write(caption);
+
+  return RealMessageBoxIndirectA(lpmbp);
+}
+
+
+int WINAPI OverrideMessageBoxExA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType, WORD uLanguageId) {
+  bool suppress = false;
+
+  std::string text = lpText;
+  std::string caption = lpCaption;
+
+ // marvin::log.Write(caption);
+
+  return RealMessageBoxExA(hWnd, lpText, lpCaption, uType, uLanguageId);
+}
+
+//only captures the message box when it appears for continuum
+// can't get the biller disconnected message
 int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
   bool suppress = false;
 
@@ -157,7 +238,8 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
       "zone list) and that you are currently connected to the internet. If problem persists, seek help at the Tech "
       "Support Forums found at www.subspacehq.com";
 
-
+  const std::string unkown_name =
+      "Unkown name. Would you like to create a new user and enter the game using this name?";
 
   if (caption == "Information") {
     // return 0 to supress msg box
@@ -227,7 +309,7 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 
     seconds elapsed = time_clock::now() - g_RejoinTime;
 
-    if (enabled && elapsed.count() > 2) {
+    if (enabled && elapsed.count() > g_RejoinDelay) {
       bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
       
       if (result && lpMsg->message == WM_TIMER) {
@@ -365,7 +447,10 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
   DetourAttach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
+  DetourAttach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
+  DetourAttach(&(PVOID&)RealMessageBoxExA, OverrideMessageBoxExA);
+  DetourAttach(&(PVOID&)RealMessageBoxIndirectA, OverrideMessageBoxIndirectA);
   DetourAttach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourAttach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
 
@@ -382,6 +467,8 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourDetach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
+  DetourDetach(&(PVOID&)RealMessageBoxExA, OverrideMessageBoxExA);
+  DetourDetach(&(PVOID&)RealMessageBoxIndirectA, OverrideMessageBoxIndirectA);
   // is this right?
   DetourDetach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourDetach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);

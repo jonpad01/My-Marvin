@@ -918,8 +918,11 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   uint16_t closest_enemy_to_enemy = 0;
 
   // find closest player to team and enemy safe
-  for (std::size_t i = 0; i < combined_list.size(); i++) {
-    const Player* player = combined_list[i];
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player* player = &game.GetPlayers()[i];
+
+    if ((player->frequency != 00 && player->frequency != 01) || player->ship > 7) continue; 
+
     // bool player_in_center = ctx.bot->GetRegions().IsConnected((MapCoord)player.position, MapCoord(512, 512));
     bool player_in_base = ctx.bot->GetRegions().IsConnected(player->position, path[0]);
 

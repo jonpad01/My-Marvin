@@ -194,6 +194,7 @@ class GameProxy {
 
 
   virtual const Zone GetZone() = 0;
+  virtual const std::string GetZoneName() = 0;
   virtual const std::string GetMapFile() const = 0;
   virtual const Map& GetMap() const = 0;
 
@@ -208,9 +209,9 @@ class GameProxy {
 
   virtual void SetTileId(Vector2f position, u8 id) = 0;
   
-  virtual int64_t TickerPosition() = 0;
+  //virtual int64_t TickerPosition() = 0;
   virtual const Player& GetSelectedPlayer() const = 0;
-  virtual const uint32_t GetSelectedPlayerIndex() const = 0;
+  //virtual const uint32_t GetSelectedPlayerIndex() const = 0;
 
   virtual const Player* GetPlayerById(u16 id) const = 0;
   virtual const Player* GetPlayerByName(std::string_view name) const = 0;

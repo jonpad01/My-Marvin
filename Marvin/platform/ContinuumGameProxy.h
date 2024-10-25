@@ -94,15 +94,14 @@ class ContinuumGameProxy : public GameProxy {
   const uint64_t GetRespawnTime() override;
 
   const Zone GetZone() override;
+  const std::string GetZoneName() override;
   const std::string GetMapFile() const override;
   const Map& GetMap() const override;
 
   void SetTileId(Vector2f position, u8 id) override;
 
  
-  int64_t TickerPosition() override;
   const Player& GetSelectedPlayer() const override;
-  const uint32_t GetSelectedPlayerIndex() const override;
   const Player* GetPlayerById(u16 id) const override;
   const Player* GetPlayerByName(std::string_view name) const override;
 
@@ -173,7 +172,7 @@ class ContinuumGameProxy : public GameProxy {
   std::string GetServerFolder();
 
   void SetDefaultWeaponLevels(Player& player);
-  void SetZone();
+  void FetchZone();
   void FetchChat();
   void FetchPlayers();
   void FetchBallData();
@@ -209,6 +208,7 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<ContinuumWeapon> weapons_;
   std::string mapfile_path_;
   Zone zone_ = Zone::Other;
+  std::string zone_name_;
   Time time_;
   SetShipStatus set_ship_status_ = SetShipStatus::Clear;
   SetShipStatus reset_ship_status_ = SetShipStatus::Clear;
