@@ -917,7 +917,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     return result;
   }
 
-  // search creation is about 10-30 microseconds
+  // search creation is about 10-30 microseconds, search can be null
   auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
   std::size_t bot_node = search->FindNearestNodeBFS(game.GetPosition());
 
@@ -932,17 +932,9 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
 
     // players closest path node
     size_t enemy_node = search->FindNearestNodeBFS(enemy.position);
-    bool high_side = bot_node > enemy_node;
-    float enemy_radius = game.GetShipSettings(enemy.ship).GetRadius();
-    float bullet_speed = game.GetShipSettings(enemy.ship).GetBulletSpeed();
-
-    Vector2f enemy_fore = search->FindForwardLOSNode(enemy.position, enemy_node, enemy_radius, high_side);
-    Vector2f enemy_to_anchor = Normalize(enemy_fore - enemy.position);
-    float enemy_speed = (Normalize(enemy.velocity).Dot(enemy_to_anchor)) * enemy.velocity.Length();
 
     // get distance between bot and the current enemy
     float enemy_distance = search->GetPathDistance(bot_node, enemy_node);
-    float time_to_bot = enemy_distance / (enemy_speed + bullet_speed);
 
     if (enemy_distance < shortest_distance) {
       shortest_distance = enemy_distance;
@@ -1038,6 +1030,9 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
   const Player* enemy = bb.GetTarget();
   const Path& base_path = ctx.bot->GetBasePath();
 
+  bool on_safe = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
+  Vector2f team_safe = ctx.bot->GetTeamSafePosition(game.GetPlayer().frequency);
+
   if (in_center || role == CombatRole::Anchor || last_in_base || !enemy || base_path.empty()) {
     g_RenderState.RenderDebugText("  RusherPathNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
@@ -1048,15 +1043,19 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
   Vector2f desired_position;
 
-  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
+  //auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
 
-  size_t bot_node = search->FindNearestNodeBFS(position);
-  size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
-  bool high_side = bot_node > enemy_node;
+  //size_t bot_node = search->FindNearestNodeBFS(position);
+ // size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
+ // bool high_side = bot_node > enemy_node;
 
-  desired_position = search->FindForwardLOSNode(position, bot_node, radius, high_side);
+  //desired_position = search->FindForwardLOSNode(position, bot_node, radius, high_side);
 
-  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
+  //ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
+
+
+
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, enemy->position, radius);
 
   g_RenderState.RenderDebugText("  RusherBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -1071,6 +1070,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   auto search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
   //const Player* enemy = GetEnemy(ctx);
   const Player* enemy = bb.GetTarget();
+  bool on_safe_tile = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
 
   //bool in_center = bb.ValueOr<bool>("InCenter", true);
   //bool is_anchor_ = bb.ValueOr<bool>("IsAnchor", false);
@@ -1102,6 +1102,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   
   size_t bot_node = search->FindNearestNodeBFS(game.GetPosition());
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
+
   //team_safe_node_ = ctx.bot->GetTeamSafeIndex(game.GetPlayer().frequency);
  // enemy_safe_node_ = ctx.bot->GetTeamSafeIndex(enemy_->frequency);
   // this flag is important as it allows the bot to switch reference points even if the enemy target leaked past the team
@@ -1186,7 +1187,6 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   float pathlength = search->GetPathDistance(bot_node, enemy_node);
   
   if (pathlength < desired_distance || AvoidInfluence(ctx)) {
- // if (pathlength < desired_distance) {
     desired_position = bot_aft;
     //bb.Set<bool>("SteerBackwards", true);
     bb.SetSteerBackwards(true);
@@ -1196,7 +1196,12 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   //g_RenderState.RenderDebugText("  ENEMY TEAM THREAT: %f", enemy_team_threat_);
   RenderWorldBox(game.GetPosition(), enemy->position, 0.875f);
 
-  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
+  if (on_safe_tile && desired_position == bot_aft) {
+    ctx.bot->GetKeys().Press(VK_CONTROL);
+    ctx.bot->GetPathfinder().ClearPath();
+  } else {
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
+  }
 
   g_RenderState.RenderDebugText("  AnchorBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

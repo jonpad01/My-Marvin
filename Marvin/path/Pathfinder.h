@@ -57,6 +57,7 @@ struct Pathfinder {
 
   const std::vector<Vector2f>& GetPath() { return path_; }
   void SetPath(const std::vector<Vector2f>& path) { path_ = path; }
+  void ClearPath() { path_.clear(); }
 
  // std::vector<Vector2f> SmoothPath(Bot& bot, const std::vector<Vector2f>& path, float ship_radius);
 
