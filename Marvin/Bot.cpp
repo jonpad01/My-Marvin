@@ -917,57 +917,40 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     return result;
   }
 
+  // search creation is about 10-30 microseconds
   auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
-  int bot_node = (int)search->FindNearestNodeBFS(game.GetPosition());
+  std::size_t bot_node = search->FindNearestNodeBFS(game.GetPosition());
 
-  float max_net_player_bullet_travel = std::numeric_limits<float>::lowest();
   const Player* target = nullptr;
+  float shortest_distance = std::numeric_limits<float>::max();
 
-  for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
-    const Player& player = game.GetPlayers()[i];
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& enemy = game.GetPlayers()[i];
 
-    if (!IsValidTarget(*ctx.bot, player, combat_role)) {
-      continue;
-    }
+    //if (enemy.frequency != bb.GetPubTeam0() && enemy.frequency != bb.GetPubTeam1()) continue;
+    if (!IsValidTarget(*ctx.bot, enemy, bb.GetCombatRole())) continue;
 
-    // TODO: look at target bomb speed and bouncing status
-    float alive_time = game.GetSettings().GetBulletAliveTime();
-    float player_bullet_speed = game.GetShipSettings(player.ship).GetBulletSpeed();
+    // players closest path node
+    size_t enemy_node = search->FindNearestNodeBFS(enemy.position);
+    bool high_side = bot_node > enemy_node;
+    float enemy_radius = game.GetShipSettings(enemy.ship).GetRadius();
+    float bullet_speed = game.GetShipSettings(enemy.ship).GetBulletSpeed();
 
-    int player_node = (int)search->FindNearestNodeBFS(player.position);
-    bool high_side = bot_node < player_node;
+    Vector2f enemy_fore = search->FindForwardLOSNode(enemy.position, enemy_node, enemy_radius, high_side);
+    Vector2f enemy_to_anchor = Normalize(enemy_fore - enemy.position);
+    float enemy_speed = (Normalize(enemy.velocity).Dot(enemy_to_anchor)) * enemy.velocity.Length();
 
-    Vector2f player_fore = search->FindForwardLOSNode(player.position, player_node, 0.8f, high_side);
-    //RenderWorldBox(game.GetPosition(), player_fore, 0.5f);
-    Vector2f player_to_bot = Normalize(player_fore - player.position);
-    //RenderDirection(game.GetPosition(), player.position, player_to_bot, player_fore.Distance(player.position));
+    // get distance between bot and the current enemy
+    float enemy_distance = search->GetPathDistance(bot_node, enemy_node);
+    float time_to_bot = enemy_distance / (enemy_speed + bullet_speed);
 
-    // if the player can see the bot then use the bot as the direction to point towards
-    if (!DiameterRayCastHit(*ctx.bot, player.position, game.GetPosition(), 0.8f)) {
-      player_to_bot = Normalize(game.GetPosition() - player.position);
-    }
-
-    // multiply the players speed by a ratio of how "true" its flying towards the bot
-    float player_speed = Normalize(player.velocity).Dot(player_to_bot) * player.velocity.Length();
-    // if the target is dead, set its speed to 0
-    if (player.dead) {
-      player_speed = 0.0f;
-    }
-    // if the player is flying at full speed in the direction of the player_fore position, then it will reach its maximum bullet travel
-    float player_bullet_travel = (player_speed + player_bullet_speed) * alive_time;
-    // at its current speed, how long will it take to reach the bots position
-    float player_pathlength_to_bot = search->GetPathDistance(player_node, bot_node);
-    float net_player_bullet_travel = player_bullet_travel - player_pathlength_to_bot;
-
-    if (net_player_bullet_travel > max_net_player_bullet_travel) {
-      max_net_player_bullet_travel = net_player_bullet_travel;
+    if (enemy_distance < shortest_distance) {
+      shortest_distance = enemy_distance;
       target = &game.GetPlayers()[i];
       result = behavior::ExecuteResult::Success;
     }
   }
 
-  //bb.Set<float>(BB::EnemyNetBulletTravel, max_net_player_bullet_travel);
-  bb.SetEnemyNetBulletTravel(max_net_player_bullet_travel);
   bb.SetTarget(target);
   //bb.Set<const Player*>("Target", target);
   if (result == behavior::ExecuteResult::Success) {
@@ -1086,13 +1069,8 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   auto& bb = ctx.bot->GetBlackboard();
 
   auto search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
-  const Player* enemy = GetEnemy(ctx);
-
-  //Enemy enemy = GetEnemy(ctx);
-
- // threat_distance_ = -9999.0f;
-  //enemy_speed_ = 0.0f;
- // enemy_weapon_travel_ = 0.0f;
+  //const Player* enemy = GetEnemy(ctx);
+  const Player* enemy = bb.GetTarget();
 
   //bool in_center = bb.ValueOr<bool>("InCenter", true);
   //bool is_anchor_ = bb.ValueOr<bool>("IsAnchor", false);
@@ -1101,10 +1079,6 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   bool in_center = bb.GetInCenter();
   CombatRole role = bb.GetCombatRole();
   bool last_in_base = bb.GetLastInBase();
-  //const Player* enemy = bb.GetTarget();
-  
-
-  //SetEnemy(ctx);
   int manual_distance_adjustment = bb.ValueOr<int>("anchordistance", 0);
 
   if ( !enemy || in_center || (role != CombatRole::Anchor && !last_in_base)) {
@@ -1138,6 +1112,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   // use the los_decrement flag to determine which direction in the base path the refernce nodes should be calculated 
  // enemy_fore_ = search_->FindForwardLOSNode(enemy_->position, enemy_node_, enemy_radius, !high_side_);
  // enemy_aft_ = search_->FindRearLOSNode(enemy_->position, enemy_node_, enemy_radius, !high_side_);
+  
   Vector2f bot_fore = search->FindForwardLOSNode(position, bot_node, radius, high_side);
   Vector2f bot_aft = search->FindRearLOSNode(position, bot_node, radius, high_side);
 
@@ -1177,12 +1152,14 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
 
   // the speed that the enemy is moving toward or away from its forward path node
   // this isnt perfect since players do a lot of wall bouncing
-  float enemy_speed = (Normalize(enemy->velocity).Dot(enemy_to_anchor)) * enemy->velocity.Length();
+  //float enemy_speed = (Normalize(enemy->velocity).Dot(enemy_to_anchor)) * enemy->velocity.Length();
+  float enemy_speed = enemy->velocity.Length();  // assume that any enemy velocity is flying towards the bot
 
-  if (enemy_speed < 0.0f) enemy_speed = 0.0f;  // dont chase enemies that seem to be fleeing
+  //if (enemy_speed < 0.0f) enemy_speed = 0.0f;  // dont chase enemies that seem to be fleeing
 
   // bug fixed here where i was using the player heading instead of normalized velocity
   float bot_speed = (Normalize(game.GetPlayer().velocity).Dot(bot_to_enemy)) * game.GetPlayer().velocity.Length();
+  //if (bot_speed < 0.0f) bot_speed = 0.0f;
 
   // how fast the bot/enemy are moving towards/away from each other
   float initial_speed = enemy_speed + bot_speed;
@@ -1192,16 +1169,11 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   float time_to_zero = std::abs(initial_speed - final_speed) / thrust;
   // how many tiles it needs to travel to adjust to this speed
   float braking_distance = ((initial_speed + final_speed) / 2.0f) * time_to_zero;
-
-  // this reflects the likelyhood that a player could hit the bot at the bullets travel length
-  float bullet_travel_multiplier = 1.0f;
   
   // range of 0 to 10
   float energy_modifier = 10.0f * (1.0f - energy_pct);
 
-  //max_bullet_travel *= bullet_travel_multiplier;
-
-  float desired_distance = 40.0f + braking_distance + energy_modifier;
+  float desired_distance = 45.0f + braking_distance + energy_modifier;
   //float desired_distance = enemy.weapon_travel + braking_distance + energy_modifier;
 
   // adjust desired range based on team threat balance
