@@ -466,6 +466,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
   DetourDetach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourDetach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
+  DetourDetach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
   DetourDetach(&(PVOID&)RealMessageBoxExA, OverrideMessageBoxExA);
   DetourDetach(&(PVOID&)RealMessageBoxIndirectA, OverrideMessageBoxIndirectA);
