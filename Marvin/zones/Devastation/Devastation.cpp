@@ -336,17 +336,61 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-    const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
+  const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
 
   auto& game = ctx.bot->GetGame();
-    auto& bb = ctx.bot->GetBlackboard();
+  auto& bb = ctx.bot->GetBlackboard();
 
   //std::size_t base_index = bb.ValueOr<std::size_t>(BB::BaseIndex, 0);
-  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
+  //std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
   bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), MapCoord(512, 512));
   //bb.Set<bool>("InCenter", in_center);
   bb.SetInCenter(in_center);
 
+  std::vector<int> counts(warp.t0.size(), 0);
+  int highest_count = 0;
+  size_t highest_count_index = 0;
+
+  // get a player count for each base
+  for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
+    const Player& player = game.GetPlayers()[i];
+    
+    if (player.frequency != 00 && player.frequency != 01) continue;  // not on baseduel team
+    if (player.ship > 7) continue; // spectator
+    if (player.dead) continue;     // dead
+    if (ctx.bot->GetRegions().IsConnected(player.position, MapCoord(512, 512))) continue;  // in center
+    
+    for (std::size_t j = 0; j < warp.t0.size(); j++) {
+      if (ctx.bot->GetRegions().IsConnected(player.position, warp.t0[j])) {
+        counts[j]++;
+      }
+    }
+  }
+
+  // find the base with the highest player count
+  for (std::size_t i = 0; i < counts.size(); i++) {
+    if (counts[i] > highest_count) {
+      highest_count = counts[i];
+      highest_count_index = i;
+    }
+  }
+
+  // set the base and safes
+  if (highest_count > 0) {
+    ctx.bot->GetBasePaths().SetBase(highest_count_index);
+
+    if (game.GetPlayer().frequency == 00) {
+      bb.SetTeamSafe(warp.t0[highest_count_index]);
+      bb.SetEnemySafe(warp.t1[highest_count_index]);
+    } else if (game.GetPlayer().frequency == 01) {
+      bb.SetTeamSafe(warp.t1[highest_count_index]);
+      bb.SetEnemySafe(warp.t0[highest_count_index]);
+    }
+  }
+
+
+
+  #if 0
   //std::vector<Player> team_list = bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>());
   const std::vector<const Player*>& team_list = bb.GetTeamList();
 
@@ -380,6 +424,7 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
       }
     }
   }
+  #endif
   g_RenderState.RenderDebugText("  DevaSetRegionNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }

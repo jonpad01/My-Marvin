@@ -30,6 +30,7 @@ class DevaDebugNode : public behavior::BehaviorNode {
  private:
 };
 
+
 // base 8 was reversed in the ini file (vector 7)
 class DevaSetRegionNode : public behavior::BehaviorNode {
  public:
