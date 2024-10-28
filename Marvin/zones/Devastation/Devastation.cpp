@@ -1096,19 +1096,19 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
   MapCoord enemy_safe = bb.GetEnemySafe();
   MapCoord team_safe = bb.GetTeamSafe();
   bool on_safe_tile = game.GetMap().GetTileId(game.GetPlayer().position) == kSafeTileId;
-  bool moving = game.GetPlayer().velocity.Length() > 0.0f;
 
-  if (on_safe_tile && moving && game.GetPosition().Distance(enemy_safe) <= 5.0f) {
+  if (on_safe_tile && game.GetPosition().Distance(enemy_safe) <= 5.0f) {
     ctx.bot->GetKeys().Press(VK_CONTROL);
-    g_RenderState.RenderDebugText("  DevaPatrolBaseNode:(Press Fire) %llu", timer.GetElapsedTime());
+    ctx.bot->GetPathfinder().ClearPath();
+    g_RenderState.RenderDebugText("  DevaPatrolBaseNode:(On Enemy Safe) %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
-  if (last_in_base) {
-    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), team_safe, game.GetShipSettings().GetRadius());
-  } else {
+ // if (last_in_base) {
+   // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), team_safe, game.GetShipSettings().GetRadius());
+ // } else {
     ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
-  }
+ // }
 
   g_RenderState.RenderDebugText("  DevaPatrolBaseNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

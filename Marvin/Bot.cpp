@@ -1041,7 +1041,7 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
   Vector2f position = game.GetPosition();
   float radius = game.GetShipSettings().GetRadius();
 
-  Vector2f desired_position;
+  int desired_position = 1;
 
   //auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
 

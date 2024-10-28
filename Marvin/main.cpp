@@ -489,10 +489,10 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
       case DLL_PROCESS_ATTACH: {
-       // InitializeMarvin();
+        InitializeMarvin();
       } break;
       case DLL_PROCESS_DETACH: {
-       // CleanupMarvin();
+        CleanupMarvin();
       } break;
   }
 

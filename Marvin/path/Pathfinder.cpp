@@ -472,10 +472,12 @@ size_t PathNodeSearch::FindNearestNodeBFS(const Vector2f& start) {
 
   // this may happen when targets die
   if (path.empty() || !IsValidPosition(start)) {
-    return 0;
+    return -1;
   }
 
   auto& registry = bot.GetRegions();
+
+  if (!registry.IsConnected(start, path[0])) return -1;
 
   MapCoord start_coord = start;
 
@@ -605,7 +607,8 @@ Vector2f PathNodeSearch::FindRearLOSNode(Vector2f position, std::size_t index, f
 // of the basees barrier.
 Vector2f PathNodeSearch::FindLOSNode(Vector2f position, std::size_t index, float radius, bool count_down) {
   // this function should never be used on an empty path so this return is useless if it ever happens
-    if (path.empty()) return position;
+  if (path.empty()) return position;
+  if (index >= path.size()) return position;
     
   // return this if the loop fails its pretest (probably in a corner where it can't see any path nodes)
   Vector2f final_pos = path[index];
@@ -646,6 +649,12 @@ float PathNodeSearch::GetPathDistance(const Vector2f& pos1, const Vector2f& pos2
 }
 
   float PathNodeSearch::GetPathDistance(std::size_t index1, std::size_t index2) {
+    
+    float max = FLT_MAX;
+
+    if (path.empty()) return max;
+    if (index1 >= path.size() || index2 >= path.size()) return max;
+      
     if (index1 == index2) return 0.0f;
 
     float distance = 0.0f;
