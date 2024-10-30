@@ -88,7 +88,7 @@ void AutoBot::CloseErrorWindows()
   std::cout << "Restart successfull" << std::endl << std::endl;
 
   result.pid = pid;
- // result.handle = result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+  result.handle = result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 
   //return pid;
   return result;
@@ -114,7 +114,7 @@ void AutoBot::StartBot(int bots) {
 
       result.pid = pid;
       // holding the handle ensures the process wont fully exit until the handle is closed
-      //result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+      result.handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 
       process_list_.push_back(result);
       Sleep(1000);
@@ -261,10 +261,16 @@ void AutoBot::MonitorBots() {
     //HANDLE handle = process->GetHandle();
 
     ULONG exitcode;
-    bool bRestart = GetExitCodeProcess(process_list_[i].handle, &exitcode);
+    bool found = GetExitCodeProcess(process_list_[i].handle, &exitcode);
 
-    if ((bRestart && exitcode != STILL_ACTIVE) || process_list_[i].pid == 0) {
+    if (!found) {
+        DWORD error = GetLastError();
+        std::cout << "error: " << std::to_string(error) << std::endl;
+    }
+
+    if ((found && exitcode != STILL_ACTIVE) || process_list_[i].pid == 0) {
         //pids_[i] = StartBot(i);
+        std::cout << "Process restarted: " << std::to_string(process_list_[i].pid) << std::endl;
         CloseHandle(process_list_[i].handle);
         process_list_[i] = StartBot(i);
     }

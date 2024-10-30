@@ -47,10 +47,10 @@ int main(int argc, char* argv[])
       std::cout << "This session was created with the command line arguments to run " 
           << num_bots << " bots." << std::endl;
       bot = std::make_unique<marvin::AutoBot>(num_bots);
-      //while (true) 
-     // {
-       // bot->MonitorBots();
-     // }
+      while (true) 
+      {
+        bot->MonitorBots();
+      }
       return EXIT_SUCCESS;
     }
   }
@@ -65,10 +65,10 @@ int main(int argc, char* argv[])
       case '0': 
       {
         bot = std::make_unique<marvin::AutoBot>();
-       // while (true) 
-      //  {
-       //   bot->MonitorBots();
-      //  }
+        while (true) 
+        {
+          bot->MonitorBots();
+        }
         return EXIT_SUCCESS;
         break;
       }

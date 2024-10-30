@@ -114,10 +114,6 @@ static int(WINAPI* RealDialogBoxParamA)(HINSTANCE hInstance, LPCTSTR lpTemplate,
 
 static int(WINAPI* RealMessageBoxA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) = MessageBoxA;
 
-static int(WINAPI* RealMessageBoxExA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType, WORD uLanguageId) = MessageBoxExA;
-
-static int(WINAPI* RealMessageBoxIndirectA)(const MSGBOXPARAMSA* lpmbp) = MessageBoxIndirectA;
-
 static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
 
 HANDLE WINAPI OverrideCreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) {
@@ -200,29 +196,6 @@ int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND
    }
 
   return RealDialogBoxParamA(hInstance, lpTemplate, hWndParent, lpDialogFunc, dwInitParam);
-}
-
-int WINAPI OverrideMessageBoxIndirectA(const MSGBOXPARAMSA* lpmbp) {
-  bool suppress = false;
-
-  //std::string text = lpText;
-  std::string caption = lpmbp->lpszCaption;
-
-  //marvin::log.Write(caption);
-
-  return RealMessageBoxIndirectA(lpmbp);
-}
-
-
-int WINAPI OverrideMessageBoxExA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType, WORD uLanguageId) {
-  bool suppress = false;
-
-  std::string text = lpText;
-  std::string caption = lpCaption;
-
- // marvin::log.Write(caption);
-
-  return RealMessageBoxExA(hWnd, lpText, lpCaption, uType, uLanguageId);
 }
 
 //only captures the message box when it appears for continuum
@@ -312,7 +285,11 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
     if (enabled && elapsed.count() > g_RejoinDelay) {
       bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
       
-      if (result && lpMsg->message == WM_TIMER) {
+      // press enter and rejoin the game, must reselect the profile before joining
+      // breaks the dsound method because this is how it starts, it wont know its name yet
+      // or the name it gets will just be whatever is selected when tih game is launched
+      // monkeys idea, you could probably also just have 1 profile and set the name before you join
+      if (result && lpMsg->message == WM_TIMER && game->SetMenuProfileIndex()) {
         lpMsg->message = WM_KEYDOWN;
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
@@ -449,8 +426,6 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourAttach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
-  DetourAttach(&(PVOID&)RealMessageBoxExA, OverrideMessageBoxExA);
-  DetourAttach(&(PVOID&)RealMessageBoxIndirectA, OverrideMessageBoxIndirectA);
   DetourAttach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourAttach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
 
@@ -468,8 +443,6 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourDetach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
-  DetourDetach(&(PVOID&)RealMessageBoxExA, OverrideMessageBoxExA);
-  DetourDetach(&(PVOID&)RealMessageBoxIndirectA, OverrideMessageBoxIndirectA);
   // is this right?
   DetourDetach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourDetach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
@@ -482,6 +455,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 
   //SetWindowText(g_hWnd, "Continuum");
   bot = nullptr;
+  game = nullptr;
  // marvin::log << "CLEANUP MARVIN FINISHED.\n";
  // marvin::log.close();
 }

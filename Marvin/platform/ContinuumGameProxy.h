@@ -73,6 +73,7 @@ class ContinuumGameProxy : public GameProxy {
   void ExitGame();
 
   std::string GetName() const override;
+  bool SetMenuProfileIndex();
   ChatMessage FindChatMessage(std::string match) override;
   std::vector<ChatMessage> GetCurrentChat() override;
   std::vector<ChatMessage> GetChatHistory() override;
@@ -201,7 +202,7 @@ class ContinuumGameProxy : public GameProxy {
   std::size_t player_addr_ = 0;
   uint32_t* position_data_ = nullptr;
   uint16_t player_id_ = 0xFFFF;
-  std::string player_name_;
+  std::string player_name_;  // should be set once and never changed
   std::unique_ptr<Map> map_ = nullptr;
   Player* player_ = nullptr;
   std::vector<Player> players_;

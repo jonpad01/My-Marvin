@@ -664,6 +664,10 @@ const ShipSettings& ContinuumGameProxy::GetShipSettings(int ship) const {
   return GetSettings().ShipSettings[ship];
 }
 
+// the selected profile index captured here is valid until the game gets closed back into the menu
+// then it will change to the last index that the menu was on when the game was launched
+// so when running more than one bot it will change to the name of the last bot launched
+// it might be saving the selected profile to a file and reloading it?
 std::string ContinuumGameProxy::GetName() const {
   const std::size_t ProfileStructSize = 2860;
 
@@ -686,6 +690,35 @@ std::string ContinuumGameProxy::GetName() const {
   name = name.substr(0, strlen(name.c_str()));
 
   return name;
+}
+
+bool ContinuumGameProxy::SetMenuProfileIndex() {
+  if (!IsOnMenu()) return false;
+  if (player_name_.empty()) return false;
+
+  const std::size_t ProfileStructSize = 2860;
+  std::size_t addr = process_.ReadU32(module_base_menu_ + 0x47A38) + 0x15;
+  u32 count = process_.ReadU32(module_base_menu_ + 0x47a30);  // size of profile list
+
+  std::string name;
+
+  if (addr == 0) {
+    return false;
+  }
+
+  for (uint16_t i = 0;i < count; i++) {
+    
+    name = process_.ReadString(addr, 23);
+
+    if (name == player_name_) {
+      *(u32*)(module_base_menu_ + 0x47FA0) = i;
+      return true;
+    }
+
+    addr += ProfileStructSize;
+  }
+
+  return false;
 }
 
 HWND ContinuumGameProxy::GetGameWindowHandle() {

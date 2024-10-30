@@ -215,8 +215,8 @@ void Bot::Update(bool reload, float dt) {
 
   //for (const Player& player : game_->GetPlayers()) {
    // if (player.ship > 7) continue;
-   // std::string name = game_->GetZoneName();
-   // g_RenderState.RenderDebugText("%s", name.c_str());
+   // std::string name = game_->GetName();
+    //g_RenderState.RenderDebugText("%s", name.c_str());
   //}
 
   if (blackboard_->GetCombatDifficulty() == CombatDifficulty::Nerf) {
