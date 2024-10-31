@@ -11,18 +11,29 @@
 namespace marvin {
 
 float InfluenceMap::GetValue(uint16_t x, uint16_t y) {
+  if (x < 0 || y < 0 || x > 1023 || y > 1023) return 0.0f;
+
   return tiles[y * 1024 + x];
 }
 
 float InfluenceMap::GetValue(Vector2f v) {
-  return tiles[(uint16_t)v.y * 1024 + (uint16_t)v.x];
+  uint16_t x = (uint16_t)v.x;
+  uint16_t y = (uint16_t)v.y;
+
+  if (x < 0 || y < 0 || x > 1023 || y > 1023) return 0.0f;
+
+  return tiles[y * 1024 + x];
 }
 
 void InfluenceMap::AddValue(uint16_t x, uint16_t y, float value) {
+  if (x < 0 || y < 0 || x > 1023 || y > 1023) return;
+
   tiles[y * 1024 + x] += value;
 }
 
 void InfluenceMap::SetValue(uint16_t x, uint16_t y, float value) {
+  if (x < 0 || y < 0 || x > 1023 || y > 1023) return;
+
   if (value > maximum_value_) {
     value = maximum_value_;
   }

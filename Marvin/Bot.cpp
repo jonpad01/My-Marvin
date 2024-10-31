@@ -1290,6 +1290,8 @@ bool AnchorBasePathNode::AvoidInfluence(behavior::ExecuteContext& ctx) {
   for (float i = 0.0f; i <= braking_distance; i++) {
     Vector2f check = pos + direction * i;
 
+    if (game.GetMap().IsSolid(check)) break;
+
     if (ctx.bot->GetInfluenceMap().GetValue(check) > 0.0f) {
       return true;
     }
