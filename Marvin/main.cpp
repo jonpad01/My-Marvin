@@ -2,6 +2,8 @@
 //
 #include <ddraw.h>
 #include <detours.h>
+#include <thread>
+#include <atomic>
 
 #include <chrono>
 #include <fstream>
@@ -16,6 +18,22 @@
 
 
 #define UM_SETTEXT WM_USER + 0x69
+
+struct OverrideGuard {
+  static std::atomic<int> depth;
+
+  OverrideGuard() { ++depth; }
+
+  ~OverrideGuard() { --depth; }
+
+  static void Wait() {
+    while (depth > 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+};
+
+std::atomic<int> OverrideGuard::depth = 0;
 
 const char* kMutexName = "mtxsscont";
 const std::string kEnabledText = "Continuum (enabled) - ";
@@ -117,6 +135,8 @@ static int(WINAPI* RealMessageBoxA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, 
 static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
 
 HANDLE WINAPI OverrideCreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) {
+  OverrideGuard guard;
+
   if (lpName && strcmp(lpName, kMutexName) == 0) {
     return NULL;
   }
@@ -125,6 +145,8 @@ HANDLE WINAPI OverrideCreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL
 }
 
 HANDLE WINAPI OverrideOpenMutexA(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCSTR lpName) {
+  OverrideGuard guard;
+
   if (lpName && strcmp(lpName, kMutexName) == 0) {
     return NULL;
   }
@@ -134,6 +156,7 @@ HANDLE WINAPI OverrideOpenMutexA(DWORD dwDesiredAccess, BOOL bInheritHandle, LPC
 
 HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface,
                                       LPRECT src_rect, DWORD flags, LPDDBLTFX fx) {
+  OverrideGuard guard;
 
     if (!game || !game->UpdateMemory() || game->IsOnMenu()) {
       return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
@@ -153,6 +176,7 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
 
 int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND hWndParent, DLGPROC lpDialogFunc,
                                    LPARAM dwInitParam) {
+  OverrideGuard guard;
 
     enum class MenuDialogBoxId {
     AddZone = 104,
@@ -201,6 +225,7 @@ int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND
 //only captures the message box when it appears for continuum
 // can't get the biller disconnected message
 int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
+  OverrideGuard guard;
   bool suppress = false;
 
   std::string text = lpText;
@@ -226,6 +251,7 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
 }
 
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
+  OverrideGuard guard;
 
   if (!game || !game->UpdateMemory()) {
     return 0;
@@ -257,6 +283,7 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 // will not update if the game is running the game window
 // but probably updates if the game is also running the chat window
 BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) { 
+    OverrideGuard guard;
 
   if (!game || !game->UpdateMemory()) {
     return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
@@ -306,6 +333,7 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 // the marvin injection method will start here
 // will not run/update if the game is in the menu
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
+  OverrideGuard guard;
   BOOL result = 0;
 
   if (!bot) {
@@ -454,6 +482,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourTransactionCommit();
 
   //SetWindowText(g_hWnd, "Continuum");
+  OverrideGuard::Wait();
   bot = nullptr;
   game = nullptr;
  // marvin::log << "CLEANUP MARVIN FINISHED.\n";
