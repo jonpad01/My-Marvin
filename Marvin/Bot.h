@@ -112,6 +112,7 @@ class Bot {
   std::unique_ptr<TeamGoalCreator> goals_;
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
   std::unique_ptr<BasePaths> base_paths_;
+  DoorState previous_door_state_;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;

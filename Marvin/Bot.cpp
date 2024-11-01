@@ -190,6 +190,15 @@ void Bot::Update(bool reload, float dt) {
   UpdateState state = game_->Update();
   g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
+  DoorState door_state = DoorState::Load();
+
+  if (door_state != previous_door_state_) {
+    // Doors changed
+    load_index = 1;
+    previous_door_state_ = door_state;
+    return;
+  }
+
   if (state == UpdateState::Wait) return;
   
   if (state == UpdateState::Reload || reload || blackboard_->ValueOr<bool>("reloadbot", false)) {

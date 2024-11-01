@@ -13,6 +13,28 @@ namespace marvin {
 
 enum class SetShipStatus : short { Clear, SetShip, ResetShip };
 
+struct DoorState {
+  s16 door_mode;
+  u32 door_seed;
+
+  // Doors are considered changed if the mode changes, or if the seed changes while set to randomized.
+  bool operator!=(const DoorState& previous) const {
+    if (previous.door_mode != door_mode) return true;
+    return door_mode < 0 && door_seed != previous.door_seed;
+  }
+
+  bool operator==(const DoorState& previous) const { return !(*this != previous); }
+
+  static DoorState Load() {
+    DoorState result = {};
+
+    result.door_mode = *(s16*)((*(u32*)0x4c1afc) + 0x156D0);
+    result.door_seed = *(u32*)((*(u32*)0x4c1afc) + 0x12F40);
+
+    return result;
+  }
+};
+
 #pragma pack(push, 1)
 struct WeaponMemory {
   u32 _unused1;  // 0x00
