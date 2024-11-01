@@ -66,6 +66,7 @@ bool WaitForUnload() {
   int loops = 0;
 
   while (loaded) {
+    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     loaded = false;
 
     ++loops;

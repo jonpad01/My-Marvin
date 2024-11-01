@@ -213,11 +213,8 @@ void Bot::Update(bool reload, float dt) {
     return;
   }
 
-  //for (const Player& player : game_->GetPlayers()) {
-   // if (player.ship > 7) continue;
-   // std::string name = game_->GetName();
-    //g_RenderState.RenderDebugText("%s", name.c_str());
-  //}
+  //u8 id = game_->GetMap().GetTileId(Vector2f(575, 512));
+  //g_RenderState.RenderDebugText("Tile Id: %u", id);
 
   if (blackboard_->GetCombatDifficulty() == CombatDifficulty::Nerf) {
     update_interval_ = 10;

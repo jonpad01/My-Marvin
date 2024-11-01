@@ -46,7 +46,10 @@ Map::Map(const TileData& tile_data) : tile_data_(tile_data) {
 
 TileId Map::GetTileId(u16 x, u16 y) const {
   if (x >= 1024 || y >= 1024) return 0;
-  return tile_data_[y * kMapExtent + x];
+  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
+
+  return map_memory[y * kMapExtent + x];
+  //return tile_data_[y * kMapExtent + x];
 }
 
 bool Map::IsSolid(u16 x, u16 y) const {
@@ -68,7 +71,8 @@ void Map::SetTileId(const Vector2f& position, TileId id) {
 
 bool Map::IsSolid(TileId id) const {
   if (id == 0) return false;
-  if (id >= 162 && id <= 169) return false;  // treat doors as non-solid
+  //if (id >= 162 && id <= 169) return false;  // treat doors as non-solid
+  if (id >= 162 && id <= 169) return true;  // doors
   if (id < 170) return true;
   if (id >= 192 && id <= 240) return true;
   if (id >= 242 && id <= 252) return true;
@@ -797,7 +801,7 @@ std::unique_ptr<Map> Map::Load(const char* filename) {
           tiles[(tile.y + y) * kMapExtent + (tile.x + x)] = tile.tile;
         }
       }
-    }
+    } 
 
     pos += sizeof(Tile);
   }
