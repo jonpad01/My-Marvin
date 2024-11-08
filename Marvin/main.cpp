@@ -46,6 +46,7 @@ using seconds = std::chrono::duration<float>;
 static time_point g_LastUpdateTime;
 static time_point g_RejoinTime;
 static float g_RejoinDelay = 5.0f;
+static float g_ServerLockedDelay = 60.0f;
 static time_point g_StartTime = time_clock::now();
 
 std::unique_ptr<marvin::Bot> bot = nullptr;
@@ -56,6 +57,7 @@ static bool initialize_debug = true;
 static bool open_log = true;
 static bool set_title = true;
 static bool set_rejoin_timer = true;
+static bool server_locked = false;
 static int biller_box_occurrences = 0;
 
 // This function needs to be called whenever anything changes in Continuum's memory.
@@ -239,10 +241,17 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   const std::string unkown_name =
       "Unkown name. Would you like to create a new user and enter the game using this name?";
 
+  const std::string too_many_times = "You have tried to login too many times. Please try again in few minute";
+
   if (caption == "Information") {
     // return 0 to supress msg box
     if (text == fail_to_connect_msg) {
       set_rejoin_timer = true;
+      return 0;
+    }
+    if (text == too_many_times) {
+      set_rejoin_timer = true;
+      server_locked = true;
       return 0;
     }
   }
@@ -285,7 +294,12 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) { 
     OverrideGuard guard;
 
-  if (!game || !game->UpdateMemory()) {
+  if (!game) {
+    CreateBot();
+    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  }
+
+  if (!game->UpdateMemory()) {
     return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
   }
 
@@ -309,7 +323,17 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 
     seconds elapsed = time_clock::now() - g_RejoinTime;
 
-    if (enabled && elapsed.count() > g_RejoinDelay) {
+    if (!enabled) return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+
+    if (server_locked) {
+      if (elapsed.count() > g_ServerLockedDelay) {
+        server_locked = false;
+      } else {
+        return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+      }
+    }
+
+    if (elapsed.count() > g_RejoinDelay) {
       bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
       
       // press enter and rejoin the game, must reselect the profile before joining
@@ -409,7 +433,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     
     if (enabled) {
       if (LockedInSpec()) {
-        enabled = false;
+        //enabled = false;
         game->ExitGame();
       } else if (dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
 #if DEBUG_RENDER
@@ -484,7 +508,6 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   //SetWindowText(g_hWnd, "Continuum");
   OverrideGuard::Wait();
   bot = nullptr;
-  game = nullptr;
  // marvin::log << "CLEANUP MARVIN FINISHED.\n";
  // marvin::log.close();
 }
