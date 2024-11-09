@@ -67,20 +67,17 @@ UpdateState ContinuumGameProxy::Update() {
     return UpdateState::Wait;
   }
 
+  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
   // load new map
   if (mapfile_path_ != map_file_path) {
-    mapfile_path_ = map_file_path;
-    map_ = Map::Load(mapfile_path_);
-
-    // map is downloading
-    if (!map_) {
-      mapfile_path_ = "";
+    if (!map_memory) {
       return UpdateState::Wait;
+    } else {
+      mapfile_path_ = map_file_path;
+      return UpdateState::Reload;
     }
-
-    return UpdateState::Reload;
   }
 
   // this fixes memory exceptions when arena recycles

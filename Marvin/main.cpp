@@ -111,7 +111,7 @@ bool GameLoaded() { // not used
   u32 game_addr = *(u32*)0x4C1AFC;
 
   if (game_addr) {
-    // Wait for map to load
+    // not for map downloading
     return *(u32*)(game_addr + 0x127ec + 0x6C4) != 0;
   }
 
@@ -360,18 +360,20 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   OverrideGuard guard;
   BOOL result = 0;
 
-  if (!bot) {
+  if (!bot || !game) {
     CreateBot();
     enabled = true;
+    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
-  if (!game || !game->UpdateMemory()) {
+  if (!game->UpdateMemory()) {
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
   marvin::ConnectState state = game->GetConnectState();
+  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0); // map loaded
 
-  if (state != marvin::ConnectState::Playing) {
+  if (state != marvin::ConnectState::Playing || !map_memory) {
     if (state == marvin::ConnectState::Disconnected) {
       game->ExitGame();
     }

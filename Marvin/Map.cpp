@@ -46,9 +46,11 @@ Map::Map(const TileData& tile_data) : tile_data_(tile_data) {
 
 TileId Map::GetTileId(u16 x, u16 y) const {
   if (x >= 1024 || y >= 1024) return 0;
-  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
 
-  return map_memory[y * kMapExtent + x];
+  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
+  if (map_memory) return map_memory[y * kMapExtent + x];
+  
+  return 170;
   //return tile_data_[y * kMapExtent + x];
 }
 

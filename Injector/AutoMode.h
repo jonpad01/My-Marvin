@@ -19,8 +19,8 @@ namespace marvin
 
  struct WindowInfo 
  {
-  DWORD pid;
-  HWND hwnd;
+  DWORD pid = 0;
+  HWND hwnd = 0;
   std::string title;
 };
 
@@ -48,7 +48,7 @@ class AutoBot
   DWORD StartContinuum(std::size_t index);
   bool InjectContinuum(DWORD pid);
   void MonitorBots();
-  int IsErrorWindow(std::string title, DWORD pid, HWND hwnd);
+  int HandleErrorWindow(std::string title, DWORD pid, HWND hwnd);
   WindowInfo GrabWindow(std::string title, DWORD pid, bool match_pid, bool exact_match, bool show_output, int timeout);
   bool WaitForWindowState(HWND hwnd, std::string title, int state, int timeout);
   bool WaitForFile(const std::string& filename, int timeout);

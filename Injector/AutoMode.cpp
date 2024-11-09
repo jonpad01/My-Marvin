@@ -70,7 +70,7 @@ void AutoBot::CloseErrorWindows()
   FetchWindows();
 
   for (WindowInfo window : windows_) {
-    IsErrorWindow(window.title, window.pid, window.hwnd);
+    HandleErrorWindow(window.title, window.pid, window.hwnd);
   }
 }
 
@@ -257,8 +257,7 @@ void AutoBot::MonitorBots() {
   //for (std::size_t i = 0; i < pids_.size(); i++) {
     Sleep(2000);
 
-    //auto process = std::make_unique<marvin::Process>(pids_[i]);
-    //HANDLE handle = process->GetHandle();
+    CloseErrorWindows();  // there must be a better way to look for crashes
 
     ULONG exitcode;
     bool found = GetExitCodeProcess(process_list_[i].handle, &exitcode);
@@ -287,10 +286,7 @@ void AutoBot::MonitorBots() {
 
     CloseHandle(handle);
 
-    FetchWindows();
-    for (WindowInfo window : windows_) {
-      IsErrorWindow(window.title, window.pid, window.hwnd);
-    }
+
   
     WindowInfo iMenu = GrabWindow("Continuum 0.40", 0, false, true, false, 100);
 
@@ -320,7 +316,7 @@ void AutoBot::MonitorBots() {
 
 
 
-int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
+int AutoBot::HandleErrorWindow(std::string title, DWORD pid, HWND hwnd) {
 
     int result = 0;
 
@@ -343,6 +339,7 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         result = 1;
       }
 
+      // this happens when running multiple bots with different profile resolutions selected
       if (load_error) {
         std::cout << "DirectDraw error found for process pid: " << pid << " with window title: " << title
                   << "\n" << std::endl;
@@ -351,7 +348,7 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
         result = 2;
       }
-
+#if 0
       if (information) {
         std::cout << "Information window found for process pid: " << pid << " with window title: " << title << "\n"
                   << std::endl;
@@ -360,7 +357,7 @@ int AutoBot::IsErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         PostMessage(hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
         result = 2;
       }
-
+#endif
   return result;
 }
 
@@ -398,7 +395,7 @@ bool AutoBot::FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pi
     Sleep(100);
     FetchWindows();
     for (WindowInfo window : windows_) {
-      error_level = IsErrorWindow(window.title, window.pid, window.hwnd);
+      error_level = HandleErrorWindow(window.title, window.pid, window.hwnd);
       if (error_level == 2 && window.pid == pid) {
         error_level = 3;
         break;
@@ -439,7 +436,7 @@ WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, boo
     Sleep(100);
     FetchWindows();
     for (WindowInfo window : windows_) {
-      error_level = IsErrorWindow(window.title, window.pid, window.hwnd);
+      error_level = HandleErrorWindow(window.title, window.pid, window.hwnd);
       if (error_level == 2 && window.pid == pid) {
         error_level = 3;
         break;
