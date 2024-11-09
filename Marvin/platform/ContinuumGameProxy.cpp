@@ -76,6 +76,7 @@ UpdateState ContinuumGameProxy::Update() {
       return UpdateState::Wait;
     } else {
       mapfile_path_ = map_file_path;
+      map_ = Map::Load(mapfile_path_);
       return UpdateState::Reload;
     }
   }
@@ -553,7 +554,8 @@ bool ContinuumGameProxy::IsOnMenu() const {
 }
 
 bool ContinuumGameProxy::IsInGame() const {
-  if (map_ && GetConnectState() == ConnectState::Playing) {
+  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
+  if (map_memory && GetConnectState() == ConnectState::Playing) {
     return true;
   }
 
