@@ -23,6 +23,7 @@ class Time {
   bool TimedActionDelay(std::string key, uint64_t delay);
   bool RepeatedActionDelay(std::string key, uint64_t delay);
 
+  uint64_t UniqueTimerByName(const std::string& name, const std::vector<std::string>& names, uint64_t offset = 200);
   uint64_t UniqueIDTimer(GameProxy& game, uint16_t id);
   uint64_t UniqueIDTimer(GameProxy& game, std::vector<std::string> list);
   uint64_t UniqueIDTimer(GameProxy& game, std::vector<uint16_t> list);

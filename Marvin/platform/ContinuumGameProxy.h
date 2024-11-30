@@ -88,7 +88,6 @@ class ContinuumGameProxy : public GameProxy {
  public:
   ContinuumGameProxy();
 
-  bool UpdateMemory();
   UpdateState Update() override;
 
   ConnectState GetConnectState() const;
@@ -195,6 +194,7 @@ class ContinuumGameProxy : public GameProxy {
   std::string GetServerFolder();
 
   void SetDefaultWeaponLevels(Player& player);
+  bool UpdateMemory();
   void FetchZone();
   void FetchChat();
   void FetchPlayers();

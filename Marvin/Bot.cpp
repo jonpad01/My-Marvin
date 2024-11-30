@@ -190,18 +190,10 @@ void Bot::Update(bool reload, float dt) {
   UpdateState state = game_->Update();
   g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
-  DoorState door_state = DoorState::Load();
-
-  if (door_state != previous_door_state_) {
-    // Doors changed
-    load_index = 1;
-    previous_door_state_ = door_state;
-    return;
-  }
-
   if (state == UpdateState::Wait) return;
   
   if (state == UpdateState::Reload || reload || blackboard_->ValueOr<bool>("reloadbot", false)) {
+    log.Write("Reloading bot.");
     load_index = 1;
     g_RenderState.RenderDebugText("Wait For Game");
     return;
@@ -210,6 +202,16 @@ void Bot::Update(bool reload, float dt) {
   // the load behavior is determined by the load index
   Load();
   if (load_index != 0) return;
+
+  DoorState door_state = DoorState::Load();
+  // TODO: known problem here with certain arenas
+  if (door_state != previous_door_state_) {
+    log.Write("Door state changed.");
+    // Doors changed
+    load_index = 1;
+    previous_door_state_ = door_state;
+    return;
+  }
 
   float radius = game_->GetRadius();
   int ship = game_->GetPlayer().ship;

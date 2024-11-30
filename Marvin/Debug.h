@@ -83,6 +83,9 @@ class LogFile {
       log.open(name + ".log", std::ios::out | std::ios::trunc);
     }
   }
+  bool IsOpen() { 
+      return log.is_open();
+  }
   void Write(const std::string& msg, uint64_t timer) {
     if (log.is_open()) {
       log << msg << " - Time: " << timer << std::endl;

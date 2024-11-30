@@ -17,10 +17,10 @@ Last fix:  reading multifire status and item counts on other players was not the
 namespace marvin {
 
 ContinuumGameProxy::ContinuumGameProxy() : module_base_menu_(0), module_base_continuum_(0) {
+
   UpdateMemory();
 }
 
-// can get all of these while in the menu or the game.
 bool ContinuumGameProxy::UpdateMemory() {
   if (!module_base_menu_) {
     module_base_menu_ = process_.GetModuleBase("menu040.dll");
@@ -38,18 +38,13 @@ bool ContinuumGameProxy::UpdateMemory() {
     if (!module_base_continuum_) return false;
   }
 
-  if (module_base_continuum_  && !game_addr_) {
+  if (!game_addr_) {
     game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
-
-    if (game_addr_) {
-      position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
-
-      // Skip over existing messages on load
-      u32 chat_base_addr = game_addr_ + 0x2DD08;
-      chat_index_ = *(u32*)(chat_base_addr + 8);
-    } else {
-      return false;
-    }
+    position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+    // Skip over existing messages on load
+    // this needs to be set when the bot reloads
+    u32 chat_base_addr = game_addr_ + 0x2DD08;
+    chat_index_ = *(u32*)(chat_base_addr + 8);   
   }
 
   return true;
@@ -61,13 +56,16 @@ UpdateState ContinuumGameProxy::Update() {
   // to make it think it always has focus.
   SetWindowFocus();
 
-  UpdateMemory();
+  if (!UpdateMemory()) return UpdateState::Wait;
 
-  if (!module_base_menu_ || !game_addr_) {
-    return UpdateState::Wait;
+  u32 chat_base_addr = game_addr_ + 0x2DD08;
+  u32 count = *(u32*)(chat_base_addr + 8); 
+
+  if (count < 1023) {
+   // SendQueuedMessage("est");
   }
 
-  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
+  u8* map_memory = (u8*)*(u32*)(game_addr_ + 0x127ec + 0x1d6d0);
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
   // load new map
@@ -668,15 +666,16 @@ const ShipSettings& ContinuumGameProxy::GetShipSettings(int ship) const {
 // so when running more than one bot it will change to the name of the last bot launched
 // it might be saving the selected profile to a file and reloading it?
 std::string ContinuumGameProxy::GetName() const {
+
+  if (!module_base_menu_) return "";
+
   const std::size_t ProfileStructSize = 2860;
 
   uint16_t profile_index = process_.ReadU32(module_base_menu_ + 0x47FA0) & 0xFFFF;
   std::size_t addr = process_.ReadU32(module_base_menu_ + 0x47A38) + 0x15;
 
-  if (addr == 0) {
-    return "";
-  }
-
+  if (!addr) return "";
+  
   addr += profile_index * ProfileStructSize;
 
   std::string name = process_.ReadString(addr, 23);
@@ -692,6 +691,7 @@ std::string ContinuumGameProxy::GetName() const {
 }
 
 bool ContinuumGameProxy::SetMenuProfileIndex() {
+  if (!module_base_menu_) return false;
   if (!IsOnMenu()) return false;
   if (player_name_.empty()) return false;
 
@@ -705,7 +705,7 @@ bool ContinuumGameProxy::SetMenuProfileIndex() {
     return false;
   }
 
-  for (uint16_t i = 0;i < count; i++) {
+  for (uint16_t i = 0; i < count; i++) {
     
     name = process_.ReadString(addr, 23);
 

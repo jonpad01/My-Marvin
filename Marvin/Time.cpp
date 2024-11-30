@@ -75,6 +75,17 @@ bool Time::RepeatedActionDelay(std::string key, uint64_t delay) {
   return false;
 }
 
+uint64_t Time::UniqueTimerByName(const std::string& name, const std::vector<std::string>& names, uint64_t offset) {
+  uint64_t result = offset;
+
+  for (std::size_t i = 0; i < names.size(); i++) {
+    if (name == names[i]) {
+      result += i * offset;
+    }
+  }
+  return result;
+}
+
 
 // create a consitent gap between each unique id
 // zones endup with large gaps between player ids so use a sorted vector to sandwich them together
