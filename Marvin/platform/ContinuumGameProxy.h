@@ -90,8 +90,9 @@ class ContinuumGameProxy : public GameProxy {
 
   UpdateState Update() override;
 
-  ConnectState GetConnectState() const;
+  ConnectState GetConnectState();
   void ExitGame();
+  bool GameIsClosing();
 
   std::string GetName() const override;
   bool SetMenuProfileIndex();
@@ -165,8 +166,8 @@ class ContinuumGameProxy : public GameProxy {
   void SetSpeed(float desired) override;
   void SetThrust(uint32_t desired) override;
 
-  bool IsOnMenu() const;
-  bool IsInGame() const;
+  bool IsOnMenu();
+  bool IsInGame();
   
 
   void SetWindowFocus() override;

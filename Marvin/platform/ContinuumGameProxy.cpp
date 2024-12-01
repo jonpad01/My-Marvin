@@ -510,10 +510,10 @@ void ContinuumGameProxy::FetchDroppedFlags() {
   }
 }
 
-ConnectState ContinuumGameProxy::GetConnectState() const {
+ConnectState ContinuumGameProxy::GetConnectState() {
   if (IsOnMenu()) return ConnectState::None;
 
-  if (game_addr_ == 0) return ConnectState::None;
+  if (!game_addr_ && !UpdateMemory()) return ConnectState::None;
 
   ConnectState state = *(ConnectState*)(game_addr_ + 0x127EC + 0x588);
 
@@ -532,19 +532,30 @@ ConnectState ContinuumGameProxy::GetConnectState() const {
 
 void ContinuumGameProxy::ExitGame() {
 
-  if (!game_addr_) return;
+  if (!game_addr_ && !UpdateMemory()) return;
 
   u8* leave_ptr = (u8*)(game_addr_ + 0x127ec + 0x58c);
   *leave_ptr = 1;
 }
 
-bool ContinuumGameProxy::IsOnMenu() const {
-  if (module_base_menu_ == 0) return true;
+bool ContinuumGameProxy::GameIsClosing() {
+  if (!game_addr_ && !UpdateMemory()) return true;
+
+  u8* leave_ptr = (u8*)(game_addr_ + 0x127ec + 0x58c);
+  return *leave_ptr == 1;
+}
+
+bool ContinuumGameProxy::IsOnMenu() {
+  UpdateMemory();
+  if (!module_base_menu_) return true;
 
   return *(u8*)(module_base_menu_ + 0x47a84) == 0;
 }
 
-bool ContinuumGameProxy::IsInGame() const {
+bool ContinuumGameProxy::IsInGame() {
+
+  if (!game_addr_ && !UpdateMemory()) return false;
+
   u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
   if (map_memory && GetConnectState() == ConnectState::Playing) {
     return true;

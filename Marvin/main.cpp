@@ -267,6 +267,10 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 
   if (!game || game->IsOnMenu()) return 0;
 
+  if (game->GameIsClosing()) {  // guard keys when game is closing
+    return 0;
+  }
+
  HWND g_hWnd = game->GetGameWindowHandle();
 
 #if DEBUG_USER_CONTROL
@@ -351,19 +355,23 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   BOOL result = 0;
   Initialize();
 
+  // bot is set to null when getmsg updates which means game is on the menu
  if (!bot) {
+     // game needs to be rebuilt when reentering game 
+     // so dont call anything for the game pointer before this
     game = std::make_shared<marvin::ContinuumGameProxy>();
     auto game2(game);
     bot = std::make_unique<marvin::Bot>(std::move(game2));
-    // peakmsg will still run a few times when the game exits to menu, and i think reads bad game memory
-    // getmsg will set bot to nullptr as long as its running so it can guard this from continuing
+  }
+
+  if (game->GameIsClosing()) {  // guard peekmsg when game is closing
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
   marvin::ConnectState state = game->GetConnectState();
   u8* map_memory = (u8*)*(u32*)((*(u32*)0x4c1afc) + 0x127ec + 0x1d6d0);  // map loaded
 
-  if (state != marvin::ConnectState::Playing || !map_memory) {
+  if (state != marvin::ConnectState::Playing || !map_memory) { // gaurd peekmsg when game is loading
     if (state == marvin::ConnectState::Disconnected) {
       // try to space out the bots disconnecting during an internet outage
       // i think this causes problems accessing profile.dat file when switching to the menu
