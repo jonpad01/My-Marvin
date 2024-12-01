@@ -351,12 +351,13 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   BOOL result = 0;
   Initialize();
 
-  if (game->IsOnMenu()) return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
-
  if (!bot) {
     game = std::make_shared<marvin::ContinuumGameProxy>();
     auto game2(game);
     bot = std::make_unique<marvin::Bot>(std::move(game2));
+    // peakmsg will still run a few times when the game exits to menu, and i think reads bad game memory
+    // getmsg will set bot to nullptr as long as its running so it can guard this from continuing
+    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
   marvin::ConnectState state = game->GetConnectState();
