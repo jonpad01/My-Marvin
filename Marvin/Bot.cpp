@@ -72,7 +72,7 @@ Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
 
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
-
+  previous_door_state_ = DoorState::Load();
   game_->SendChatMessage("?chat=marvin");
 
   load_index = 1;
@@ -204,8 +204,7 @@ void Bot::Update(bool reload, float dt) {
   if (load_index != 0) return;
 
   DoorState door_state = DoorState::Load();
-  // TODO: known problem here with certain arenas
-  if (door_state != previous_door_state_) {
+  if (door_state.door_mode != previous_door_state_.door_mode) {
     log.Write("Door state changed.");
     // Doors changed
     load_index = 1;

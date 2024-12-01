@@ -72,9 +72,16 @@ void Map::SetTileId(const Vector2f& position, TileId id) {
 }
 
 bool Map::IsSolid(TileId id) const {
+  s16 door_mode = *(s16*)((*(u32*)0x4c1afc) + 0x156D0);
+
   if (id == 0) return false;
-  //if (id >= 162 && id <= 169) return false;  // treat doors as non-solid
-  if (id >= 162 && id <= 169) return true;  // doors
+  if (id >= 162 && id <= 169) { // doors
+     if (door_mode >= 0) {  
+      return true;    // treat doors as solid
+     } else {
+      return false;  // doors are changing randomly, treat as non solid
+     }
+  }
   if (id < 170) return true;
   if (id >= 192 && id <= 240) return true;
   if (id >= 242 && id <= 252) return true;

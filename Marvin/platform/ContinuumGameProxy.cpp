@@ -58,13 +58,6 @@ UpdateState ContinuumGameProxy::Update() {
 
   if (!UpdateMemory()) return UpdateState::Wait;
 
-  u32 chat_base_addr = game_addr_ + 0x2DD08;
-  u32 count = *(u32*)(chat_base_addr + 8); 
-
-  if (count < 1023) {
-   // SendQueuedMessage("est");
-  }
-
   u8* map_memory = (u8*)*(u32*)(game_addr_ + 0x127ec + 0x1d6d0);
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
