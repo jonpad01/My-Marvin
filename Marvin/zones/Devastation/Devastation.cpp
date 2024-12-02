@@ -880,15 +880,7 @@ behavior::ExecuteResult DevaAttachNode::Execute(behavior::ExecuteContext& ctx) {
       //if (bb.ValueOr<bool>("Swarm", false)) {
       if (bb.GetSwarm()) {
         if (game.GetPlayer().dead) {
-          if (ctx.bot->GetTime().TimedActionDelay("respawn", 300)) {
-            uint16_t ship = 1;
-
-            if (game.GetPlayer().ship == 1) {
-              ship = 7;
-            } else {
-              ship = 1;
-            }
-
+          if (ctx.bot->GetTime().TimedActionDelay("respawn", 800)) {
             game.ResetShip();
           }
 

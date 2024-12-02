@@ -58,6 +58,9 @@ UpdateState ContinuumGameProxy::Update() {
 
   if (!UpdateMemory()) return UpdateState::Wait;
 
+
+  
+
   u8* map_memory = (u8*)*(u32*)(game_addr_ + 0x127ec + 0x1d6d0);
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
@@ -91,23 +94,6 @@ UpdateState ContinuumGameProxy::Update() {
  // g_RenderState.RenderDebugText("Game: Fetch Chat: %llu", timer.GetElapsedTime());
   FetchWeapons();
   //g_RenderState.RenderDebugText("Game: Fetch Weapons: %llu", timer.GetElapsedTime());
-
-  if (set_ship_status_ == SetShipStatus::SetShip) {
-    if (SetShip(desired_ship_)) {
-      return UpdateState::Wait;
-    }
-  }
-
-  if (reset_ship_status_ == SetShipStatus::ResetShip) {
-    ResetShip();
-    return UpdateState::Wait;
-  }
-
-  if (set_freq_flag_) {
-    SetFreq(desired_freq_);  // must fetch players before this check to update player the frequency
-    return UpdateState::Wait;
-  }
-
   
   if (ProcessQueuedMessages()) {
     return UpdateState::Wait;
@@ -916,101 +902,46 @@ void ContinuumGameProxy::SetEnergy(uint64_t percent, std::string reason) {
 
 void ContinuumGameProxy::SetFreq(int freq) {
 #if !DEBUG_USER_CONTROL
-  if (time_.GetTime() < setfreq_cooldown_) {
-  //if (!ActionDelay() || freq == player_->frequency) {
-    return;
-  }
 
-  if (freq == player_->frequency) {
-    set_freq_flag_ = false;
-    return;
-  }
-
-  if (player_->dead) ResetShip();
-
-  set_freq_flag_ = true;
-  desired_freq_ = freq;
-  tries_++;
-
-  if (tries_ > 10) {
-    set_freq_flag_ = false;
-    tries_ = 0;
-    return;
-  }
-  
+ if (!time_.RepeatedActionDelay("setfreq", 100)) return;
 
   ResetStatus();
   SetEnergy(100, "frequency change");
-  
-  //SendPriorityMessage("=" + std::to_string(freq));
-  SendQueuedMessage("=" + std::to_string(freq));
-  setfreq_cooldown_ = time_.GetTime() + 175;
+  *(u32*)(player_addr_ + 0x58) = freq;
+
 #endif
 }
 
-bool ContinuumGameProxy::ResetShip() {
+void ContinuumGameProxy::ResetShip() {  // essentially the warp function that ignores player death
 #if !DEBUG_USER_CONTROL
-
-  if (time_.GetTime() < setship_cooldown_) return false;
-
-  uint16_t ship = player_->ship + 1;
-  if (ship >= 8) ship -= 2;
-
-  if (reset_ship_status_ == SetShipStatus::Clear) {
-    SetShip(ship);
-    original_ship_ = player_->ship;
-    reset_ship_status_ = SetShipStatus::ResetShip;
-    setship_cooldown_ = time_.GetTime() + 175;
-  } else if (original_ship_ != player_->ship) {
-     SetShip(original_ship_);
-     reset_ship_status_ = SetShipStatus::Clear;
-     setship_cooldown_ = time_.GetTime() + 175;
-     return true;
-  }
-  return false;
- #else
-  return true;
+  ResetStatus();
+  SetEnergy(100, "warping"); // put the ship back to full energy so it can warp
+  *(u32*)(player_addr_ + 0x40) = 0; // setting this explode timer to 0 puts the ship back where it died
+  SendKey(VK_INSERT); // warp back to center
 #endif
-
 }
 
-bool ContinuumGameProxy::SetShip(uint16_t ship) {
+void ContinuumGameProxy::SetShip(uint16_t ship) {
     // make sure ship is in bounds
     if (ship > 8) ship = 0;
 
-    if (time_.GetTime() < setship_cooldown_) return false;
+    if (!game_addr_ && !UpdateMemory()) return;
+
+    if (!time_.RepeatedActionDelay("setship", 100)) return;
 
     int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
-    bool menu_open = (*menu_open_addr & 1);
+    //bool menu_open = (*menu_open_addr & 1); // can test if menu is open
+    *menu_open_addr = (*menu_open_addr ^ 1);  // just set the menu to open
 
-    if (player_->ship == ship) {
-      set_ship_status_ = SetShipStatus::Clear;
-      if (menu_open) SendKey(VK_ESCAPE);
-      return true;
-    }
+    //*(u32*)(player_addr_ + 0x5C) = ship; // this is pretty funny and broken
 
-    set_ship_status_ = SetShipStatus::SetShip;
-    desired_ship_ = ship;
-
-#if !DEBUG_USER_CONTROL
-    if (!menu_open) {
-      SendKey(VK_ESCAPE);
+    ResetStatus();
+    SetEnergy(100, "ship change");
+    if (ship == 8) {
+     PostMessage(GetGameWindowHandle(), WM_CHAR, (WPARAM)('s'), 0);
     } else {
-      // if (ActionDelay()) {
-      ResetStatus();
-      SetEnergy(100, "ship change");
-      if (ship == 8) {
-      PostMessage(GetGameWindowHandle(), WM_CHAR, (WPARAM)('s'), 0);
-      } else {
-      PostMessage(GetGameWindowHandle(), WM_CHAR, (WPARAM)('1' + ship), 0);
-      }
-      setship_cooldown_ = time_.GetTime() + 175;
-      return true;
-      // }
+     PostMessage(GetGameWindowHandle(), WM_CHAR, (WPARAM)('1' + ship), 0);
     }
-#endif
-
-    return false;
 }
 
 // prefered method for hyperspace
@@ -1127,7 +1058,7 @@ void ContinuumGameProxy::SetArena(const std::string& arena) {
 void ContinuumGameProxy::Warp() {
   if (!player_->dead && player_->ship != 8) {
 
-      ResetStatus();
+    ResetStatus();
     SetEnergy(100, "warping");
 
     SendKey(VK_INSERT);

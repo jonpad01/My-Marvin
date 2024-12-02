@@ -11,8 +11,6 @@
 
 namespace marvin {
 
-enum class SetShipStatus : short { Clear, SetShip, ResetShip };
-
 struct DoorState {
   s16 door_mode;
   u32 door_seed;
@@ -136,10 +134,10 @@ class ContinuumGameProxy : public GameProxy {
 
   void SetEnergy(uint64_t percent, std::string reason) override;
   void SetFreq(int freq) override;
-  bool SetShip(uint16_t ship) override;
+  void SetShip(uint16_t ship) override;
   void SetArena(const std::string& arena) override;
   void ResetStatus() override;
-  bool ResetShip() override;
+  void ResetShip() override;
   void Attach(std::string name) override;
   void Attach(uint16_t id) override;
   void Attach() override;
@@ -213,7 +211,6 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Green> greens_;
   std::vector<Flag> dropped_flags_;
   std::vector<ContinuumWeapon> enemy_mines_;
- // ShipFlightStatus ship_status_;
   ShipCapability capability_{0, 0, 0, 0, 0, 0, 0, 0};
   std::vector<ChatMessage> chat_;
   std::vector<ChatMessage> current_chat_;
@@ -234,10 +231,8 @@ class ContinuumGameProxy : public GameProxy {
   Zone zone_ = Zone::Other;
   std::string zone_name_;
   Time time_;
-  SetShipStatus set_ship_status_ = SetShipStatus::Clear;
-  SetShipStatus reset_ship_status_ = SetShipStatus::Clear;
-  bool set_freq_flag_ = false;
-  int tries_ = 0;
+
+
   int sent_message_count_ = 0;
   uint64_t attach_cooldown_ = 0;
   uint64_t flag_cooldown_ = 0;
