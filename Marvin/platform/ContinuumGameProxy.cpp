@@ -1116,10 +1116,10 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
 
 void ContinuumGameProxy::SetArena(const std::string& arena) {
 
-    ResetStatus();
+  ResetStatus();
   SetEnergy(100, "arena change");
 
-  SendChatMessage("?go " + arena);
+  SendQueuedMessage("?go " + arena);
 }
 
 
