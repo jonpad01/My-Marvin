@@ -44,7 +44,7 @@ bool ContinuumGameProxy::UpdateMemory() {
     // Skip over existing messages on load
     // this needs to be set when the bot reloads
     u32 chat_base_addr = game_addr_ + 0x2DD08;
-    chat_index_ = *(u32*)(chat_base_addr + 8);   
+    chat_index_ = *(u32*)(chat_base_addr + 8);
   }
 
   return true;
@@ -56,10 +56,7 @@ UpdateState ContinuumGameProxy::Update() {
   // to make it think it always has focus.
   SetWindowFocus();
 
-  if (!UpdateMemory()) return UpdateState::Wait;
-
-
-  
+  if (!UpdateMemory()) return UpdateState::Wait;  
 
   u8* map_memory = (u8*)*(u32*)(game_addr_ + 0x127ec + 0x1d6d0);
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
@@ -98,6 +95,16 @@ UpdateState ContinuumGameProxy::Update() {
   if (ProcessQueuedMessages()) {
     return UpdateState::Wait;
   }
+
+  if (reset_ship_index_ != 0) { // run and finish before checking setfreq and setarena
+    ResetShip();
+    return UpdateState::Wait;
+  } 
+
+  if (set_freq_) SetFreq(desired_freq_);  // set freq uses resetship
+  if (set_arena_) SetArena(desired_arena_);  // set arena uses resetship
+
+
 
   map_->SetMinedTiles(GetEnemyMines());
 
@@ -900,34 +907,114 @@ void ContinuumGameProxy::SetEnergy(uint64_t percent, std::string reason) {
 #endif
 }
 
+#if 0
+void ContinuumGameProxy::SetFreq(int freq, bool retry) {  // if player is dead it has to wait for respawn
+#if !DEBUG_USER_CONTROL
+
+
+  if (retry) {
+    desired_freq_ = freq;
+    set_freq_ = true;
+  }
+
+ if (time_.GetTime() < setfreq_cooldown_) return;
+ if (freq == player_->frequency) return;
+ setfreq_cooldown_ = time_.GetTime() + 250;
+ 
+  ResetStatus();
+  SetEnergy(100, "warping");
+  *(u32*)(player_addr_ + 0x40) = 0; // if player just died this can respawn the ship
+
+  if (retry) {
+    setfreq_trys_++;
+
+    if (setfreq_trys_ > 10) {
+      desired_freq_ = player_->frequency;  // stop trying
+      setfreq_trys_ = 0;
+      return;
+    }
+  }
+  
+  SendQueuedMessage("=" + std::to_string(freq));
+
+  //*(u32*)(player_addr_ + 0x58) = freq;  // does some funny things
+
+#endif
+}
+#endif
+
 void ContinuumGameProxy::SetFreq(int freq) {
 #if !DEBUG_USER_CONTROL
 
- if (!time_.RepeatedActionDelay("setfreq", 100)) return;
-
-  ResetStatus();
-  SetEnergy(100, "frequency change");
-  *(u32*)(player_addr_ + 0x58) = freq;
-
+  if (player_->dead) {
+    desired_freq_ = freq;
+    set_freq_ = true;
+    if (reset_ship_index_ == 0) reset_ship_index_ = 1;  // use resetship to respawn quickly
+  } else {
+    set_freq_ = false;
+    ResetStatus();
+    SetEnergy(100, "ship change");
+    SendQueuedMessage("=" + std::to_string(freq));
+  }
 #endif
 }
-
-void ContinuumGameProxy::ResetShip() {  // essentially the warp function that ignores player death
+// hack to respawn ship and bypass death timer
+// used when the bot needs to change frequency or when using swarm
+bool ContinuumGameProxy::ResetShip() {  
 #if !DEBUG_USER_CONTROL
-  ResetStatus();
-  SetEnergy(100, "warping"); // put the ship back to full energy so it can warp
-  *(u32*)(player_addr_ + 0x40) = 0; // setting this explode timer to 0 puts the ship back where it died
-  SendKey(VK_INSERT); // warp back to center
+
+   uint16_t ship = 0;
+
+  switch (reset_ship_index_) {
+    case 0:
+      reset_ship_index_++;
+      break;
+    case 1:
+      ship = player_->ship + 1;
+      if (ship >= 8) ship -= 2;
+      prev_ship_ = player_->ship;
+      SetShip(ship);
+      reset_ship_index_++;
+      break;
+    case 2:
+      if (prev_ship_ != player_->ship) {
+        reset_ship_index_++;
+      } else {
+        ship = player_->ship + 1;
+        if (ship >= 8) ship -= 2;
+        SetShip(ship);
+      }
+      break;
+    case 3:
+      SetShip(prev_ship_);
+      reset_ship_index_++;
+      break;
+    case 4:
+      if (prev_ship_ == player_->ship) {
+        reset_ship_index_ = 0;
+        return true;
+      } else {
+        SetShip(prev_ship_);
+      }
+      break;
+    default:
+      reset_ship_index_ = 0;
+      break;
+  }
 #endif
+
+  return false;
 }
 
-void ContinuumGameProxy::SetShip(uint16_t ship) {
+void ContinuumGameProxy::SetShip(uint16_t ship) {  // can set ship even when dead
     // make sure ship is in bounds
     if (ship > 8) ship = 0;
 
     if (!game_addr_ && !UpdateMemory()) return;
 
-    if (!time_.RepeatedActionDelay("setship", 100)) return;
+    if (time_.GetTime() < setship_cooldown_) return;
+    if (ship == player_->ship) return;
+    setship_cooldown_ = time_.GetTime() + 250;
 
     int* menu_open_addr = (int*)(game_addr_ + 0x12F39);
     //bool menu_open = (*menu_open_addr & 1); // can test if menu is open
@@ -1046,23 +1133,26 @@ void ContinuumGameProxy::Repel(KeyController& keys) {
 }
 
 void ContinuumGameProxy::SetArena(const std::string& arena) {
+#if !DEBUG_USER_CONTROL
 
-  ResetStatus();
-  SetEnergy(100, "arena change");
-
-  SendQueuedMessage("?go " + arena);
+  if (player_->dead) {
+    desired_arena_ = arena;
+    set_arena_ = true;
+    if (reset_ship_index_ == 0) reset_ship_index_ = 1;  // use resetship to respawn quickly
+  } else {
+    set_arena_ = false;
+    ResetStatus();
+    SetEnergy(100, "arena change");
+    SendQueuedMessage("?go " + arena);
+  }
+#endif
 }
 
 
 
 void ContinuumGameProxy::Warp() {
-  if (!player_->dead && player_->ship != 8) {
-
-    ResetStatus();
-    SetEnergy(100, "warping");
-
-    SendKey(VK_INSERT);
-  }
+  ResetShip();
+  //SendKey(VK_INSERT);
 }
 
 void ContinuumGameProxy::Stealth() {
@@ -1115,7 +1205,7 @@ bool ContinuumGameProxy::IsKnownBot() {
 
   if (zone_ != Zone::Devastation) return false;  // currently deva is the only zone whitelisting bots
 
-  for (std::string name : kBotNames) {
+  for (const std::string& name : kBotNames) {
     if (name == player_->name) return true;
   }
   return false;
@@ -1251,18 +1341,7 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
 #endif
 }
 
-// use id index to offset the bots delay from other bots
-// that might be playing, prevents spam like
-// a bunch of bots all jumping onto the same freq
-bool ContinuumGameProxy::ActionDelay() {
-  if (delay_timer_ == 0) {
-    delay_timer_ = time_.GetTime() + (((uint64_t)GetIDIndex() * 200) + 100);
-  } else if (time_.GetTime() > delay_timer_) {
-    delay_timer_ = 0;
-    return true;
-  }
-  return false;
-}
+
 
 // find the id index
 std::size_t ContinuumGameProxy::GetIDIndex() {

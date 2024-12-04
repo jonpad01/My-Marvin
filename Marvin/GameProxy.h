@@ -232,7 +232,7 @@ class GameProxy {
   virtual void SetSpeed(float desired) = 0;
   virtual void SetThrust(uint32_t desired) = 0;
   virtual void SetShip(uint16_t ship) = 0;
-  virtual void ResetShip() = 0;
+  virtual bool ResetShip() = 0;
   virtual void SetFreq(int freq) = 0;
   virtual void SetArena(const std::string& arena) = 0;
   virtual void ResetStatus() = 0;

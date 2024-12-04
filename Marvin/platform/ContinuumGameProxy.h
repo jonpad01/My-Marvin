@@ -137,7 +137,7 @@ class ContinuumGameProxy : public GameProxy {
   void SetShip(uint16_t ship) override;
   void SetArena(const std::string& arena) override;
   void ResetStatus() override;
-  void ResetShip() override;
+  bool ResetShip() override;
   void Attach(std::string name) override;
   void Attach(uint16_t id) override;
   void Attach() override;
@@ -202,8 +202,6 @@ class ContinuumGameProxy : public GameProxy {
   void FetchGreens();
   void FetchWeapons();
 
-  bool ActionDelay();
-
   bool LimitMessageRate();
   bool IsKnownBot();  // Zone allows bot to bypass rate limter for chat.
   
@@ -212,40 +210,49 @@ class ContinuumGameProxy : public GameProxy {
   std::vector<Flag> dropped_flags_;
   std::vector<ContinuumWeapon> enemy_mines_;
   ShipCapability capability_{0, 0, 0, 0, 0, 0, 0, 0};
+
   std::vector<ChatMessage> chat_;
   std::vector<ChatMessage> current_chat_;
   std::size_t chat_index_ = 0;
+  std::deque<std::string> message_queue_;
+  std::deque<std::string> priority_message_queue_;
+  int sent_message_count_ = 0;
+
   ExeProcess process_;
   std::size_t module_base_continuum_ = 0;
   std::size_t module_base_menu_ = 0;
   std::size_t game_addr_ = 0;
   std::size_t player_addr_ = 0;
   uint32_t* position_data_ = nullptr;
+
   uint16_t player_id_ = 0xFFFF;
   std::string player_name_;  // should be set once and never changed
+  int player_generation_id_ = 0;
   std::unique_ptr<Map> map_ = nullptr;
   Player* player_ = nullptr;
+
   std::vector<Player> players_;
   std::vector<ContinuumWeapon> weapons_;
+
   std::string mapfile_path_;
   Zone zone_ = Zone::Other;
   std::string zone_name_;
+
   Time time_;
 
+  uint16_t prev_ship_ = 0;
+  int reset_ship_index_ = 0;
+  bool set_freq_ = false;
+  bool set_arena_ = false;
+  uint16_t desired_freq_ = 0;
+  std::string desired_arena_;
 
-  int sent_message_count_ = 0;
+  
   uint64_t attach_cooldown_ = 0;
   uint64_t flag_cooldown_ = 0;
-  uint64_t setfreq_cooldown_ = 0;
   uint64_t setship_cooldown_ = 0;
   uint64_t message_cooldown_ = 0;
-  uint64_t delay_timer_ = 0;
-  uint16_t desired_ship_ = 0;
-  uint16_t desired_freq_ = 0;
-  uint16_t original_ship_ = 0;
-  std::deque<std::string> message_queue_;
-  std::deque<std::string> priority_message_queue_;
-  int player_generation_id_ = 0;
+  
 };
 
 }  // namespace marvin
