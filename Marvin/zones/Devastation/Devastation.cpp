@@ -119,23 +119,10 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
       ship = 1;
     }
 
-    if (ship == 2) {
-      //bot.GetBlackboard().Set<bool>("IsAnchor", true);
-      bot.GetBlackboard().SetCombatRole(CombatRole::Anchor);
-    }
-
     std::vector<MapCoord> patrol_nodes = {MapCoord(568, 568), MapCoord(454, 568), MapCoord(454, 454),
                                           MapCoord(568, 454), MapCoord(568, 568), MapCoord(454, 454),
                                           MapCoord(568, 454), MapCoord(454, 568), MapCoord(454, 454),
                                           MapCoord(568, 568), MapCoord(454, 568), MapCoord(568, 454)};
-
-   // bot.GetBlackboard().SetDefaultValue<bool>(BB::UseMultiFire, false);
-    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseStealth, true);
-    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseCloak, true);
-    ///bot.GetBlackboard().SetDefaultValue<bool>(BB::UseXRadar, true);
-    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseDecoy, true);
-    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseRepel, true);
-    //bot.GetBlackboard().SetDefaultValue<bool>(BB::UseBurst, true);
 
     bot.GetBlackboard().SetCombatRoleDefault(CombatRole::Rusher);
     bot.GetBlackboard().SetMultiFireDefault(false);
@@ -496,7 +483,7 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
     std::vector<uint16_t> team_mates = GetTeamMates(ctx);
     uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), team_mates);
     std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
-    if (!joiners.empty()) offset += max_offset + 5001;  // add time for respawn
+    if (!joiners.empty()) offset += max_offset + 500;  // add time for shipresets
 
 
    // game.SendChatMessage("My timer to leave the duel team: " + std::to_string(offset));
