@@ -101,7 +101,7 @@ class RegionRegistry {
   bool IsConnected(MapCoord a, MapCoord b) const;
   bool IsEdge(MapCoord coord) const;
   int GetTileCount(MapCoord coord) const;
-  void Create(const Map& map, float radius, uint16_t xMin, uint16_t xMax);
+  void Create(const Map& map, float radius);
 
   void DebugUpdate(Vector2f position);
 

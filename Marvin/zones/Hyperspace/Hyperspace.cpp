@@ -224,8 +224,10 @@ behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& c
   bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
   const Player* anchor = bb.GetAnchor();
 
+
+
   if (anchor && anchor->id == game.GetPlayer().id && flagging) {
-    bb.SetCombatRole(CombatRole::Anchor);
+    bb.Set<CombatRole>("combatrole", CombatRole::Anchor);
 
     g_RenderState.RenderDebugText("  HSSetCombatRoleNode(Select Anchor): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
@@ -234,54 +236,54 @@ behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& c
   switch (ship) {
     case 0: {
       if (flagging) {
-        bb.SetCombatRole(CombatRole::Rusher);
+        bb.Set<CombatRole>("combatrole", CombatRole::Rusher);
       } else {
-        bb.SetCombatRole(CombatRole::Gunner);
+        bb.Set<CombatRole>("combatrole", CombatRole::Gunner);
       }
       break;
     }
     case 1: {
       if (flagging) {
-        bb.SetCombatRole(CombatRole::Rusher);
+        bb.Set<CombatRole>("combatrole", CombatRole::Rusher);
       } else {
-        bb.SetCombatRole(CombatRole::Bomber);
+        bb.Set<CombatRole>("combatrole", CombatRole::Bomber);
       }
       break;
     }
     case 2: {
-        bb.SetCombatRole(CombatRole::Gunner); 
+        bb.Set<CombatRole>("combatrole", CombatRole::Gunner);
       break;
     }
     case 3: {
-        bb.SetCombatRole(CombatRole::Bomber); 
+        bb.Set<CombatRole>("combatrole", CombatRole::Bomber);
       break;
     }
     case 4: {
-        bb.SetCombatRole(CombatRole::Gunner);
+      bb.Set<CombatRole>("combatrole", CombatRole::Gunner);
       break;
     }
     case 5: {
-        bb.SetCombatRole(CombatRole::Bomber);
+      bb.Set<CombatRole>("combatrole", CombatRole::Bomber);
       break;
     }
     case 6: {
-        bb.SetCombatRole(CombatRole::Turret);
+      bb.Set<CombatRole>("combatrole", CombatRole::Turret);
       break;
     }
     case 7: {
       if (flagging) {
-        bb.SetCombatRole(CombatRole::Flagger);
+        bb.Set<CombatRole>("combatrole", CombatRole::Flagger);
       } else {
-        bb.SetCombatRole(CombatRole::PowerBaller);
+        bb.Set<CombatRole>("combatrole", CombatRole::PowerBaller);
       }
       break;
     }
     case 8: {
-      bb.SetCombatRole(CombatRole::None);
+      bb.Set<CombatRole>("combatrole", CombatRole::None);
       break;
     }
     default: {
-      bb.SetCombatRole(CombatRole::None);
+      bb.Set<CombatRole>("combatrole", CombatRole::None);
       break;
     }
   }

@@ -108,7 +108,11 @@ struct BaseSpawns {
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   //const BaseSpawns& spawn = bot.GetBaseDuelSpawns().GetSpawns();
   float radius = bot.GetGame().GetShipSettings().GetRadius();
-  bot.GetBlackboard().SetCombatRole(CombatRole::Rusher);
+  //bot.GetBlackboard().SetCombatRole(CombatRole::Rusher);
+
+  //if (!bot.GetBlackboard().Has("combatrole")) {
+  //  bot.GetBlackboard().Set<CombatRole>("combatrole", CombatRole::Rusher);
+ // }
  
   //bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
@@ -124,7 +128,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
                                           MapCoord(568, 454), MapCoord(454, 568), MapCoord(454, 454),
                                           MapCoord(568, 568), MapCoord(454, 568), MapCoord(568, 454)};
 
-    bot.GetBlackboard().SetCombatRoleDefault(CombatRole::Rusher);
+    //bot.GetBlackboard().SetCombatRoleDefault(CombatRole::Rusher);
     bot.GetBlackboard().SetMultiFireDefault(false);
     bot.GetBlackboard().SetStealthDefault(false);
     bot.GetBlackboard().SetCloakDefault(false);
@@ -429,9 +433,10 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   uint16_t test = 1000;
   uint64_t max_offset = kBotNames.size() * 200;
   const std::vector<uint16_t>& fList = bb.GetFreqList();
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
 
   //if (bb.ValueOr<bool>("FreqLock", false) || (bb.ValueOr<bool>("IsAnchor", false) && dueling)) {
-  if (bb.GetFreqLock() || (bb.GetCombatRole() == CombatRole::Anchor && dueling)) {
+  if (bb.GetFreqLock() || (role == CombatRole::Anchor && dueling)) {
     g_RenderState.RenderDebugText("  DevaFreqMan:(locked/anchoring) %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
@@ -919,6 +924,8 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   const std::vector<const Player*>& team_list = bb.GetTeamList();
   const std::vector<const Player*>& combined_list = bb.GetCombinedList();
 
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
+
 
    if (path.empty()) {
     if (!team_list.empty()) {
@@ -998,7 +1005,7 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   }
 
  // if (team_leak || enemy_leak || bb.ValueOr<bool>("IsAnchor", false)) {
-  if (team_leak || enemy_leak || bb.GetCombatRole() == CombatRole::Anchor) {
+  if (team_leak || enemy_leak || role == CombatRole::Anchor) {
     game.SetSelectedPlayer(closest_team_to_team);
     return;
   }
@@ -1144,10 +1151,12 @@ behavior::ExecuteResult DevaRepelEnemyNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
+
   //if (!bb.ValueOr<bool>("InCenter", true)) {
     if (!bb.GetInCenter()) {
     //if (bb.ValueOr<bool>("IsAnchor", false)) {
-    if (bb.GetCombatRole() == CombatRole::Anchor) {
+    if (role == CombatRole::Anchor) {
       if (game.GetEnergyPercent() < 20.0f && game.GetPlayer().repels > 0) {
         game.Repel(ctx.bot->GetKeys());
 
@@ -1204,6 +1213,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
   auto& bb = ctx.bot->GetBlackboard();
 
   float energy_pct = game.GetEnergy() / (float)game.GetShipSettings().MaximumEnergy;
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
 
   // attempt to give each bot a random hover distance
   // TODO: change hover distance based on spre / bounty
@@ -1246,7 +1256,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 
     } else {
       // if (bb.ValueOr<bool>("IsAnchor", false)) {
-      if (bb.GetCombatRole() == CombatRole::Anchor) {
+      if (role == CombatRole::Anchor) {
         hover_distance = 20.0f;
       } else {
         hover_distance = 7.0f;

@@ -473,11 +473,11 @@ void RegionRegistry::CreateRegions(const Map& map, std::vector<Vector2f> seed_po
 #endif
 
 
-void RegionRegistry::Create(const Map& map, float radius, uint16_t xMin, uint16_t xMax) {
+void RegionRegistry::Create(const Map& map, float radius) {
   RegionFiller filler(map, radius, coord_regions_, outside_edges_, region_tile_counts_);
 
   for (uint16_t y = 0; y < 1024; ++y) {
-    for (uint16_t x = xMin; x < xMax; ++x) {
+    for (uint16_t x = 0; x < 1024; ++x) {
       MapCoord coord(x, y);
 
       if (map.CanOverlapTile(Vector2f(x, y), radius)) {

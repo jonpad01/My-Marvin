@@ -275,9 +275,9 @@ class Blackboard {
   void IncrementFreqList(std::size_t index) { freq_list_[index]++; }
   const std::vector<uint16_t>& GetFreqList() { return freq_list_; }
 
-  void SetCombatRole(CombatRole role) { combat_role_ = role; }
-  void SetCombatRoleDefault(CombatRole role) { combat_role_default_ = role; }
-  CombatRole GetCombatRole() { return combat_role_; }
+  //void SetCombatRole(CombatRole role) { combat_role_ = role; }
+  //void SetCombatRoleDefault(CombatRole role) { combat_role_default_ = role; }
+  //CombatRole GetCombatRole() { return combat_role_; }
 
   void SetCombatDifficulty(CombatDifficulty difficulty) { combat_difficulty_ = difficulty; }
   void SetCombatRoleDifficulty(CombatDifficulty difficulty) { combat_difficulty_default_ = difficulty; }

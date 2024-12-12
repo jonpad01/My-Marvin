@@ -21,6 +21,13 @@ ContinuumGameProxy::ContinuumGameProxy() : module_base_menu_(0), module_base_con
   UpdateMemory();
 }
 
+bool ContinuumGameProxy::IsLoaded() {
+  if (!UpdateMemory() || !player_) {
+    return false;
+  }
+  return true;
+}
+
 bool ContinuumGameProxy::UpdateMemory() {
   if (!module_base_menu_) {
     module_base_menu_ = process_.GetModuleBase("menu040.dll");
@@ -58,6 +65,11 @@ UpdateState ContinuumGameProxy::Update() {
 
   if (!UpdateMemory()) return UpdateState::Wait;  
 
+  // this fixes memory exceptions when arena recycles
+  if (!IsInGame()) {
+    return UpdateState::Wait;
+  }
+
   u8* map_memory = (u8*)*(u32*)(game_addr_ + 0x127ec + 0x1d6d0);
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
@@ -70,11 +82,6 @@ UpdateState ContinuumGameProxy::Update() {
       map_ = Map::Load(mapfile_path_);
       return UpdateState::Reload;
     }
-  }
-
-  // this fixes memory exceptions when arena recycles
-  if (!IsInGame()) {
-    return UpdateState::Wait;
   }
 
   FetchZone();
@@ -504,9 +511,9 @@ void ContinuumGameProxy::FetchDroppedFlags() {
 }
 
 ConnectState ContinuumGameProxy::GetConnectState() {
-  if (IsOnMenu()) return ConnectState::None;
+  if (!UpdateMemory()) return ConnectState::None;
 
-  if (!game_addr_ && !UpdateMemory()) return ConnectState::None;
+  if (IsOnMenu()) return ConnectState::None;
 
   ConnectState state = *(ConnectState*)(game_addr_ + 0x127EC + 0x588);
 
@@ -547,7 +554,7 @@ bool ContinuumGameProxy::IsOnMenu() {
 
 bool ContinuumGameProxy::IsInGame() {
 
-  if (!game_addr_ && !UpdateMemory()) return false;
+  if (!UpdateMemory()) return false;
 
   u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
   if (map_memory && GetConnectState() == ConnectState::Playing) {
@@ -634,6 +641,9 @@ std::vector<Weapon*> ContinuumGameProxy::GetWeapons() {
 }
 
 const ClientSettings& ContinuumGameProxy::GetSettings() const {
+
+  if (!game_addr_) return ClientSettings();
+
   std::size_t addr = game_addr_ + 0x127EC + 0x1AE70;  // 0x2D65C
 
   return *reinterpret_cast<ClientSettings*>(addr);
@@ -641,6 +651,9 @@ const ClientSettings& ContinuumGameProxy::GetSettings() const {
 
 // there are no ship settings for spectators
 const ShipSettings& ContinuumGameProxy::GetShipSettings() const {
+  
+  if (!player_) return ShipSettings();
+    
   int ship = player_->ship;
 
   if (ship < 0 || ship > 7) {
@@ -820,6 +833,8 @@ const float ContinuumGameProxy::GetRotation() {
 }
 
 const float ContinuumGameProxy::GetRadius() {
+  if (!game_addr_) return 0.0f;
+
   return GetShipSettings().GetRadius();
 }
 

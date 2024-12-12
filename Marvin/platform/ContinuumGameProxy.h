@@ -86,6 +86,7 @@ class ContinuumGameProxy : public GameProxy {
  public:
   ContinuumGameProxy();
 
+  bool IsLoaded() override;
   UpdateState Update() override;
 
   ConnectState GetConnectState();
@@ -186,6 +187,7 @@ class ContinuumGameProxy : public GameProxy {
     char unknown2[3];
   };
 
+  bool UpdateMemory();
   const ClientSettings& GetSettings() const override;
   const ShipSettings& GetShipSettings() const override;
   const ShipSettings& GetShipSettings(int ship) const override;
@@ -193,7 +195,6 @@ class ContinuumGameProxy : public GameProxy {
   std::string GetServerFolder();
 
   void SetDefaultWeaponLevels(Player& player);
-  bool UpdateMemory();
   void FetchZone();
   void FetchChat();
   void FetchPlayers();

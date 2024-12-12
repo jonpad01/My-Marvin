@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <memory>
+#include <thread>
 
 #include "commands/CommandSystem.h"
 #include "InfluenceMap.h"
@@ -32,6 +33,7 @@ const std::vector<std::string> kBotNames = {"LilMarv", "MadMarv", "MarvMaster", 
 class Bot {
  public:
   Bot(std::shared_ptr<GameProxy> game);
+  //~Bot() { build_task.detach(); }
 
   void Load();
   void Update(bool reload, float dt);
@@ -87,13 +89,11 @@ class Bot {
 
   void SelectBehaviorTree();
 
-  float radius_;
-  float update_interval_ = 60;
+  float radius_ = 0.0f;
+  float update_interval_ = 60.0f;
 
   uint64_t last_load_timestamp_ = 0;
   int load_index = 1;
-  u16 xMin = 0;
-  u16 xMax = 32;
 
   Vector2f powerball_goal_;
   Vector2f powerball_goal_path_;

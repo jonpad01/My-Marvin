@@ -169,6 +169,7 @@ class GameProxy {
   virtual ~GameProxy() {}
 
   virtual UpdateState Update() = 0;
+  virtual bool IsLoaded() = 0;
 
   virtual std::string GetName() const = 0;
   //virtual HWND GetGameWindowHandle() = 0;

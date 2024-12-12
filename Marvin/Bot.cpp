@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstring>
 #include <limits>
-#include <thread>
+//#include <thread>
 
 #include "Debug.h"
 #include "GameProxy.h"
@@ -67,21 +67,17 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   srand((unsigned int)(time_.GetTime()));
-  base_paths_ = nullptr;
-  goals_ = nullptr;
 
+  game_->Update();
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
   previous_door_state_ = DoorState::Load();
   game_->SendChatMessage("?chat=marvin");
-
-  load_index = 1;
-  //Load();
+  ctx_.bot = this;
 }
 
-// designed to run each case, increment the load index and return, so it doesnt run a bunch of stuff in
-// one update.  Cases that run path pathfinder or region registry stuff are broken down even further.
-// when the switch hits the default case it sets the load index to 0 which means its finished.
+// run each case, increment the load index and return, so it doesnt run a bunch of stuff in one update
+// and freeze continuum.
 void Bot::Load() {
   PerformanceTimer timer;
  
@@ -90,86 +86,41 @@ void Bot::Load() {
       return;
     }
     case 1: {
-     // log.Write("LOADING BOT", timer.GetElapsedTime());
+      //log.Write("LOADING BOT", timer.GetElapsedTime());
 
       radius_ = game_->GetRadius();
-      command_system_ = std::make_unique<CommandSystem>(game_->GetZone());
-      regions_ = std::make_unique<RegionRegistry>(game_->GetMap());
+      command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
+      //log.Write("Command System Loaded", timer.GetElapsedTime());
+      regions_ = std::make_unique<RegionRegistry>(game_->GetMap());                      // 4.3ms
+      //log.Write("Regions Created", timer.GetElapsedTime());
+      regions_->Create(game_->GetMap(), radius_);                                        // 121ms
+      //log.Write("Regions Loaded", timer.GetElapsedTime());
       load_index++;
       break;
     }
     case 2: {
-      regions_->Create(game_->GetMap(), radius_, xMin, xMax);
-     // log.Write("Regions Loaded", timer.GetElapsedTime());
-      xMin += 32;
-      xMax += 32;
-      if (xMin == 1024) {
-        xMin = 0;
-        xMax = 32;
-        load_index++;
-      }
+      auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());            // 4.2ms
+      //log.Write("Node Processor Loaded", timer.GetElapsedTime());
+      pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);  // 0ms
+     // log.Write("Pathfinder Loaded", timer.GetElapsedTime());
+      pathfinder_->SetTraversabletiles(game_->GetMap(), radius_);                         // 43ms
+     // log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
+      pathfinder_->CalculateEdges(game_->GetMap(), radius_);                              // 57ms
+     // log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
+      load_index++;
       break;
     }
     case 3: {
-      auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());
-     // log.Write("Node Processor Loaded", timer.GetElapsedTime());
-      pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);
-     // log.Write("Pathfinder Loaded", timer.GetElapsedTime());
+      pathfinder_->SetMapWeights(game_->GetMap(), radius_);                               // 250ms
+    //  log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());                  
       load_index++;
       break;
     }
     case 4: {
-      pathfinder_->SetTraversabletiles(game_->GetMap(), radius_, xMin, xMax);
-     // log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
-      xMin += 32;
-      xMax += 32;
-      if (xMin == 1024) {
-        xMin = 0;
-        xMax = 32;
-        load_index++;
-      }
-      break;
-    }
-    case 5: {
-      (pathfinder_->CalculateEdges(game_->GetMap(), radius_, xMin, xMax));
-     // log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
-      xMin += 32;
-      xMax += 32;
-      if (xMin == 1024) {
-        xMin = 0;
-        xMax = 32;
-        load_index++;
-      }
-      break;
-    }
-    case 6: {
-      pathfinder_->SetMapWeights(game_->GetMap(), xMin, xMax, radius_);
-     // log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());
-      xMin += 32;
-      xMax += 32;
-      if (xMin == 1024) {
-        xMin = 0;
-        xMax = 32;
-        load_index++;
-      }
-      break;
-    }
-    case 7: {
-      if (base_paths_) {
-        base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
-      //  log.Write("Base Paths Loaded", timer.GetElapsedTime());
-      }
-      load_index++;
-      break;
-    }
-    case 8: {
 
-      SelectBehaviorTree();
+      SelectBehaviorTree();                                                               // 100ms
+      //log.Write("Behavior Tree Loaded", timer.GetElapsedTime());   
 
-      ctx_.bot = this;
-
-      //log.Write("BOT LOADED - TOTAL TIME", timer.TimeSinceConstruction());
-    //  log.Write("Builder Loaded", timer.GetElapsedTime());
       load_index++;
       break;
     }
@@ -181,6 +132,7 @@ void Bot::Load() {
 }
 
 void Bot::Update(bool reload, float dt) {
+
   PerformanceTimer timer;
   g_RenderState.debug_y = 30.0f;
 
@@ -195,7 +147,6 @@ void Bot::Update(bool reload, float dt) {
   if (state == UpdateState::Reload || reload || blackboard_->ValueOr<bool>("reloadbot", false)) {
     log.Write("Reloading bot.");
     load_index = 1;
-    g_RenderState.RenderDebugText("Wait For Game");
     return;
   }
 
@@ -216,13 +167,11 @@ void Bot::Update(bool reload, float dt) {
   int ship = game_->GetPlayer().ship;
   
   if (radius != radius_) {
-  //  log.Write("SHIP RADIUS CHANGED");
     radius_ = radius;
-    //LoadForRadius();
     load_index = 1;
     return;
   }
-
+  
   //u8 id = game_->GetMap().GetTileId(Vector2f(575, 512));
   //g_RenderState.RenderDebugText("Tile Id: %u", id);
 
@@ -297,7 +246,7 @@ void Bot::Update(bool reload, float dt) {
     //  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), 0.95);
     //pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(962, 63), 0.95);
    // return;
-
+ 
   behavior_->Update(ctx_);
 
   g_RenderState.RenderDebugText("Behavior: %llu", timer.GetElapsedTime());
@@ -835,11 +784,12 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   const Player& bot = game.GetPlayer();
   float closest_cost = std::numeric_limits<float>::max();
   const Player* target = nullptr;
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
     const Player& player = game.GetPlayers()[i];
 
-    if (!IsValidTarget(*ctx.bot, player, bb.GetCombatRole())) {
+    if (!IsValidTarget(*ctx.bot, player, role)) {
      // g_RenderState.RenderDebugText("  Not Valid %llu", timer.GetElapsedTime());
       continue;
     }
@@ -856,7 +806,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   //const Player* current_target = bb.ValueOr<const Player*>("Target", nullptr);
   const Player* current_target = bb.GetTarget();
 
-  if (current_target && IsValidTarget(*ctx.bot, *current_target, bb.GetCombatRole())) {
+  if (current_target && IsValidTarget(*ctx.bot, *current_target, role)) {
     // Calculate the cost to the current target so there's some stickiness
     // between close targets.
     const float kStickiness = 2.5f;
@@ -908,7 +858,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   bool in_center = bb.GetInCenter();
   bool last_in_base = bb.GetLastInBase();
   // bool anchoring = bb.ValueOr<bool>("IsAnchor", false);
-  CombatRole combat_role = bb.GetCombatRole();
+  CombatRole combat_role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
   const Path& base_path = ctx.bot->GetBasePath();
 
   if (base_path.empty()) {
@@ -935,7 +885,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
     const Player& enemy = game.GetPlayers()[i];
 
     //if (enemy.frequency != bb.GetPubTeam0() && enemy.frequency != bb.GetPubTeam1()) continue;
-    if (!IsValidTarget(*ctx.bot, enemy, bb.GetCombatRole())) continue;
+    if (!IsValidTarget(*ctx.bot, enemy, combat_role)) continue;
 
     // players closest path node
     size_t enemy_node = search->FindNearestNodeBFS(enemy.position);
@@ -1032,7 +982,7 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
  // bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
  // const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
   bool in_center = bb.GetInCenter();
-  CombatRole role = bb.GetCombatRole();
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
   bool last_in_base = bb.GetLastInBase();
   const Player* enemy = bb.GetTarget();
   const Path& base_path = ctx.bot->GetBasePath();
@@ -1084,7 +1034,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   //bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
  // const Player* enemy = bb.ValueOr<const Player*>("Target", nullptr);
   bool in_center = bb.GetInCenter();
-  CombatRole role = bb.GetCombatRole();
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
   bool last_in_base = bb.GetLastInBase();
   int manual_distance_adjustment = bb.ValueOr<int>("anchordistance", 0);
 
@@ -1225,6 +1175,7 @@ const Player* AnchorBasePathNode::GetEnemy(behavior::ExecuteContext& ctx) {
  
   auto search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
   std::size_t bot_node = search->FindNearestNodeBFS(game.GetPosition());
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
 
   
 
@@ -1232,7 +1183,7 @@ const Player* AnchorBasePathNode::GetEnemy(behavior::ExecuteContext& ctx) {
     const Player& enemy = game.GetPlayers()[i];
 
     if (enemy.frequency != bb.GetPubTeam0() && enemy.frequency != bb.GetPubTeam1()) continue;
-    if (!IsValidTarget(*ctx.bot, enemy, bb.GetCombatRole())) continue;
+    if (!IsValidTarget(*ctx.bot, enemy, role)) continue;
 
     // players closest path node
     size_t enemy_node = search->FindNearestNodeBFS(enemy.position);
@@ -1470,9 +1421,11 @@ behavior::ExecuteResult IsAnchorNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& bb = ctx.bot->GetBlackboard();
 
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
+
   //if (bb.ValueOr<bool>("IsAnchor", false) && !bb.ValueOr<bool>("InCenter", true)) {
   //if (bb.GetCombatRole() == CombatRole::Anchor && !bb.GetInCenter()) {
-  if (bb.GetCombatRole() == CombatRole::Anchor) {
+  if (role == CombatRole::Anchor) {
     g_RenderState.RenderDebugText("  IsAnchorNode(success): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
@@ -1517,6 +1470,8 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
+  CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::Rusher);
+
   //const Player* target = bb.ValueOr<const Player*>("Target", nullptr);
   //bool in_sight = bb.ValueOr<bool>("TargetInSight", false);
   const Player* target = bb.GetTarget();
@@ -1530,7 +1485,7 @@ behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx)
   float energy_pct = (float)game.GetPlayer().energy / game.GetMaxEnergy() * 100.0f;
 
   //if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
-  if (bb.GetCombatRole() == CombatRole::Anchor && energy_pct < 50.0f) {
+  if (role == CombatRole::Anchor && energy_pct < 50.0f) {
     g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }

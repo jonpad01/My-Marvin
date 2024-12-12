@@ -11,16 +11,15 @@ class AnchorCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>("IsAnchor", false) == true) {
-      if (bb.GetCombatRole() == CombatRole::Anchor) {
+    CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::None);
+
+      if (role == CombatRole::Anchor) {
       game.SendPrivateMessage(sender, "Marv was already anchoring.");
     } else {
       game.SendPrivateMessage(sender, "Switching to anchor mode.");
     }
 
-    //bb.Set<bool>("IsAnchor", true);
-
-    bb.SetCombatRole(CombatRole::Anchor);
+    bb.Set<CombatRole>("combatrole", CombatRole::Anchor);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
@@ -38,15 +37,15 @@ class RushCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    //if (bb.ValueOr<bool>("IsAnchor", false) == false) {
-      if (bb.GetCombatRole() == CombatRole::Rusher) {
+    CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::None);
+
+    if (role == CombatRole::Rusher) {
       game.SendPrivateMessage(sender, "Marv was already rushing.");
     } else {
       game.SendPrivateMessage(sender, "Switching to rush mode.");
     }
 
-    //bb.Set<bool>("IsAnchor", false);
-    bb.SetCombatRole(CombatRole::Rusher);
+    bb.Set<CombatRole>("combatrole", CombatRole::Rusher);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
