@@ -45,7 +45,8 @@ class MultiCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"multi"}; }
   std::string GetDescription() { return "Sets bot to use multifire with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Status; }
 };
 
@@ -88,7 +89,8 @@ class CloakCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"cloak"}; }
   std::string GetDescription() { return "Sets bot to use cloak with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Status; }
 };
 
@@ -131,7 +133,8 @@ class StealthCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"stealth", "stealthon", "stealthoff"}; }
   std::string GetDescription() { return "Sets bot to use stealth with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Status; }
 };
 
@@ -174,7 +177,8 @@ class XRadarCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"xradar"}; }
   std::string GetDescription() { return "Sets bot to use xradar with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Status; }
 };
 
@@ -217,7 +221,8 @@ class AntiWarpCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"anti"}; }
   std::string GetDescription() { return "Sets bot to use antiwarp with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Status; }
 };
 

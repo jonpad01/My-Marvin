@@ -12,6 +12,11 @@ namespace marvin {
 class Bot;
 
 enum class CommandType {All, Info, Behavior, Consumable, Status, Action, Hosting};
+
+/*
+  A player with a Blacklisted security level is not able to use any commands.
+*/
+enum class SecurityLevel { Blacklisted, Unrestricted, Elevated, Maximum };
 const std::vector<std::string> kCommandTypeStr {"all", "info", "behavior", "consumable", "status", "action", "hosting"}; 
 
 // Match bits with the internal chat type numbers to simplify access check
@@ -49,11 +54,13 @@ class CommandExecutor {
   virtual CommandFlags GetFlags() { return 0; }
   virtual std::vector<std::string> GetAliases() = 0;
   virtual std::string GetDescription() = 0;
-  virtual int GetSecurityLevel() = 0;
+  //virtual int GetSecurityLevel() = 0;
+  virtual SecurityLevel GetSecurityLevel() = 0;
   virtual CommandType GetCommandType() = 0;
 };
 
-using Operators = std::unordered_map<std::string, int>;
+//using Operators = std::unordered_map<std::string, int>;
+using Operators = std::unordered_map<std::string, SecurityLevel>;
 using Commands = std::unordered_map<std::string, std::shared_ptr<CommandExecutor>>;
 
 class CommandSystem {
@@ -68,7 +75,8 @@ class CommandSystem {
     }
   }
 
-  int GetSecurityLevel(const std::string& player);
+  SecurityLevel GetSecurityLevel(const std::string& player);
+  //int GetSecurityLevel(const std::string& player);
 
   Commands& GetCommands() { return commands_; }
   const Operators& GetOperators() const;

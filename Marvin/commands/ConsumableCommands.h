@@ -44,7 +44,8 @@ class RepelCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"repel"}; }
   std::string GetDescription() { return "Sets bot to use repel with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+ // int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Consumable; };
 };
 
@@ -88,7 +89,8 @@ class BurstCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"burst"}; }
   std::string GetDescription() { return "Sets bot to use burst with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Consumable; };
 };
 
@@ -131,7 +133,8 @@ class DecoyCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"decoy"}; }
   std::string GetDescription() { return "Sets bot to use decoys with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Consumable; };
 };
 
@@ -174,7 +177,8 @@ class RocketCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"rocket"}; }
   std::string GetDescription() { return "Sets bot to use rockets with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Consumable; };
 };
 
@@ -217,7 +221,8 @@ class BrickCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"brick"}; }
   std::string GetDescription() { return "Sets bot to use bricks with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Consumable; };
 };
 
@@ -260,7 +265,8 @@ class PortalCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"portal"}; }
   std::string GetDescription() { return "Sets bot to use portals with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Consumable; };
 };
 
@@ -303,7 +309,8 @@ class ThorCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"thor"}; }
   std::string GetDescription() { return "Sets bot to use thors with arguments \"on\" \"off\""; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Consumable; };
 };
 

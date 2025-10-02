@@ -45,7 +45,8 @@ class StaffChatAnnouncerCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"cmdlogger"}; }
   std::string GetDescription() { return "Sends message to staff chat anytime a command is sent to the bot."; }
-  int GetSecurityLevel() { return 5; }
+  //int GetSecurityLevel() { return 5; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Elevated; }
   CommandType GetCommandType() { return CommandType::Info; }
 };
 

@@ -23,7 +23,8 @@ class EGPCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"p"}; }
   std::string GetDescription() { return "Instructs the bot to send !p to chat."; }
-  int GetSecurityLevel() { return 0; }
+ // int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Action; };
 };
 
@@ -43,7 +44,8 @@ class EGLCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"l"}; }
   std::string GetDescription() { return "Instructs the bot to send !l to chat."; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Action; };
 };
 
@@ -63,7 +65,8 @@ class EGRCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"r"}; }
   std::string GetDescription() { return "Instructs the bot to send !r to chat."; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Action; };
 };
 

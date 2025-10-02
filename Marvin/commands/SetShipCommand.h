@@ -56,7 +56,8 @@ class SetShipCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"setship", "ss"}; }
   std::string GetDescription() { return "Sets the ship (9 = spec)"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Action; }
 };
 

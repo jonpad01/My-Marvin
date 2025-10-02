@@ -27,7 +27,8 @@ class AnchorCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"anchor", "a"}; }
   std::string GetDescription() { return "Enable anchor behavior when basing"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
@@ -53,7 +54,8 @@ class RushCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"rush", "r"}; }
   std::string GetDescription() { return "Enable rush behavior when basing"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
@@ -74,7 +76,8 @@ class NerfCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"nerf"}; }
   std::string GetDescription() { return "Make the bot easier to fight."; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Behavior; };
 };
 
@@ -95,7 +98,8 @@ class NormalCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"normal"}; }
   std::string GetDescription() { return "Set bot to normal difficulty"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Behavior; };
 };
 

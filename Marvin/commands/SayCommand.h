@@ -23,7 +23,8 @@ class SayCommand : public CommandExecutor {
   std::string GetDescription() {
     return "I will say whatever you type.";
   }
-  int GetSecurityLevel() { return 1; }
+  //int GetSecurityLevel() { return 1; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Elevated; }
   CommandType GetCommandType() { return CommandType::Action; }
 };
 

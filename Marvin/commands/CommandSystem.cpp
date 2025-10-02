@@ -25,12 +25,38 @@
 
 namespace marvin {
 
-constexpr int kArenaSecurityLevel = 5;
-// add names in lowercase
+//constexpr int kArenaSecurityLevel = 5;
+constexpr SecurityLevel kArenaSecurityLevel = SecurityLevel::Elevated;
+
+/*
 const std::unordered_map<std::string, int> kOperators = {
     {"tm_master", 10}, {"baked cake", 10}, {"x-demo", 10}, {"lyra.", 5}, {"profile", 5}, {"monkey", 10},    
     {"neostar", 5},     {"geekgrrl", 5},  {"sed", 5},   {"frog", 5},
     {"sk", 5},         {"b.o.x.", 10},     {"devastated", 5}};
+    */
+
+const std::unordered_map<std::string, SecurityLevel> kOperators = {{"tm_master", SecurityLevel::Maximum},
+                                                                   {"baked cake", SecurityLevel::Maximum},
+                                                                   {"x-demo", SecurityLevel::Maximum},
+                                                                   {"b.o.x.", SecurityLevel::Maximum},
+                                                                   {"monkey", SecurityLevel::Maximum},
+                                                                   {"lyra.", SecurityLevel::Elevated},
+                                                                   {"profile", SecurityLevel::Elevated},
+                                                                   {"neostar", SecurityLevel::Elevated},
+                                                                   {"geekgrrl", SecurityLevel::Elevated},
+                                                                   {"sed", SecurityLevel::Elevated},
+                                                                   {"frog", SecurityLevel::Elevated},
+                                                                   {"sk", SecurityLevel::Elevated},
+                                                                   {"devastated", SecurityLevel::Elevated},
+                                                                   {"s.h.i.t.r", SecurityLevel::Blacklisted},
+                                                                   {"oooooo ahhhhh", SecurityLevel::Blacklisted},
+                                                                   {"scandle", SecurityLevel::Blacklisted},
+                                                                   {"brother louie", SecurityLevel::Blacklisted},
+                                                                   {"superglue", SecurityLevel::Blacklisted},
+                                                                   {"x711", SecurityLevel::Blacklisted},
+                                                                   {"daman24/7", SecurityLevel::Blacklisted},
+                                                                   {"jugu", SecurityLevel::Blacklisted},
+                                                                   {"sg-5 psycho drone", SecurityLevel::Blacklisted}};
 
 CommandSystem::CommandSystem(Zone zone) {
 
@@ -107,14 +133,16 @@ CommandSystem::CommandSystem(Zone zone) {
   }
 }
 
-int CommandSystem::GetSecurityLevel(const std::string& player) {
+SecurityLevel CommandSystem::GetSecurityLevel(const std::string& player) {
+  //int CommandSystem::GetSecurityLevel(const std::string& player) {
   auto iter = kOperators.find(Lowercase(player));
 
   if (iter != kOperators.end()) {
     return iter->second;
   }
 
-  return 0;
+  //return 0;
+  return SecurityLevel::Unrestricted;
 }
 
 bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
@@ -153,14 +181,14 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
   std::vector<std::string> tokens = Tokenize(msg, ';');
 
     for (std::string current_msg : tokens) {
-   std::size_t split = current_msg.find(' ');
-   std::string candidate_trigger = Lowercase(current_msg.substr(0, split));
+    std::size_t split = current_msg.find(' ');
+    std::string candidate_trigger = Lowercase(current_msg.substr(0, split));
 
-   auto [trigger, iter] = GetTrigger(commands_, candidate_trigger);
+    auto [trigger, iter] = GetTrigger(commands_, candidate_trigger);
 
-   std::string arg = current_msg.substr(trigger.size());
+    std::string arg = current_msg.substr(trigger.size());
 
-   if (iter != commands_.end()) {
+    if (iter != commands_.end()) {
       CommandExecutor& command = *iter->second;
       u32 access_request = (1 << (u32)chat.type);
 
@@ -172,7 +200,8 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
        * 0001 & 0101 = 0001 which evaluates to true or non zero
        */
       if (access_request & command.GetAccess()) {
-        int security_level = 0;
+        // int security_level = 0;
+        SecurityLevel security_level = SecurityLevel::Unrestricted;
 
         if (chat.type == ChatType::Arena) {
           security_level = kArenaSecurityLevel;
@@ -184,13 +213,19 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
           }
         }
 
-        if (security_level >= command.GetSecurityLevel()) {
+        if (security_level < command.GetSecurityLevel() || security_level == SecurityLevel::Blacklisted) {
+          bot.GetGame().SendPrivateMessage(chat.player, "You do not have access to this command.");
+          return false;
+        }
+
           Blackboard& bb = bot.GetBlackboard();
 
           // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
           // if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
-          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock() || security_level > 0) {
+          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock()) {
+
             command.Execute(*this, bot, chat.player, arg);
+
             if (bb.ValueOr<bool>("staffchatannouncer", false) || trigger == "cmdlogger") {
               bot.GetGame().SendChatMessage("\\" + chat.player + " has sent me command: " + std::string(trigger) + " " +
                                             arg);
@@ -201,9 +236,8 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
 
             result = true;
           }
-        }
       }
-   }
+    }
   }
 
   return result;

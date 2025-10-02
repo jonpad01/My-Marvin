@@ -46,7 +46,8 @@ class SetFreqCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"setfreq", "sf"}; }
   std::string GetDescription() { return "Sets the bot to a public frequency"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Action; }
 };
 

@@ -44,7 +44,8 @@ class LockCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"lock"}; }
   std::string GetDescription() { return "Locks/unlocks bot so only mods can make changes"; }
-  int GetSecurityLevel() { return 5; }
+  //int GetSecurityLevel() { return 5; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Elevated; }
   CommandType GetCommandType() { return CommandType::Action; }
 };
 

@@ -32,7 +32,8 @@ class BDPublicCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdpublic"}; }
   std::string GetDescription() { return "Allow the bot to accept public baseduel commands."; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 };
 
@@ -63,7 +64,8 @@ class BDPrivateCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdprivate"}; }
   std::string GetDescription() { return "Set the bot to only accept private baseduel commands."; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 };
 
@@ -108,7 +110,8 @@ class StartBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdstart"}; }
   std::string GetDescription() { return "Start a base duel game."; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
@@ -151,7 +154,8 @@ class StopBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdstop"}; }
   std::string GetDescription() { return "Stop a base duel game (resets score)."; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
@@ -195,7 +199,8 @@ class HoldBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdhold"}; }
   std::string GetDescription() { return "Hold a base duel game (score is saved)"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
@@ -236,7 +241,8 @@ class ResumeBDCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"bdresume"}; }
   std::string GetDescription() { return "Resume a base duel game"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Hosting; };
 
   private:
@@ -284,7 +290,8 @@ class SwarmCommand : public CommandExecutor {
   std::string GetDescription() {
     return "Enable swarm behavior. Bots will respawn quickly with low health when basing";
   }
-  int GetSecurityLevel() { return 1; }
+  //int GetSecurityLevel() { return 1; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Elevated; }
   CommandType GetCommandType() { return CommandType::Behavior; }
 };
 
@@ -331,7 +338,8 @@ class LagAttachCommand : public CommandExecutor {
   std::string GetDescription() {
     return "Enable lag attach behavior.";
   }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Behavior; }
 };
 
@@ -374,7 +382,8 @@ class AdjustAnchorDistanceCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"anchordistance"}; }
   std::string GetDescription() { return "Adjusts calculated distance.  ?anchordistance -10 (anchors 10 tiles closer) ?anchordistance 5"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Behavior; }
 };
 

@@ -22,7 +22,8 @@ class DelimiterCommand : public CommandExecutor {
   void SetAccess(CommandAccessFlags flags) { return; }
   std::vector<std::string> GetAliases() { return {"delimiter"}; }
   std::string GetDescription() { return "Delimiter usage"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Info; };
 };
 

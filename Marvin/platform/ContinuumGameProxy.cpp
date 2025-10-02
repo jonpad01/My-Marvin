@@ -642,7 +642,7 @@ std::vector<Weapon*> ContinuumGameProxy::GetWeapons() {
 
 const ClientSettings& ContinuumGameProxy::GetSettings() const {
 
-  if (!game_addr_) return ClientSettings();
+  //if (!game_addr_) return ClientSettings();
 
   std::size_t addr = game_addr_ + 0x127EC + 0x1AE70;  // 0x2D65C
 
@@ -652,7 +652,7 @@ const ClientSettings& ContinuumGameProxy::GetSettings() const {
 // there are no ship settings for spectators
 const ShipSettings& ContinuumGameProxy::GetShipSettings() const {
   
-  if (!player_) return ShipSettings();
+  //if (!player_) return ShipSettings();
     
   int ship = player_->ship;
 

@@ -44,7 +44,8 @@ class LockFreqCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"lockfreq"}; }
   std::string GetDescription() { return "Locks/unlocks automatic frequency selection"; }
-  int GetSecurityLevel() { return 1; }
+  //int GetSecurityLevel() { return 1; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Elevated; }
   CommandType GetCommandType() { return CommandType::Action; }
 };
 

@@ -98,6 +98,7 @@ int RemoveMatchingFiles(const std::string& substring) {
       DeleteFile(path.c_str());
     }
   }
+  return 0;
 }
 
 static std::string GetSystemLibrary(const char* library) {

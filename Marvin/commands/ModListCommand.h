@@ -17,9 +17,10 @@ class ModListCommand : public CommandExecutor {
 
     for (const auto& entry : cmd.GetOperators()) {
       std::string op = entry.first;
-      int level = entry.second;
+      //int level = entry.second;
+      SecurityLevel level = entry.second;
 
-      output += op + " [" + std::to_string(level) + "] ";
+      output += op + " [" + std::to_string((int)level) + "] ";
     }
 
     bot.GetGame().SendPrivateMessage(sender, output);
@@ -29,7 +30,8 @@ class ModListCommand : public CommandExecutor {
   void SetAccess(CommandAccessFlags flags) { return; }
   std::vector<std::string> GetAliases() { return {"modlist"}; }
   std::string GetDescription() { return "See who can lock marv"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Info; }
 };
 

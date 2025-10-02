@@ -40,7 +40,8 @@ class SetArenaCommand : public CommandExecutor {
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"setarena"}; }
   std::string GetDescription(){return "Sends the bot to an arena. Leave argument empty or type \"go\" to return to pub (.setarena) (.setarena ?go)"; }
-  int GetSecurityLevel() { return 5; }
+  //int GetSecurityLevel() { return 5; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Elevated; }
   CommandType GetCommandType() { return CommandType::Action; }
 };
 

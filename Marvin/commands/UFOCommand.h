@@ -49,7 +49,8 @@ class UFOCommand : public CommandExecutor {
   std::string GetDescription() {
     return "Sets bot to switch ufo status with arguments \"on\" \"off\"";
   }
-  int GetSecurityLevel() { return 5; }
+  //int GetSecurityLevel() { return 5; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Elevated; }
   CommandType GetCommandType() { return CommandType::Action; }
 };
 

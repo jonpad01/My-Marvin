@@ -35,7 +35,8 @@ class CommandsCommand : public CommandExecutor {
 
     CommandType type = (CommandType)number;
 
-    int requester_level = cmd.GetSecurityLevel(sender);
+    //int requester_level = cmd.GetSecurityLevel(sender);
+    SecurityLevel requester_level = cmd.GetSecurityLevel(sender);
     Commands& commands = cmd.GetCommands();
     // Store a list of executors so multiple triggers linking to the same executor aren't displayed on different lines.
     std::vector<CommandExecutor*> executors;
@@ -95,9 +96,10 @@ class CommandsCommand : public CommandExecutor {
     // Display the stored triggers
     for (Trigger& trigger : triggers) {
       std::string desc = trigger.executor->GetDescription();
-      int security = trigger.executor->GetSecurityLevel();
+      SecurityLevel security = trigger.executor->GetSecurityLevel();
+      //int security = trigger.executor->GetSecurityLevel();
 
-      std::string output = trigger.triggers + " - " + desc + " [" + std::to_string(security) + "]";
+      std::string output = trigger.triggers + " - " + desc + " [" + std::to_string((int)security) + "]";
 
       bot.GetGame().SendPrivateMessage(sender, output);
     }
@@ -111,7 +113,8 @@ class CommandsCommand : public CommandExecutor {
   void SetAccess(CommandAccessFlags flags) { return; }
   std::vector<std::string> GetAliases() { return {"commands", "c"}; }
   std::string GetDescription() { return "Shows available commands"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Info; };
 };
 

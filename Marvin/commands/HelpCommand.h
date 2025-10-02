@@ -43,7 +43,8 @@ class HelpCommand : public CommandExecutor {
   void SetAccess(CommandAccessFlags flags) { return; }
   std::vector<std::string> GetAliases() { return {"help", "h"}; }
   std::string GetDescription() { return "Helps"; }
-  int GetSecurityLevel() { return 0; }
+  //int GetSecurityLevel() { return 0; }
+  SecurityLevel GetSecurityLevel() { return SecurityLevel::Unrestricted; }
   CommandType GetCommandType() { return CommandType::Info; };
 };
 
