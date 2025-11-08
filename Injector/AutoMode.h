@@ -55,7 +55,7 @@ class AutoBot
   bool FetchEnterMessage(HANDLE handle, std::size_t module_base, DWORD pid, int timeout);
   void FetchWindows();
   void CloseContinuumWindows();
-  void CloseErrorWindows();
+  int HandleErrorMessages();
   void CloseWindow(const char* name);
   void TerminateCont(HANDLE handle);
 

@@ -15,6 +15,7 @@ enum class CommandType {All, Info, Behavior, Consumable, Status, Action, Hosting
 
 /*
   A player with a Blacklisted security level is not able to use any commands.
+  All players will have access to commands with an Unresticted security level by default.
 */
 enum class SecurityLevel { Blacklisted, Unrestricted, Elevated, Maximum };
 const std::vector<std::string> kCommandTypeStr {"all", "info", "behavior", "consumable", "status", "action", "hosting"}; 

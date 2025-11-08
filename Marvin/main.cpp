@@ -227,7 +227,6 @@ int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND
 }
 
 //only captures the message box when it appears for continuum
-// can't get the biller disconnected message
 int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
   OverrideGuard guard;
   bool suppress = false;
@@ -243,7 +242,7 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   const std::string unkown_name =
       "Unkown name. Would you like to create a new user and enter the game using this name?";
 
-  const std::string too_many_times = "You have tried to login too many times. Please try again in few minute";
+  const std::string too_many_times = "You have tried to login too many times. Please try again in few minutes";
 
   if (caption == "Information") {
     // return 0 to supress msg box
@@ -373,12 +372,17 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
   if (state != marvin::ConnectState::Playing || !map_memory) { // gaurd peekmsg when game is loading
     if (state == marvin::ConnectState::Disconnected) {
+
+      exit(0);
+
+#if 0 
       // try to space out the bots disconnecting during an internet outage
       // i think this causes problems accessing profile.dat file when switching to the menu
       uint64_t delay = g_Time.UniqueTimerByName(my_name, marvin::kBotNames, 1000); // milliseconds
       if (g_Time.TimedActionDelay("exitgame", delay)) {
         game->ExitGame();
       }
+#endif
     }
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
@@ -431,7 +435,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     
     if (enabled) {
       if (LockedInSpec()) {
-        game->ExitGame();
+        exit(0);
+        //game->ExitGame();
       } else if (bot && dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
 #if DEBUG_RENDER
         marvin::g_RenderState.renderable_texts.clear();

@@ -28,7 +28,7 @@ AutoBot::AutoBot()
 
   window_state_ = 6;
 
-  CloseErrorWindows();
+  HandleErrorMessages();
   CloseContinuumWindows();
   StartBot(num_bots_);
 
@@ -39,7 +39,7 @@ AutoBot::AutoBot(int startup_arg)
 {
   num_bots_ = startup_arg;
   window_state_ = 6;
-  CloseErrorWindows();
+  HandleErrorMessages();
   CloseContinuumWindows();
   StartBot(num_bots_);
 }
@@ -65,13 +65,22 @@ void AutoBot::CloseWindow(const char* title)
   }
 }
 
-void AutoBot::CloseErrorWindows()
-{
+int AutoBot::HandleErrorMessages() {
+  int result = 0;
+  bool should_reset = false;
   FetchWindows();
 
   for (WindowInfo window : windows_) {
-    HandleErrorWindow(window.title, window.pid, window.hwnd);
+   result =  HandleErrorWindow(window.title, window.pid, window.hwnd);
+
+   if (result == 2) {
+     should_reset = true;
+   }
   }
+
+  if (should_reset) CloseContinuumWindows();
+
+  return result;
 }
 
 //DWORD AutoBot::StartBot(std::size_t index) {
@@ -189,6 +198,8 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
   // wait for the game window to exist and grab the handle
   WindowInfo iGame = GrabWindow("Continuum", pid, true, true, true, 10000);
 
+  HandleErrorMessages(); // if there is a direct draw load error this will catch it
+
   if (iGame.hwnd == 0) {
     TerminateCont(handle);
     return 0;
@@ -257,19 +268,20 @@ void AutoBot::MonitorBots() {
   //for (std::size_t i = 0; i < pids_.size(); i++) {
     Sleep(2000);
 
-    CloseErrorWindows();  // there must be a better way to look for crashes
+    HandleErrorMessages();  // there must be a better way to look for crashes
 
     ULONG exitcode;
     bool found = GetExitCodeProcess(process_list_[i].handle, &exitcode);
 
     if (!found) {
         DWORD error = GetLastError();
-        std::cout << "error: " << std::to_string(error) << std::endl;
+      std::cout << "ERROR Could not find exit code for bot: " << std::to_string(process_list_[i].pid) << " with error code: "
+                << std::to_string(error) << std::endl;
     }
 
-    if ((found && exitcode != STILL_ACTIVE) || process_list_[i].pid == 0) {
+    if ((!found || exitcode != STILL_ACTIVE) || process_list_[i].pid == 0) {
         //pids_[i] = StartBot(i);
-        std::cout << "Process restarted: " << std::to_string(process_list_[i].pid) << std::endl;
+        std::cout << "Restarting Process for bot: " << std::to_string(process_list_[i].pid) << std::endl;
         CloseHandle(process_list_[i].handle);
         process_list_[i] = StartBot(i);
     }
@@ -339,7 +351,8 @@ int AutoBot::HandleErrorWindow(std::string title, DWORD pid, HWND hwnd) {
         result = 1;
       }
 
-      // this happens when running multiple bots with different profile resolutions selected
+      // this can happen when running multiple bots with different profile resolutions selected
+      // if this happens, the best fix is to exit all continuuum processes
       if (load_error) {
         std::cout << "DirectDraw error found for process pid: " << pid << " with window title: " << title
                   << "\n" << std::endl;
@@ -436,7 +449,7 @@ WindowInfo AutoBot::GrabWindow(std::string title, DWORD pid, bool match_pid, boo
     Sleep(100);
     FetchWindows();
     for (WindowInfo window : windows_) {
-      error_level = HandleErrorWindow(window.title, window.pid, window.hwnd);
+      //error_level = HandleErrorWindow(window.title, window.pid, window.hwnd);
       if (error_level == 2 && window.pid == pid) {
         error_level = 3;
         break;

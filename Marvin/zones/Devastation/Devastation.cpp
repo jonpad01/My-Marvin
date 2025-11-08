@@ -1135,11 +1135,11 @@ behavior::ExecuteResult DevaPatrolBaseNode::Execute(behavior::ExecuteContext& ct
     return behavior::ExecuteResult::Failure;
   }
 
- // if (last_in_base) {
-   // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), team_safe, game.GetShipSettings().GetRadius());
- // } else {
+  if (last_in_base) {
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), team_safe, game.GetShipSettings().GetRadius());
+  } else {
     ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), enemy_safe, game.GetShipSettings().GetRadius());
- // }
+  }
 
   g_RenderState.RenderDebugText("  DevaPatrolBaseNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

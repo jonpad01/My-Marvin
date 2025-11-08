@@ -55,7 +55,6 @@ const std::unordered_map<std::string, SecurityLevel> kOperators = {{"tm_master",
                                                                    {"superglue", SecurityLevel::Blacklisted},
                                                                    {"x711", SecurityLevel::Blacklisted},
                                                                    {"daman24/7", SecurityLevel::Blacklisted},
-                                                                   {"jugu", SecurityLevel::Blacklisted},
                                                                    {"sg-5 psycho drone", SecurityLevel::Blacklisted}};
 
 CommandSystem::CommandSystem(Zone zone) {
