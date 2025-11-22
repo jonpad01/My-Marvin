@@ -16,7 +16,7 @@
 typedef void (*InitFunc)();
 typedef void (*CleanupFunc)();
 
-const std::string MARVIN_DLL_FOLDER = "E:\\Code_Projects\\My-Marvin\\bin";
+//const std::string MARVIN_DLL_FOLDER = "E:\\Code_Projects\\My-Marvin\\bin";
 
 std::ofstream debug_log;
 
@@ -59,8 +59,9 @@ void SetMarvinPath() {
   std::string curr_dir = GetLocalPath();
   std::string name = "\\Marvin.dll";
   std::string full_path;
-  std::vector<std::string> args = GetArguments();
+  //std::vector<std::string> args = GetArguments();
 
+  #if 0
   // check if path to Marvin.dll was given to continuum as an arg and use that first
   for (std::string arg : args) {
     if (std::filesystem::exists(arg + name)) {
@@ -71,6 +72,7 @@ void SetMarvinPath() {
     }
   }
 
+  
   // check if path was manually set as const variable
   if (std::filesystem::exists(MARVIN_DLL_FOLDER + name)) {
     g_MarvinDirectory = MARVIN_DLL_FOLDER;
@@ -78,6 +80,8 @@ void SetMarvinPath() {
     g_MarvinLoadedPath = MARVIN_DLL_FOLDER + "\\" + g_MarvinDll;
     return;
   }
+
+  #endif
 
   // look in current directory (Continuum directory)
   if (std::filesystem::exists(curr_dir + name)) {

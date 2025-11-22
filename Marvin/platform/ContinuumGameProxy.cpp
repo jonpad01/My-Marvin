@@ -34,10 +34,10 @@ bool ContinuumGameProxy::UpdateMemory() {
 
     if (!module_base_menu_) {
       return false;
-    } else {
-      player_name_ = GetName();
     }
   }
+
+  player_name_ = GetName();
 
   if (!module_base_continuum_) {
     module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
@@ -701,13 +701,14 @@ std::string ContinuumGameProxy::GetName() const {
 }
 
 bool ContinuumGameProxy::SetMenuProfileIndex() {
+  UpdateMemory();
   if (!module_base_menu_) return false;
   if (!IsOnMenu()) return false;
   if (player_name_.empty()) return false;
 
   const std::size_t ProfileStructSize = 2860;
   std::size_t addr = process_.ReadU32(module_base_menu_ + 0x47A38) + 0x15;
-  u32 count = process_.ReadU32(module_base_menu_ + 0x47a30);  // size of profile list
+  u32 count = process_.ReadU32(module_base_menu_ + 0x47A30);  // size of profile list
 
   std::string name;
 
@@ -1374,6 +1375,171 @@ std::size_t ContinuumGameProxy::GetIDIndex() {
   }
 
   return index;
+}
+
+bool ContinuumGameProxy::WriteToPlayerProfile(PlayerProfileData data) {
+  if (!module_base_menu_) return false;
+  if (!IsOnMenu()) return false;
+
+  const std::size_t kProfileNameOffset = 0x00;
+  const std::size_t kPlayerNameOffset = 0x15;
+  const std::size_t kPasswordOffset = 0x2D;
+  const std::size_t kSelectedShipOffset = 0x50;
+  const std::size_t kResolutionWidthOffset = 0x54;
+  const std::size_t kResolutionHeightOffset = 0x58;
+  const std::size_t kRefreshRateOffset = 0x5C;
+  const std::size_t kWindowModeOffset = 0x60;
+  const std::size_t kZoneNameOffset = 0x64;
+  const std::size_t kMacroNameOffset = 0xA5;
+  const std::size_t kKeyDefNameOffset = 0xBA;
+  const std::size_t kChatsOffset = 0xCF;
+  const std::size_t kTargetOffset = 0x150;
+  const std::size_t kAutoOffset = 0x154;
+
+  #if 0 // memory alignment, does not appear to be a struct because of 32 bit aligment issues
+    char profile_name[21];
+    char player_name[24];  // 23 + null
+    char password[33];
+    char unknown[2];
+    uint32_t selected_ship;      // default sets this to max value
+    uint32_t resolution_width;   // default sets to 0
+    uint32_t resolution_height;  // default sets to 0
+    uint32_t refresh_rate;       // default sets to 0
+    uint32_t window_mode;        // default sets to max value
+    char zone_name[65];          // size unsure, maybe less.  default keeps the last zone selected in the drop down box?
+    char macro_name[21];         // size unsure
+    char keydef_name[21];        // size unsure
+    char chats[129];
+    uint32_t target;  // empty box sets to max value
+    char autobox[250];
+    char filler[2270];  // junk at the end seems to all be 0
+  #endif
+
+  std::size_t profile_addr = process_.ReadU32(module_base_menu_ + 0x47A38);
+  if (profile_addr == 0) {
+    return false;
+  }
+
+  //process_.WriteString(profile_addr + kProfileNameOffset, "Default", 21);
+  process_.WriteString(profile_addr + kPlayerNameOffset, data.player_name, 24);
+  process_.WriteString(profile_addr + kPasswordOffset, data.password, 33);
+  //process_.WriteU32(profile_addr + kSelectedShipOffset, data.ship);
+  //process_.WriteU32(profile_addr + kResolutionHeightOffset, 720);
+  //process_.WriteU32(profile_addr + kResolutionWidthOffset, 1280);
+  //process_.WriteU32(profile_addr + kRefreshRateOffset, 60);
+  //process_.WriteU32(profile_addr + kWindowModeOffset, 0);
+  //process_.WriteString(profile_addr + kZoneNameOffset, data.zone_name, 65);
+  //process_.WriteString(profile_addr + kMacroNameOffset, "Default", 21);
+  //process_.WriteString(profile_addr + kKeyDefNameOffset, "Default", 21);
+  process_.WriteString(profile_addr + kChatsOffset, data.chats, 129);
+  //process_.WriteU32(profile_addr + kTargetOffset, 0xFFFFFFFF);
+  //process_.WriteString(profile_addr + kAutoOffset, "", 250);
+
+  return true;
+}
+
+void ContinuumGameProxy::DumpMemoryToFile(std::size_t address, std::size_t size) {
+  if (!module_base_menu_) return;
+
+  const std::size_t ProfileStructSize = 2860;
+
+  std::size_t zone_index = module_base_menu_ + 0x47F9C;
+  uint16_t profile_index = process_.ReadU32(module_base_menu_ + 0x47FA0) & 0xFFFF;
+  std::size_t profile_addr = process_.ReadU32(module_base_menu_ + 0x47A38);
+  u32 count = process_.ReadU32(module_base_menu_ + 0x47A30);
+
+  
+
+  std::size_t addr = module_base_menu_ + 0x47000;
+
+  std::ofstream f("profile_dump.bin", std::ios::binary);
+
+  for (size_t i = 0; i < 50000; i++) {
+    uint8_t b = process_.ReadU8(addr + i);
+    f.put(b);
+  }
+
+  //uint8_t b = process_.ReadU8(profile_index);
+  //f.put(b);
+
+  f.close();
+}
+
+bool ContinuumGameProxy::SetMenuSelectedZone(std::string zone_name) {
+  if (!module_base_menu_) return false;
+  if (!IsOnMenu()) return false;
+
+  struct ZoneInfo {
+    char unknown1[76];
+    unsigned char ip[4];  // Reversed due to endianness
+    unsigned short port;
+    char unknown2[64];
+    char name[32];
+    char unknown3[38];
+  };
+
+  static_assert(sizeof(ZoneInfo) == 216, "Zone size must be 216");
+
+  ZoneInfo* zones = *(ZoneInfo**)(module_base_menu_ + 0x46C58);
+  u16 zone_count = *(u16*)(module_base_menu_ + 0x46C54);
+  u16* current_zone_index = (u16*)(module_base_menu_ + 0x47F9C);
+
+  for (u16 i = 0; i < zone_count; ++i) {
+    std::string_view name = zones[i].name;
+
+    std::string test = "memory name: " + (std::string)name + " file name: " + zone_name;
+    log.Write(test);
+
+    if (name.compare(zone_name) == 0) {
+      *current_zone_index = i;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool ContinuumGameProxy::SetMenuSelectedZone(uint16_t index) {
+  if (!module_base_menu_) return false;
+  if (!IsOnMenu()) return false;
+
+  u16 zone_count = *(u16*)(module_base_menu_ + 0x46C54);
+  u16* current_zone_index = (u16*)(module_base_menu_ + 0x47F9C);
+
+  if (index >= zone_count) return false;
+
+  *current_zone_index = index;
+
+  return true;
+}
+
+std::string ContinuumGameProxy::GetMenuSelectedZoneName() {
+  if (!module_base_menu_) return "";
+  if (!IsOnMenu()) return "";
+
+  struct ZoneInfo {
+    char unknown1[76];
+    unsigned char ip[4];  // Reversed due to endianness
+    unsigned short port;
+    char unknown2[64];
+    char name[32];
+    char unknown3[38];
+  };
+
+  static_assert(sizeof(ZoneInfo) == 216, "Zone size must be 216");
+
+  ZoneInfo* zones = *(ZoneInfo**)(module_base_menu_ + 0x46C58);
+  u16 zone_count = *(u16*)(module_base_menu_ + 0x46C54);
+  u16* current_zone_index = (u16*)(module_base_menu_ + 0x47F9C);
+
+  return zones[*current_zone_index].name;
+}
+
+uint16_t ContinuumGameProxy::GetMenuSelectedZoneIndex() {
+  if (!module_base_menu_) return 0xFFFF;
+  if (!IsOnMenu()) return 0xFFFF;
+
+  return *(u16*)(module_base_menu_ + 0x47F9C);
 }
 
 }  // namespace marvin

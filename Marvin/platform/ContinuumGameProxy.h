@@ -11,6 +11,8 @@
 
 namespace marvin {
 
+
+
 struct DoorState {
   s16 door_mode;
   u32 door_seed;
@@ -92,8 +94,10 @@ class ContinuumGameProxy : public GameProxy {
   ConnectState GetConnectState();
   void ExitGame();
   bool GameIsClosing();
+  bool WriteToPlayerProfile(PlayerProfileData data);
 
   std::string GetName() const override;
+  void DumpMemoryToFile(std::size_t address, std::size_t size);
   bool SetMenuProfileIndex();
   ChatMessage FindChatMessage(std::string match) override;
   std::vector<ChatMessage> GetCurrentChat() override;
@@ -158,6 +162,10 @@ class ContinuumGameProxy : public GameProxy {
   void SendPrivateMessage(const std::string& target, const std::string& mesg) override;
   void SendKey(int vKey) override;
   void SetSelectedPlayer(uint16_t id) override;
+  std::string GetMenuSelectedZoneName();
+  uint16_t GetMenuSelectedZoneIndex();
+  bool SetMenuSelectedZone(std::string zone_name);
+  bool SetMenuSelectedZone(uint16_t index);
   std::size_t GetIDIndex() override;
   void SetStatus(StatusFlag status, bool on_off) override;
   void SetVelocity(Vector2f desired) override;

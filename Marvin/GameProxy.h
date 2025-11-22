@@ -12,6 +12,15 @@
 
 namespace marvin {
 
+struct PlayerProfileData {
+  std::string player_name;
+  std::string password;
+  uint32_t ship = 8;
+  uint32_t window_mode = 0;
+  std::string zone_name;
+  std::string chats = "marvin";
+};
+
 class Map;
 enum class ConnectState : u32 {
   // This is the ConnectState when the client is on the menu and not attempting to join any zone.

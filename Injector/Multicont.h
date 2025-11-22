@@ -75,10 +75,11 @@ typedef struct _OBJECT_TYPE_INFORMATION {
 
 class Multicont {
  public:
-  Multicont() : pid_(0){};
+  Multicont() : process_id_(0), thread_id_(0) {};
 
   bool RunMulticont();
-  DWORD GetPid() { return pid_; }
+  DWORD GetProcessID() { return process_id_; }
+  DWORD GetThreadID() { return thread_id_; }
 
  private:
   bool RemoveDebugPrivileges(HANDLE token);
@@ -86,7 +87,8 @@ class Multicont {
   PVOID GetLibraryProcAddress(LPSTR LibraryName, LPSTR ProcName);
   void GetLibraryAddresses(_NtQuerySystemInformation* ntqsi, _NtDuplicateObject* ntdo, _NtQueryObject* ntqo);
 
-  DWORD pid_;
+  DWORD process_id_;
+  DWORD thread_id_;
 };
 
 }  // namespace marvin

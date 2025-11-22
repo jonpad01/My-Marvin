@@ -74,7 +74,8 @@ bool Multicont::RunMulticont() {
                                  FALSE, 0, NULL, NULL, &si, &pi)) {
           // Process has been created; work with the process and wait for it to terminate
           hProcess = pi.hProcess;
-          pid_ = pi.dwProcessId;
+          process_id_ = pi.dwProcessId;
+          thread_id_ = pi.dwThreadId;
           WaitForSingleObject(pi.hProcess, INFINITE);
           CloseHandle(pi.hThread);
           CloseHandle(pi.hProcess);
@@ -128,7 +129,7 @@ bool Multicont::RunMulticont() {
     ULONG returnLength;
     uintptr_t pHandle = (uintptr_t)handle.Handle;
 
-    if (handle.ProcessId != pid_) continue;
+    if (handle.ProcessId != process_id_) continue;
 
     /* Duplicate the handle so we can query it. */
     if (!NT_SUCCESS(NtDuplicateObject(hProcess, (HANDLE)pHandle, GetCurrentProcess(), &dupHandle, 0, 0, 0))) continue;
@@ -200,11 +201,11 @@ HANDLE Multicont::GetProcessHandle() {
   /* Loop through running processes to find continuum */
   do {
     if (wcscmp(pe32.szExeFile, L"Continuum.exe") == 0) {
-      pid_ = pe32.th32ProcessID;
+      process_id_ = pe32.th32ProcessID;
     }
   } while (Process32Next(hProcSnap, &pe32));
 
-  pHandle = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid_);
+  pHandle = OpenProcess(PROCESS_DUP_HANDLE, FALSE, process_id_);
 
   return pHandle;
 }

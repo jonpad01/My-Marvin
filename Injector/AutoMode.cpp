@@ -137,7 +137,8 @@ void AutoBot::StartBot(int bots) {
 // if anything goes wrong, toss the attempt and return 0 (invalid pid)
 
 DWORD AutoBot::StartContinuum(std::size_t index) {
-  DWORD pid;
+  DWORD process_id = 0;
+  DWORD thread_id = 0;
 
   auto cont = std::make_unique<Multicont>();
 
@@ -146,16 +147,16 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
     Sleep(3000);
     return 0;
   } else {
-    pid = cont->GetPid();
+    process_id = cont->GetProcessID();
+    thread_id = cont->GetThreadID();
   }
 
-  // grab path and access to Process
-  std::string inject_path = marvin::GetWorkingDirectory() + "\\" + INJECT_MODULE_NAME;
-  auto process = std::make_unique<marvin::Process>(pid);
+  // grab access to Process
+  auto process = std::make_unique<marvin::Process>(process_id);
   HANDLE handle = process->GetHandle();
 
   // find the menu handle by using the pid, or time out and return
-  WindowInfo iMenu = GrabWindow("Continuum 0.40", pid, true, true, true, 10000);
+  WindowInfo iMenu = GrabWindow("Continuum 0.40", process_id, true, true, true, 10000);
 
   if (iMenu.hwnd == 0) {
     TerminateCont(handle);
@@ -164,9 +165,13 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
 
   // the code to open the profile menu
   PostMessageA(iMenu.hwnd, WM_COMMAND, 40011, 0);
+  //if (!PostThreadMessageA(thread_id, WM_COMMAND, 40011, 0)) {
+  //  DWORD error = GetLastError();
+ //   std::cout << "Failed to send thread message with error: " << std::to_string(error) << "\n ";
+ // }
 
   // wait for the profile handle
-  WindowInfo iProfile = GrabWindow("Select/Edit Profile", pid, true, true, true, 10000);
+  WindowInfo iProfile = GrabWindow("Select/Edit Profile", process_id, true, true, true, 10000);
 
   if (iProfile.hwnd == 0) {
     TerminateCont(handle);
@@ -196,7 +201,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
   PostMessageA(iMenu.hwnd, WM_KEYUP, (WPARAM)(VK_RETURN), 0);
 
   // wait for the game window to exist and grab the handle
-  WindowInfo iGame = GrabWindow("Continuum", pid, true, true, true, 10000);
+  WindowInfo iGame = GrabWindow("Continuum", process_id, true, true, true, 10000);
 
   HandleErrorMessages(); // if there is a direct draw load error this will catch it
 
@@ -214,7 +219,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
   // this means the game a successfully connected
   std::size_t module_base = process->GetModuleBase("Continuum.exe");
 
-  if (!FetchEnterMessage(handle, module_base, pid, 15000)) {
+  if (!FetchEnterMessage(handle, module_base, process_id, 15000)) {
     TerminateCont(handle);
     return 0;
   }
@@ -229,7 +234,7 @@ DWORD AutoBot::StartContinuum(std::size_t index) {
     return 0;
   }
   CloseHandle(handle);
-  return pid;
+  return process_id;
 }
 
 

@@ -56,7 +56,7 @@ bool IsDigit(const std::string& string) {
   return true;
 }
 
-int RemoveMatchingFiles(const std::string& substring)
+void RemoveMatchingFiles(const std::string& substring)
 {
   // search for and delete temporary marvin dll files
   for (const auto& entry : std::filesystem::directory_iterator(marvin::GetWorkingDirectory())) {

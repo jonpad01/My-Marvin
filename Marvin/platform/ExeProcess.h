@@ -17,6 +17,7 @@ class ExeProcess {
   ExeProcess(const ExeProcess& other) = delete;
   ExeProcess& operator=(const ExeProcess& other) = delete;
 
+  uint8_t ReadU8(std::size_t address) const;
   uint32_t ReadU32(std::size_t address) const;
   int32_t ReadI32(std::size_t address) const;
   double ReadDouble(std::size_t address) const;
@@ -24,6 +25,7 @@ class ExeProcess {
 
   bool WriteU32(std::size_t address, uint32_t value);
   bool WriteI32(std::size_t address, int32_t value);
+  bool WriteString(std::size_t address, std::string value, std::size_t max_len);
 
   std::size_t GetModuleBase(const char* module_name);
 

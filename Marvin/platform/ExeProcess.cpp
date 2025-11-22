@@ -11,6 +11,10 @@ ExeProcess::ExeProcess() {
 
 ExeProcess::~ExeProcess() {}
 
+uint8_t ExeProcess::ReadU8(std::size_t address) const {
+  return *(uint8_t*)address;
+}
+
 uint32_t ExeProcess::ReadU32(std::size_t address) const {
   return *(uint32_t*)address;
 }
@@ -33,6 +37,20 @@ bool ExeProcess::WriteU32(std::size_t address, uint32_t value) {
 bool ExeProcess::WriteI32(std::size_t address, int32_t value) {
   int32_t* data = (int32_t*)address;
   *data = value;
+
+  return true;
+}
+
+bool ExeProcess::WriteString(std::size_t address, std::string value, std::size_t max_len) {
+
+  for (std::size_t i = 0; i <= max_len - 1; ++i) {
+    if (i >= max_len - 1 || i >= value.size()) {
+      *(char*)address = 0;
+    } else {
+      *(char*)address = value[i];
+    }
+    address++;
+  }
 
   return true;
 }

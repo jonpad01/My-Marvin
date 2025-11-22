@@ -19,6 +19,39 @@
 
 #define UM_SETTEXT WM_USER + 0x69
 
+// 104 can also be a License Agreement box that only displays on first time setup
+// 107 can also be a Downloading File box, which probably pops up for downloading zone news
+enum class MenuDialogBoxId { 
+  None = 0,
+  AddZone = 104,
+  ZoneNews = 105,
+  TraceZone = 107,
+  AdvancedOptions = 113,
+  SelectProfile = 118,
+  EditMacro = 120,
+  DevTeam = 121,
+  EditKeybinds = 122,
+  FirstTimeSetup = 134,
+  ProfileEmptyPassword = 142,
+  NotCentralDatabase = 144,
+  ProxySettings = 151,
+  OptionsDisplay = 154,
+  OptionsChat = 156,
+  OptionsWindow = 159,
+  TipOfTheDay = 160,
+  BannerEditor = 161,
+  ChatFindText = 175,
+  AddCustomZone = 176,
+  PlayerInformation = 183, // new player setup menu
+  OptionsSound = 185,
+  OptionsRadar = 186,
+  OptionsGraphics = 187,
+  OptionsMenu = 188,
+  OptionsOther = 189
+};
+
+enum class GameState { Unkown, Menu, Connecting, Playing, Disconnected };
+
 struct OverrideGuard {
   static std::atomic<int> depth;
 
@@ -35,6 +68,8 @@ struct OverrideGuard {
 
 std::atomic<int> OverrideGuard::depth = 0;
 
+GameState game_state = GameState::Unkown;
+MenuDialogBoxId dialog_id = MenuDialogBoxId::None;
 const char* kMutexName = "mtxsscont";
 const std::string kEnabledText = "Continuum (enabled) - ";
 const std::string kDisabledText = "Continuum (disabled) - ";
@@ -48,19 +83,76 @@ std::string my_name;
 
 static time_point g_LastUpdateTime;
 static time_point g_RejoinTime;
-static float g_RejoinDelay = 5.0f;
-static float g_ServerLockedDelay = 60.0f;
-static time_point g_StartTime = time_clock::now();
+static float g_RejoinDelay = 2.0f;
+
 
 std::unique_ptr<marvin::Bot> bot = nullptr;
 std::shared_ptr<marvin::ContinuumGameProxy> game = nullptr;
+static HHOOK g_hHook = NULL;
+static marvin::PlayerProfileData profile_data;
 
 static bool enabled = true;
 static bool initialize_debug = true;
 static bool set_title = true;
 static bool set_rejoin_timer = true;
-static bool server_locked = false;
-static int biller_box_occurrences = 0;
+static bool login_complete = false;
+static bool set_profile_data = false;
+static bool bad_file = false;
+static bool quit_game = false;
+static bool initial_minimize = false;
+
+
+bool WriteToComFile(const std::string& cmd) {
+  std::ofstream file("MarvinData.txt");
+
+  if (!file.is_open()) {
+    return false;
+  }
+
+  file << cmd << std::endl;
+  file.close();
+
+  return true;
+}
+
+// simple format reader, easy to break
+marvin::PlayerProfileData ReadProfileData() {
+  marvin::PlayerProfileData data;
+  std::ifstream file("MarvinData.txt");
+  std::string buffer;
+
+  if (!file.is_open()) return data;
+
+  // check the file for correct format
+  for (int i = 0; i <= 5; i++) {
+    getline(file, buffer);
+    if (buffer.find("=") == std::string::npos) return data;
+    if (file.eof() || !file.good()) return data;
+  }
+
+  // reset
+  file.clear();
+  file.seekg(0);
+
+  getline(file, buffer);
+  data.player_name = buffer.substr(buffer.find("=") + 2);
+  getline(file, buffer);
+  data.password = buffer.substr(buffer.find("=") + 2);
+  getline(file, buffer);
+  buffer = buffer.substr(buffer.find("=") + 2);
+  data.ship = std::stoi(buffer);
+  getline(file, buffer);
+  buffer = buffer.substr(buffer.find("=") + 2);
+  data.window_mode = std::stoi(buffer);
+  getline(file, buffer);
+  data.zone_name = buffer.substr(buffer.find("=") + 2);
+  getline(file, buffer);
+  data.chats = buffer.substr(buffer.find("=") + 2);
+  
+  file.close();
+
+  return data;
+}
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -116,6 +208,8 @@ bool LockedInSpec() {
   }
   return false;
 }
+
+
 
 
 
@@ -178,82 +272,89 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
   return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
 }
 
-int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND hWndParent, DLGPROC lpDialogFunc,
-                                   LPARAM dwInitParam) {
+
+
+//used to write into new player creation box
+LRESULT CALLBACK PlayerInformationHook(int nCode, WPARAM wParam, LPARAM lParam) {
+  if (nCode == HCBT_ACTIVATE)  // dialog finished creating, now safe to modify
+  {
+    HWND hDlg = (HWND)wParam;
+
+    // Fill edit boxes
+    SetDlgItemTextA(hDlg, 1039, "you@example.com");  // email
+    SetDlgItemTextA(hDlg, 1022, "John Doe");         // real name
+    SetDlgItemTextA(hDlg, 1044, "Portland");         // city
+    SetDlgItemTextA(hDlg, 1045, "OR/USA");           // state/country
+    SetDlgItemTextA(hDlg, 1040, "34");               // age
+
+    // Checkboxes
+    SendDlgItemMessageA(hDlg, 1046, BM_SETCHECK, BST_CHECKED, 0);    // Home
+    SendDlgItemMessageA(hDlg, 1047, BM_SETCHECK, BST_UNCHECKED, 0);  // Work
+    SendDlgItemMessageA(hDlg, 1048, BM_SETCHECK, BST_CHECKED, 0);    // School
+
+    // Radio buttons
+    SendDlgItemMessageA(hDlg, 1042, BM_SETCHECK, BST_CHECKED, 0);    // Male
+    SendDlgItemMessageA(hDlg, 1043, BM_SETCHECK, BST_UNCHECKED, 0);  // Female
+
+    // Remove hook as soon as we’re done
+    UnhookWindowsHookEx(g_hHook);
+    g_hHook = NULL;
+  }
+
+  return CallNextHookEx(g_hHook, nCode, wParam, lParam);
+}
+
+// cannot fill data here because the box is being called and hasnt been created, need to use a hook or possible
+// overide something else that can input key commands
+int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND hWndParent, DLGPROC lpDialogFunc, LPARAM dwInitParam) {
   OverrideGuard guard;
 
-    enum class MenuDialogBoxId {
-    AddZone = 104,
-    TraceZone = 107,
-    AdvancedOptions = 113,
-    SelectProfile = 118,
-    EditMacro = 120,
-    DevTeam = 121,
-    EditKeybinds = 122,
-    FirstTimeSetup = 134,
-    ProfileEmptyPassword = 142,
-    NotCentralDatabase = 144,
-    ProxySettings = 151,
-    OptionsDisplay = 154,
-    OptionsChat = 156,
-    OptionsWindow = 159,
-    TipOfTheDay = 160,
-    BannerEditor = 161,
-    ChatFindText = 175,
-    AddCustomZone = 176,
-    BillerPlayerInformation = 183,
-    OptionsSound = 185,
-    OptionsRadar = 186,
-    OptionsGraphics = 187,
-    OptionsMenu = 188,
-    OptionsOther = 189
-  };
-
-    MenuDialogBoxId dialog_id = (MenuDialogBoxId)(unsigned int)lpTemplate;
+   dialog_id = (MenuDialogBoxId)(unsigned int)lpTemplate;
 
    if (dialog_id == MenuDialogBoxId::NotCentralDatabase) {
-    set_rejoin_timer = true;
-    // when zone is rebooted, it takes a couple minutes for the biller to reconnect
-    if (biller_box_occurrences < (600 / g_RejoinDelay)) {
-      biller_box_occurrences++;
-        return 2;
-    } else {
-        biller_box_occurrences = 0;
-        return 1;
-    }
+      return IDYES;  //was previously set to 1
+   }
+
+   // can automate new player generation here by using a hook to fill the player information
+   if (dialog_id == MenuDialogBoxId::PlayerInformation) {
+     g_hHook = SetWindowsHookExA(WH_CBT, PlayerInformationHook, NULL, GetCurrentThreadId());
    }
 
   return RealDialogBoxParamA(hInstance, lpTemplate, hWndParent, lpDialogFunc, dwInitParam);
 }
 
 //only captures the message box when it appears for continuum
+// the menu only uses a couple message boxes, the rest are dialog boxes
 int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
   OverrideGuard guard;
-  bool suppress = false;
 
   std::string text = lpText;
   std::string caption = lpCaption;
+
+  //marvin::log.Write(text);
 
   const std::string fail_to_connect_msg =
       "Failed to connect to server. Check to make sure the server is online (it should appear yellow or green in the "
       "zone list) and that you are currently connected to the internet. If problem persists, seek help at the Tech "
       "Support Forums found at www.subspacehq.com";
 
-  const std::string unkown_name =
-      "Unkown name. Would you like to create a new user and enter the game using this name?";
+  const std::string unknown_name =
+      "Unknown name. Would you like to create a new user and enter the game using this name?";
 
-  const std::string too_many_times = "You have tried to login too many times. Please try again in few minutes";
+  const std::string too_many_times = "You have tried to login too many times. Please try again in few minute";
 
-  if (caption == "Information") {
-    // return 0 to supress msg box
-    if (text == fail_to_connect_msg) {
+  if (caption == "Information") {  
+    // return 0 to close msg box
+    if (text == fail_to_connect_msg) {  // verified
       set_rejoin_timer = true;
-      return 0;
+      return IDOK;
     }
-    if (text == too_many_times) {
+    if (text == too_many_times) {  // verified
       set_rejoin_timer = true;
-      server_locked = true;
-      return 0;
+      return IDOK;
+    }
+    if (text == unknown_name) {  // verified
+      return IDYES;  //
     }
   }
 
@@ -264,7 +365,7 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
   OverrideGuard guard;
   Initialize();
 
-  if (!game || game->IsOnMenu()) return 0;
+  if (!game || game->IsOnMenu()) return RealGetAsyncKeyState(vKey);
 
   if (game->GameIsClosing()) {  // guard keys when game is closing
     return 0;
@@ -291,13 +392,43 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 }
 
 
-// actions in the menu happen here
+// MENU
 // the dsound injection method will start here
 // will not update if the game is running the game window
 // might update if the game is also running the chat window
 BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) { 
     OverrideGuard guard;
-    Initialize();
+
+    if (quit_game) {
+      PostQuitMessage(0);
+      return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    }
+    
+    if (!game) {
+      game = std::make_shared<marvin::ContinuumGameProxy>();
+      return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    }
+
+    if (!marvin::log.IsOpen() && !my_name.empty()) {
+      marvin::log.Open(my_name);
+      marvin::log.Write("Log file opened\n");
+    }
+
+    if (profile_data.player_name.empty()) {  // initializing data
+      profile_data = ReadProfileData();
+      if (profile_data.player_name.empty()) {  // no file or bad data
+        bad_file = true;
+        profile_data.player_name = game->GetName();  // get whatever name is currently on the selected profile
+      }
+      my_name = profile_data.player_name;
+    }
+
+    if (!set_profile_data && !bad_file) {
+      if (game->WriteToPlayerProfile(profile_data) && game->SetMenuSelectedZone(profile_data.zone_name)) {
+        set_profile_data = true;
+      }
+      return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    }
 
     // game is on the menu
     // calling certain functions in the game pointer here will crash because the game is not loaded
@@ -314,38 +445,31 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 
     seconds elapsed = time_clock::now() - g_RejoinTime;
 
-    if (server_locked) {
-      if (elapsed.count() > g_ServerLockedDelay) {
-        server_locked = false;
-      } else {
-        return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
-      }
-    }
+    if (elapsed.count() > g_RejoinDelay) {
 
-    float delay = g_RejoinDelay + (float)g_Time.UniqueTimerByName(my_name, marvin::kBotNames, 1);
-
-    if (elapsed.count() > delay) {
-      bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+      // this interupts input when manually selecting menu options
+      //bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
       
       // press enter and rejoin the game, must reselect the profile before joining
       // breaks the dsound method because this is how it starts, it wont know its name yet
       // or the name it gets will just be whatever is selected when the game is launched
       // monkeys idea, you could probably also just have 1 profile and set the name before you join  
-      if (result && lpMsg->message == WM_TIMER && game->SetMenuProfileIndex()) {
+      //if (result && lpMsg->message == WM_TIMER && game->SetMenuProfileIndex()) {
+      if (lpMsg->message == WM_TIMER) {
         lpMsg->message = WM_KEYDOWN;
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
         set_rejoin_timer = true;
 
         return true;
-      } 
-     
+      }
     }
   }
 
   return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 }
 
+//GAME
 // This is used to hook into the main update loop in Continuum so the bot can be updated.
 // the marvin injection method will start here
 // will not run/update if the game is in the menu
@@ -370,10 +494,15 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   marvin::ConnectState state = game->GetConnectState();
   u8* map_memory = (u8*)*(u32*)((*(u32*)0x4c1afc) + 0x127ec + 0x1d6d0);  // map loaded
 
+  if (!login_complete && state == marvin::ConnectState::Playing &&
+      WriteToComFile("OK-" + my_name)) {
+    login_complete = true;
+  }
+
   if (state != marvin::ConnectState::Playing || !map_memory) { // gaurd peekmsg when game is loading
     if (state == marvin::ConnectState::Disconnected) {
-
-      exit(0);
+      PostQuitMessage(0);
+      quit_game = true;
 
 #if 0 
       // try to space out the bots disconnecting during an internet outage
@@ -389,6 +518,12 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
   set_rejoin_timer = true;
   HWND g_hWnd = game->GetGameWindowHandle();
+
+  if (!initial_minimize) {
+    ShowWindow(g_hWnd, SW_MINIMIZE);
+    initial_minimize = true;
+    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+  }
 
   // wait until after bot is in the game
   if (set_title && g_hWnd) {
@@ -435,7 +570,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     
     if (enabled) {
       if (LockedInSpec()) {
-        exit(0);
+        PostQuitMessage(0);
+        quit_game = true;
         //game->ExitGame();
       } else if (bot && dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
 #if DEBUG_RENDER
@@ -464,7 +600,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 * 
 * The injector method calls this when the game is logged in
 * 
-* The dsound method calls this the game is in the menu or even before that, so a call to get the module base will return 0.
+* The dsound method calls this when the game is in the menu or even before that, so a call to get the module base will return 0.
 */ 
 extern "C" __declspec(dllexport) void InitializeMarvin() {
   
