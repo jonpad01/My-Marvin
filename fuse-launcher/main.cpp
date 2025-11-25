@@ -19,7 +19,7 @@ HANDLE StartMarvin(const std::vector<std::string>& profile_data, const std::stri
   std::cout << "Waiting for " << name << " to load..." << std::endl;
   std::size_t i = 0;
 
-  while (true) {
+  for (std::size_t i = 0; i < 10; i++) {
     Sleep(2500);
     std::ifstream file("MarvinData.txt");
 
@@ -33,6 +33,14 @@ HANDLE StartMarvin(const std::vector<std::string>& profile_data, const std::stri
       std::cout << name << " loaded." << std::endl;
       break;
     }
+  }
+
+  // something failed
+  if (i >= 10) {
+    TerminateProcess(handle, 0);
+    CloseHandle(handle);
+    handle = NULL;
+    std::cout << "Timeout while waiting for: " << name << " to login." << std::endl;
   }
 
   return handle;
@@ -75,7 +83,6 @@ int main(int argc, char* argv[]) {
 
   for (std::size_t i = 0; i < bot_data.size(); i++) {
     bot_data[i].handle = StartMarvin(bot_data[i].profile_data, bot_data[i].name);
-    //std::cin.get();
   }
 
   while (true) {

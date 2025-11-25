@@ -430,13 +430,15 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
     }
 
+    bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+
     // game is on the menu
     // calling certain functions in the game pointer here will crash because the game is not loaded
   if (game && game->IsOnMenu()) {  
     set_title = true;
     bot = nullptr;  // allow bot set to null even if not enabled
 
-    if (!enabled) return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    if (!enabled) return result;
 
     if (set_rejoin_timer) {
       g_RejoinTime = time_clock::now();
@@ -448,25 +450,25 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
     if (elapsed.count() > g_RejoinDelay) {
 
       // this interupts input when manually selecting menu options
-      //bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+      
       
       // press enter and rejoin the game, must reselect the profile before joining
       // breaks the dsound method because this is how it starts, it wont know its name yet
       // or the name it gets will just be whatever is selected when the game is launched
       // monkeys idea, you could probably also just have 1 profile and set the name before you join  
       //if (result && lpMsg->message == WM_TIMER && game->SetMenuProfileIndex()) {
-      if (lpMsg->message == WM_TIMER) {
+      if (result && lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT) {
         lpMsg->message = WM_KEYDOWN;
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
         set_rejoin_timer = true;
 
-        return true;
+        return result;
       }
     }
   }
 
-  return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  return result;
 }
 
 //GAME
@@ -485,7 +487,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     game = std::make_shared<marvin::ContinuumGameProxy>();
     auto game2(game);
     bot = std::make_unique<marvin::Bot>(std::move(game2));
-  }
+ }
 
   if (game->GameIsClosing()) {  // guard peekmsg when game is closing
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
@@ -494,29 +496,19 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   marvin::ConnectState state = game->GetConnectState();
   u8* map_memory = (u8*)*(u32*)((*(u32*)0x4c1afc) + 0x127ec + 0x1d6d0);  // map loaded
 
-  if (!login_complete && state == marvin::ConnectState::Playing &&
-      WriteToComFile("OK-" + my_name)) {
-    login_complete = true;
-  }
-
-  if (state != marvin::ConnectState::Playing || !map_memory) { // gaurd peekmsg when game is loading
-    if (state == marvin::ConnectState::Disconnected) {
+  // stop and wait for game and map to load
+  if (state != marvin::ConnectState::Playing || !map_memory) {
+    if (state == marvin::ConnectState::Disconnected) {  //bot got disconnected
       PostQuitMessage(0);
       quit_game = true;
-
-#if 0 
-      // try to space out the bots disconnecting during an internet outage
-      // i think this causes problems accessing profile.dat file when switching to the menu
-      uint64_t delay = g_Time.UniqueTimerByName(my_name, marvin::kBotNames, 1000); // milliseconds
-      if (g_Time.TimedActionDelay("exitgame", delay)) {
-        game->ExitGame();
-      }
-#endif
     }
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
-  set_rejoin_timer = true;
+  if (!login_complete && WriteToComFile("OK-" + my_name)) {
+    login_complete = true;
+  }
+
   HWND g_hWnd = game->GetGameWindowHandle();
 
   if (!initial_minimize) {
@@ -572,7 +564,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       if (LockedInSpec()) {
         PostQuitMessage(0);
         quit_game = true;
-        //game->ExitGame();
       } else if (bot && dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
 #if DEBUG_RENDER
         marvin::g_RenderState.renderable_texts.clear();
@@ -587,7 +578,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
      result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 
     if (g_hWnd && result && lpMsg->message == UM_SETTEXT) {
-      SendMessage(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
+      SendMessageA(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
     }
 
   return result;

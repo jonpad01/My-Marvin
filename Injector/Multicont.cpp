@@ -49,8 +49,8 @@ bool Multicont::RunMulticont() {
   PSYSTEM_HANDLE_INFORMATION handleInfo;
 
   ULONG handleInfoSize = 0x10000;
-  LONG status;
-  HANDLE hMutex, token_cur, token_dup, hProcess;
+  LONG status = 0;
+  HANDLE hMutex = NULL, token_cur = NULL, token_dup = NULL, hProcess = NULL;
 
   GetLibraryAddresses(&NtQuerySystemInformation, &NtDuplicateObject, &NtQueryObject);
 
@@ -73,9 +73,7 @@ bool Multicont::RunMulticont() {
             CreateProcessAsUserW(token_dup, TEXT("C:\\Program Files\\Continuum\\Continuum.exe"), NULL, NULL, NULL,
                                  FALSE, 0, NULL, NULL, &si, &pi)) {
           // Process has been created; work with the process and wait for it to terminate
-          hProcess = pi.hProcess;
-          process_id_ = pi.dwProcessId;
-          thread_id_ = pi.dwThreadId;
+          // the handles and pid this return is all junk, jsut close the handles.
           WaitForSingleObject(pi.hProcess, INFINITE);
           CloseHandle(pi.hThread);
           CloseHandle(pi.hProcess);
