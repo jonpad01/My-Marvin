@@ -19,7 +19,7 @@ HANDLE StartMarvin(const std::vector<std::string>& profile_data, const std::stri
   std::cout << "Waiting for " << name << " to load..." << std::endl;
   std::size_t i = 0;
 
-  for (std::size_t i = 0; i < 10; i++) {
+  for (i = 0; i < 10; i++) {
     Sleep(2500);
     std::ifstream file("MarvinData.txt");
 
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
 
   while (true) {
     for (std::size_t i = 0; i < bot_data.size(); i++) {
-      Sleep(1000);
+      Sleep(3000);
 
       ULONG exitcode;
       bool found = GetExitCodeProcess(bot_data[i].handle, &exitcode);

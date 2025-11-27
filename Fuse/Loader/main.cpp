@@ -21,6 +21,7 @@ typedef void (*CleanupFunc)();
 std::ofstream debug_log;
 
 static HMODULE hModule = NULL;
+static HMODULE dsound = NULL;
 static std::string g_MarvinPath;
 static std::string g_MarvinDirectory;
 static std::string g_MarvinDll;
@@ -35,6 +36,8 @@ static std::string GetLocalPath() {
 
   return std::string(path);
 }
+
+
 
 std::vector<std::string> GetArguments() {
   std::vector<std::string> result;
@@ -93,18 +96,6 @@ void SetMarvinPath() {
 
 }
 
-int RemoveMatchingFiles(const std::string& substring) {
-  // search for and delete temporary marvin dll files
-  for (const auto& entry : std::filesystem::directory_iterator(g_MarvinDirectory)) {
-    std::string path = entry.path().generic_string();
-    std::size_t found = path.find(substring);
-    if (found != std::string::npos) {
-      DeleteFile(path.c_str());
-    }
-  }
-  return 0;
-}
-
 static std::string GetSystemLibrary(const char* library) {
   std::string result;
 
@@ -127,7 +118,7 @@ bool GetLastWriteTime(const char* filename, FILETIME* ft) {
   return false;
 }
 
-bool WaitForUnload() {
+bool WaitForUnload(const std::string& path) {
   DWORD pid = GetCurrentProcessId();
   HANDLE hProcess = GetCurrentProcess();
   HMODULE hMods[1024];
@@ -149,7 +140,7 @@ bool WaitForUnload() {
         module.resize(MAX_PATH);
 
         if (GetModuleFileNameEx(hProcess, hMods[i], &module[0], MAX_PATH)) {
-          if (module.find(g_MarvinLoadedPath) != std::string::npos) {
+          if (module.find(path) != std::string::npos) {
             loaded = true;
           }
         }
@@ -168,30 +159,33 @@ bool WaitForUnload() {
   return true;
 }
 
-void PerformReload() {
+void PerformReload(const char* source, const char* destination) {
   if (hModule) {
+      #if 0  // is aleady being porformed in dll dettach
      CleanupFunc cleanup = (CleanupFunc)GetProcAddress(hModule, "CleanupMarvin");
 
       if (cleanup) {
         cleanup();
       }
+      #endif
 
     FreeLibrary(hModule);
-    WaitForUnload();
+    WaitForUnload(destination);
   }
 
   hModule = NULL;
 
   for (int tries = 0; tries < 20; ++tries) {
-    if (CopyFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str(), FALSE) != 0) {
+    if (CopyFile(source, destination, FALSE) != 0) {
       break;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 
-  hModule = LoadLibrary(g_MarvinLoadedPath.c_str());
+  hModule = LoadLibrary(destination);
 
+  #if 0 // is aleady being porformed in dll attach
    if (hModule) {
     InitFunc init = (InitFunc)GetProcAddress(hModule, "InitializeMarvin");
 
@@ -199,6 +193,7 @@ void PerformReload() {
       init();
     }
    }
+   #endif
 }
 
 void MonitorDevFile() {
@@ -207,14 +202,13 @@ void MonitorDevFile() {
   while (true) {
     if (GetLastWriteTime(g_MarvinPath.c_str(), &time)) {
       if (CompareFileTime(&time, &g_LastTime) > 0) {
-        PerformReload();
-
+        PerformReload(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
         GetLastWriteTime(g_MarvinLoadedPath.c_str(), &time);
         g_LastTime = time;
       }
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 }
 
@@ -259,12 +253,39 @@ void InitializeLoader() {
   }
 }
 
-static HMODULE dsound;
+// child process wont allow a handle with process_all_access from inside this dll
+bool IsRealProcess() {
+  HANDLE h = OpenProcess(PROCESS_ALL_ACCESS, FALSE, GetCurrentProcessId());
+  if (!h && GetLastError() == ERROR_ACCESS_DENIED) return true;  
+  if (h) CloseHandle(h);
+  return false;
+}
+
+bool IsElevated() {
+  HANDLE token = nullptr;
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return false;
+
+  TOKEN_ELEVATION elevation;
+  DWORD size = 0;
+  BOOL result = GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &size);
+
+  CloseHandle(token);
+  return result && elevation.TokenIsElevated;
+}
 
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
     case DLL_PROCESS_ATTACH: {
-      hModule = NULL;
+
+      // Continuum respawns itself to apply a DACL, so dsound.dll will get loaded twice
+      // if loaded into the parent process do nothing because its going to exit anyway
+      if (!IsRealProcess()) {
+        return TRUE;
+      } 
+
+      DWORD pid = GetCurrentProcessId();
+     // debug_log.open("fuse_loader - " + std::to_string(pid) + ".log", std::ios::out);
+
       std::string dsound_path = GetSystemLibrary("dsound.dll");
       dsound = LoadLibrary(dsound_path.c_str());
 
@@ -275,39 +296,18 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
 
       fuse::g_DirectSound = fuse::DirectSound::Load(dsound);
 
-      
-
-      
-      DWORD pid = GetCurrentProcessId();
-     // debug_log.open("fuse_loader - " + std::to_string(pid) + ".log", std::ios::out);
       g_MarvinDll = "Marvin-" + std::to_string(pid) + ".dll";
       SetMarvinPath();
 
-      PerformReload();
-      GetLastWriteTime(g_MarvinLoadedPath.c_str(), &g_LastTime);
 
-      g_MonitorThread = std::thread(MonitorDevFile);
-
-#if 0
-      HMODULE loaded = LoadLibrary(g_MarvinPath.c_str());
-
-      if (!loaded) {
-        g_MarvinPath = MARVIN_DLL_FOLDER + "\\Marvin.dll";
-        g_MarvinLoadedPath = MARVIN_DLL_FOLDER + "\\" + g_MarvinDll;
-
-        loaded = LoadLibrary(g_MarvinPath.c_str());
-        if (loaded) {
-          debug_log << "File found in location : " << MARVIN_DLL_FOLDER << std::endl;
-        } else {
-          debug_log << "Could not find Marvin.dll" << std::endl;
-        }
-      
-        
+      if (IsElevated()) {
+        PerformReload(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
+        g_MonitorThread = std::thread(MonitorDevFile);
       } else {
-        debug_log << "File found in location : " << (GetLocalPath() + "\\Marvin.dll") << std::endl;
+        hModule = LoadLibraryA(g_MarvinPath.c_str());
       }
-#endif
-
+      
+     
 
       //debug_log << "Marvin result : " << (loaded ? " Success " : " Failure ") << std::endl;
       //InitializeLoader();
@@ -316,11 +316,10 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
      // debug_log << "Hook count: " << hook_count << std::endl;
     } break;
     case DLL_PROCESS_DETACH: {
-      FreeLibrary(dsound);
-      if (hModule) {
-        FreeLibrary(hModule);
-      }
-      RemoveMatchingFiles("Marvin-");
+      // there is no good method to delete temp marvin files here because they will still be loaded
+      // an option might be memory mapping or reflective loading
+      // dont need to unload libraries here as that is already handled when the process exits.
+      // dont need to exit the thead that was created as it seems to exit automatically.
     } break;
   }
 
