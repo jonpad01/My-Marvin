@@ -646,7 +646,7 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
       } break;
       case DLL_PROCESS_DETACH: {
         // Dont call cleanup marvin here 
-        // don't need to call detourdetach when the program exits because it is safely handed.
+        // don't need to call detourdetach when the program exits because it is safely handled.
       } break;
   }
 

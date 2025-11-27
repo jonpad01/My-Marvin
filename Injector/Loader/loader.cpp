@@ -99,11 +99,11 @@ bool WaitForUnload() {
 
 void PerformReload() {
   if (hModule) {
-    //CleanupFunc cleanup = (CleanupFunc)GetProcAddress(hModule, "CleanupMarvin");
+    CleanupFunc cleanup = (CleanupFunc)GetProcAddress(hModule, "CleanupMarvin");
 
-   // if (cleanup) {
-   //   cleanup();
-   // }
+    if (cleanup) {
+      cleanup();
+    }
 
     FreeLibrary(hModule);
     WaitForUnload();
@@ -121,13 +121,13 @@ void PerformReload() {
 
   hModule = LoadLibrary(g_MarvinLoadedPath.c_str());
 
-  //if (hModule) {
-  //  InitFunc init = (InitFunc)GetProcAddress(hModule, "InitializeMarvin");
+  if (hModule) {
+    InitFunc init = (InitFunc)GetProcAddress(hModule, "InitializeMarvin");
 
-  //  if (init) {
-  //    init();
- //   }
- // }
+    if (init) {
+      init();
+    }
+  }
 }
 
 void MonitorDevFile() {
@@ -168,9 +168,6 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
     hModule = LoadLibrary(g_MarvinLoadedPath.c_str());
 #endif
   } else if (dwReason == DLL_PROCESS_DETACH) {
-    if (hModule) {
-      FreeLibrary(hModule);
-    }
   }
 
   return TRUE;
