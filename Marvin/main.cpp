@@ -638,13 +638,15 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 }
 
 
+// not safe to call detour attach or detour detach because they use locks
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
       case DLL_PROCESS_ATTACH: {
-        InitializeMarvin();
+        // Dont call initialize marvin here
       } break;
       case DLL_PROCESS_DETACH: {
-        CleanupMarvin();
+        // Dont call cleanup marvin here 
+        // don't need to call detourdetach when the program exits because it is safely handed.
       } break;
   }
 

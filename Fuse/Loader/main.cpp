@@ -159,41 +159,42 @@ bool WaitForUnload(const std::string& path) {
   return true;
 }
 
-void PerformReload(const char* source, const char* destination) {
+void LoadMarvin(const char* source) {
+  hModule = LoadLibrary(source);
+
   if (hModule) {
-      #if 0  // is aleady being porformed in dll dettach
+    InitFunc init = (InitFunc)GetProcAddress(hModule, "InitializeMarvin");
+
+    if (init) {
+      init();
+    }
+  }
+}
+
+
+void LoadMarvinWithTempFile(const char* original, const char* temp) {
+  if (hModule) {
      CleanupFunc cleanup = (CleanupFunc)GetProcAddress(hModule, "CleanupMarvin");
 
       if (cleanup) {
         cleanup();
       }
-      #endif
 
     FreeLibrary(hModule);
-    WaitForUnload(destination);
+    WaitForUnload(temp);
   }
 
   hModule = NULL;
 
   for (int tries = 0; tries < 20; ++tries) {
-    if (CopyFile(source, destination, FALSE) != 0) {
+    if (CopyFile(original, temp, FALSE) != 0) {
       break;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 
-  hModule = LoadLibrary(destination);
-
-  #if 0 // is aleady being porformed in dll attach
-   if (hModule) {
-    InitFunc init = (InitFunc)GetProcAddress(hModule, "InitializeMarvin");
-
-    if (init) {
-      init();
-    }
-   }
-   #endif
+  LoadMarvin(temp);
 }
 
 void MonitorDevFile() {
@@ -202,7 +203,7 @@ void MonitorDevFile() {
   while (true) {
     if (GetLastWriteTime(g_MarvinPath.c_str(), &time)) {
       if (CompareFileTime(&time, &g_LastTime) > 0) {
-        PerformReload(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
+        LoadMarvinWithTempFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
         GetLastWriteTime(g_MarvinLoadedPath.c_str(), &time);
         g_LastTime = time;
       }
@@ -301,10 +302,10 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
 
 
       if (IsElevated()) {
-        PerformReload(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
+        LoadMarvinWithTempFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
         g_MonitorThread = std::thread(MonitorDevFile);
       } else {
-        hModule = LoadLibraryA(g_MarvinPath.c_str());
+        LoadMarvin(g_MarvinPath.c_str());
       }
       
      
