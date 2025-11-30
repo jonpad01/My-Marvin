@@ -1,5 +1,6 @@
 #include "file.h"
 #include "continuum.h"
+#include "MemoryMap.h"
 #include "pipe.h"
 #include <iostream>
 #include <fstream>
@@ -12,36 +13,29 @@
 
 std::vector<MarvinData> bot_data;
 
-HANDLE StartMarvin(const std::vector<std::string>& profile_data, const std::string& name) {
-  WriteToFile(profile_data, GetWorkingDirectory() + "\\MarvinData.txt");
+HANDLE StartMarvin(uint32_t index, const ProfileData& profile_data, const std::string& name) {
+
+  MemoryMap memory_map;
+
+  if (!memory_map.CreateMap()) {
+    std::cout << "Failed to create memory map: " << GetLastError() << std::endl;
+    std::cin.get();
+  }
+
+  memory_map.WriteU32(index);
   HANDLE handle = StartContinuum();
 
   std::cout << "Waiting for " << name << " to load..." << std::endl;
-  std::size_t i = 0;
 
-  for (i = 0; i < 10; i++) {
-    Sleep(2500);
-    std::ifstream file("MarvinData.txt");
-
-    if (!file.is_open()) continue;
-
-    std::string buffer;
-    getline(file, buffer);
-    file.close();
-
-    if (buffer == "OK-" + name) {
-      std::cout << name << " loaded." << std::endl;
-      break;
-    }
-  }
-
-  // something failed
-  if (i >= 10) {
+  // could be downloading map, so wait a long time
+  if (!memory_map.WaitForData(100000)) {
+    std::cout << "Timeout while waiting for: " << name << " to connect: " << GetLastError() << std::endl;
     TerminateProcess(handle, 0);
     CloseHandle(handle);
-    handle = NULL;
-    std::cout << "Timeout while waiting for: " << name << " to login." << std::endl;
+    return NULL;
   }
+
+  std::cout << name << " loaded." << std::endl;
 
   return handle;
 }
@@ -82,7 +76,7 @@ int main(int argc, char* argv[]) {
   }
 
   for (std::size_t i = 0; i < bot_data.size(); i++) {
-    bot_data[i].handle = StartMarvin(bot_data[i].profile_data, bot_data[i].name);
+    bot_data[i].handle = StartMarvin((uint32_t)i, bot_data[i].profile_data, bot_data[i].name);
   }
 
   while (true) {
@@ -96,10 +90,10 @@ int main(int argc, char* argv[]) {
         std::cout << "Exit code not found for: " << bot_data[i].name << std::endl;
       }
 
-      if (exitcode != STILL_ACTIVE) {
+      if (exitcode != STILL_ACTIVE || !found) {
         std::cout << "Bot has closed: " << bot_data[i].name << std::endl;
         CloseHandle(bot_data[i].handle);
-        bot_data[i].handle = StartMarvin(bot_data[i].profile_data, bot_data[i].name);
+        bot_data[i].handle = StartMarvin((uint32_t)i, bot_data[i].profile_data, bot_data[i].name);
       }
     }
   }

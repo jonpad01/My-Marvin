@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -156,6 +156,8 @@
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="MapCoord.cpp" />
+    <ClCompile Include="MemoryMap.cpp" />
+    <ClCompile Include="ProfileParser.cpp" />
     <ClCompile Include="TeamGoals.cpp" />
     <ClCompile Include="Vector2f.cpp" />
     <ClCompile Include="Vector2i.h" />
@@ -213,7 +215,9 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="MapCoord.h" />
+    <ClInclude Include="ProfileParser.h" />
     <ClInclude Include="Radar.h" />
+    <ClInclude Include="MemoryMap.h" />
     <ClInclude Include="TeamGoals.h" />
     <ClInclude Include="zones\Devastation\BaseDuelWarpCoords.h" />
     <ClInclude Include="zones\Devastation\BaseDuel.h" />

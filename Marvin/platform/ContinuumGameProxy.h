@@ -94,7 +94,7 @@ class ContinuumGameProxy : public GameProxy {
   ConnectState GetConnectState();
   void ExitGame();
   bool GameIsClosing();
-  bool WriteToPlayerProfile(PlayerProfileData data);
+  bool WriteToPlayerProfile(const ProfileData& data);
 
   std::string GetName() const override;
   void DumpMemoryToFile(std::size_t address, std::size_t size);

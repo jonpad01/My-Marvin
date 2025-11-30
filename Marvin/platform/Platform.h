@@ -23,9 +23,9 @@
 inline std::string GetWorkingDirectory() {
   std::string directory;
 
-  directory.resize(GetCurrentDirectory(0, NULL));
+  directory.resize(GetCurrentDirectoryA(0, NULL));
 
-  GetCurrentDirectory(directory.size(), &directory[0]);
+  GetCurrentDirectoryA(directory.size(), &directory[0]);
 
   return directory.substr(0, directory.size() - 1);
 }

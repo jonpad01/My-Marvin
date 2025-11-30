@@ -15,6 +15,52 @@
 #include "Debug.h"
 #include "Time.h"
 #include "KeyController.h"
+#include "MemoryMap.h"
+#include "ProfileParser.h"
+
+/* Marvin Basic Operation - Running Multiple Bots
+*
+*  When running more than one bot, bad things can happen.
+* 
+* The login process must be handled by a launcher that sequentially launches each bot one at a time.
+* 
+* If a bot is disconnected, it should exit.  The launcher will see this and relaunch it.  It should not 
+* try to reconnect itself, as it has no idea if other bots are currently trying to reconnect.
+* 
+* If new maps are added and the arena is recycled, all bots will try to open and write to the .lvl file
+* at the same time, causing error popups.
+* 
+* The fuse-launcher no longer needs any information used by profile.dat, Marvin will write its own data
+* to memory when signaled my the launcher.  It reads from a config file that must be filled out by the user.
+*
+*/
+
+
+/* Marvin Detours
+* 
+* Marvin uses detours to override winapi functions as they are called.  If no functions were called, you can't override them!  
+* You have the option to change what code is executed and what they return, but you can't control when the caller calls them.
+* The caller is also expecting a result when the function returns, so you need to give it something that makes sense.  here is a basic list of what can be done.
+* 
+* You can insert code to execute just about anything you want.  In this case all the code is used to simulate a player playing the game.
+* 
+* You can manipulate the return value to produce a result you want.  If the function is a call to generate a messagebox, you can simply return 0 to make it fail, and
+* the message box will never be created.  If you dont want to change the result, you can return a call to the real function, and it will execute normally.
+* 
+* You can call the function yourself and observe the result that it would produce.  If you call it before returning, then you have executed the body of the function.
+* At this point you should only return a result when finished and avoid executing the same function multiple times.
+* 
+* You can lookup the arguments that were used by the caller, and you can also manipulate the arguments.  Most winapi function parameters are pointers that the caller reads and uses 
+* depending on wether the function succeded or failed.  You can manipulate the data they point to after executing the function.  For example, it is possible to execute the real function, 
+* observe the result, then manipulate the arguments afterwards to change the data that the caller will read.
+* 
+* Functions such as peakmessage (game loop) and getmessage (menu loop) run in a loop and can not be interupted.  They are expected to return quickly so doing anything that waits a long time 
+* will cause the game to freeze.  A lot of the pathfinder stuff is pre calculated when the bot starts to reduce cpu usage, and it takes enough time to make the
+* game graphics visibly stutter for a second.  If you put in something like Sleep(1000) the game will lock and never recover.  An easy mistake is to make a call to a winapi
+* function that waits for something.
+* 
+* 
+*/
 
 
 #define UM_SETTEXT WM_USER + 0x69
@@ -50,7 +96,7 @@ enum class MenuDialogBoxId {
   OptionsOther = 189
 };
 
-enum class GameState { Unkown, Menu, Connecting, Playing, Disconnected };
+enum class SharedMemoryState { OpeningMap, Listening, WritingToMemory, WritingToLauncher, Finished, Failed };
 
 struct OverrideGuard {
   static std::atomic<int> depth;
@@ -68,7 +114,6 @@ struct OverrideGuard {
 
 std::atomic<int> OverrideGuard::depth = 0;
 
-GameState game_state = GameState::Unkown;
 MenuDialogBoxId dialog_id = MenuDialogBoxId::None;
 const char* kMutexName = "mtxsscont";
 const std::string kEnabledText = "Continuum (enabled) - ";
@@ -77,82 +122,35 @@ const std::string kDisabledText = "Continuum (disabled) - ";
 using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
-static marvin::Time g_Time;
 
 std::string my_name;
+uint32_t profile_index = 0;
 
 static time_point g_LastUpdateTime;
-static time_point g_RejoinTime;
-static float g_RejoinDelay = 2.0f;
+static time_point g_JoinGameStartPoint;
+static time_point g_SharedMemoryStartPoint;
+static float g_UpdatdeDelay = 1.0f / 60.0f;
+static float g_JoinDelay = 2.0f;
+static float g_SharedMemoryWaitTime = 3.0f;
 
 
 std::unique_ptr<marvin::Bot> bot = nullptr;
 std::shared_ptr<marvin::ContinuumGameProxy> game = nullptr;
 static HHOOK g_hHook = NULL;
-static marvin::PlayerProfileData profile_data;
 
 static bool enabled = true;
 static bool initialize_debug = true;
 static bool set_title = true;
-static bool set_rejoin_timer = true;
-static bool login_complete = false;
-static bool set_profile_data = false;
-static bool bad_file = false;
+static bool set_join_timer = true;
 static bool quit_game = false;
-static bool initial_minimize = false;
+static bool minimize__game_window = true;
+static bool joined = false;
 
+static SharedMemoryState sm_state = SharedMemoryState::OpeningMap;
 
-bool WriteToComFile(const std::string& cmd) {
-  std::ofstream file("MarvinData.txt");
+static MemoryMap memory_map;
+static HANDLE hPipe = NULL;
 
-  if (!file.is_open()) {
-    return false;
-  }
-
-  file << cmd << std::endl;
-  file.close();
-
-  return true;
-}
-
-// simple format reader, easy to break
-marvin::PlayerProfileData ReadProfileData() {
-  marvin::PlayerProfileData data;
-  std::ifstream file("MarvinData.txt");
-  std::string buffer;
-
-  if (!file.is_open()) return data;
-
-  // check the file for correct format
-  for (int i = 0; i <= 5; i++) {
-    getline(file, buffer);
-    if (buffer.find("=") == std::string::npos) return data;
-    if (file.eof() || !file.good()) return data;
-  }
-
-  // reset
-  file.clear();
-  file.seekg(0);
-
-  getline(file, buffer);
-  data.player_name = buffer.substr(buffer.find("=") + 2);
-  getline(file, buffer);
-  data.password = buffer.substr(buffer.find("=") + 2);
-  getline(file, buffer);
-  buffer = buffer.substr(buffer.find("=") + 2);
-  data.ship = std::stoi(buffer);
-  getline(file, buffer);
-  buffer = buffer.substr(buffer.find("=") + 2);
-  data.window_mode = std::stoi(buffer);
-  getline(file, buffer);
-  data.zone_name = buffer.substr(buffer.find("=") + 2);
-  getline(file, buffer);
-  data.chats = buffer.substr(buffer.find("=") + 2);
-  
-  file.close();
-
-  return data;
-}
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -210,9 +208,6 @@ bool LockedInSpec() {
 }
 
 
-
-
-
 // multicont functionallity
 static HANDLE(WINAPI* RealCreateMutexA)(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) = CreateMutexA;
 // multicont functionallity
@@ -230,6 +225,7 @@ static int(WINAPI* RealDialogBoxParamA)(HINSTANCE hInstance, LPCTSTR lpTemplate,
 static int(WINAPI* RealMessageBoxA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) = MessageBoxA;
 
 static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
+
 
 HANDLE WINAPI OverrideCreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) {
   OverrideGuard guard;
@@ -323,7 +319,7 @@ int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND
   return RealDialogBoxParamA(hInstance, lpTemplate, hWndParent, lpDialogFunc, dwInitParam);
 }
 
-//only captures the message box when it appears for continuum
+//captures message boxes that continuum produces.
 // the menu only uses a couple message boxes, the rest are dialog boxes
 int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
   OverrideGuard guard;
@@ -331,7 +327,7 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   std::string text = lpText;
   std::string caption = lpCaption;
 
-  //marvin::log.Write(text);
+  marvin::log.Write("Message box found with title: " + caption + " and message text: " + lpText);
 
   const std::string fail_to_connect_msg =
       "Failed to connect to server. Check to make sure the server is online (it should appear yellow or green in the "
@@ -346,16 +342,25 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   if (caption == "Information") {  
     // return 0 to close msg box
     if (text == fail_to_connect_msg) {  // verified
-      set_rejoin_timer = true;
+      set_join_timer = true;
+      joined = false;
       return IDOK;
     }
     if (text == too_many_times) {  // verified
-      set_rejoin_timer = true;
+      set_join_timer = true;
+      joined = false;
+      g_JoinDelay = 60.0f;  // hopefully this never happens
       return IDOK;
     }
     if (text == unknown_name) {  // verified
       return IDYES;  //
     }
+  }
+
+  if (caption == "Error") {
+    PostQuitMessage(0);
+    quit_game = true;
+    return IDOK;
   }
 
   return RealMessageBoxA(hWnd, lpText, lpCaption, uType);
@@ -365,7 +370,7 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
   OverrideGuard guard;
   Initialize();
 
-  if (!game || game->IsOnMenu()) return RealGetAsyncKeyState(vKey);
+  //if (!game || game->IsOnMenu()) return RealGetAsyncKeyState(vKey);
 
   if (game->GameIsClosing()) {  // guard keys when game is closing
     return 0;
@@ -396,72 +401,97 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 // the dsound injection method will start here
 // will not update if the game is running the game window
 // might update if the game is also running the chat window
-BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) { 
-    OverrideGuard guard;
+BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) {
+  OverrideGuard guard;
 
-    if (quit_game) {
-      PostQuitMessage(0);
-      return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  if (quit_game) {
+    PostQuitMessage(0);
+    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  }
+
+  if (!game) {
+    game = std::make_shared<marvin::ContinuumGameProxy>();
+    my_name = game->GetName();
+    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  }
+
+  if (!marvin::log.IsOpen() && !my_name.empty()) {
+    marvin::log.Open(my_name);
+    marvin::log.Write("Log file opened\n");
+  }
+
+  // ------------ Shared memory used with launcher -------------------------------
+
+  // if the game was not loaded using the launcher, then this should fail 
+  if (sm_state == SharedMemoryState::OpeningMap) {
+    if (memory_map.OpenMap()) {
+      sm_state = SharedMemoryState::Listening;
+      g_SharedMemoryStartPoint = time_clock::now();
+    } else {
+      sm_state = SharedMemoryState::Failed;
+      my_name = game->GetName();
     }
-    
-    if (!game) {
-      game = std::make_shared<marvin::ContinuumGameProxy>();
-      return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  }
+
+  if (sm_state == SharedMemoryState::Listening) {
+    seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
+    if (memory_map.HasData()) {
+      profile_index = memory_map.ReadU32();
+      sm_state = SharedMemoryState::WritingToMemory;
+    } else if (elapsed.count() > g_SharedMemoryWaitTime) {
+      sm_state = SharedMemoryState::Failed;
+      my_name = game->GetName();
+    }
+    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  }
+
+  if (sm_state == SharedMemoryState::WritingToMemory) {
+    marvin::ProfileParser parser(profile_index);
+
+    if (!parser.LoadProfileData()) {
+      sm_state = SharedMemoryState::Failed;
+      my_name = game->GetName();
+    } else if (game->WriteToPlayerProfile(parser.GetProfileData()) &&
+               game->SetMenuSelectedZone(parser.GetProfileData().zone_name)) {
+      my_name = parser.GetProfileData().name;
+      sm_state = SharedMemoryState::WritingToLauncher;  // this state is checked in peakmessage after the game loads
     }
 
-    if (!marvin::log.IsOpen() && !my_name.empty()) {
-      marvin::log.Open(my_name);
-      marvin::log.Write("Log file opened\n");
-    }
+    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  }
 
-    if (profile_data.player_name.empty()) {  // initializing data
-      profile_data = ReadProfileData();
-      if (profile_data.player_name.empty()) {  // no file or bad data
-        bad_file = true;
-        profile_data.player_name = game->GetName();  // get whatever name is currently on the selected profile
-      }
-      my_name = profile_data.player_name;
-    }
+  // -------------------------------------------------------------------------
 
-    if (!set_profile_data && !bad_file) {
-      if (game->WriteToPlayerProfile(profile_data) && game->SetMenuSelectedZone(profile_data.zone_name)) {
-        set_profile_data = true;
-      }
-      return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
-    }
 
-    bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  // only want to manipulate keypresses if the result is true, so call it before returning
+  // its important that this is only called once, only return the result from this point.
+  bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 
-    // game is on the menu
-    // calling certain functions in the game pointer here will crash because the game is not loaded
+  // game is on the menu
+  // calling certain functions in the game pointer here will crash because the game is not loaded
   if (game && game->IsOnMenu()) {  
     set_title = true;
     bot = nullptr;  // allow bot set to null even if not enabled
 
     if (!enabled) return result;
 
-    if (set_rejoin_timer) {
-      g_RejoinTime = time_clock::now();
-      set_rejoin_timer = false;
+    if (set_join_timer) {
+      g_JoinGameStartPoint = time_clock::now();
+      set_join_timer = false;
     }
 
-    seconds elapsed = time_clock::now() - g_RejoinTime;
+    seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
 
-    if (elapsed.count() > g_RejoinDelay) {
-
-      // this interupts input when manually selecting menu options
-      
-      
-      // press enter and rejoin the game, must reselect the profile before joining
-      // breaks the dsound method because this is how it starts, it wont know its name yet
-      // or the name it gets will just be whatever is selected when the game is launched
-      // monkeys idea, you could probably also just have 1 profile and set the name before you join  
-      //if (result && lpMsg->message == WM_TIMER && game->SetMenuProfileIndex()) {
+    if (elapsed.count() > g_JoinDelay && !joined) {
+      // press enter and join the game
+      // WM_TIMER seems to be the most reliable message to hijack, WM_PAINT only gets sent
+      // if the mouse is moved.
       if (result && lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT) {
         lpMsg->message = WM_KEYDOWN;
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
-        set_rejoin_timer = true;
+        set_join_timer = true;
+        joined = true;
 
         return result;
       }
@@ -505,15 +535,17 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
-  if (!login_complete && WriteToComFile("OK-" + my_name)) {
-    login_complete = true;
+  if (sm_state == SharedMemoryState::WritingToLauncher) {
+    memory_map.WriteU32(134);
+    sm_state = SharedMemoryState::Finished;
   }
+
 
   HWND g_hWnd = game->GetGameWindowHandle();
 
-  if (!initial_minimize) {
+  if (minimize__game_window) {
     ShowWindow(g_hWnd, SW_MINIMIZE);
-    initial_minimize = true;
+    minimize__game_window = false;
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
@@ -578,7 +610,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
      result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 
     if (g_hWnd && result && lpMsg->message == UM_SETTEXT) {
-      SendMessageA(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
+      PostMessageA(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
     }
 
   return result;

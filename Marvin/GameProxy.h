@@ -12,13 +12,13 @@
 
 namespace marvin {
 
-struct PlayerProfileData {
-  std::string player_name;
+struct ProfileData {
+  std::string name;
   std::string password;
-  uint32_t ship = 8;
-  uint32_t window_mode = 0;
   std::string zone_name;
-  std::string chats = "marvin";
+  std::string chats;
+  int ship = 0;
+  int window_mode = 0;
 };
 
 class Map;

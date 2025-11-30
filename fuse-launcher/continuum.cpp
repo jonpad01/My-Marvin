@@ -6,9 +6,9 @@
 
 
 /* 
-* Continuum runs a launcher of some type that creates a child process 
-* This method creates a job object then adds the launcher to the job
-* Then queries the pid of the child process spawned by the launcher
+* Continuum relaunches itself to apply a DACL, and exits the parent process
+* This method creates a job object then adds the parent process to the job
+* Then queries the pid of the child process spawned by the parent process
 */
 HANDLE StartContinuum() {
   HANDLE hChild = NULL;
@@ -74,7 +74,7 @@ HANDLE StartContinuum() {
     DWORD pid = (DWORD)pidList->ProcessIdList[i];
 
     // This is the real Continuum game process.
-    hChild = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    hChild = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, FALSE, pid);
     if (!hChild) {
       std::cout << "Failed to open child process: " << GetLastError() << "\n";
     }
@@ -112,7 +112,7 @@ HANDLE GetProcessHandle() {
     }
   } while (Process32Next(hProcSnap, &pe32));
 
-  pHandle = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+  pHandle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, FALSE, pid);
 
   return pHandle;
 }

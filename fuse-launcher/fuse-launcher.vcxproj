@@ -136,11 +136,13 @@
     <ClCompile Include="continuum.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="file.cpp" />
+    <ClCompile Include="MemoryMap.cpp" />
     <ClCompile Include="pipe.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="continuum.h" />
     <ClInclude Include="file.h" />
+    <ClInclude Include="MemoryMap.h" />
     <ClInclude Include="pipe.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

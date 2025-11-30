@@ -1377,7 +1377,7 @@ std::size_t ContinuumGameProxy::GetIDIndex() {
   return index;
 }
 
-bool ContinuumGameProxy::WriteToPlayerProfile(PlayerProfileData data) {
+bool ContinuumGameProxy::WriteToPlayerProfile(const ProfileData& data) {
   if (!module_base_menu_) return false;
   if (!IsOnMenu()) return false;
 
@@ -1421,7 +1421,7 @@ bool ContinuumGameProxy::WriteToPlayerProfile(PlayerProfileData data) {
   }
 
   //process_.WriteString(profile_addr + kProfileNameOffset, "Default", 21);
-  process_.WriteString(profile_addr + kPlayerNameOffset, data.player_name, 24);
+  process_.WriteString(profile_addr + kPlayerNameOffset, data.name, 24);
   process_.WriteString(profile_addr + kPasswordOffset, data.password, 33);
   //process_.WriteU32(profile_addr + kSelectedShipOffset, data.ship);
   //process_.WriteU32(profile_addr + kResolutionHeightOffset, 720);
@@ -1486,9 +1486,6 @@ bool ContinuumGameProxy::SetMenuSelectedZone(std::string zone_name) {
 
   for (u16 i = 0; i < zone_count; ++i) {
     std::string_view name = zones[i].name;
-
-    std::string test = "memory name: " + (std::string)name + " file name: " + zone_name;
-    log.Write(test);
 
     if (name.compare(zone_name) == 0) {
       *current_zone_index = i;

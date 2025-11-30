@@ -303,6 +303,7 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
 
       if (IsElevated()) {
         LoadMarvinWithTempFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
+        GetLastWriteTime(g_MarvinLoadedPath.c_str(), &g_LastTime);
         g_MonitorThread = std::thread(MonitorDevFile);
       } else {
         LoadMarvin(g_MarvinPath.c_str());

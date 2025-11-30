@@ -1,4 +1,5 @@
 #pragma once
+#include "file.h"
 #include <string>
 
 #ifdef UNICODE
@@ -12,16 +13,20 @@ enum class Info {Running, Waiting};
 
 class Pipe {
  public:
-  Pipe(std::string pipe_name);
+  Pipe(const std::string& pipe_name);
   ~Pipe() { 
-	  DisconnectNamedPipe(handle);
-	  CloseHandle(handle); 
+	FlushFileBuffers(hPipe);
+	DisconnectNamedPipe(hPipe);
+    CloseHandle(hPipe); 
   }
+
+  bool WaitForClient();
   
-  bool WritePipe(std::string msg);
-  std::string ReadPipe();
+  bool WritePipe(const ProfileData& data);
+  int ReadIntFromPipe();
+  std::string ReadStringFromPipe();
 
  private:
-  HANDLE handle;
+  HANDLE hPipe;
 };
 

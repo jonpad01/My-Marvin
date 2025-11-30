@@ -8,12 +8,21 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+struct ProfileData {
+  char name[50];
+  char password[50];
+  char zone_name[50];
+  char chats[300];
+  short ship = 0;
+  short window_mode = 0;
+};
+
 struct MarvinData {
   ~MarvinData() { CloseHandle(handle); }
 
-  std::vector<std::string> profile_data;
   HANDLE handle = NULL;
   std::string name;
+  ProfileData profile_data;
 };
 
 std::string GetWorkingDirectory();
