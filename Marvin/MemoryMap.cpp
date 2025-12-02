@@ -33,7 +33,6 @@ uint32_t MemoryMap::ReadU32() {
   return shm->data;
 }
 
-// not really accurate if timeout is less than 100 milliseconds
 bool MemoryMap::HasData() {
 
   if (shm->state == ComState::MarvinReads) {

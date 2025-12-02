@@ -39,12 +39,12 @@
 /* Marvin Detours
 * 
 * Marvin uses detours to override winapi functions as they are called.  If no functions were called, you can't override them!  
-* You have the option to change what code is executed and what they return, but you can't control when the caller calls them.
+* You have the option to add code to be executed and change what the function returns, but you can't control when the caller calls them.
 * The caller is also expecting a result when the function returns, so you need to give it something that makes sense.  here is a basic list of what can be done.
 * 
 * You can insert code to execute just about anything you want.  In this case all the code is used to simulate a player playing the game.
 * 
-* You can manipulate the return value to produce a result you want.  If the function is a call to generate a messagebox, you can simply return 0 to make it fail, and
+* You can manipulate the return value to produce a result you want.  If the function is a call to generate a messagebox, you can return 0 to make it fail, and
 * the message box will never be created.  If you dont want to change the result, you can return a call to the real function, and it will execute normally.
 * 
 * You can call the function yourself and observe the result that it would produce.  If you call it before returning, then you have executed the body of the function.
@@ -222,6 +222,8 @@ static BOOL(WINAPI* RealGetMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
 static int(WINAPI* RealDialogBoxParamA)(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND hWndParent, DLGPROC lpDialogFunc,
                                    LPARAM dwInitParam) = DialogBoxParamA;
 
+static BOOL(WINAPI* RealEndDialog)(HWND hDlg, INT_PTR nResult) = EndDialog;
+
 static int(WINAPI* RealMessageBoxA)(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) = MessageBoxA;
 
 static HRESULT(STDMETHODCALLTYPE* RealBlt)(LPDIRECTDRAWSURFACE, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX);
@@ -270,7 +272,9 @@ HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_r
 
 
 
-//used to write into new player creation box
+// used to write into new player creation box, captured by OverrideDialogBoxParamA()
+// because it uses window handles (hwnd) it may not work in a headless VM
+// or when a machine does not have a display device attached
 LRESULT CALLBACK PlayerInformationHook(int nCode, WPARAM wParam, LPARAM lParam) {
   if (nCode == HCBT_ACTIVATE)  // dialog finished creating, now safe to modify
   {
@@ -300,8 +304,10 @@ LRESULT CALLBACK PlayerInformationHook(int nCode, WPARAM wParam, LPARAM lParam) 
   return CallNextHookEx(g_hHook, nCode, wParam, lParam);
 }
 
-// cannot fill data here because the box is being called and hasnt been created, need to use a hook or possible
-// overide something else that can input key commands
+// this function is a call to create a dialog box, it waits indefinetly for EndDialog() to close the box.
+// Its return value is whatever is given when calling EndDialog(), so i have no idea what value the caller is expecting
+// It uses a template stored elsewhere to create the dialog box
+// the best way to write text into these boxes is with a hook, or to write the values directly to memory if the address is known
 int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND hWndParent, DLGPROC lpDialogFunc, LPARAM dwInitParam) {
   OverrideGuard guard;
 
@@ -314,13 +320,22 @@ int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND
    // can automate new player generation here by using a hook to fill the player information
    if (dialog_id == MenuDialogBoxId::PlayerInformation) {
      g_hHook = SetWindowsHookExA(WH_CBT, PlayerInformationHook, NULL, GetCurrentThreadId());
+     return IDOK;  // does this work?
    }
 
   return RealDialogBoxParamA(hInstance, lpTemplate, hWndParent, lpDialogFunc, dwInitParam);
 }
 
-//captures message boxes that continuum produces.
-// the menu only uses a couple message boxes, the rest are dialog boxes
+// can possibly use this to sniff out what values are passed to DialogBoxParamA
+BOOL WINAPI OverrideEndDialog(HWND hDlg, INT_PTR nResult) {
+  return RealEndDialog(hDlg, nResult);
+}
+
+// captures message boxes that continuum produces.
+// the game uses a couple message boxes, which are easy to manipulate
+//  return 0 to tell the caller it failed
+// i believe this function waits indefinetly until returned, which directly controls
+// what button is pressed on the message box
 int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
   OverrideGuard guard;
 
@@ -329,18 +344,20 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
 
   marvin::log.Write("Message box found with title: " + caption + " and message text: " + lpText);
 
-  const std::string fail_to_connect_msg =
-      "Failed to connect to server. Check to make sure the server is online (it should appear yellow or green in the "
-      "zone list) and that you are currently connected to the internet. If problem persists, seek help at the Tech "
-      "Support Forums found at www.subspacehq.com";
 
-  const std::string unknown_name =
-      "Unknown name. Would you like to create a new user and enter the game using this name?";
-
-  const std::string too_many_times = "You have tried to login too many times. Please try again in few minute";
 
   if (caption == "Information") {  
-    // return 0 to close msg box
+
+    const std::string fail_to_connect_msg =
+        "Failed to connect to server. Check to make sure the server is online (it should appear yellow or green in the "
+        "zone list) and that you are currently connected to the internet. If problem persists, seek help at the Tech "
+        "Support Forums found at www.subspacehq.com";
+
+    const std::string unknown_name =
+        "Unknown name. Would you like to create a new user and enter the game using this name?";
+
+    const std::string too_many_times = "You have tried to login too many times. Please try again in few minute";
+
     if (text == fail_to_connect_msg) {  // verified
       set_join_timer = true;
       joined = false;
@@ -357,12 +374,23 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
     }
   }
 
+
+
+  // possible error boxes ive seen so far:
+  // Direct Draw error - usually happens after the full screen expansion graphic during login
+  // this error can be related to using different resolutions, and other things im sure
+  // once this error pops up the only solution was to exit all continumm processes and restart
+  // Unable to create zones/****.lvl - happened during arena recycles where multiple bots download a new map
   if (caption == "Error") {
-    PostQuitMessage(0);
+
+    const std::string map_file_download_failure_partial = "Unable to create zones";
+
+    PostQuitMessage(0);  // errors mean the game has crashed, so try to quit
     quit_game = true;
     return IDOK;
   }
 
+  // return 0 to supress all other message boxes, though im allowing them to popup so i can try to document them.
   return RealMessageBoxA(hWnd, lpText, lpCaption, uType);
 }
 
@@ -454,7 +482,7 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
     } else if (game->WriteToPlayerProfile(parser.GetProfileData()) &&
                game->SetMenuSelectedZone(parser.GetProfileData().zone_name)) {
       my_name = parser.GetProfileData().name;
-      sm_state = SharedMemoryState::WritingToLauncher;  // this state is checked in peakmessage after the game loads
+      sm_state = SharedMemoryState::WritingToLauncher;  // this state is checked in peekmessage after the game loads
     }
 
     return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
@@ -535,8 +563,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
+  // the launcher only needs to know that marvin has finished logging in
+  // TODO: if the map is being downloaded could send a signal here to make the launcher wait longer.
   if (sm_state == SharedMemoryState::WritingToLauncher) {
-    memory_map.WriteU32(134);
+    memory_map.WriteU32(134);  
     sm_state = SharedMemoryState::Finished;
   }
 
@@ -635,6 +665,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourAttach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
+  DetourAttach(&(PVOID&)RealEndDialog, OverrideEndDialog);
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
   DetourAttach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourAttach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
@@ -652,6 +683,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourDetach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourDetach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
+  DetourDetach(&(PVOID&)RealEndDialog, OverrideEndDialog);
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
   // is this right?
   DetourDetach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
