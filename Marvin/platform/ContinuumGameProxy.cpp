@@ -1205,7 +1205,7 @@ bool ContinuumGameProxy::LimitMessageRate() {
   const int kFloodLimit = 3;
   const u64 kFloodCooldown = 1200;
 
-  if (IsKnownBot()) return false;  // bypass rate limiter if the zone allows bot to spam
+  if (IsNotRateLimited()) return false;  // bypass rate limiter if the zone allows bot to spam
 
   if (time_.GetTime() > message_cooldown_) {
     sent_message_count_ = 0;
@@ -1217,12 +1217,12 @@ bool ContinuumGameProxy::LimitMessageRate() {
   return false;
 }
 
-bool ContinuumGameProxy::IsKnownBot() {
+bool ContinuumGameProxy::IsNotRateLimited() {
 
   if (zone_ != Zone::Devastation) return false;  // currently deva is the only zone whitelisting bots
 
   for (const std::string& name : kBotNames) {
-    if (name == player_->name) return true;
+    if (Lowercase(name) == Lowercase(player_->name)) return true;
   }
   return false;
 }
@@ -1257,7 +1257,7 @@ bool ContinuumGameProxy::ProcessQueuedMessages() {
     message_queue_.pop_front();
   }
    
-  if (!IsKnownBot()) sent_message_count_++;
+  if (!IsNotRateLimited()) sent_message_count_++;
 
   return result;
 }

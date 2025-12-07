@@ -15,6 +15,8 @@ class ModListCommand : public CommandExecutor {
 
     std::string output;
 
+
+    // TODO: operators is an unorederd_map, could use a method to list by security level
     for (const auto& entry : cmd.GetOperators()) {
       output = entry.first;
       SecurityLevel level = entry.second;

@@ -14,16 +14,9 @@ namespace marvin {
 std::string Lowercase(const std::string& str) {
   std::string result;
 
-  std::string name = str;
+  result.resize(str.size());
 
-  //remove "^" that gets placed on names when biller is down
-  if (!name.empty() && name[0] == '^') {
-    name.erase(0, 1);
-  }
-
-  result.resize(name.size());
-
-  std::transform(name.begin(), name.end(), result.begin(), ::tolower);
+  std::transform(str.begin(), str.end(), result.begin(), ::tolower);
 
   return result;
 }

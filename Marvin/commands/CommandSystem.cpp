@@ -35,6 +35,7 @@ const std::unordered_map<std::string, int> kOperators = {
     {"sk", 5},         {"b.o.x.", 10},     {"devastated", 5}};
     */
 
+
 const std::unordered_map<std::string, SecurityLevel> kOperators = {{"tm_master", SecurityLevel::Maximum},
                                                                    {"baked cake", SecurityLevel::Maximum},
                                                                    {"x-demo", SecurityLevel::Maximum},
