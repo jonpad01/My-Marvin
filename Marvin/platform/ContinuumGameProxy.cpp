@@ -1277,7 +1277,7 @@ void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
   // arbitrary number, continuum allows 249 characters in messages
   // but this method seems to crash with strings lengths of 244 or greater
   // doesnt always crash
-  const std::size_t kMaxLength = 240;
+  const std::size_t kMaxLength = 200;
   std::size_t length = mesg.length();
   
   if (length > kMaxLength) length = kMaxLength;
