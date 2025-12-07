@@ -579,6 +579,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   }
 
+ 
+
   // wait until after bot is in the game
   if (set_title && g_hWnd) {
     SetWindowText(g_hWnd, (kEnabledText + my_name).c_str());

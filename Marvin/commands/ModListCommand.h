@@ -16,14 +16,27 @@ class ModListCommand : public CommandExecutor {
     std::string output;
 
     for (const auto& entry : cmd.GetOperators()) {
-      std::string op = entry.first;
-      //int level = entry.second;
+      output = entry.first;
       SecurityLevel level = entry.second;
 
-      output += op + " [" + std::to_string((int)level) + "] ";
+      switch (level) {
+        case SecurityLevel::Blacklisted: {
+          output += ": Blacklisted";
+        } break;
+        case SecurityLevel::Unrestricted: {
+          output += ": Urestricted";
+        } break;
+        case SecurityLevel::Elevated: {
+          output += ": Elevated";
+        } break;
+        case SecurityLevel::Maximum: {
+          output += ": Maximum";
+        } break;
+        default:
+          break;
+      }
+      bot.GetGame().SendPrivateMessage(sender, output);
     }
-
-    bot.GetGame().SendPrivateMessage(sender, output);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }

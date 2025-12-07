@@ -1272,9 +1272,17 @@ void ContinuumGameProxy::SendPriorityMessage(const std::string& message) {
 void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
 #if !DEBUG_USER_CONTROL
 
- #if 0
   if (mesg.empty()) return;
+  
+  // arbitrary number, continuum allows 249 characters in messages
+  // but this method seems to crash with strings lengths of 244 or greater
+  // doesnt always crash
+  const std::size_t kMaxLength = 240;
+  std::size_t length = mesg.length();
+  
+  if (length > kMaxLength) length = kMaxLength;
 
+ #if 0  // backup method
   for (std::size_t i = 0; i < mesg.size(); i++) {
     PostMessage(g_hWnd, WM_CHAR, mesg[i], 0);
   }
@@ -1282,6 +1290,7 @@ void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
   PostMessage(hwnd_, WM_KEYDOWN, VK_RETURN, 0);
   PostMessage(hwnd_, WM_KEYUP, VK_RETURN, 0);
   #endif
+
   #if 1
   typedef void(__fastcall * ChatSendFunction)(void* This, void* thiscall_garbage, char* msg, u32* unknown1,
                                               u32* unknown2);
@@ -1289,8 +1298,8 @@ void ContinuumGameProxy::SendQueuedMessage(const std::string& mesg) {
   // The address to the current text input buffer
   std::size_t chat_input_addr = game_addr_ + 0x2DD14;
   char* input = (char*)(chat_input_addr);
-  memcpy(input, mesg.c_str(), mesg.length());
-  input[mesg.length()] = 0;
+  memcpy(input, mesg.c_str(), length);  // should be safe even if the string is longer than the length
+  input[length] = 0;
 
   ChatSendFunction send_func = (ChatSendFunction)(*(u32*)(module_base_continuum_ + 0xAC30C));
 
