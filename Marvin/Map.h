@@ -97,6 +97,38 @@ class Map {
   static std::unique_ptr<Map> Load(const std::string& filename);
 
  private:
+
+ #pragma pack(push, 1)
+  struct Tile {
+    u32 x : 12;
+    u32 y : 12;
+    u32 tile : 8;
+  };
+
+  struct bitmap_file_header_t {
+    u16 bm;
+    u32 fsize;
+    u32 res1;
+    u32 offbits;
+  };
+
+  struct metadata_header_t {
+    u32 magic;
+    u32 totalsize;
+    u32 res1;
+  };
+
+  struct Chunk {
+    u32 type;
+    u32 size;
+    //unsigned char data[1];
+  };
+#pragma pack(pop)
+
+  static void LoadRegionData(unsigned char* start, u32 len);
+  static void ProcessRegionChunk(unsigned char* start, u32 len);
+
+  std::string regions_[1024 * 1024];  // TODO: expand region data
   TileData tile_data_;
   bool mine_map[1024 * 1024];
   std::vector<std::size_t> mined_tile_index_list;

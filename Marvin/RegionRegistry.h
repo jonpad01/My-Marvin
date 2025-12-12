@@ -10,7 +10,12 @@
 #include "Vector2f.h"
 #include "MapCoord.h"
 
-
+/* 
+* This Region registry does not contain the same regions that are used in .lvl files for ASSS servers.
+* This makes a map of all the areas that are not connected (your ship can't fly there because of walls)
+* and saves them so the bot can do a fast lookup, dertermining if potential targets or waypoints can be accessed.
+* Regions used with .lvl files and ASSS servers are stored in Map.h
+*/
 
 namespace marvin {
 

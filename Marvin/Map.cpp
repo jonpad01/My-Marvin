@@ -6,9 +6,14 @@
 #include "RegionRegistry.h"
 #include "MapCoord.h"
 #include "Vector2i.h"
+#include "Debug.h"
 //#include "path/NodeProcessor.h"
 
 namespace marvin {
+
+constexpr u32 FourCC(const char s[5]) {
+  return (u32)s[0] | ((u32)s[1] << 8) | ((u32)s[2] << 16) | ((u32)s[3] << 24);
+}
 
   //  enum class Corner : short {TopLeft, TopRight, BottomLeft, BottomRight};
 //enum class Direction : short { North, South, East, West, NorthWest, NorthEast, SouthWest, SouthEast, None };
@@ -757,29 +762,45 @@ bool Map::CanOccupyRadius(const Vector2f& position, float radius) const {
 
 
 
-struct Tile {
-  u32 x : 12;
-  u32 y : 12;
-  u32 tile : 8;
-};
-
 std::unique_ptr<Map> Map::Load(const char* filename) {
-  std::ifstream input(filename, std::ios::in | std::ios::binary);
 
+  const u32 kMetadataMagic = 0x6C766C65;  // magic number for detecting metadata / regions
+  const u16 kBM = 19778; // "BM" when read as two chars
+
+  std::ifstream input(filename, std::ios::in | std::ios::binary);  
   if (!input.is_open()) return nullptr;
 
   input.seekg(0, std::ios::end);
   std::size_t size = static_cast<std::size_t>(input.tellg());
   input.seekg(0, std::ios::beg);
 
-  std::string data;
-  data.resize(size);
+  std::vector<unsigned char> data(size);
 
-  input.read(&data[0], size);
+  if (!input.read(reinterpret_cast<char*>(data.data()), size)) return nullptr;
 
+  bitmap_file_header_t bitmap_header;
+  metadata_header_t metadata_header;
+  std::memcpy(&bitmap_header, data.data(), sizeof(bitmap_header));
+  
+  // lvl file only has tiledata
   std::size_t pos = 0;
-  if (data[0] == 'B' && data[1] == 'M') {
-    pos = *(u32*)(&data[2]);
+  // tiledata is at the end of the file, grab the pointer to its location
+  if (data.size() >= sizeof(bitmap_header) && bitmap_header.bm == kBM) {
+    pos = bitmap_header.fsize;
+    // look for metadata containing regions
+    if (bitmap_header.res1 != 0) {
+      std::memcpy(&metadata_header, data.data() + bitmap_header.res1, sizeof(metadata_header));
+
+      // metadata confirmed 
+      if (data.size() >= (bitmap_header.res1 + 12) && metadata_header.magic == kMetadataMagic &&
+          data.size() >= bitmap_header.res1 + metadata_header.totalsize) {
+
+        unsigned char* metadata_ptr = data.data() + bitmap_header.res1 + 12;
+        std::size_t len = metadata_header.totalsize - 12;
+
+        LoadRegionData(metadata_ptr, len);
+      }
+    }
   }
 
   TileData tiles(kMapExtent * kMapExtent);
@@ -820,6 +841,88 @@ std::unique_ptr<Map> Map::Load(const char* filename) {
 
 std::unique_ptr<Map> Map::Load(const std::string& filename) {
   return Load(filename.c_str());
+}
+
+void Map::LoadRegionData(unsigned char* start, u32 len) {
+
+    const u32 kMaxChunkSize = (128 * 1024);
+    Chunk chunk;
+
+    unsigned char* pos = start;
+
+    // processing random chunks
+    while (len >= 8) {
+
+        /* first check chunk header */
+        std::memcpy(&chunk, pos, sizeof(Chunk));
+  
+        if (chunk.size > kMaxChunkSize || (chunk.size + 8) > (unsigned)len) break;
+
+        // found a region chunk cycle through it
+        if (chunk.type == FourCC("REGN")) {
+        //if (chunk.type == (*(u32*)"REGN")) {
+          ProcessRegionChunk(pos + sizeof(Chunk), chunk.size);
+        }
+
+        pos += chunk.size + 8;
+        len -= chunk.size + 8;
+
+        /* skip padding bytes */
+        if ((chunk.size & 3) != 0) {
+          int padding = 4 - (chunk.size & 3);
+          pos += padding;
+          len -= padding;
+        }
+    }
+}
+
+void Map::ProcessRegionChunk(unsigned char* start, u32 len) {
+
+
+  const u32 kMaxChunkSize = (128 * 1024);
+
+  unsigned char* pos = start;
+
+  Chunk chunk;
+
+  while (len >= 8) {
+    /* first check chunk header */
+    std::memcpy(&chunk, pos, sizeof(Chunk));
+
+    if (chunk.size > kMaxChunkSize || (chunk.size + 8) > (unsigned)len) break;
+
+    if (chunk.type == FourCC("rNAM")) {
+    //if (chunk.type == (*(u32*)"rNAM")) {
+
+      log.Write("Chunk found: ");
+      log.Write(std::to_string(chunk.type));
+      log.Write(std::to_string((*(u32*)"rNAM")));
+      log.Write(std::to_string(chunk.size));
+      log.Write("");
+
+      char test [500];
+      memcpy(test, pos + sizeof(Chunk), chunk.size);
+      
+      std::string name;
+      name.reserve(chunk.size + 1);
+      name = reinterpret_cast<const char*>(pos + sizeof(Chunk)), chunk.size;
+
+
+      log.Write("Region found with name: ");
+      log.Write(name);
+    }
+
+    pos += chunk.size + 8;
+    len -= chunk.size + 8;
+
+    /* skip padding bytes */
+    if ((chunk.size & 3) != 0) {
+      int padding = 4 - (chunk.size & 3);
+      pos += padding;
+      len -= padding;
+    }
+  }
+
 }
 
 bool IsValidPosition(MapCoord coord) {
