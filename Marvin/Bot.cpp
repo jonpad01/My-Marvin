@@ -117,10 +117,8 @@ void Bot::Load() {
       break;
     }
     case 4: {
-
       SelectBehaviorTree();                                                               // 100ms
-      //log.Write("Behavior Tree Loaded", timer.GetElapsedTime());   
-
+      //log.Write("Behavior Tree Loaded", timer.GetElapsedTime()); 
       load_index++;
       break;
     }
@@ -280,7 +278,7 @@ void Bot::SelectBehaviorTree() {
 
   switch (game_->GetZone()) {
     case Zone::Devastation: {
-      goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMapFile());
+      goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMap(), game_->GetMapFile());
       if (map_name == "bdelite.lvl") {
        // log.Write("Building Training behavior tree.");
         builder = std::make_unique<training::TrainingBehaviorBuilder>();

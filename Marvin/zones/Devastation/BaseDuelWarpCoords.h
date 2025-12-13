@@ -5,11 +5,12 @@
 #include "..//..//TeamGoals.h"
 
 namespace marvin {
+class Map;
 namespace deva {
 
 class BaseDuelWarpCoords : public TeamGoalCreator {
  public:
-  BaseDuelWarpCoords(const std::string& mapName);
+  BaseDuelWarpCoords(const Map& map, const std::string& mapName);
 
   bool CheckFiles();
   bool FoundMapFiles() { return foundMapFiles; }

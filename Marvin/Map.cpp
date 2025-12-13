@@ -2,7 +2,6 @@
 
 #include <fstream>
 
-
 #include "RegionRegistry.h"
 #include "MapCoord.h"
 #include "Vector2i.h"
@@ -10,6 +9,40 @@
 //#include "path/NodeProcessor.h"
 
 namespace marvin {
+
+struct LvlRegion {
+  std::string name;
+  std::bitset<1024 * 1024> tiles;
+};
+
+#pragma pack(push, 1)
+struct Tile {
+  u32 x : 12;
+  u32 y : 12;
+  u32 tile : 8;
+};
+
+struct bitmap_file_header_t {
+  u16 bm;
+  u32 fsize;
+  u32 res1;
+  u32 offbits;
+};
+
+struct metadata_header_t {
+  u32 magic;
+  u32 totalsize;
+  u32 res1;
+};
+
+// there is data directly after this header in memory
+// but it is of various sizes
+// use the size to copy the data into a seprate variable
+struct ChunkHeader {
+  u32 type;
+  u32 size;
+};
+#pragma pack(pop)
 
 constexpr u32 FourCC(const char s[5]) {
   return (u32)s[0] | ((u32)s[1] << 8) | ((u32)s[2] << 16) | ((u32)s[3] << 24);
@@ -765,7 +798,11 @@ bool Map::CanOccupyRadius(const Vector2f& position, float radius) const {
 std::unique_ptr<Map> Map::Load(const char* filename) {
 
   const u32 kMetadataMagic = 0x6C766C65;  // magic number for detecting metadata / regions
-  const u16 kBM = 19778; // "BM" when read as two chars
+  const u16 kBM = 19778;                  // "BM" when read as two chars
+
+  bitmap_file_header_t bitmap_header;
+  metadata_header_t metadata_header;
+  bool has_metadata = false;
 
   std::ifstream input(filename, std::ios::in | std::ios::binary);  
   if (!input.is_open()) return nullptr;
@@ -778,8 +815,6 @@ std::unique_ptr<Map> Map::Load(const char* filename) {
 
   if (!input.read(reinterpret_cast<char*>(data.data()), size)) return nullptr;
 
-  bitmap_file_header_t bitmap_header;
-  metadata_header_t metadata_header;
   std::memcpy(&bitmap_header, data.data(), sizeof(bitmap_header));
   
   // lvl file only has tiledata
@@ -795,10 +830,7 @@ std::unique_ptr<Map> Map::Load(const char* filename) {
       if (data.size() >= (bitmap_header.res1 + 12) && metadata_header.magic == kMetadataMagic &&
           data.size() >= bitmap_header.res1 + metadata_header.totalsize) {
 
-        unsigned char* metadata_ptr = data.data() + bitmap_header.res1 + 12;
-        std::size_t len = metadata_header.totalsize - 12;
-
-        LoadRegionData(metadata_ptr, len);
+        has_metadata = true;
       }
     }
   }
@@ -836,94 +868,193 @@ std::unique_ptr<Map> Map::Load(const char* filename) {
     pos += sizeof(Tile);
   }
 
-  return std::make_unique<Map>(tiles);
+  auto map = std::make_unique<Map>(tiles);
+
+  // do this after creating map object because load function is static
+  if (has_metadata) {
+    unsigned char* metadata_ptr = data.data() + bitmap_header.res1 + 12;
+    std::size_t len = metadata_header.totalsize - 12;
+
+   map->LoadMetaData(metadata_ptr, len);
+  }
+
+  return map;
 }
 
 std::unique_ptr<Map> Map::Load(const std::string& filename) {
   return Load(filename.c_str());
 }
 
-void Map::LoadRegionData(unsigned char* start, u32 len) {
+bool Map::LoadMetaData(unsigned char* start, u32 len) {
 
-    const u32 kMaxChunkSize = (128 * 1024);
-    Chunk chunk;
-
-    unsigned char* pos = start;
-
-    // processing random chunks
-    while (len >= 8) {
-
-        /* first check chunk header */
-        std::memcpy(&chunk, pos, sizeof(Chunk));
-  
-        if (chunk.size > kMaxChunkSize || (chunk.size + 8) > (unsigned)len) break;
-
-        // found a region chunk cycle through it
-        if (chunk.type == FourCC("REGN")) {
-        //if (chunk.type == (*(u32*)"REGN")) {
-          ProcessRegionChunk(pos + sizeof(Chunk), chunk.size);
-        }
-
-        pos += chunk.size + 8;
-        len -= chunk.size + 8;
-
-        /* skip padding bytes */
-        if ((chunk.size & 3) != 0) {
-          int padding = 4 - (chunk.size & 3);
-          pos += padding;
-          len -= padding;
-        }
-    }
-}
-
-void Map::ProcessRegionChunk(unsigned char* start, u32 len) {
-
+   regions.clear();  // clear any time the map is reloaded
 
   const u32 kMaxChunkSize = (128 * 1024);
-
+  
   unsigned char* pos = start;
 
-  Chunk chunk;
+    // processing random chunks
+    while (len >= sizeof(ChunkHeader)) {
 
-  while (len >= 8) {
-    /* first check chunk header */
-    std::memcpy(&chunk, pos, sizeof(Chunk));
+      ChunkHeader hdr;
+      std::memcpy(&hdr, pos, sizeof(ChunkHeader));
 
-    if (chunk.size > kMaxChunkSize || (chunk.size + 8) > (unsigned)len) break;
+      u32 padding = (hdr.size & 3) ? (4 - (hdr.size & 3)) : 0;
+      u32 total = sizeof(ChunkHeader) + hdr.size + padding;
 
-    if (chunk.type == FourCC("rNAM")) {
-    //if (chunk.type == (*(u32*)"rNAM")) {
+      if (hdr.size > kMaxChunkSize || total > len) return false;
 
-      log.Write("Chunk found: ");
-      log.Write(std::to_string(chunk.type));
-      log.Write(std::to_string((*(u32*)"rNAM")));
-      log.Write(std::to_string(chunk.size));
-      log.Write("");
+        // found a region chunk
+        if (hdr.type == FourCC("REGN")) {
+          ProcessRegionChunk(pos + sizeof(ChunkHeader), hdr.size);
+        }
 
-      char test [500];
-      memcpy(test, pos + sizeof(Chunk), chunk.size);
-      
-      std::string name;
-      name.reserve(chunk.size + 1);
-      name = reinterpret_cast<const char*>(pos + sizeof(Chunk)), chunk.size;
+        // more metadata can be processed here but i only need regions
 
-
-      log.Write("Region found with name: ");
-      log.Write(name);
+        pos += total;
+        len -= total;
     }
 
-    pos += chunk.size + 8;
-    len -= chunk.size + 8;
+    return true;
+}
 
-    /* skip padding bytes */
-    if ((chunk.size & 3) != 0) {
-      int padding = 4 - (chunk.size & 3);
-      pos += padding;
-      len -= padding;
+bool Map::ProcessRegionChunk(unsigned char* start, u32 len) {
+
+  const u32 kMaxChunkSize = (128 * 1024);
+  unsigned char* pos = start;
+
+  std::string name;
+  std::bitset<1024 * 1024> tiles;
+
+  // Region chunk is sub chunks name, tileset, and some others that ill deal with later  
+  while (len >= sizeof(ChunkHeader)) {
+
+    ChunkHeader hdr;
+    std::memcpy(&hdr, pos, sizeof(ChunkHeader));
+
+    u32 padding = (hdr.size & 3) ? (4 - (hdr.size & 3)) : 0;
+    u32 total = sizeof(ChunkHeader) + hdr.size + padding;
+
+    if (hdr.size > kMaxChunkSize || total > len) return false;
+
+    // header name
+    if (hdr.type == FourCC("rNAM")) {
+           
+      name.reserve(hdr.size + 1);
+      name = reinterpret_cast<const char*>(pos + sizeof(ChunkHeader)), hdr.size;
+
+    } else if (hdr.type == FourCC("rTIL")) {
+
+      std::span<const std::byte> payload
+      {reinterpret_cast<const std::byte*>(pos + sizeof(ChunkHeader)), hdr.size};
+      if (!DecodeRegionTiles(payload, &tiles)) {
+        return false;
+      }
+    }
+
+    // TODO: can grab more region subchunks here
+
+    pos += total;
+    len -= total;
+  }
+
+  regions[name] = tiles;
+
+  return true;
+}
+
+bool Map::DecodeRegionTiles(std::span<const std::byte> data, std::bitset<1024 * 1024>* tiles) {
+  constexpr int W = 1024;
+  constexpr int H = 1024;
+
+  std::bitset<W> prev_row;
+
+  int cx = 0, cy = 0;
+  std::size_t i = 0;
+
+  while (i < data.size()) {
+    if (cx < 0 || cx >= W || cy < 0 || cy >= H) return false;
+
+    uint8_t b = std::to_integer<uint8_t>(data[i++]);
+    int op = (b >> 6) & 3;
+    int d1 = b & 31;
+
+    int n = d1 + 1;
+    if (b & 32) {
+      if (i >= data.size()) return false;
+      n = (d1 << 8) + std::to_integer<uint8_t>(data[i++]) + 1;
+    }
+
+    switch (op) {
+      case 0:  // empty in row
+        cx += n;
+        break;
+
+      case 1:  // present in row
+        for (int x = 0; x < n; ++x) tiles->set(cy * W + cx + x);
+        cx += n;
+        break;
+
+      case 2:  // empty rows
+        if (cx != 0) return false;
+        cy += n;
+        break;
+
+      case 3:  // repeat last row
+        if (cx != 0 || cy == 0) return false;
+
+        for (int y = 0; y < n; ++y) {
+          for (int x = 0; x < W; ++x) {
+            if (prev_row.test(x)) tiles->set((cy + y) * W + x);
+          }
+        }
+        cy += n;
+        break;
+    }
+
+    if (cx == W) {
+      // snapshot completed row
+      prev_row.reset();
+      for (int x = 0; x < W; ++x)
+        if (tiles->test(cy * W + x)) prev_row.set(x);
+
+      cx = 0;
+      ++cy;
     }
   }
 
+  if (i != data.size() || cy != H) return false;
+
+  return true;
 }
+
+const std::vector<std::string>* Map::GetRegions(MapCoord coord) const {
+  std::vector<std::string> result;
+
+  for (const auto& [name, tiles] : regions) {
+    if (tiles.test(coord.y * 1024 + coord.x)) {
+      result.push_back(name);
+    }
+  }
+  return &result;
+}
+
+bool Map::HasRegion(const std::string& name) const {
+
+  auto it = regions.find(name);
+  if (it != regions.end()) {
+    return true;
+  }
+  return false;
+  }
+
+const std::bitset<1024 * 1024>* Map::GetTileSet(std::string name) const {
+    auto it = regions.find(name);
+    if (it != regions.end()) {
+      return &it->second;
+    }
+    return nullptr;
+  }
 
 bool IsValidPosition(MapCoord coord) {
   return coord.x >= 0 && coord.x < 1024 && coord.y >= 0 && coord.y < 1024;

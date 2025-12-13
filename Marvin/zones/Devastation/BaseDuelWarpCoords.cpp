@@ -5,11 +5,20 @@
 #include "..//..//Common.h"
 #include "BaseDuelWarpCoords.h"
 #include "..//..//MapCoord.h"
+#include "..//..//Map.h"
+#include "..//..//Debug.h"
 
 namespace marvin {
 namespace deva {
 
-BaseDuelWarpCoords::BaseDuelWarpCoords(const std::string& mapName) : mapName(mapName) {
+BaseDuelWarpCoords::BaseDuelWarpCoords(const Map& map, const std::string& mapName) : mapName(mapName) {
+
+    // process map for regions that point to base safe tiles
+  if (map.HasRegions()) {
+    //log.Write("has regions");
+  }
+
+
   foundMapFiles = false;
   LoadBaseDuelFile(mapName);
 }
@@ -19,7 +28,7 @@ bool BaseDuelWarpCoords::CheckFiles() {
   
   if (HasCoords()) return false;
 
-  // might be resouce heave to constantly check this
+  // might be resource heave to constantly check this
   LoadBaseDuelFile(mapName);
   return false;
 }

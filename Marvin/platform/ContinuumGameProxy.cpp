@@ -763,6 +763,7 @@ void ContinuumGameProxy::SetTileId(Vector2f position, u8 id) {
 const Map& ContinuumGameProxy::GetMap() const {
   return *map_;
 }
+
 const Player& ContinuumGameProxy::GetPlayer() const {
   return *player_;
 }

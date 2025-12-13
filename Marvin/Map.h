@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <bitset>
+#include <span>
+#include <unordered_map>
 
 #include "Types.h"
 #include "Vector2f.h"
@@ -91,44 +93,24 @@ class Map {
   void SetMinedTiles(std::vector<Weapon*> tiles);
   void ClearMinedTiles();
 
-
+  const std::vector<std::string>* GetRegions(MapCoord coord) const;
+  bool HasRegion(const std::string& name) const;
+  const std::bitset<1024 * 1024>* GetTileSet(std::string name) const;
+  bool HasRegions() const { return !regions.empty(); }
 
   static std::unique_ptr<Map> Load(const char* filename);
   static std::unique_ptr<Map> Load(const std::string& filename);
 
  private:
 
- #pragma pack(push, 1)
-  struct Tile {
-    u32 x : 12;
-    u32 y : 12;
-    u32 tile : 8;
-  };
+  bool LoadMetaData(unsigned char* start, u32 len);
+  bool ProcessRegionChunk(unsigned char* start, u32 len);
+  bool DecodeRegionTiles(std::span<const std::byte> data, std::bitset<1024 * 1024>* tiles);
 
-  struct bitmap_file_header_t {
-    u16 bm;
-    u32 fsize;
-    u32 res1;
-    u32 offbits;
-  };
+  std::unordered_map<std::string, std::bitset<1024 * 1024>> regions;
 
-  struct metadata_header_t {
-    u32 magic;
-    u32 totalsize;
-    u32 res1;
-  };
 
-  struct Chunk {
-    u32 type;
-    u32 size;
-    //unsigned char data[1];
-  };
-#pragma pack(pop)
 
-  static void LoadRegionData(unsigned char* start, u32 len);
-  static void ProcessRegionChunk(unsigned char* start, u32 len);
-
-  std::string regions_[1024 * 1024];  // TODO: expand region data
   TileData tile_data_;
   bool mine_map[1024 * 1024];
   std::vector<std::size_t> mined_tile_index_list;
