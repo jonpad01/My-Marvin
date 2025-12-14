@@ -97,6 +97,7 @@ class Map {
   bool HasRegion(const std::string& name) const;
   const std::bitset<1024 * 1024>* GetTileSet(std::string name) const;
   bool HasRegions() const { return !regions.empty(); }
+  const std::unordered_map<std::string, std::bitset<1024 * 1024>>& GetRegions() const { return regions; }
 
   static std::unique_ptr<Map> Load(const char* filename);
   static std::unique_ptr<Map> Load(const std::string& filename);

@@ -13,15 +13,17 @@ class BaseDuelWarpCoords : public TeamGoalCreator {
   BaseDuelWarpCoords(const Map& map, const std::string& mapName);
 
   bool CheckFiles();
-  bool FoundMapFiles() { return foundMapFiles; }
+  //bool FoundMapFiles() { return foundMapFiles; }
   bool HasCoords() { return !safes.Empty(); }
   const TeamGoals& GetGoals() { return safes; }
 
  private:
   std::string TrimExtension(const std::string& mapName);
   bool LoadBaseDuelFile(const std::string& mapName);
+  bool ProcessMapRegions(const Map& map);
   bool LoadFile(std::ifstream& file);
-  int GetIntMatch(std::ifstream& file, const std::string& match);
+  uint16_t GetIntMatch(std::ifstream& file, const std::string& match);
+  std::size_t ParseBaseNumber(const std::string& name);
 
   bool foundMapFiles;
   TeamGoals safes;
