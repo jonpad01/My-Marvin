@@ -12,6 +12,7 @@
 #include "../../platform/ContinuumGameProxy.h"
 #include "../../platform/Platform.h"
 #include "BaseDuel.h"
+//#include "..//..//common.h"
 
 namespace marvin {
 namespace deva {
@@ -81,7 +82,7 @@ behavior::ExecuteResult StartBDNode::Execute(behavior::ExecuteContext& ctx) {
 
   if (!msg.message.empty()) {
     for (std::string name : kBotNames) {
-      if (name == msg.player) {
+      if (Lowercase(name) == Lowercase(msg.player)) {
         game.SendChatMessage("I cannot start a base duel game because " + msg.player + " is already hosting one.");
         bb.Set<BDState>("bdstate", BDState::Stopped);
         bb.Set<bool>("reloadbot", true);
@@ -333,7 +334,7 @@ behavior::ExecuteResult BDQueryResponderNode::Execute(behavior::ExecuteContext& 
 
   if (!msg.message.empty()) {
     for (std::string name : kBotNames) {
-      if (name == msg.player) {
+      if (Lowercase(name) == Lowercase(msg.player)) {
         game.SendChatMessage(BD_RUN_CONFIRM);
         g_RenderState.RenderDebugText("  DevaQueryResponderDBNode(responding): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;

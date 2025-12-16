@@ -224,7 +224,7 @@ class GameProxy {
   //virtual const uint32_t GetSelectedPlayerIndex() const = 0;
 
   virtual const Player* GetPlayerById(u16 id) const = 0;
-  virtual const Player* GetPlayerByName(std::string_view name) const = 0;
+  virtual const Player* GetPlayerByName(const std::string& name) const = 0;
 
   virtual std::vector<Weapon*> GetWeapons() = 0;
   virtual std::vector<Weapon*> GetEnemyMines() = 0;

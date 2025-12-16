@@ -60,6 +60,7 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
       MapCoord coord{uint16_t(i % 1024), uint16_t(i / 1024)};
 
       // place them in order
+      // probably a slow and wasteful method
       if (team == 0) {
         if (base >= safes.t0.size()) safes.t0.resize(base + 1);
         safes.t0[base] = coord;
@@ -74,7 +75,7 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
 
   // there is no base 0, so index 0 is just MapCoord(0,0)
   // if it is preserved then the index would match base numbers
-  // but im deleting it now in case there are conflicts with other code that reads it
+  // but im deleting it in case there are conflicts with other code that reads it
   safes.t0.erase(safes.t0.begin());
   safes.t1.erase(safes.t1.begin());
 

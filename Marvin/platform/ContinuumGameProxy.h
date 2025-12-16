@@ -129,7 +129,7 @@ class ContinuumGameProxy : public GameProxy {
  
   const Player& GetSelectedPlayer() const override;
   const Player* GetPlayerById(u16 id) const override;
-  const Player* GetPlayerByName(std::string_view name) const override;
+  const Player* GetPlayerByName(const std::string& name) const override;
 
   const std::vector<BallData>& GetBalls() const override;
   const std::vector<Green>& GetGreens() const override;

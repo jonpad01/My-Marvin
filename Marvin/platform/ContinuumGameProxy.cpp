@@ -777,9 +777,9 @@ const Player* ContinuumGameProxy::GetPlayerById(u16 id) const {
   return nullptr;
 }
 
-const Player* ContinuumGameProxy::GetPlayerByName(std::string_view name) const {
+const Player* ContinuumGameProxy::GetPlayerByName(const std::string& name) const {
   for (std::size_t i = 0; i < players_.size(); ++i) {
-    if (players_[i].name == name) {
+    if (Lowercase(players_[i].name) == Lowercase(name)) {
       return &players_[i];
     }
   }
