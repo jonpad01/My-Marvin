@@ -215,6 +215,8 @@ static HANDLE(WINAPI* RealOpenMutexA)(DWORD dwDesiredAccess, BOOL bInheritHandle
 
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
 
+LRESULT(WINAPI* RealDispatchMessageA)(const MSG* lpMsg) = DispatchMessageA;
+
 static BOOL(WINAPI* RealPeekMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
                                       UINT wRemoveMsg) = PeekMessageA;
 static BOOL(WINAPI* RealGetMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) = GetMessageA;
@@ -328,6 +330,7 @@ int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND
 
 // can possibly use this to sniff out what values are passed to DialogBoxParamA
 BOOL WINAPI OverrideEndDialog(HWND hDlg, INT_PTR nResult) {
+  OverrideGuard guard;
   return RealEndDialog(hDlg, nResult);
 }
 
@@ -425,22 +428,38 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 }
 
 
+// dispatchmessage gets messages from both the game menu and the game window
+// with a reliable method to detect which state the game is in, this override can
+// probably override and run code for both 
+// probably not much reason to switch to this though
+LRESULT WINAPI OverrideDispatchMessageA(const MSG* lpMsg) {
+  OverrideGuard guard;
+  LRESULT result = RealDispatchMessageA(lpMsg);
+  return result;
+}
+
+
 // MENU
 // the dsound injection method will start here
 // will not update if the game is running the game window
 // might update if the game is also running the chat window
+// this override method is blocked until a message arrives.
 BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) {
   OverrideGuard guard;
+  // only want to manipulate keypresses if the result is true, so call it before returning
+  // its important that this is only called once, only return the result from this point.
+  bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  if (!result || !lpMsg) return result;  // if false it means the game menu is closing
 
   if (quit_game) {
     PostQuitMessage(0);
-    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    return result;
   }
 
   if (!game) {
     game = std::make_shared<marvin::ContinuumGameProxy>();
     my_name = game->GetName();
-    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    return result;
   }
 
   if (!marvin::log.IsOpen() && !my_name.empty()) {
@@ -470,7 +489,7 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       sm_state = SharedMemoryState::Failed;
       my_name = game->GetName();
     }
-    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    return result;
   }
 
   if (sm_state == SharedMemoryState::WritingToMemory) {
@@ -485,15 +504,13 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       sm_state = SharedMemoryState::WritingToLauncher;  // this state is checked in peekmessage after the game loads
     }
 
-    return RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+    return result;
   }
 
   // -------------------------------------------------------------------------
 
 
-  // only want to manipulate keypresses if the result is true, so call it before returning
-  // its important that this is only called once, only return the result from this point.
-  bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+  
 
   // game is on the menu
   // calling certain functions in the game pointer here will crash because the game is not loaded
@@ -514,7 +531,7 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       // press enter and join the game
       // WM_TIMER seems to be the most reliable message to hijack, WM_PAINT only gets sent
       // if the mouse is moved.
-      if (result && lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT) {
+      if (result && lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT || lpMsg->message == WM_NULL) {
         lpMsg->message = WM_KEYDOWN;
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
@@ -532,10 +549,16 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 //GAME
 // This is used to hook into the main update loop in Continuum so the bot can be updated.
 // the marvin injection method will start here
-// will not run/update if the game is in the menu
+// this updates even if there is no message, but does not update when the game is closed to the menu
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
   OverrideGuard guard;
-  BOOL result = 0;
+  // windows is expecting peekmessage to process quickly, so make it the first thing to execute.
+  // though whatever called it will still wait for the override to return, i think
+  // when this returns false it means there is no message to procces
+  // that is probably the best time to execute bot code
+  BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+  if (result || !lpMsg) return result;
+
   Initialize();
 
   // bot is set to null when getmsg updates which means game is on the menu
@@ -548,7 +571,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
  }
 
   if (game->GameIsClosing()) {  // guard peekmsg when game is closing
-    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    return result;
   }
 
   marvin::ConnectState state = game->GetConnectState();
@@ -560,7 +583,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       PostQuitMessage(0);
       quit_game = true;
     }
-    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    return result;
   }
 
   // the launcher only needs to know that marvin has finished logging in
@@ -576,7 +599,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   if (minimize__game_window) {
     ShowWindow(g_hWnd, SW_MINIMIZE);
     minimize__game_window = false;
-    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    return result;
   }
 
  
@@ -585,7 +608,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   if (set_title && g_hWnd) {
     SetWindowText(g_hWnd, (kEnabledText + my_name).c_str());
     set_title = false;
-    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    return result;
   }
 
   #if DEBUG_RENDER
@@ -605,7 +628,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     DetourTransactionCommit();
     
     initialize_debug = false;
-    return RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    return result;
   }
 
   #endif
@@ -634,12 +657,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
         marvin::g_RenderState.renderable_lines.clear();
 #endif
         if (bot) bot->Update(false, dt.count());
-        UpdateCRC(); 
+        UpdateCRC();
         g_LastUpdateTime = now;
       }
     }
-    
-     result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 
     if (g_hWnd && result && lpMsg->message == UM_SETTEXT) {
       PostMessageA(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
@@ -664,6 +685,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourTransactionBegin();
   DetourUpdateThread(GetCurrentThread());
   DetourAttach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
+  DetourAttach(&(PVOID&)RealDispatchMessageA, OverrideDispatchMessageA);
   DetourAttach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourAttach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourAttach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
@@ -682,6 +704,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourTransactionBegin();
   DetourUpdateThread(GetCurrentThread());
   DetourDetach(&(PVOID&)RealGetAsyncKeyState, OverrideGetAsyncKeyState);
+  DetourDetach(&(PVOID&)RealDispatchMessageA, OverrideDispatchMessageA);
   DetourDetach(&(PVOID&)RealPeekMessageA, OverridePeekMessageA);
   DetourDetach(&(PVOID&)RealGetMessageA, OverrideGetMessageA);
   DetourDetach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);

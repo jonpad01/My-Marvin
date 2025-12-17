@@ -68,7 +68,7 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   srand((unsigned int)(time_.GetTime()));
 
-  game_->Update();
+game_->Update();
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
   previous_door_state_ = DoorState::Load();
