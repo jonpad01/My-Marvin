@@ -14,10 +14,12 @@ class RepelCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseRepel, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseRepel()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "repel currently ON.");
       } else {
         game.SendPrivateMessage(sender, "repel currently OFF.");
@@ -25,10 +27,12 @@ class RepelCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {  
         game.SendPrivateMessage(sender, "Turning repel ON.");
-        bb.SetUseRepel(true);
+        //bb.SetUseRepel(true);
+        bb.Set<bool>(BBKey::UseRepel, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning repel OFF.");
-        bb.SetUseRepel(false);
+        //bb.SetUseRepel(false);
+        bb.Set<bool>(BBKey::UseRepel, false);
       } else {
         SendUsage(game, sender);
       }
@@ -58,10 +62,12 @@ class BurstCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseBurst, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseBurst()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "burst currently ON.");
       } else {
         game.SendPrivateMessage(sender, "burst currently OFF.");
@@ -69,10 +75,12 @@ class BurstCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning burst ON.");
-        bb.SetUseBurst(true);
+       // bb.SetUseBurst(true);
+        bb.Set<bool>(BBKey::UseBurst, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning burst OFF.");
-        bb.SetUseBurst(false);
+        //bb.SetUseBurst(false);
+        bb.Set<bool>(BBKey::UseBurst, false);
       } else {
         SendUsage(game, sender);
       }
@@ -103,10 +111,12 @@ class DecoyCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseDecoy, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseDecoy()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "decoy currently ON.");
       } else {
         game.SendPrivateMessage(sender, "decoy currently OFF.");
@@ -114,10 +124,12 @@ class DecoyCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning decoy ON.");
-        bb.SetUseDecoy(true);
+        //bb.SetUseDecoy(true);
+        bb.Set<bool>(BBKey::UseDecoy, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning decoy OFF.");
-        bb.SetUseDecoy(false);
+        //bb.SetUseDecoy(false);
+        bb.Set<bool>(BBKey::UseDecoy, false);
       } else {
         SendUsage(game, sender);
       }
@@ -147,10 +159,12 @@ class RocketCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseRocket, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseRocket()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "rocket currently ON.");
       } else {
         game.SendPrivateMessage(sender, "rocket currently OFF.");
@@ -158,10 +172,12 @@ class RocketCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning rocket ON.");
-        bb.SetUseRocket(true);
+        //bb.SetUseRocket(true);
+        bb.Set<bool>(BBKey::UseRocket, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning rocket OFF.");
-        bb.SetUseRocket(false);
+        //bb.SetUseRocket(false);
+        bb.Set<bool>(BBKey::UseRocket, false);
       } else {
         SendUsage(game, sender);
       }
@@ -191,10 +207,12 @@ class BrickCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseBrick, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseBrick()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "brick currently ON.");
       } else {
         game.SendPrivateMessage(sender, "brick currently OFF.");
@@ -202,10 +220,12 @@ class BrickCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning brick ON.");
-        bb.SetUseBrick(true);
+        //bb.SetUseBrick(true);
+        bb.Set<bool>(BBKey::UseBrick, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning brick OFF.");
-        bb.SetUseBrick(false);
+        //bb.SetUseBrick(false);
+        bb.Set<bool>(BBKey::UseBrick, false);
       } else {
         SendUsage(game, sender);
       }
@@ -235,10 +255,12 @@ class PortalCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UsePortal, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUsePortal()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "portal currently ON.");
       } else {
         game.SendPrivateMessage(sender, "portal currently OFF.");
@@ -246,10 +268,12 @@ class PortalCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning portal ON.");
-        bb.SetUsePortal(true);
+        //bb.SetUsePortal(true);
+        bb.Set<bool>(BBKey::UsePortal, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning portal OFF.");
-        bb.SetUsePortal(false);
+        //bb.SetUsePortal(false);
+        bb.Set<bool>(BBKey::UsePortal, false);
       } else {
         SendUsage(game, sender);
       }
@@ -279,10 +303,12 @@ class ThorCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseThor, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseThor()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "thor currently ON.");
       } else {
         game.SendPrivateMessage(sender, "thor currently OFF.");
@@ -290,10 +316,12 @@ class ThorCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning thor ON.");
-        bb.SetUseThor(true);
+        bb.Set<bool>(BBKey::UseThor, true);
+        //bb.SetUseThor(true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning thor OFF.");
-        bb.SetUseThor(false);
+        //bb.SetUseThor(false);
+        bb.Set<bool>(BBKey::UseThor, false);
       } else {
         SendUsage(game, sender);
       }

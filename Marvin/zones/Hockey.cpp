@@ -91,7 +91,7 @@ behavior::ExecuteResult BallSelectorNode::Execute(behavior::ExecuteContext& ctx)
     }
   }
 
-  ctx.blackboard.Set<const BallData*>("TargetBall", target_ball);
+  ctx.blackboard.Set<const BallData*>(BBKey::TargetBall, target_ball);
 
   return behavior::ExecuteResult::Success;
 }
@@ -107,7 +107,7 @@ behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
   const Player* target = nullptr;
 
-  const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
+  const BallData* ball = ctx.blackboard.ValueOr<const BallData*>(BBKey::TargetBall, nullptr);
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
     const Player& player = game.GetPlayers()[i];
@@ -128,7 +128,7 @@ behavior::ExecuteResult FindEnemyNode::Execute(behavior::ExecuteContext& ctx) {
     }
   }
 
-  ctx.blackboard.Set<const Player*>("target_player", target);
+  ctx.blackboard.Set<const Player*>(BBKey::TargetPlayer, target);
 
   return result;
 }
@@ -175,13 +175,13 @@ bool FindEnemyNode::IsValidTarget(behavior::ExecuteContext& ctx, const Player& t
 
 behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
-  std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
+  //std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
   Vector2f bot = game.GetPosition();
-  Vector2f enemy = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr)->position;
+  Vector2f enemy = ctx.blackboard.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr)->position;
 
-  path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, bot, enemy, game.GetShipSettings().GetRadius());
+  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, bot, enemy, game.GetShipSettings().GetRadius());
 
-  ctx.blackboard.Set("path", path);
+  //ctx.blackboard.Set("path", path);
   return behavior::ExecuteResult::Success;
 }
 
@@ -189,8 +189,8 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   Vector2f from = game.GetPosition();
 
-  std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
-  const BallData* ball = ctx.blackboard.ValueOr<const BallData*>("TargetBall", nullptr);
+  //std::vector<Vector2f> path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
+  const BallData* ball = ctx.blackboard.ValueOr<const BallData*>(BBKey::TargetBall, nullptr);
   if (!ball) {
     return behavior::ExecuteResult::Failure;
   }
@@ -214,7 +214,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
                     else path = CreatePath(ctx, "path", from, goal_0, game.GetShipSettings().GetRadius());
                 }
 #endif
-    path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, goal_0, game.GetShipSettings().GetRadius());
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, goal_0, game.GetShipSettings().GetRadius());
 
     if (game.GetPosition().DistanceSq(goal_1) < 25.0f * 25.0f ||
         game.GetPosition().DistanceSq(goal_0) < 25.0f * 25.0f) {
@@ -222,7 +222,7 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
     }
 
   } else
-    path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, ball->position, game.GetShipSettings().GetRadius());
+    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, from, ball->position, game.GetShipSettings().GetRadius());
 
 #if 0
             std::vector<Vector2f> nodes{ Vector2f(570, 540), Vector2f(455, 540), Vector2f(455, 500), Vector2f(570, 500) };
@@ -236,13 +236,15 @@ behavior::ExecuteResult PatrolNode::Execute(behavior::ExecuteContext& ctx) {
             }
 #endif
 
-  ctx.blackboard.Set("path", path);
+  //ctx.blackboard.Set("path", path);
 
   return behavior::ExecuteResult::Success;
 }
 
 behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
-  auto path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
+  //auto path = ctx.blackboard.ValueOr("path", std::vector<Vector2f>());
+
+  std::vector<Vector2f> path = ctx.bot->GetPathfinder().GetPath();
 
   size_t path_size = path.size();
   auto& game = ctx.bot->GetGame();
@@ -272,7 +274,8 @@ behavior::ExecuteResult FollowPathNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   if (path.size() != path_size) {
-    ctx.blackboard.Set("path", path);
+    //ctx.blackboard.Set("path", path);
+    ctx.bot->GetPathfinder().SetPath(path);
   }
 
   ctx.bot->Move(current, 0.0f);
@@ -294,7 +297,7 @@ bool FollowPathNode::CanMoveBetween(Bot& bot, Vector2f from, Vector2f to) {
 behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
   behavior::ExecuteResult result = behavior::ExecuteResult::Failure;
 
-  const auto target = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+  const auto target = ctx.blackboard.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
   if (!target) return behavior::ExecuteResult::Failure;
 
   auto& game = ctx.bot->GetGame();
@@ -310,7 +313,7 @@ behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx
 }
 
 behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ctx) {
-  const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
+  const auto target_player = ctx.blackboard.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
 
   if (!target_player) {
     return behavior::ExecuteResult::Failure;
@@ -330,8 +333,7 @@ behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ct
                                                           target.velocity, proj_speed);
 
   if (!result.hit) {
-    ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
-    ctx.blackboard.Set<bool>("has_shot", false);
+    ctx.blackboard.Set<Vector2f>(BBKey::AimingSolution, result.solution);
     return behavior::ExecuteResult::Failure;
   }
 
@@ -377,8 +379,7 @@ behavior::ExecuteResult LookingAtEnemyNode::Execute(behavior::ExecuteContext& ct
                                    &norm);
   }
 
-  ctx.blackboard.Set<bool>("has_shot", rHit);
-  ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
+  ctx.blackboard.Set<Vector2f>(BBKey::AimingSolution, result.solution);
 
   // bool hit = RayBoxIntersect(bot_player.position, projectile_direction, box_min, box_extent, &dist, &norm);
 
@@ -407,7 +408,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
 
-  Vector2f target_position = ctx.blackboard.ValueOr("shot_position", Vector2f());
+  Vector2f target_position = ctx.blackboard.ValueOr(BBKey::AimingSolution, Vector2f());
 
   float hover_distance = 1.0f;
 

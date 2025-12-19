@@ -32,11 +32,11 @@ class SetShipCommand : public CommandExecutor {
 
     if (number >= 1 && number <= 9) {
       game.SetShip(number - 1);
-      bot.GetBlackboard().SetShip(Ship(number - 1));
+      //bot.GetBlackboard().SetShip(Ship(number - 1));
 
       if (number == 9) {
-        //bb.SetAllToDefault();
-        bb.SetToDefaultBehavior();
+        bb.SetAllToDefault();
+        //bb.SetToDefaultBehavior();
 
         game.SendPrivateMessage(sender, "My behaviors are also reset when sent to spec");
       } else {

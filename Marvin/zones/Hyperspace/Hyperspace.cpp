@@ -62,14 +62,38 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   //  bot.GetBlackboard().Set<uint16_t>("Ship", ship);
   //   bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
 
-  bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
-  bot.GetBlackboard().SetPubTeam0(90);
-  bot.GetBlackboard().SetPubTeam1(91);
-  bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
+  bot.GetBlackboard().Set<std::vector<MapCoord>>(BBKey::PatrolNodes, patrol_nodes);
+  //bot.GetBlackboard().Set<uint16_t>("Freq", 999);
+  bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam0, 00);
+  bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam1, 01);
+  bot.GetBlackboard().Set<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
+
+
+ // bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
+ // bot.GetBlackboard().SetPubTeam0(90);
+ // bot.GetBlackboard().SetPubTeam1(91);
+ // bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   // fastest allowed for hypersppace
-  bot.GetBlackboard().SetSetShipCoolDown(5000);
-  bot.GetBlackboard().SetUpdateLancsFlag(true);
-  bot.GetBlackboard().SetUseMultiFire(true);
+  //bot.GetBlackboard().SetSetShipCoolDown(5000);
+  bot.GetBlackboard().Set<uint64_t>(BBKey::SetShipCoolDown, 5500);
+  //bot.GetBlackboard().SetUpdateLancsFlag(true);
+  bot.GetBlackboard().Set<bool>(BBKey::ReadingAnchorList, true);
+  //bot.GetBlackboard().SetUseMultiFire(true);
+
+  bot.GetBlackboard().Set<bool>(BBKey::UseMultiFire, true);
+  bot.GetBlackboard().Set<bool>(BBKey::UseStealth, true);
+  bot.GetBlackboard().Set<bool>(BBKey::UseCloak, true);
+  bot.GetBlackboard().Set<bool>(BBKey::UseXRadar, true);
+  bot.GetBlackboard().Set<bool>(BBKey::UseDecoy, true);
+  bot.GetBlackboard().Set<bool>(BBKey::UseRepel, true);
+  bot.GetBlackboard().Set<bool>(BBKey::UseBurst, true);
+  bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseMultiFire, true);
+  bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseStealth, true);
+  bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseCloak, true);
+  bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseXRadar, true);
+  bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseDecoy, true);
+  bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseRepel, true);
+  bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseBurst, true);
 
   auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
   auto anchor_base_path = std::make_unique<bot::AnchorBasePathNode>();
@@ -222,12 +246,13 @@ behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& c
 
   uint16_t ship = game.GetPlayer().ship;
   bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
-  const Player* anchor = bb.GetAnchor();
+  //const Player* anchor = bb.GetAnchor();
+  const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
 
 
 
   if (anchor && anchor->id == game.GetPlayer().id && flagging) {
-    bb.Set<CombatRole>("combatrole", CombatRole::Anchor);
+    bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Anchor);
 
     g_RenderState.RenderDebugText("  HSSetCombatRoleNode(Select Anchor): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
@@ -236,54 +261,54 @@ behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& c
   switch (ship) {
     case 0: {
       if (flagging) {
-        bb.Set<CombatRole>("combatrole", CombatRole::Rusher);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
       } else {
-        bb.Set<CombatRole>("combatrole", CombatRole::Gunner);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Gunner);
       }
       break;
     }
     case 1: {
       if (flagging) {
-        bb.Set<CombatRole>("combatrole", CombatRole::Rusher);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
       } else {
-        bb.Set<CombatRole>("combatrole", CombatRole::Bomber);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Bomber);
       }
       break;
     }
     case 2: {
-        bb.Set<CombatRole>("combatrole", CombatRole::Gunner);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Gunner);
       break;
     }
     case 3: {
-        bb.Set<CombatRole>("combatrole", CombatRole::Bomber);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Bomber);
       break;
     }
     case 4: {
-      bb.Set<CombatRole>("combatrole", CombatRole::Gunner);
+      bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Gunner);
       break;
     }
     case 5: {
-      bb.Set<CombatRole>("combatrole", CombatRole::Bomber);
+      bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Bomber);
       break;
     }
     case 6: {
-      bb.Set<CombatRole>("combatrole", CombatRole::Turret);
+      bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Turret);
       break;
     }
     case 7: {
       if (flagging) {
-        bb.Set<CombatRole>("combatrole", CombatRole::Flagger);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Flagger);
       } else {
-        bb.Set<CombatRole>("combatrole", CombatRole::PowerBaller);
+        bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::PowerBaller);
       }
       break;
     }
     case 8: {
-      bb.Set<CombatRole>("combatrole", CombatRole::None);
+      bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::None);
       break;
     }
     default: {
-      bb.Set<CombatRole>("combatrole", CombatRole::None);
+      bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::None);
       break;
     }
   }
@@ -303,7 +328,7 @@ behavior::ExecuteResult HSPrintShipStatusNode::Execute(behavior::ExecuteContext&
   const HSBuySellList& items = bb.GetHSBuySellList();
   int line_count = items.count;
 
-  if (items.action != ItemAction::ListItems) {
+  if (items.action != HSItemTransaction::ListItems) {
     g_RenderState.RenderDebugText("  HSListItemsNode(No Action Taken): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   } else if (ctx.bot->GetTime().GetTime() > items.timestamp + 5000) {
@@ -371,7 +396,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Failure;
   }
 
-  if (items.action != ItemAction::Buy && items.action != ItemAction::Sell) {
+  if (items.action != HSItemTransaction::Buy && items.action != HSItemTransaction::Sell) {
     g_RenderState.RenderDebugText("  HSBuySellNode(No Action Taken): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   } else if (ctx.bot->GetTime().GetTime() > items.timestamp + items.allowed_time) {
@@ -422,9 +447,9 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
       command = "?";
 
       // append buy or sell with delimiter
-      if (items.action == ItemAction::Buy)
+      if (items.action == HSItemTransaction::Buy)
         action = "|buy ";
-      else if (items.action == ItemAction::Sell)
+      else if (items.action == HSItemTransaction::Sell)
         action = "|sell ";
 
       command += action;
@@ -460,7 +485,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
           bb.EmplaceHSBuySellList(item);
           bb.SetHSBuySellMessageSent(false);
           game.SendPrivateMessage(items.sender, "Moving to ammo depot to buy " + item + ".");
-          bb.SetHSBuySellAction(ItemAction::DepotBuy);
+          bb.SetHSBuySellAction(HSItemTransaction::DepotBuy);
         } else if (match_list[i] == kGoToDepotSell) {
           std::size_t offset = 21;
           std::size_t next = msg.message.find(" here.", offset);
@@ -468,7 +493,7 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
           bb.EmplaceHSBuySellList(item);
           bb.SetHSBuySellMessageSent(false);
           game.SendPrivateMessage(items.sender, "Moving to ammo depot to sell " + item + ".");
-          bb.SetHSBuySellAction(ItemAction::DepotSell);
+          bb.SetHSBuySellAction(HSItemTransaction::DepotSell);
         }
         else if (match_list[i] == kGoToCenter) {
           game.SendPrivateMessage(
@@ -504,12 +529,12 @@ behavior::ExecuteResult HSMoveToDepotNode::Execute(behavior::ExecuteContext& ctx
   Vector2f position = game.GetPosition();
   bool on_safe_tile = game.GetMap().GetTileId(position) == kSafeTileId;
 
-  if (items.action == ItemAction::DepotBuy || items.action == ItemAction::DepotSell) {
+  if (items.action == HSItemTransaction::DepotBuy || items.action == HSItemTransaction::DepotSell) {
     if (on_safe_tile && position.Distance(Vector2f(590, 349)) < 4.0f) {
-      if (items.action == ItemAction::DepotBuy) {
-        bb.SetHSBuySellAction(ItemAction::Buy);
+      if (items.action == HSItemTransaction::DepotBuy) {
+        bb.SetHSBuySellAction(HSItemTransaction::Buy);
       } else {
-        bb.SetHSBuySellAction(ItemAction::Sell);
+        bb.SetHSBuySellAction(HSItemTransaction::Sell);
       }
       bb.SetHSBuySellTimeStamp(ctx.bot->GetTime().GetTime());
       // try to stop the bot on the safe tile
@@ -547,12 +572,17 @@ behavior::ExecuteResult HSMoveToBaseNode::Execute(behavior::ExecuteContext& ctx)
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  const Player* anchor = bb.GetAnchor();
+  Vector2f center_spawn = bb.ValueOr<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
+  bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), center_spawn);
 
-  bool in_center = bb.GetInCenter();
+  //const Player* anchor = bb.GetAnchor();
+  const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
+
+ // bool in_center = bb.GetInCenter();
   bool in_tunnel = ctx.bot->GetRegions().IsConnected(game.GetPlayer().position, kHyperTunnelCoord);
   float radius = game.GetShipSettings().GetRadius();
-  std::size_t index = bb.GetBDBaseIndex();
+  //std::size_t index = bb.GetBDBaseIndex();
+  std::size_t index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
 
   if (!in_center && !in_tunnel) {
     g_RenderState.RenderDebugText("  HSPatrolBaseNode(In Base): %llu", timer.GetElapsedTime());
@@ -605,13 +635,18 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
 
     if (result.found) {
       const Player* anchor = SelectAnchor(result.anchors, *ctx.bot);
-      bb.SetAnchor(anchor);
-      bb.SetTeamHasSummoner(result.has_summoner);
-      bb.SetUpdateLancsFlag(false);
+      //bb.SetAnchor(anchor);
+      bb.Set<const Player*>(BBKey::TeamAnchor, anchor);
+      //bb.SetTeamHasSummoner(result.has_summoner);
+      bb.Set<bool>(BBKey::AnchorHasSummoner, result.has_summoner);
+      //bb.SetUpdateLancsFlag(false);
+      bb.Set<bool>(BBKey::ReadingAnchorList, false);
     }
   } else {
-    bb.SetAnchor(nullptr);
-    bb.SetTeamHasSummoner(false);
+    //bb.SetAnchor(nullptr);
+    bb.Set<const Player*>(BBKey::TeamAnchor, nullptr);
+    //bb.SetTeamHasSummoner(false);
+    bb.Set<bool>(BBKey::AnchorHasSummoner, false);
   }
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
@@ -631,7 +666,8 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
       }
     }
   }
-  bb.SetEnemyAnchor(enemy_anchor);
+  //bb.SetEnemyAnchor(enemy_anchor);
+  bb.Set<const Player*>(BBKey::EnemyAnchor, enemy_anchor);
   g_RenderState.RenderDebugText("  HSPlayerSortNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
@@ -662,13 +698,10 @@ AnchorResult HSPlayerSortNode::GetAnchors(Bot& bot) {
   for (ChatMessage& chat : game.GetCurrentChat()) {
 
     // make sure message is a server message
-    if (chat.type != ChatType::Arena) {
-      continue;
-    }
+    if (chat.type != ChatType::Arena) continue;
+    
     if (chat.message == no_lancs_msg) {
       result.found = true;
-    }
-    if (result.found) {
       break;
     }
 
@@ -750,8 +783,10 @@ const Player* HSPlayerSortNode::SelectAnchor(const AnchorSet& anchors, Bot& bot)
 
 const Player* HSPlayerSortNode::FindAnchorInBase(const std::vector<const Player*>& anchors, Bot& bot) {
   auto& game = bot.GetGame();
+  auto& bb = bot.GetBlackboard();
 
   const Player* anchor = nullptr;
+  std::vector<const Player*> enemy_list = bb.ValueOr<std::vector<const Player*>>(BBKey::EnemyTeamPlayerList, std::vector<const Player*>());
 
   const std::vector<MapCoord>& base_regions = bot.GetTeamGoals().GetGoals().entrances;
   auto ns = path::PathNodeSearch::Create(bot, bot.GetBasePath());
@@ -765,8 +800,8 @@ const Player* HSPlayerSortNode::FindAnchorInBase(const std::vector<const Player*
       continue;
     }
 
-    for (std::size_t i = 0; i < bot.GetBlackboard().GetEnemyList().size(); i++) {
-      const Player* enemy = bot.GetBlackboard().GetEnemyList()[i];
+    for (std::size_t i = 0; i < enemy_list.size(); i++) {
+      const Player* enemy = enemy_list[i];
       if (!bot.GetRegions().IsConnected(enemy->position, reference)) {
         continue;
       }
@@ -847,11 +882,13 @@ behavior::ExecuteResult HSSetRegionNode::Execute(behavior::ExecuteContext& ctx) 
 
   bool in_center = regions.IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
 
-   bb.SetInCenter(in_center);
+   //bb.SetInCenter(in_center);
 
    Vector2f position = game.GetPosition();
-   const Player* anchor = bb.GetAnchor();
-   const Player* enemy_anchor = bb.GetEnemyAnchor();
+   //const Player* anchor = bb.GetAnchor();
+   //const Player* enemy_anchor = bb.GetEnemyAnchor();
+   const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
+   const Player* enemy_anchor = bb.ValueOr<const Player*>(BBKey::EnemyAnchor, nullptr);
 
    if (anchor) {
     position = anchor->position;
@@ -890,19 +927,26 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
     return behavior::ExecuteResult::Success;
   }
 
-  const Player* team_anchor = bb.GetAnchor();
-  const Player* enemy_anchor = bb.GetEnemyAnchor();
+  //const Player* team_anchor = bb.GetAnchor();
+  //const Player* enemy_anchor = bb.GetEnemyAnchor();
+  const Player* team_anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
+  const Player* enemy_anchor = bb.ValueOr<const Player*>(BBKey::EnemyAnchor, nullptr);
 
     if (!enemy_anchor) {
-      bb.SetTeamSafe(flagrooms[base_index]);
-      bb.SetEnemySafe(entrances[base_index]);
+      //bb.SetTeamSafe(flagrooms[base_index]);
+      //bb.SetEnemySafe(entrances[base_index]);
+      bb.Set<MapCoord>(BBKey::TeamGuardPoint, flagrooms[base_index]);
+      bb.Set<MapCoord>(BBKey::EnemyGuardPoint, entrances[base_index]);
+
       g_RenderState.RenderDebugText("  HSDefensePositionNode(No Enemy Anchor): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
 
     if (!team_anchor) {
-      bb.SetTeamSafe(entrances[base_index]);
-      bb.SetEnemySafe(flagrooms[base_index]);
+      //bb.SetTeamSafe(entrances[base_index]);
+      //bb.SetEnemySafe(flagrooms[base_index]);
+      bb.Set<MapCoord>(BBKey::TeamGuardPoint, entrances[base_index]);
+      bb.Set<MapCoord>(BBKey::EnemyGuardPoint, flagrooms[base_index]);
       g_RenderState.RenderDebugText("  HSDefensePositionNode(No Team Anchor): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
@@ -917,13 +961,17 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
       // assumes that entrances are always at the start of the base path (path[0])
       // and flag rooms are always at the end
       if (team_node < enemy_node) {
-        bb.SetTeamSafe(entrances[base_index]);
-        bb.SetEnemySafe(flagrooms[base_index]);
+        //bb.SetTeamSafe(entrances[base_index]);
+       // bb.SetEnemySafe(flagrooms[base_index]);
+        bb.Set<MapCoord>(BBKey::TeamGuardPoint, entrances[base_index]);
+        bb.Set<MapCoord>(BBKey::EnemyGuardPoint, flagrooms[base_index]);
         // bb.Set<Vector2f>("TeamSafe", entrances[base_index]);
         // bb.Set<Vector2f>("EnemySafe", flagrooms[base_index]);
       } else {
-        bb.SetTeamSafe(flagrooms[base_index]);
-        bb.SetEnemySafe(entrances[base_index]);
+        //bb.SetTeamSafe(flagrooms[base_index]);
+        //bb.SetEnemySafe(entrances[base_index]);
+        bb.Set<MapCoord>(BBKey::TeamGuardPoint, flagrooms[base_index]);
+        bb.Set<MapCoord>(BBKey::EnemyGuardPoint, entrances[base_index]);
         // bb.Set<Vector2f>("TeamSafe", flagrooms[base_index]);
         // bb.Set<Vector2f>("EnemySafe", entrances[base_index]);
       }
@@ -942,12 +990,16 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
   //uint64_t unique_timer = ctx.bot->GetTime().UniqueIDTimer(game.GetPlayer().id);
   uint64_t unique_timer = (rand() % 400) + 100;
   
-  int flagger_count = bb.GetBaseTeamsCount();
+  //int flagger_count = bb.GetBaseTeamsCount();
   bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
 
-  bool update_flag = bb.GetUpdateLancsFlag();
+  //bool update_flag = bb.GetUpdateLancsFlag();
+  //bool search_for_anchor = bb.ValueOr<bool>(BBKey::SearchingForAnchor, false);
 
-  const Player* anchor = bb.GetAnchor();
+  //const Player* anchor = bb.GetAnchor();
+  const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
+  bool flagging_enabled = bb.ValueOr<bool>(BBKey::FlaggingEnabled, true);
+
   uint16_t anchor_id = 0;
   if (anchor) {
     anchor_id = anchor->id;
@@ -955,7 +1007,7 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
 
   // join a flag team
   //if (flagger_count < 14 && !flagging && bb.GetCanFlag()) {
-    if (!flagging && bb.GetCanFlag()) {
+    if (!flagging && flagging_enabled) {
     //if (ctx.bot->GetTime().TimedActionDelay("joingame", unique_timer)) {
       game.HSFlag();
 
@@ -967,10 +1019,11 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
   }
 
   // leave a flag team
-  if (flagging && !bb.GetCanFlag()) {
+  if (flagging && !flagging_enabled) {
     //if ((flagger_count > 16 && game.GetPlayer().ship != 6) || !bb.GetCanFlag()) {
       //if (ctx.bot->GetTime().TimedActionDelay("leavegame", unique_timer)) {
-        game.SetFreq(FindOpenFreq(bb.GetFreqList(), 0));
+    std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>(BBKey::FreqPopulationCount, std::vector<uint16_t>{});
+        game.SetFreq(FindOpenFreq(fList, 0));
         //bb.SetFreq(FindOpenFreq(bb.GetFreqList(), 0));
 
         g_RenderState.RenderDebugText("  HSFreqMan(Leave Flag Team): %llu", timer.GetElapsedTime());
@@ -1003,30 +1056,36 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
   }
 
   // this flag is used to wait until bot has sent ?lancs to chat and read the resulting server message
-  bool update_flag = bb.GetUpdateLancsFlag();
-  const std::vector<int>& ship_counts = bb.GetTeamShipCounts();
+  //bool update_flag = bb.GetUpdateLancsFlag();
+  bool reading_anchor_list = bb.ValueOr<bool>(BBKey::ReadingAnchorList, false);
+  //const std::vector<int>& ship_counts = bb.GetTeamShipCounts();
+  std::array<uint16_t, 8> ship_counts = bb.ValueOr(BBKey::TeamShipCount, std::array<uint16_t, 8>{});
 
   // use flag to wait for bot to update its anchor list before running
-  if (update_flag) {
+  if (reading_anchor_list) {
     return behavior::ExecuteResult::Success;
   }
 
   uint16_t ship = game.GetPlayer().ship;
   
-  const Player* anchor = bb.GetAnchor();
+  //const Player* anchor = bb.GetAnchor();
+  const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
   uint16_t anchor_id = 0;
   if (anchor) {
     anchor_id = anchor->id;
   }
 
+  bool has_summoner = bb.ValueOr<bool>(BBKey::AnchorHasSummoner, false);
+
   // switch to lanc if team doesnt have one
-  if (ship != 6 && !bb.GetTeamHasSummoner()) {
+  if (ship != 6 && !has_summoner) {
    // if (!anchor.p || (!evoker_usable && anchor.type != AnchorType::Summoner) || anchor.type == AnchorType::None) {
      // if (ctx.bot->GetTime().TimedActionDelay("hsswitchtoanchor", unique_timer)) {
         // bb.Set<uint16_t>("Ship", 6);
         //bb.SetShip(Ship::Lancaster);
         game.SetShip((uint16_t)Ship::Lancaster);
-        bb.SetUpdateLancsFlag(true);
+        //bb.SetUpdateLancsFlag(true);
+        bb.Set<bool>(BBKey::ReadingAnchorList, true);
         g_RenderState.RenderDebugText("  HSFlaggerShipMan(Switch To Lanc): %llu", timer.GetElapsedTime());
         return behavior::ExecuteResult::Failure;
     //  }
@@ -1035,11 +1094,12 @@ behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx
   }
 
   // if there is more than one lanc on the team, switch back to original ship
-  if (ship_counts[6] > 1 && bb.GetTeamHasSummoner() && anchor_id != game.GetPlayer().id && ship == 6) {
+  if (ship_counts[6] > 1 && has_summoner && anchor_id != game.GetPlayer().id && ship == 6) {
    // if (ctx.bot->GetTime().TimedActionDelay("hsswitchtowarbird", unique_timer)) {
         game.SetShip(SelectShip(game.GetPlayer().ship));
       //bb.SetShip((Ship)SelectShip(game.GetPlayer().ship));
-      bb.SetUpdateLancsFlag(true);
+      //bb.SetUpdateLancsFlag(true);
+      bb.Set<bool>(BBKey::ReadingAnchorList, true);
       g_RenderState.RenderDebugText("  HSFlaggerShipMan(Switch From Lanc): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
     //}
@@ -1064,7 +1124,10 @@ behavior::ExecuteResult HSWarpToCenterNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  if (!bb.GetInCenter() && game.GetPlayer().frequency != 90 && game.GetPlayer().frequency != 91) {
+  Vector2f center_spawn = bb.ValueOr<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
+  bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), center_spawn);
+
+  if (!in_center && game.GetPlayer().frequency != 90 && game.GetPlayer().frequency != 91) {
    // if (ctx.bot->GetTime().TimedActionDelay("warptocenter", 200)) {
       game.Warp();
 
@@ -1081,9 +1144,11 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  const Player* anchor = bb.GetAnchor();
+  //const Player* anchor = bb.GetAnchor();
+  const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
   const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  std::size_t base_index = bb.GetBDBaseIndex();
+  //std::size_t base_index = bb.GetBDBaseIndex();
+  std::size_t base_index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
 
   if (!anchor) {
     g_RenderState.RenderDebugText("  HSAttachNode(No Anchor): %llu", timer.GetElapsedTime());
@@ -1113,7 +1178,8 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
   }
 
   if (game.GetPlayer().attach_id != 65535) {
-    if (bb.GetSwarm()) {
+    bool swarm = bb.ValueOr<bool>(BBKey::ActivateSwarm, false);
+    if (swarm) {
         game.SetEnergy(15, "Swarm");
     }
 
@@ -1132,7 +1198,12 @@ behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  if (bb.GetUseMultiFire()) {
+  bool use_multi = bb.ValueOr<bool>(BBKey::UseMultiFire, true);
+  bool use_stealth = bb.ValueOr<bool>(BBKey::UseStealth, true);
+  bool use_xradar = bb.ValueOr<bool>(BBKey::UseXRadar, true);
+  bool use_anti = bb.ValueOr<bool>(BBKey::UseAntiWarp, true);
+
+  if (use_multi) {
     if (!game.GetPlayer().multifire_status && game.GetPlayer().capability.multifire) {
       game.SendKey(VK_DELETE);
       return behavior::ExecuteResult::Failure;
@@ -1151,7 +1222,7 @@ behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
   bool has_cloak = game.GetPlayer().capability.cloak;
   bool has_antiwarp = game.GetPlayer().capability.antiwarp;
 
-  if (bb.GetUseStealth()) {
+  if (use_stealth) {
     if (!stealth_on && has_stealth) {
       game.Stealth();
     }
@@ -1159,7 +1230,7 @@ behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
     game.Stealth();
   }
 
-  if (bb.GetUseXradar()) {
+  if (use_xradar) {
     if (!xradar_on && has_xradar) {
       game.XRadar();
     }
@@ -1167,7 +1238,7 @@ behavior::ExecuteResult HSToggleNode::Execute(behavior::ExecuteContext& ctx) {
     game.XRadar();
   }
 
-  if (bb.GetUseAntiWarp()) {
+  if (use_anti) {
     if (!antiwarp_on && has_antiwarp) {
       game.Antiwarp(ctx.bot->GetKeys());
     }
@@ -1210,7 +1281,8 @@ behavior::ExecuteResult HSFlaggerBasePatrolNode::Execute(behavior::ExecuteContex
   auto& bb = ctx.bot->GetBlackboard();
 
   float radius = game.GetShipSettings().GetRadius();
-  std::size_t index = bb.GetBDBaseIndex();
+  //std::size_t index = bb.GetBDBaseIndex();
+  std::size_t index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
   const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
   const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
 
@@ -1240,7 +1312,8 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  const Player* anchor = bb.GetAnchor();
+  //const Player* anchor = bb.GetAnchor();
+  const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
   const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
   std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
   float radius = game.GetShipSettings().GetRadius();
@@ -1262,12 +1335,12 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
     }
   }
 
-
+  MapCoord team_safe = bb.ValueOr<MapCoord>(BBKey::TeamGuardPoint, MapCoord{});
 
 
   if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
-    if (entrances[base_index] != bb.GetTeamSafe()) {
-      ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), bb.GetTeamSafe(), radius);
+    if (entrances[base_index] != team_safe) {
+      ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), team_safe, radius);
       g_RenderState.RenderDebugText("  HSDropFlagsNode(Dropping Flags): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
@@ -1291,8 +1364,10 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
   uint16_t ship = game.GetPlayer().ship;
   uint16_t id = game.GetPlayer().id;
   float radius = game.GetShipSettings().GetRadius();
-  const Player* anchor = bb.GetAnchor();
+  //const Player* anchor = bb.GetAnchor();
+  const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
   bool flagging = (game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91);
+  std::vector<const Player*> team_list = bb.ValueOr< std::vector<const Player*>>(BBKey::TeamPlayerList, std::vector<const Player*>{});
 
   //ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), radius);
   //ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(839, 223), radius);
@@ -1314,7 +1389,7 @@ behavior::ExecuteResult HSGatherFlagsNode::Execute(behavior::ExecuteContext& ctx
     return behavior::ExecuteResult::Failure;
   }
 
-  for (const Player* player : bb.GetTeamList()) {
+  for (const Player* player : team_list) {
     if (player->id == id) continue;
 
     if (player->id < id && InFlagCollectingShip(player->ship)) {
@@ -1365,6 +1440,8 @@ const Flag* HSGatherFlagsNode::SelectFlag(behavior::ExecuteContext& ctx) {
   const Flag* connected_flag = nullptr;
   const Flag* other_flag = nullptr;
 
+  MapCoord team_safe = bb.ValueOr<MapCoord>(BBKey::TeamGuardPoint, MapCoord{});
+
   const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
   std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
 
@@ -1375,7 +1452,7 @@ const Flag* HSGatherFlagsNode::SelectFlag(behavior::ExecuteContext& ctx) {
     if (ctx.bot->GetRegions().IsConnected(flag.position, entrances[base_index])) {
       if (flag.frequency != game.GetPlayer().frequency) {
         // flags are gaurded by enemy team
-        if (entrances[base_index] == bb.GetTeamSafe()) {
+        if (entrances[base_index] == team_safe) {
           if (!flag.IsNeutral()) {
             continue;
           }

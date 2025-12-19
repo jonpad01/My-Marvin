@@ -4,6 +4,8 @@
 #include "pipe.h"
 #include <iostream>
 #include <fstream>
+#include <thread>
+#include <chrono>
 
 #ifdef UNICODE
 #undef UNICODE
@@ -22,20 +24,28 @@ HANDLE StartMarvin(uint32_t index, const ProfileData& profile_data, const std::s
     std::cin.get();
   }
 
-  memory_map.WriteU32(index);
-  HANDLE handle = StartContinuum();
+  memory_map.WriteU32(index); // the index to the list in profile-data-marvin.cfg 
+  HANDLE handle = StartContinuum(); // start bot
 
-  std::cout << "Waiting for " << name << " to load..." << std::endl;
+  // wait for bot to send a signal through the memory map
+  for (int i = 100; i >= 0; --i) {
+    std::cout << "\rWaiting for " << name << " to load  (" + std::to_string(i) + ")  " << std::flush;
 
-  // could be downloading map, so wait a long time
-  if (!memory_map.WaitForData(100000)) {
-    std::cout << "Timeout while waiting for: " << name << " to connect: " << GetLastError() << std::endl;
-    TerminateProcess(handle, 0);
-    CloseHandle(handle);
-    return NULL;
+    if (memory_map.GetState() == ComState::LauncherReads) break;  // signal recieved
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // timeout
+    if (i <= 0) {
+      std::cout << "Timeout while waiting for: " << name << " to connect: " << GetLastError() << std::endl;
+      TerminateProcess(handle, 0);
+      CloseHandle(handle);
+      return NULL;
+    }
   }
 
-  std::cout << name << " loaded." << std::endl;
+  std::cout << "\r" << name << " loaded.                        " << std::flush;
+  std::cout << std::endl;
 
   return handle;
 }
@@ -57,11 +67,11 @@ int main(int argc, char* argv[]) {
   dsound_dll.close();
 
   std::cout << "WARNING: This bot will overwrite your menu profile data." << std::endl;
-  std::cout << "Close the window to exit." << std::endl;
+  std::cout << "Close the window to exit." << std::endl << std::endl;
   
   for (std::size_t i = 5; i >= 0 && i <= 5; i--) {
-    Sleep(1000);
-    std::cout << "Proceeding in: " << std::to_string(i) << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "\rProceeding in: " << std::to_string(i) << std::flush;
   }
 
   RemoveMatchingFiles("Marvin-");

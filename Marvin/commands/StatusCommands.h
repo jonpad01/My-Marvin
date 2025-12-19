@@ -15,10 +15,12 @@ class MultiCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseMultiFire, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseMultiFire()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "multi currently ON.");
       } else {
         game.SendPrivateMessage(sender, "multi currently OFF.");
@@ -26,10 +28,12 @@ class MultiCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning multi ON.");
-        bb.SetUseMultiFire(true);
+        //bb.SetUseMultiFire(true);
+        bb.Set<bool>(BBKey::UseMultiFire, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning multi OFF.");
-        bb.SetUseMultiFire(false);
+        //bb.SetUseMultiFire(false);
+        bb.Set<bool>(BBKey::UseMultiFire, false);
       } else {
         SendUsage(game, sender);
       }
@@ -59,10 +63,12 @@ class CloakCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseCloak, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseCloak()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "cloak currently ON.");
       } else {
         game.SendPrivateMessage(sender, "cloak currently OFF.");
@@ -70,10 +76,12 @@ class CloakCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning cloak ON.");
-        bb.SetUseCloak(true);
+       // bb.SetUseCloak(true);
+        bb.Set<bool>(BBKey::UseCloak, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning cloak OFF.");
-        bb.SetUseCloak(false);
+        //bb.SetUseCloak(false);
+        bb.Set<bool>(BBKey::UseCloak, false);
       } else {
         SendUsage(game, sender);
       }
@@ -103,10 +111,12 @@ class StealthCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseStealth, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseStealth()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "stealth currently ON.");
       } else {
         game.SendPrivateMessage(sender, "stealth currently OFF.");
@@ -114,10 +124,12 @@ class StealthCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning stealth ON.");
-        bb.SetUseStealth(true);
+        //bb.SetUseStealth(true);
+        bb.Set<bool>(BBKey::UseStealth, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning stealth OFF.");
-        bb.SetUseStealth(false);
+        //bb.SetUseStealth(false);
+        bb.Set<bool>(BBKey::UseStealth, false);
       } else {
         SendUsage(game, sender);
       }
@@ -147,10 +159,12 @@ class XRadarCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseXRadar, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseXradar()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "xradar currently ON.");
       } else {
         game.SendPrivateMessage(sender, "xradar currently OFF.");
@@ -158,10 +172,12 @@ class XRadarCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning xradar ON.");
-        bb.SetUseXradar(true);
+        //bb.SetUseXradar(true);
+        bb.Set<bool>(BBKey::UseXRadar, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning xradar OFF.");
-        bb.SetUseXradar(false);
+        //bb.SetUseXradar(false);
+        bb.Set<bool>(BBKey::UseXRadar, false);
       } else {
         SendUsage(game, sender);
       }
@@ -191,10 +207,12 @@ class AntiWarpCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool enabled = bb.ValueOr<bool>(BBKey::UseAntiWarp, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetUseAntiWarp()) {
+      if (enabled) {
         game.SendPrivateMessage(sender, "anti currently ON.");
       } else {
         game.SendPrivateMessage(sender, "anti currently OFF.");
@@ -202,10 +220,12 @@ class AntiWarpCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning anti ON.");
-        bb.SetUseAntiWarp(true);
+        //bb.SetUseAntiWarp(true);
+        bb.Set<bool>(BBKey::UseAntiWarp, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning anti OFF.");
-        bb.SetUseAntiWarp(false);
+        //bb.SetUseAntiWarp(false);
+        bb.Set<bool>(BBKey::UseAntiWarp, false);
       } else {
         SendUsage(game, sender);
       }

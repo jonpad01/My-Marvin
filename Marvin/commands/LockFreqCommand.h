@@ -17,7 +17,8 @@ class LockFreqCommand : public CommandExecutor {
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetFreqLock()) {
+      bool frequency_locked = bb.ValueOr<bool>(BBKey::FrequencyLocked, false);
+      if (frequency_locked) {
         game.SendPrivateMessage(sender, "lockfreq currently ON.");
       } else {
         game.SendPrivateMessage(sender, "lockfreq currently OFF.");
@@ -25,10 +26,12 @@ class LockFreqCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning lockfreq ON.");
-        bb.SetFreqLock(true);
+        bb.Set<bool>(BBKey::FrequencyLocked, true);
+        //bb.SetFreqLock(true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning lockfreq OFF.");
-        bb.SetFreqLock(false);
+        bb.Set<bool>(BBKey::FrequencyLocked, false);
+        //bb.SetFreqLock(false);
       } else {
         SendUsage(game, sender);
       }

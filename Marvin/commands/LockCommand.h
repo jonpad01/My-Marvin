@@ -14,10 +14,12 @@ class LockCommand : public CommandExecutor {
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
 
+    bool locked = bb.ValueOr<bool>(BBKey::CommandLocked, false);
+
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetCommandLock()) {
+      if (locked) {
         game.SendPrivateMessage(sender, "lock currently ON.");
       } else {
         game.SendPrivateMessage(sender, "lock currently OFF.");
@@ -25,10 +27,12 @@ class LockCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning lock ON.");
-        bb.SetCommandLock(true);
+        //bb.SetCommandLock(true);
+        bb.Set<bool>(BBKey::CommandLocked, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning lock OFF.");
-        bb.SetCommandLock(false);
+        //bb.SetCommandLock(false);
+        bb.Set<bool>(BBKey::CommandLocked, false);
       } else {
         SendUsage(game, sender);
       }

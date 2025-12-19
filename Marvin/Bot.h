@@ -61,10 +61,10 @@ class Bot {
   }
 
   std::size_t GetTeamSafeIndex(uint16_t freq) {
-   // uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam0, 999);
-   // uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BB::PubTeam1, 999);
-    uint16_t low_index_team = blackboard_->GetPubTeam0();
-    uint16_t high_index_team = blackboard_->GetPubTeam1();
+    uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BBKey::PubEventTeam0, 999);
+    uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BBKey::PubEventTeam1, 999);
+    //uint16_t low_index_team = blackboard_->GetPubTeam0();
+    //uint16_t high_index_team = blackboard_->GetPubTeam1();
 
     if (freq == low_index_team) {
       return 0;

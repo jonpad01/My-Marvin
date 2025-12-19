@@ -125,7 +125,9 @@ void SteeringBehavior::Steer(Bot& bot, bool backwards) {
   
   float free_play = 80.0f / 81.0f;
 
-  if (bb.GetCombatDifficulty() == CombatDifficulty::Nerf) {
+  CombatDifficulty difficulty = bb.ValueOr<CombatDifficulty>(BBKey::CombatDifficulty, CombatDifficulty::Normal);
+
+  if (difficulty == CombatDifficulty::Nerf) {
     free_play = 0.97f;
   }
 

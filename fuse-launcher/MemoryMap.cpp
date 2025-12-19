@@ -34,17 +34,3 @@ uint32_t MemoryMap::ReadU32() {
   return shm->data;
 }
 
-// not realy accurate if timeout is less than 100 milliseconds
-bool MemoryMap::WaitForData(float timeout) {
-
-    float num = timeout * 0.01f;
-
-   for (float i = 0; i < num; i++) {
-      Sleep(100);
-     if (shm->state == ComState::LauncherReads) {
-       return true;
-     }
-   } 
-
-  return false;
-}

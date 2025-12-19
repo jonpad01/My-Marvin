@@ -11,7 +11,7 @@ class AnchorCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::None);
+    CombatRole role = bb.ValueOr<CombatRole>(BBKey::CombatRole, CombatRole::None);
 
       if (role == CombatRole::Anchor) {
       game.SendPrivateMessage(sender, "Marv was already anchoring.");
@@ -19,7 +19,7 @@ class AnchorCommand : public CommandExecutor {
       game.SendPrivateMessage(sender, "Switching to anchor mode.");
     }
 
-    bb.Set<CombatRole>("combatrole", CombatRole::Anchor);
+    bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Anchor);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
@@ -38,7 +38,7 @@ class RushCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    CombatRole role = bb.ValueOr<CombatRole>("combatrole", CombatRole::None);
+    CombatRole role = bb.ValueOr<CombatRole>(BBKey::CombatRole, CombatRole::None);
 
     if (role == CombatRole::Rusher) {
       game.SendPrivateMessage(sender, "Marv was already rushing.");
@@ -46,7 +46,7 @@ class RushCommand : public CommandExecutor {
       game.SendPrivateMessage(sender, "Switching to rush mode.");
     }
 
-    bb.Set<CombatRole>("combatrole", CombatRole::Rusher);
+    bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_Private; }
@@ -65,10 +65,11 @@ class NerfCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    game.SendPrivateMessage(sender, "Switching to nerf mode.");
+    game.SendPrivateMessage(sender, "Switching to nerfed combat difficulty.");
 
     // bb.Set<bool>("IsAnchor", false);
-    bb.SetCombatDifficulty(CombatDifficulty::Nerf);
+    //bb.SetCombatDifficulty(CombatDifficulty::Nerf);
+    bb.Set<CombatDifficulty>(BBKey::CombatDifficulty, CombatDifficulty::Nerf);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
@@ -87,10 +88,11 @@ class NormalCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-   game.SendPrivateMessage(sender, "Switching to normal mode.");
+   game.SendPrivateMessage(sender, "Switching to normal combat difficulty.");
    
     // bb.Set<bool>("IsAnchor", false);
-    bb.SetCombatDifficulty(CombatDifficulty::Normal);
+    //bb.SetCombatDifficulty(CombatDifficulty::Normal);
+    bb.Set<CombatDifficulty>(BBKey::CombatDifficulty, CombatDifficulty::Normal);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }

@@ -219,18 +219,24 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
         }
 
           Blackboard& bb = bot.GetBlackboard();
+          bool locked = bb.ValueOr<bool>(BBKey::CommandLocked, false);
 
-          // If the command is lockable, bot is locked, and requester isn't an operator then ignore it.
+          // If the bot is locked, or requester isn't an operator then ignore it.
           // if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
-          if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.GetCommandLock()) {
+          if (!(command.GetFlags() & CommandFlag_Lockable) || !locked) {
 
             command.Execute(*this, bot, chat.player, arg);
 
-            if (bb.ValueOr<bool>("staffchatannouncer", false) || trigger == "cmdlogger") {
+            bool send_announcments = bb.ValueOr<bool>(BBKey::StaffChatAnnouncments, false);
+
+
+            // announce command to staff chat if enabled
+            if (send_announcments || trigger == "cmdlogger") {
               bot.GetGame().SendChatMessage("\\" + chat.player + " has sent me command: " + std::string(trigger) + " " +
                                             arg);
             }
 
+            // announce command to bot chat
             bot.GetGame().SendChatMessage(";" + chat.player + " has sent me command: " + std::string(trigger) + " " +
                                           arg);
 

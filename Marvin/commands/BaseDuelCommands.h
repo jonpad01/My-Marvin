@@ -76,7 +76,7 @@ class StartBDCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+    BDState state = bb.ValueOr<BDState>(BBKey::BDHostingState, BDState::Stopped);
 
     if (state == BDState::Running) {
       game.SendPrivateMessage(sender, "I am currently running a baseduel game.");
@@ -96,8 +96,7 @@ class StartBDCommand : public CommandExecutor {
       }
 
     if (game.GetZone() == Zone::Devastation) {
-      bb.Set<BDState>("bdstate", BDState::Start);
-      bb.Set<bool>("reloadbot", true);  // reload so it switches the behavior tree
+      bb.Set<BDState>(BBKey::BDHostingState, BDState::Start);
       game.SendChatMessage("Starting a base duel game. (Command sent by: " + sender + ")");
     } else {
       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
@@ -120,33 +119,35 @@ class StartBDCommand : public CommandExecutor {
 
 class StopBDCommand : public CommandExecutor {
  public:
-  void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
-    Blackboard& bb = bot.GetBlackboard();
-    GameProxy& game = bot.GetGame();
+   void Execute(CommandSystem& cmd, Bot& bot, const std::string& sender, const std::string& arg) override {
+     Blackboard& bb = bot.GetBlackboard();
+     GameProxy& game = bot.GetGame();
 
-    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+     BDState state = bb.ValueOr<BDState>(BBKey::BDHostingState, BDState::Stopped);
 
-    if (game.GetZone() == Zone::Devastation) {
-      if (state == BDState::Stopped || state == BDState::Ended) {
-        game.SendPrivateMessage(sender, "I am not running a baseduel game.");
-        return;
-      }
+     if (game.GetZone() == Zone::Devastation) {
+       if (state == BDState::Stopped || state == BDState::Ended) {
+         game.SendPrivateMessage(sender, "I am not running a baseduel game.");
+         return;
+       }
 
-      if (state == BDState::Start) {
-        game.SendPrivateMessage(sender, "I am currently starting a baseduel game, please try again.");
-        return;
-      }
+       if (state == BDState::Start) {
+         game.SendPrivateMessage(sender, "I am currently starting a baseduel game, please try again.");
+         return;
+       }
 
-      if (state != BDState::Paused) {
-        game.SendPrivateMessage(sender, "You must hold the game first before using this command.");
-      } else {
-        bb.Set<BDState>("bdstate", BDState::Ended);
-        game.SendChatMessage("The baseduel game has been stopped. (Command sent by: " + sender + ")");
-      }
-    } else {
-      game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
-    }
-  }
+       if (state != BDState::Paused) {
+         game.SendPrivateMessage(sender, "You must hold the game first before using this command.");
+       }
+       else {
+         bb.Set<BDState>(BBKey::BDHostingState, BDState::Ended);
+         game.SendChatMessage("The baseduel game has been stopped. (Command sent by: " + sender + ")");
+       }
+     }
+     else {
+       game.SendPrivateMessage(sender, "There is no support for baseduel in this zone.");
+     }
+   }
 
   StopBDCommand() : access(CommandAccess_Private) {}
   CommandAccessFlags GetAccess() { return access; }
@@ -168,7 +169,7 @@ class HoldBDCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+    BDState state = bb.ValueOr<BDState>(BBKey::BDHostingState, BDState::Stopped);
 
     if (game.GetZone() == Zone::Devastation) {
      if (state == BDState::Paused) {
@@ -185,7 +186,7 @@ class HoldBDCommand : public CommandExecutor {
         return;
       }
 
-      bb.Set<BDState>("bdstate", BDState::Paused);
+      bb.Set<BDState>(BBKey::BDHostingState, BDState::Paused);
 
       game.SendChatMessage("Holding game. (Command sent by: " + sender + ")");
     } else {
@@ -213,7 +214,7 @@ class ResumeBDCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    BDState state = bb.ValueOr<BDState>("bdstate", BDState::Stopped);
+    BDState state = bb.ValueOr<BDState>(BBKey::BDHostingState, BDState::Stopped);
 
     if (game.GetZone() == Zone::Devastation) {
 
@@ -227,7 +228,7 @@ class ResumeBDCommand : public CommandExecutor {
         return;
       }
 
-      bb.Set<BDState>("bdstate", BDState::Running);
+      bb.Set<BDState>(BBKey::BDHostingState, BDState::Running);
 
       game.SendChatMessage("Resuming game. (Command sent by: " + sender + ")");
     } else {
@@ -257,11 +258,12 @@ class SwarmCommand : public CommandExecutor {
 
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
+    bool swarm = bb.ValueOr<bool>(BBKey::ActivateSwarm, false);
 
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.GetSwarm()) {
+      if (swarm) {
         game.SendPrivateMessage(sender, "swarm currently ON.");
       } else {
         game.SendPrivateMessage(sender, "swarm currently OFF.");
@@ -269,10 +271,12 @@ class SwarmCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning swarm ON.");
-        bb.SetSwarm(true);
+        //bb.SetSwarm(true);
+        bb.Set<bool>(BBKey::ActivateSwarm, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning swarm OFF.");
-        bb.SetSwarm(false);
+        //bb.SetSwarm(false);
+        bb.Set<bool>(BBKey::ActivateSwarm, false);
       } else {
         SendUsage(game, sender);
       }
@@ -301,7 +305,7 @@ class LagAttachCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
-    bool allow_la = bb.ValueOr<bool>("allowlagattaching", true);
+    bool allow_la = bb.ValueOr<bool>(BBKey::AllowLagAttaching, true);
 
     std::vector<std::string> args = Tokenize(arg, ' ');
     bool status = false;
@@ -317,10 +321,10 @@ class LagAttachCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning lag attaching ON.");
-        bb.Set<bool>("allowlagattaching", true);
+        bb.Set<bool>(BBKey::AllowLagAttaching, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning lag attaching OFF.");
-        bb.Set<bool>("allowlagattaching", false);
+        bb.Set<bool>(BBKey::AllowLagAttaching, false);
       } else {
         SendUsage(game, sender);
       }
@@ -351,7 +355,7 @@ class AdjustAnchorDistanceCommand : public CommandExecutor {
 
     std::vector<std::string> args = Tokenize(arg, ' ');
 
-    int distance = bb.ValueOr<int>("anchordistance", 0);
+    int distance = bb.ValueOr<int>(BBKey::AnchorDistanceAdjustment, 0);
 
     if (args.empty()) {
       game.SendPrivateMessage(sender, "Anchor distance is currently set to: " + std::to_string(distance));
@@ -370,7 +374,7 @@ class AdjustAnchorDistanceCommand : public CommandExecutor {
     }
 
     game.SendPrivateMessage(sender, "Setting anchor distance adjustment to " + std::to_string(distance));
-    bb.Set<int>("anchordistance", distance);
+    bb.Set<int>(BBKey::AnchorDistanceAdjustment, distance);
   }
 
   void SendUsage(GameProxy& game, const std::string& sender) {

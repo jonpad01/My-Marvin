@@ -25,20 +25,22 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
       ship = 2;
     }
 
+    bot.GetBlackboard().Set<std::vector<MapCoord>>(BBKey::PatrolNodes, patrol_nodes);
     //bot.GetBlackboard().Set<uint16_t>("Freq", 999);
-    //bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
-    //bot.GetBlackboard().Set<uint16_t>("PubTeam1", 01);
-    //bot.GetBlackboard().Set<uint16_t>("Ship", ship);
-    //bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
+    bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam0, 00);
+    bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam1, 01);
+    bot.GetBlackboard().Set<uint16_t>(BBKey::RequestedShip, ship);
+    bot.GetBlackboard().Set<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
+    bot.GetBlackboard().Set<RequestedCommand>(BBKey::RequestedCommand, RequestedCommand::ShipChange);
 
     //bot.GetBlackboard().Set<uint16_t>("Freq", 999);
-    bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
-    bot.GetBlackboard().SetPubTeam0(00);
-    bot.GetBlackboard().SetPubTeam1(01);
+    //bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
+    //bot.GetBlackboard().SetPubTeam0(00);
+    //bot.GetBlackboard().SetPubTeam1(01);
     //bot.GetBlackboard().SetShip(Ship(ship));
-    bot.GetBlackboard().SetShip(Ship(ship));
-    bot.GetBlackboard().SetCommandRequest(CommandRequestType::ShipChange);
-    bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
+    //bot.GetBlackboard().SetShip(Ship(ship));
+    //bot.GetBlackboard().SetCommandRequest(CommandRequestType::ShipChange);
+    //bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   
 
   auto freq_warp_attach = std::make_unique<eg::FreqWarpAttachNode>();
@@ -109,14 +111,6 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
 
   bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
   uint64_t time = ctx.bot->GetTime().GetTime();
-  uint64_t spam_check = ctx.blackboard.ValueOr<uint64_t>("SpamCheck", 0);
-  uint64_t f7_check = ctx.blackboard.ValueOr<uint64_t>("F7SpamCheck", 0);
-  uint64_t chat_check = ctx.blackboard.ValueOr<uint64_t>("ChatWait", 0);
-  uint64_t p_check = ctx.blackboard.ValueOr<uint64_t>("!PCheck", 0);
-  bool no_spam = time > spam_check;
-  bool chat_wait = time > chat_check;
-  bool no_p = time > p_check;
-  bool no_f7_spam = time > f7_check;
 
   std::vector<Player> duelers;
   bool team_in_base = false;
@@ -132,43 +126,6 @@ behavior::ExecuteResult FreqWarpAttachNode::Execute(behavior::ExecuteContext& ct
       team_in_base = true;
     }
   }
-  #if 0
-  // read private messages for !p and send the same message to join a duel team
-  // std::vector<std::string> chat = game.GetChat(5);
-  for (ChatMessage chat : game.GetChat()) {
-    if (chat.message == "!p" && no_p) {
-      game.SendChatMessage("!p");
-
-      ctx.blackboard.Set("!PCheck", time + 3000);
-      ctx.blackboard.Set("ChatWait", time + 200);
-
-      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Success;
-    } else if (chat.message == "!l" && no_p) {
-      game.SendChatMessage("!l");
-
-      ctx.blackboard.Set("!PCheck", time + 3000);
-      ctx.blackboard.Set("ChatWait", time + 200);
-
-      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Success;
-    } else if (chat.message == "!r" && no_p) {
-      game.SendChatMessage("!r");
-
-      ctx.blackboard.Set("!PCheck", time + 3000);
-      ctx.blackboard.Set("ChatWait", time + 200);
-
-      g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Success;
-    }
-  }
-
-  // bot needs to halt so eg can process chat input, i guess
-  if (!chat_wait) {
-    g_RenderState.RenderDebugText("FreqWarpAttachNode(success): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Success;
-  }
-  #endif
 
   bool dueling = game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01;
 
@@ -258,8 +215,8 @@ bool FreqWarpAttachNode::CheckStatus(behavior::ExecuteContext& ctx) {
 behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
-  //const auto target_player = ctx.blackboard.ValueOr<const Player*>("target", nullptr);
-  const Player* target_player = ctx.bot->GetBlackboard().GetTarget();
+  const Player* target_player = ctx.blackboard.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
+  //const Player* target_player = ctx.bot->GetBlackboard().GetTarget();
 
   if (!target_player) {
     g_RenderState.RenderDebugText("AimWithGunNode (No Target): %llu", timer.GetElapsedTime());
@@ -279,8 +236,7 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
                                                           target.velocity, proj_speed);
 
   if (!result.hit) {
-    ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
-    ctx.blackboard.Set<bool>("bullet_shot", false);
+    ctx.blackboard.Set<Vector2f>(BBKey::AimingSolution, result.solution);
     g_RenderState.RenderDebugText("AimWithGunNode (No Hit): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -324,17 +280,15 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
                                    &norm);
   }
 
-  ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
+  ctx.blackboard.Set<Vector2f>(BBKey::AimingSolution, result.solution);
 
   if (rHit) {
     if (CanShootGun(game, game.GetMap(), game.GetPosition(), result.solution)) {
-      ctx.blackboard.Set<bool>("bullet_shot", true);
       g_RenderState.RenderDebugText("AimWithGunNode (Hit): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
   }
 
-  ctx.blackboard.Set<bool>("bullet_shot", false);
   g_RenderState.RenderDebugText("AimWithGunNode (No Hit): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
@@ -342,8 +296,8 @@ behavior::ExecuteResult AimWithGunNode::Execute(behavior::ExecuteContext& ctx) {
 behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
-  //const auto target_player = ctx.blackboard.ValueOr<const Player*>("target_player", nullptr);
-  const Player* target_player = ctx.bot->GetBlackboard().GetTarget();
+  const Player* target_player = ctx.blackboard.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
+  //const Player* target_player = ctx.bot->GetBlackboard().GetTarget();
 
   if (!target_player) {
     g_RenderState.RenderDebugText("AimWithBombNode (No Target): %llu", timer.GetElapsedTime());
@@ -363,8 +317,7 @@ behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) 
 
 
   if (!result.hit) {
-    ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
-    ctx.blackboard.Set<bool>("bomb_shot", false);
+    ctx.blackboard.Set<Vector2f>(BBKey::AimingSolution, result.solution);
     g_RenderState.RenderDebugText("AimWithBombNode (No Hit): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
@@ -394,17 +347,15 @@ behavior::ExecuteResult AimWithBombNode::Execute(behavior::ExecuteContext& ctx) 
   bool hit = FloatingRayBoxIntersect(bot_player.position, bot_player.GetHeading(), result.solution, nearby_radius,
                                      &dist, &norm);
 
-  ctx.blackboard.Set<Vector2f>("shot_position", result.solution);
+  ctx.blackboard.Set<Vector2f>(BBKey::AimingSolution, result.solution);
 
   if (hit) {
     if (CanShootBomb(game, game.GetMap(), game.GetPosition(), result.solution)) {
-      ctx.blackboard.Set<bool>("bomb_shot", true);
       g_RenderState.RenderDebugText("AimWithBombNode (Hit): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
   }
 
-  ctx.blackboard.Set<bool>("bomb_shot", false);
   g_RenderState.RenderDebugText("AimWithBombNode (No Hit): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
 }
@@ -427,7 +378,8 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
 
-  const Player* target_player = ctx.bot->GetBlackboard().GetTarget();
+  //const Player* target_player = ctx.bot->GetBlackboard().GetTarget();
+  const Player* target_player = ctx.blackboard.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
 
   if (!target_player) {
     g_RenderState.RenderDebugText("MoveToEnemyNode (No Target): %llu", timer.GetElapsedTime());
@@ -438,7 +390,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
 
   bool in_center = ctx.bot->GetRegions().IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
   bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
-  Vector2f shot_position = ctx.blackboard.ValueOr<Vector2f>("shot_position", Vector2f());
+  Vector2f shot_position = ctx.blackboard.ValueOr<Vector2f>(BBKey::AimingSolution, Vector2f());
 
   int ship = game.GetPlayer().ship;
   //#if 0

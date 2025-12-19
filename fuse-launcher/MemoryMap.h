@@ -22,7 +22,7 @@ class MemoryMap {
   bool CreateMap();
   void WriteU32(uint32_t num);
   uint32_t ReadU32();
-  bool WaitForData(float timeout);
+  ComState GetState() { return shm->state; }
 
   private:
   HANDLE hMap = NULL;

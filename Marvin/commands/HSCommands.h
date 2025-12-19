@@ -23,7 +23,7 @@ class HSShipStatusCommand : public CommandExecutor {
       }
     }
 
-    bb.SetHSBuySellAction(ItemAction::ListItems);
+    bb.SetHSBuySellAction(HSItemTransaction::ListItems);
     bb.SetHSBuySellShip(ship);
     bb.SetHSBuySellMessageSent(false);
     bb.SetHSBuySellAllowedTime(5000);
@@ -74,7 +74,7 @@ class HSBuyCommand : public CommandExecutor {
      bb.SetHSBuySellActionCount(bb.GetHSBuySellList().items.size());
      bb.SetHSBuySellAllowedTime(5000);
      bb.SetHSBuySellTimeStamp(bot.GetTime().GetTime());
-     bb.SetHSBuySellAction(ItemAction::Buy);
+     bb.SetHSBuySellAction(HSItemTransaction::Buy);
      bb.SetHSBuySellMessageSent(false);
      bb.SetHSBuySellSetShipSent(false);
      bb.SetHSBuySellSender(sender);
@@ -132,7 +132,7 @@ class HSSellCommand : public CommandExecutor {
      bb.SetHSBuySellActionCount(bb.GetHSBuySellList().items.size());
      bb.SetHSBuySellTimeStamp(bot.GetTime().GetTime());
      bb.SetHSBuySellAllowedTime(5000);
-     bb.SetHSBuySellAction(ItemAction::Sell);
+     bb.SetHSBuySellAction(HSItemTransaction::Sell);
      bb.SetHSBuySellMessageSent(false);
      bb.SetHSBuySellSetShipSent(false);
      bb.SetHSBuySellSender(sender);
@@ -166,15 +166,17 @@ class HSFlagCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
+    bool flagging_enabled = bb.ValueOr<bool>(BBKey::FlaggingEnabled, true);
+
     // if (bb.ValueOr<bool>("CmdLock", false) == true) {
-    if (bb.GetCanFlag()) {
+    if (flagging_enabled) {
       game.SendPrivateMessage(sender, "Marv was already flagging.");
     } else {
       game.SendPrivateMessage(sender, "Switching to flagging.");
     }
 
-    // bb.Set<bool>("CmdLock", true);
-    bb.SetCanFlag(true);
+    bb.Set<bool>(BBKey::FlaggingEnabled, true);
+    //bb.SetCanFlag(true);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }
@@ -193,15 +195,18 @@ class HSCenterCommand : public CommandExecutor {
     Blackboard& bb = bot.GetBlackboard();
     GameProxy& game = bot.GetGame();
 
+    bool flagging_enabled = bb.ValueOr<bool>(BBKey::FlaggingEnabled, true);
+
     // if (bb.ValueOr<bool>("CmdLock", false) == true) {
-    if (!bb.GetCanFlag()) {
+    if (!flagging_enabled) {
       game.SendPrivateMessage(sender, "Marv was not flagging.");
     } else {
       game.SendPrivateMessage(sender, "Marv will stop flagging.");
     }
 
     // bb.Set<bool>("CmdLock", true);
-    bb.SetCanFlag(false);
+    bb.Set<bool>(BBKey::FlaggingEnabled, false);
+    //bb.SetCanFlag(false);
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }

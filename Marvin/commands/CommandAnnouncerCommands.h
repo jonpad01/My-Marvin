@@ -17,7 +17,7 @@ class StaffChatAnnouncerCommand : public CommandExecutor {
     if (args.empty()) status = true;
 
     if (status) {
-      if (bb.ValueOr<bool>("staffchatannouncer", false)) {
+      if (bb.ValueOr<bool>(BBKey::StaffChatAnnouncments, false)) {
         game.SendPrivateMessage(sender, "Staff chat announcer currently ON.");
       } else {
         game.SendPrivateMessage(sender, "Staff chat announcer currently OFF.");
@@ -25,10 +25,10 @@ class StaffChatAnnouncerCommand : public CommandExecutor {
     } else {
       if (args[0] == "on") {
         game.SendPrivateMessage(sender, "Turning staff chat announcer ON.");
-        bb.Set<bool>("staffchatannouncer", true);
+        bb.Set<bool>(BBKey::StaffChatAnnouncments, true);
       } else if (args[0] == "off") {
         game.SendPrivateMessage(sender, "Turning staff chat announcer OFF.");
-        bb.Set<bool>("staffchatannouncer", false);
+        bb.Set<bool>(BBKey::StaffChatAnnouncments, false);
       } else {
         SendUsage(game, sender);
       }

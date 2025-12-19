@@ -45,15 +45,15 @@ enum class ConnectState : u32 {
   Disconnected
 };
 enum class UpdateState : short { Clear, Wait, Reload };
-enum class ItemAction : short {Buy, Sell, DepotBuy, DepotSell, ListItems, ListSlots, None};
 enum class CombatRole : short { Anchor, Rusher, Bomber, Gunner, Flagger, Turret, EMP, PowerBaller, None };
 enum class CombatDifficulty : short { Nerf, Normal, None };
 enum class BDWarpTo : short { Center, Base, None };
 enum class BDState : short { Start, Running, Paused, Stopped, Ended };
-enum class CommandRequestType : short { ShipChange, ArenaChange, FreqChange, None };
+enum class RequestedCommand : short { ShipChange, ArenaChange, FreqChange, None };
 enum class WeaponType : short { None, Bullet, BouncingBullet, Bomb, ProximityBomb, Repel, Decoy, Burst, Thor };
 enum class AnchorType : short { Summoner, Evoker, None};
 enum class Ship : uint16_t { Warbird, Javelin, Spider, Leviathan, Terrier, Weasel, Lancaster, Shark, Spectator };
+
 enum class ChatType {
   Arena,
   PublicMacro,
@@ -79,10 +79,12 @@ enum StatusFlag {
   Status_InputChange = (1 << 7)
 };
 
+enum class HSItemTransaction : short { Buy, Sell, DepotBuy, DepotSell, ListItems, ListSlots, None };
+
 struct HSBuySellList {
   std::vector<std::string> items;
   std::string sender;
-  ItemAction action = ItemAction::None;
+  HSItemTransaction action = HSItemTransaction::None;
   bool message_sent = false;
   bool set_ship_sent = false;
   int count = 0;
@@ -93,7 +95,7 @@ struct HSBuySellList {
   void Clear() {
     items.clear();
     sender.clear();
-    action = ItemAction::None;
+    action = HSItemTransaction::None;
     message_sent = false;
     set_ship_sent = false;
     count = 0;
