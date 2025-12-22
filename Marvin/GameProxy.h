@@ -169,10 +169,9 @@ struct Green {
 };
 
 struct ChatMessage {
-  ChatMessage() : message(""), player(""), type(ChatType::Arena) {}
   std::string message;
   std::string player;
-  ChatType type;
+  ChatType type = ChatType::Public;
 };
 
 class GameProxy {
@@ -182,7 +181,8 @@ class GameProxy {
   virtual UpdateState Update() = 0;
   virtual bool IsLoaded() = 0;
 
-  virtual std::string GetName() const = 0;
+  virtual std::string GetName() = 0;
+  //virtual void SetName(const std::string& name) = 0;
   //virtual HWND GetGameWindowHandle() = 0;
   virtual int GetEnergy() const = 0;
   virtual const float GetEnergyPercent() = 0;

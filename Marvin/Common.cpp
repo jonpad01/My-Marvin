@@ -52,11 +52,13 @@ bool CheckStatus(GameProxy& game, KeyController& keys, bool use_max) {
   return result;
 }
 
-uint16_t FindOpenFreq(const std::vector<uint16_t>& list, uint16_t start_pos) {
+uint16_t FindOpenFreq(const std::vector<uint16_t>& list, uint16_t start_pos, uint16_t max_size) {
   uint16_t open_freq = 0;
 
+  if (max_size == 0) max_size = 1;
+
   for (uint16_t i = start_pos; i < list.size(); i++) {
-    if (list[i] == 0) {
+    if (list[i] < max_size) {
       open_freq = i;
       break;
     }

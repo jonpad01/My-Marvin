@@ -25,9 +25,9 @@ class Time {
 
   uint64_t UniqueTimerByName(const std::string& name, const std::vector<std::string>& names, uint64_t offset = 200);
   uint64_t UniqueIDTimer(GameProxy& game, uint16_t id);
-  uint64_t UniqueIDTimer(GameProxy& game, std::vector<std::string> list);
-  uint64_t UniqueIDTimer(GameProxy& game, std::vector<uint16_t> list);
-  uint64_t DevaFreqTimer(GameProxy& game, std::vector<std::string> names);
+  uint64_t UniqueDelay(GameProxy& game, const std::vector<std::string>& list);
+  uint64_t UniqueIDTimer(GameProxy& game, std::vector<uint16_t>& list);
+  uint64_t DevaFreqTimer(GameProxy& game, const std::vector<std::string>& names);
 
  private:
   bool Has(const std::string& key) { return data_.find(key) != data_.end(); }

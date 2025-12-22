@@ -14,8 +14,8 @@ namespace marvin {
 
 RenderState g_RenderState;
 
-//std::ofstream log;
-LogFile log;
+std::ofstream log;
+//LogFile log;
 
 
 const bool RenderState::kDisplayDebugText = true;

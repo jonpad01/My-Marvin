@@ -176,7 +176,7 @@ class HSFlagCommand : public CommandExecutor {
     }
 
     bb.Set<bool>(BBKey::FlaggingEnabled, true);
-    //bb.SetCanFlag(true);
+    bot.GetGame().HSFlag();
   }
 
   CommandAccessFlags GetAccess() { return CommandAccess_All; }

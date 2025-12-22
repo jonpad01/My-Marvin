@@ -17,7 +17,7 @@ ExecuteResult SequenceNode::Execute(ExecuteContext& ctx) {
     auto node = children_[index];
     ExecuteResult result = node->Execute(ctx);
 
-    if (result == ExecuteResult::Failure) {
+    if (result == ExecuteResult::Failure || result == ExecuteResult::Stop) {
       return result;
     } else if (result == ExecuteResult::Running) {
       this->running_node_index_ = index;
@@ -36,6 +36,8 @@ ExecuteResult ParallelNode::Execute(ExecuteContext& ctx) {
   for (auto& child : children_) {
     ExecuteResult child_result = child->Execute(ctx);
 
+    if (child_result == ExecuteResult::Stop) return child_result;
+
     if (result == ExecuteResult::Success && child_result != ExecuteResult::Success) {
       // TODO: Implement failure policies
       // result = child_result;
@@ -53,7 +55,7 @@ ExecuteResult SelectorNode::Execute(ExecuteContext& ctx) {
   for (auto& child : children_) {
     ExecuteResult child_result = child->Execute(ctx);
 
-    if (child_result == ExecuteResult::Running || child_result == ExecuteResult::Success) {
+    if (child_result == ExecuteResult::Running || child_result == ExecuteResult::Success || child_result == ExecuteResult::Stop) {
       return child_result;
     }
   }

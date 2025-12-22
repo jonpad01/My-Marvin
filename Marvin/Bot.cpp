@@ -48,7 +48,7 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
     auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get());
 
     auto root_sequence = std::make_unique<behavior::SequenceNode>(commands_.get(),
-                                                 spectator_check_.get(), respawn_check_.get(), action_selector.get());
+                                                 spectator_query_.get(), respawn_query_.get(), action_selector.get());
 
     engine_->PushRoot(std::move(root_sequence));
 
@@ -68,11 +68,10 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   srand((unsigned int)(time_.GetTime()));
 
-game_->Update();
+  game_->Update();
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
   previous_door_state_ = DoorState::Load();
-  game_->SendChatMessage("?chat=marvin");
   ctx_.bot = this;
 }
 
@@ -129,7 +128,7 @@ void Bot::Load() {
   }
 }
 
-void Bot::Update(bool reload, float dt) {
+void Bot::Update(float dt) {
 
   PerformanceTimer timer;
   g_RenderState.debug_y = 30.0f;
@@ -142,8 +141,8 @@ void Bot::Update(bool reload, float dt) {
 
   if (state == UpdateState::Wait) return;
   
-  if (state == UpdateState::Reload || reload) {
-    log.Write("Reloading bot.");
+  if (state == UpdateState::Reload) {
+    log << "Reloading bot.";
     load_index = 1;
     return;
   }
@@ -154,7 +153,7 @@ void Bot::Update(bool reload, float dt) {
 
   DoorState door_state = DoorState::Load();
   if (door_state.door_mode != previous_door_state_.door_mode) {
-    log.Write("Door state changed.");
+    //log.Write("Door state changed.");
     // Doors changed
     load_index = 1;
     previous_door_state_ = door_state;
@@ -182,27 +181,6 @@ void Bot::Update(bool reload, float dt) {
 
   steering_.Reset();
   ctx_.dt = dt;
-
-  //game_->SetVelocity(Vector2f(200, 200));
-
-  if (game_->GetZone() == Zone::Devastation) {
-    if (game_->GetPlayer().name == "FrogBot") {
-      if (game_->GetMapFile() != "bdelite.lvl") {
-        if (GetTime().TimedActionDelay("arenachange", 200)) {
-          game_->SendChatMessage("?go BDElite");
-        }
-        return;
-      }
-    }
-    if (game_->GetPlayer().name == "MadMarv") {
-      if (game_->GetMapFile() != "bdeg.lvl") {
-        if (GetTime().TimedActionDelay("arenachange", 200)) {
-          game_->SendChatMessage("?go bdeg");
-        }
-        return;
-      }
-    }
-  }
 
  #if DUBUG_RENDER_PATH
   RenderPath(game_->GetPosition(), pathfinder_->GetPath());
@@ -239,15 +217,9 @@ void Bot::Update(bool reload, float dt) {
     regions_->DebugUpdate(game_->GetPosition());
     g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
 #endif
-
-   //   pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(839, 223), 0.95);
-    // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(522, 381), 0.95);
-    //  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), MapCoord(399, 543), 0.95);
-    //pathfinder_->CreatePath(*this, game_->GetPosition(), MapCoord(962, 63), 0.95);
-   // return;
  
+  g_RenderState.RenderDebugText("BeforeBehavior: %llu", timer.GetElapsedTime());
   behavior_->Update(ctx_);
-
   g_RenderState.RenderDebugText("Behavior: %llu", timer.GetElapsedTime());
 
 
@@ -270,7 +242,7 @@ void Bot::Update(bool reload, float dt) {
     ctx_.bot->GetBlackboard().Set<bool>(BBKey::FlyInReverse, false);
   }
 
-  g_RenderState.RenderDebugText("Steering: %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("EndBotUpdate: %llu", timer.GetElapsedTime());
 }
 
 void Bot::SelectBehaviorTree() {
@@ -281,6 +253,7 @@ void Bot::SelectBehaviorTree() {
   switch (game_->GetZone()) {
     case Zone::Devastation: {
       goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMap(), game_->GetMapFile());
+      game_->SendChatMessage("?chat=marvin");
       if (map_name == "bdelite.lvl") {
        // log.Write("Building Training behavior tree.");
         builder = std::make_unique<training::TrainingBehaviorBuilder>();
@@ -465,6 +438,110 @@ behavior::ExecuteResult SuccessNode::Execute(behavior::ExecuteContext& ctx) {
   return behavior::ExecuteResult::Success;
 }
 
+
+behavior::ExecuteResult GetOutOfSpecNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  uint16_t ship = game.GetPlayer().ship;
+
+  if (ship == 8) {
+    if (ctx.bot->GetTime().RepeatedActionDelay("getoutofspecnode-setship", 2000)) {
+      game.SetShip(rand() % 8);
+    }
+
+    g_RenderState.RenderDebugText("  GetOutOfSpecNode(setting ship): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
+  }
+
+  g_RenderState.RenderDebugText("  GetOutOfSpecNode(not in spec): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
+
+// pretty basic system to capture a list of known bots
+// works even if bots are not running on the same machine
+// non bot players could join the chat and spoof themselves
+behavior::ExecuteResult MarvinFinderNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  bool login = bb.ValueOr<bool>(BBKey::LoginAnnouncmentComplete, false);
+
+  if (!login) {
+    if (RunLoginAnnouncment(ctx)) {
+      bb.Set<bool>(BBKey::LoginAnnouncmentComplete, true);
+    }
+  }
+
+  // search messages for bots that joined
+  for (const ChatMessage& msg : game.GetCurrentChat()) {
+    if (msg.message.empty() || msg.type != ChatType::Channel) continue;
+    if (msg.player == game.GetPlayer().name) continue;
+    
+    std::string message = msg.message;
+    
+    std::size_t pos = message.find("> j-" + msg.player);
+    if (pos == std::string::npos) continue;
+    
+    // caught a new bot
+    AddName(ctx, msg.player);
+    // respond with the name of the bot it's responding to
+    game.SendChatMessage(";2;r-" + msg.player);
+  }
+
+  g_RenderState.RenderDebugText("  MarvinFinderNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
+
+
+bool MarvinFinderNode::RunLoginAnnouncment(behavior::ExecuteContext& ctx) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  bool sent = bb.ValueOr<bool>(BBKey::SentLoginAnnouncment, false);
+
+  if (!sent) {
+    game.SendChatMessage(";2;j-" + game.GetPlayer().name);
+    bb.Set<bool>(BBKey::SentLoginAnnouncment, true);
+  }
+
+  for (const ChatMessage& msg : game.GetCurrentChat()) {
+    if (msg.message.empty() || msg.type != ChatType::Channel) continue;
+    if (msg.player == game.GetPlayer().name) continue;
+
+    std::string message = msg.message;
+
+    std::size_t pos = message.find("> r-" + game.GetPlayer().name);
+    if (pos == std::string::npos) continue;
+
+    AddName(ctx, msg.player);
+  }
+
+  // give plenty of time to read responces
+  if (ctx.bot->GetTime().TimedActionDelay("marvinfinder-loginwait", 2000)) {
+    return true;
+  }
+
+  return false;
+}
+
+void MarvinFinderNode::AddName(behavior::ExecuteContext& ctx, const std::string& name) {
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  // don't add duplicates
+  for (const std::string& bot_name : bb.GetBotNames()) {
+    if (name == bot_name) return;
+  }
+
+  bb.AddBotName(name);
+}
+
+
+
+
 behavior::ExecuteResult CommandNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
@@ -637,11 +714,11 @@ behavior::ExecuteResult DettachNode::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Failure;
   }
 
-  g_RenderState.RenderDebugText("  DettachNode(success): %llu", timer.GetElapsedTime());
+  g_RenderState.RenderDebugText("  DettachNode(no action taken): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
 
-behavior::ExecuteResult SpectatorCheckNode::Execute(behavior::ExecuteContext& ctx) {
+behavior::ExecuteResult SpectatorQueryNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
 
   auto& game = ctx.bot->GetGame();
@@ -802,7 +879,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   return behavior::ExecuteResult::Success;
 }
 
-behavior::ExecuteResult RespawnCheckNode::Execute(behavior::ExecuteContext& ctx) {
+behavior::ExecuteResult RespawnQueryNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
 

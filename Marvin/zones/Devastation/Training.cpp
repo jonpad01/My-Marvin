@@ -43,7 +43,7 @@ namespace training {
     auto action_selector = std::make_unique<behavior::SelectorNode>(find_enemy_in_center_sequence.get());
 
     auto root_sequence =
-        std::make_unique<behavior::SequenceNode>(template_node.get(), respawn_check_.get(), commands_.get(), spectator_check_.get(), action_selector.get());
+        std::make_unique<behavior::SequenceNode>(template_node.get(), respawn_query_.get(), commands_.get(), spectator_query_.get(), action_selector.get());
 
     engine_->PushRoot(std::move(root_sequence));
 

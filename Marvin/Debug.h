@@ -9,7 +9,7 @@
 #include "MapCoord.h"
 #include "platform/Platform.h"
 
-#define DEBUG_RENDER 1
+#define DEBUG_RENDER 0
 #define DEBUG_USER_CONTROL 0
 
 #define DEBUG_RENDER_GAMEPROXY 0
@@ -71,7 +71,7 @@ void RenderPath(Vector2f position, std::vector<Vector2f> path);
 
 Vector2f GetWindowCenter();
 
-
+#if 0
 // writing to the log file must end with std::endl
 class LogFile {
  public:
@@ -100,9 +100,10 @@ class LogFile {
  private:
   std::ofstream log;
 };
+#endif
 
-//extern std::ofstream log;
-extern LogFile log;
+extern std::ofstream log;
+//extern LogFile log;
 
 struct RenderState {
   static const bool kDisplayDebugText;

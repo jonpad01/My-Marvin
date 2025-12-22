@@ -36,7 +36,7 @@ class Bot {
   //~Bot() { build_task.detach(); }
 
   void Load();
-  void Update(bool reload, float dt);
+  void Update(float dt);
 
   KeyController& GetKeys() { return keys_; }
   GameProxy& GetGame() { return *game_; }
@@ -129,6 +129,15 @@ class CommandNode : public behavior::BehaviorNode {
  private:
 };
 
+class MarvinFinderNode : public behavior::BehaviorNode {
+public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+private:
+  bool RunLoginAnnouncment(behavior::ExecuteContext& ctx);
+  void AddName(behavior::ExecuteContext& ctx, const std::string& name);
+};
+
 class DettachNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
@@ -150,7 +159,14 @@ class SetFreqNode : public behavior::BehaviorNode {
  private:
 };
 
-class SpectatorCheckNode : public behavior::BehaviorNode {
+class GetOutOfSpecNode : public behavior::BehaviorNode {
+public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+
+private:
+};
+
+class SpectatorQueryNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
@@ -171,7 +187,7 @@ class SetArenaNode : public behavior::BehaviorNode {
  private:
 };
 
-class RespawnCheckNode : public behavior::BehaviorNode {
+class RespawnQueryNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
@@ -335,8 +351,8 @@ class BehaviorBuilder {
     //set_ship_ = std::make_unique<bot::SetShipNode>();
     //set_arena_ = std::make_unique<bot::SetArenaNode>();
     commands_ = std::make_unique<bot::CommandNode>();
-    spectator_check_ = std::make_unique<bot::SpectatorCheckNode>();
-    respawn_check_ = std::make_unique<bot::RespawnCheckNode>();
+    spectator_query_ = std::make_unique<bot::SpectatorQueryNode>();
+    respawn_query_ = std::make_unique<bot::RespawnQueryNode>();
   }
 
   void PushCommonNodes() {
@@ -351,8 +367,8 @@ class BehaviorBuilder {
    // engine_->PushNode(std::move(set_ship_));
     //engine_->PushNode(std::move(set_arena_));
     engine_->PushNode(std::move(commands_));
-    engine_->PushNode(std::move(spectator_check_));
-    engine_->PushNode(std::move(respawn_check_));
+    engine_->PushNode(std::move(spectator_query_));
+    engine_->PushNode(std::move(respawn_query_));
   }
 
   std::unique_ptr<behavior::BehaviorEngine> engine_;
@@ -368,8 +384,8 @@ class BehaviorBuilder {
   //std::unique_ptr<bot::SetShipNode> set_ship_;
  // std::unique_ptr<bot::SetArenaNode> set_arena_;
   std::unique_ptr<bot::CommandNode> commands_;
-  std::unique_ptr<bot::SpectatorCheckNode> spectator_check_;
-  std::unique_ptr<bot::RespawnCheckNode> respawn_check_;
+  std::unique_ptr<bot::SpectatorQueryNode> spectator_query_;
+  std::unique_ptr<bot::RespawnQueryNode> respawn_query_;
 };
 
 }  // namespace marvin

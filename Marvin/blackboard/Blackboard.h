@@ -28,7 +28,6 @@ namespace marvin {
       bool hasValue = false;
     };
 
-
     enum class BBKey : std::size_t {
       // consumables
       UseRepel, UseBurst, UseDecoy, UseRocket, UseThor, UseBrick, UsePortal,
@@ -37,14 +36,14 @@ namespace marvin {
       // team basing stuff
       PubEventTeam0, PubEventTeam1,
       EnemyGuardPoint, TeamGuardPoint, BaseIndex,
-      CombatRole,
+      CombatRole, 
       AnchorDistanceAdjustment, AllowLagAttaching,
       TeamAnchor, EnemyAnchor,
       TeamPlayerList, EnemyTeamPlayerList, TeamShipCount,
       TeamInBase, EnemyInBase, LastInBase,
       FlyInReverse, ActivateSwarm,
       // hyperspace stuff
-      ReadingAnchorList, AnchorHasSummoner, FlaggingEnabled,
+      ReadingAnchorList, AnchorHasSummoner, FlaggingEnabled, Jackpot,
       // balling stuff
       TargetBall,
       // centering stuff
@@ -61,6 +60,8 @@ namespace marvin {
       SetShipCoolDown,
       // command stuff
       RequestedCommand, RequestedArena, RequestedShip, RequestedFreq,
+      // communication stuff 
+      SentLoginAnnouncment, LoginAnnouncmentComplete,
       COUNT
     };
 
@@ -68,7 +69,12 @@ namespace marvin {
 class Blackboard {
  private:
   HSBuySellList hs_items_; 
+  std::vector<std::string> bot_names;
  public:
+
+   Blackboard() {
+     bot_names.reserve(100);
+   }
  
   void SetHSBuySellList(const std::vector<std::string>& items) { hs_items_.items = items; }
   void SetHSBuySellAction(HSItemTransaction action) { hs_items_.action = action; }
@@ -84,6 +90,16 @@ class Blackboard {
   void EmplaceHSBuySellList(const std::string& item) { hs_items_.items.emplace_back(item); }
   const HSBuySellList& GetHSBuySellList() { return hs_items_; }
 
+
+  const std::vector<std::string>& GetBotNames() { return bot_names; }
+  void SetBotNames(const std::vector<std::string>& names) { 
+    bot_names = names;
+    std::sort(bot_names.begin(), bot_names.end());
+  }
+  void AddBotName(const std::string& name) { 
+    bot_names.push_back(name);
+    std::sort(bot_names.begin(), bot_names.end()); // names consistantly orederd across all bots
+  }
 
   bool Has(BBKey key) { return data[(size_t)key].hasValue; }
 
@@ -140,12 +156,12 @@ class Blackboard {
 
 void Clear() {
   for (std::size_t i = 0; i < (size_t)BBKey::COUNT; i++) {
-      data[i].hasValue = false;
+    data[i].hasValue = false;
   }
 }
 
 void Erase(BBKey key) { 
-    data[(size_t)key].hasValue = false; 
+  data[(size_t)key].hasValue = false; 
 }
 
 private:

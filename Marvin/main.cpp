@@ -1,9 +1,16 @@
-#include "platform/Platform.h"
+﻿#include "platform/Platform.h"
 //
 #include <ddraw.h>
 #include <detours.h>
 #include <thread>
 #include <atomic>
+#include <winsock2.h> // include before windows.h
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <mmsystem.h>
+
+#pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 #include <chrono>
 #include <fstream>
@@ -133,6 +140,7 @@ static float g_UpdatdeDelay = 1.0f / 60.0f;
 static float g_JoinDelay = 2.0f;
 static float g_SharedMemoryWaitTime = 3.0f;
 
+static float highest_dt = 0.0f;
 
 std::unique_ptr<marvin::Bot> bot = nullptr;
 std::shared_ptr<marvin::ContinuumGameProxy> game = nullptr;
@@ -174,36 +182,26 @@ void Initialize() {
     my_name = game->GetName();
   }
 
-  if (!marvin::log.IsOpen() && !my_name.empty()) {
-    marvin::log.Open(my_name);
-    marvin::log.Write("Log file opened\n");
+  if (!marvin::log.is_open() && !my_name.empty()) {
+    marvin::log.open(my_name + ".log");
+    marvin::log << "Log file opened - " << my_name << std::endl;
   }
 }
 
 bool LockedInSpec() {
 
   if (!game) return false;
+  if (game->GetZone() != marvin::Zone::ExtremeGames) return false;
 
-  for (marvin::ChatMessage msg : game->GetCurrentChat()) {
-    
+  for (const marvin::ChatMessage& msg : game->GetCurrentChat()) {
+    if (msg.type != marvin::ChatType::Arena) continue;
+
     std::string eg_msg = "[ " + my_name + " ]";
     std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
-    std::string hs_lag_msg = "You are too lagged to play in this arena.";
-
-    bool eg_lag_locked =
-        msg.message.compare(0, 4 + my_name.size(), eg_msg) == 0 && game->GetZone() == marvin::Zone::ExtremeGames;
-
-    bool eg_locked_in_spec =
-        eg_lag_locked || msg.message == eg_packet_loss_msg && game->GetZone() == marvin::Zone::ExtremeGames;
-
-    bool hs_locked_in_spec = msg.message == hs_lag_msg && game->GetZone() == marvin::Zone::Hyperspace;
-
-    if (msg.type == marvin::ChatType::Arena) {
-      if (eg_locked_in_spec || hs_locked_in_spec) {
-        return true;
-      }
-    }
+    bool eg_lag_locked = msg.message.compare(0, 4 + my_name.size(), eg_msg) == 0;
+    if (eg_lag_locked || msg.message == eg_packet_loss_msg) return true;
   }
+
   return false;
 }
 
@@ -212,6 +210,20 @@ bool LockedInSpec() {
 static HANDLE(WINAPI* RealCreateMutexA)(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) = CreateMutexA;
 // multicont functionallity
 static HANDLE(WINAPI* RealOpenMutexA)(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCSTR lpName) = OpenMutexA;
+
+static int (WINAPI* RealConnect)(SOCKET, const sockaddr*, int) = connect;
+
+static DWORD(WINAPI* RealGetTickCount)() = GetTickCount;
+
+UINT_PTR (WINAPI* RealSetTimer)(HWND hWnd, UINT_PTR nIDEvent, UINT uElapse, TIMERPROC lpTimerFunc) = SetTimer;
+
+static VOID(WINAPI* RealSleep)(DWORD) = Sleep;
+
+DWORD(WINAPI* RealWaitForMultipleObjects)(DWORD nCount, const HANDLE* lpHandles, BOOL bWaitAll, DWORD dwMilliseconds) = WaitForMultipleObjects;
+
+static DWORD(WINAPI* RealWaitForSingleObject)(HANDLE, DWORD) = WaitForSingleObject;
+
+static DWORD(WINAPI* RealMsgWaitForMultipleObjects)(DWORD, const HANDLE*, BOOL, DWORD, DWORD) = MsgWaitForMultipleObjects;
 
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
 
@@ -249,6 +261,98 @@ HANDLE WINAPI OverrideOpenMutexA(DWORD dwDesiredAccess, BOOL bInheritHandle, LPC
   }
 
   return RealOpenMutexA(dwDesiredAccess, bInheritHandle, lpName);
+}
+
+UINT_PTR WINAPI OverrideSetTimer(HWND hWnd, UINT_PTR nIDEvent, UINT uElapse, TIMERPROC lpTimerFunc) {
+  
+  static DWORD jitter = [] {
+    DWORD pid = GetCurrentProcessId();
+    return pid % 15; // 0–14 ms
+    }();
+
+  // Only jitter non-zero timers
+  if (uElapse >= 30) {
+    uElapse += jitter;
+  }
+
+  return RealSetTimer(hWnd, nIDEvent, uElapse, lpTimerFunc);
+}
+
+
+static bool override_tick_init = false;
+static DWORD last_logged = 0;
+
+DWORD WINAPI OverrideGetTickCount()
+{
+  static DWORD offset = 0;
+
+
+  if (!override_tick_init) {
+    static DWORD offset = (GetCurrentProcessId() * 1103515245u) % 300; // 0-299 ms
+    override_tick_init = true;
+  }
+
+  return RealGetTickCount() + offset;
+
+  DWORD t = RealGetTickCount();
+
+  
+  if (t - last_logged >= 10000)
+  {
+    last_logged = t;
+    // Replace with your logger
+    marvin::log << "GetTickCount crossed 5s boundary: " << t << std::endl;
+  }
+
+  return t;
+}
+
+VOID WINAPI OverrideSleep(DWORD ms)
+{ 
+  static DWORD offset = [] {
+    return GetCurrentProcessId() % 10; // 0–9 ms
+    }();
+
+  if (ms <= 5) {
+    ms += offset;
+  }
+
+  RealSleep(ms);
+}
+
+DWORD WINAPI OverrideMsgWaitForMultipleObjects(DWORD nCount, const HANDLE* lpHandles, BOOL bWaitAll, DWORD dwMilliseconds, DWORD dwWakeMask) {
+  static DWORD offset = [] {
+    return (GetCurrentProcessId() % 10) + 1; // 1–10 ms
+    }();
+
+  //marvin::log << "MWFMO: " << dwMilliseconds << std::endl;
+
+  // Only jitter short waits
+  if (dwMilliseconds <= 10 && dwMilliseconds != INFINITE) {
+    dwMilliseconds += offset;
+  }
+
+  return RealMsgWaitForMultipleObjects(
+    nCount, lpHandles, bWaitAll, dwMilliseconds, dwWakeMask
+  );
+}
+
+int WINAPI OverrideConnect(SOCKET s, const sockaddr* name, int namelen)
+{
+  int result = RealConnect(s, name, namelen);
+
+  if (result == 0) {
+    // Connected successfully → safe to configure socket
+    int bufSize = 256 * 1024;
+    setsockopt(s, SOL_SOCKET, SO_SNDBUF,
+      reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
+
+    BOOL flag = TRUE;
+    setsockopt(s, IPPROTO_TCP, TCP_NODELAY,
+      reinterpret_cast<char*>(&flag), sizeof(flag));
+  }
+
+  return result;
 }
 
 HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface,
@@ -298,7 +402,7 @@ LRESULT CALLBACK PlayerInformationHook(int nCode, WPARAM wParam, LPARAM lParam) 
     SendDlgItemMessageA(hDlg, 1042, BM_SETCHECK, BST_CHECKED, 0);    // Male
     SendDlgItemMessageA(hDlg, 1043, BM_SETCHECK, BST_UNCHECKED, 0);  // Female
 
-    // Remove hook as soon as we�re done
+    // Remove hook as soon as we’re done
     UnhookWindowsHookEx(g_hHook);
     g_hHook = NULL;
   }
@@ -345,7 +449,7 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   std::string text = lpText;
   std::string caption = lpCaption;
 
-  marvin::log.Write("Message box found with title: " + caption + " and message text: " + lpText);
+  //marvin::log.Write("Message box found with title: " + caption + " and message text: " + lpText);
 
 
 
@@ -458,13 +562,13 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 
   if (!game) {
     game = std::make_shared<marvin::ContinuumGameProxy>();
-    my_name = game->GetName();
     return result;
   }
 
-  if (!marvin::log.IsOpen() && !my_name.empty()) {
-    marvin::log.Open(my_name);
-    marvin::log.Write("Log file opened\n");
+
+  if (!marvin::log.is_open() && !my_name.empty()) {
+    marvin::log.open(my_name + ".log");
+    marvin::log << "Log file opened -  " << my_name << std::endl;
   }
 
   // ------------ Shared memory used with launcher -------------------------------
@@ -478,12 +582,14 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       sm_state = SharedMemoryState::Failed;
       my_name = game->GetName();
     }
+    return result;
   }
 
   if (sm_state == SharedMemoryState::Listening) {
     seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
     if (memory_map.HasData()) {
       profile_index = memory_map.ReadU32();
+
       sm_state = SharedMemoryState::WritingToMemory;
     } else if (elapsed.count() > g_SharedMemoryWaitTime) {
       sm_state = SharedMemoryState::Failed;
@@ -493,17 +599,19 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
   }
 
   if (sm_state == SharedMemoryState::WritingToMemory) {
-    marvin::ProfileParser parser(profile_index);
+    marvin::ProfileData data;
 
-    if (!parser.LoadProfileData()) {
+    bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
+
+    if (!result) {
       sm_state = SharedMemoryState::Failed;
       my_name = game->GetName();
-    } else if (game->WriteToPlayerProfile(parser.GetProfileData()) &&
-               game->SetMenuSelectedZone(parser.GetProfileData().zone_name)) {
-      my_name = parser.GetProfileData().name;
+    } else if (game->WriteToPlayerProfile(data) &&
+               game->SetMenuSelectedZone(data.zone_name)) {
+      my_name = data.name;
+      game->SetName(my_name);
       sm_state = SharedMemoryState::WritingToLauncher;  // this state is checked in peekmessage after the game loads
     }
-
     return result;
   }
 
@@ -531,7 +639,7 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       // press enter and join the game
       // WM_TIMER seems to be the most reliable message to hijack, WM_PAINT only gets sent
       // if the mouse is moved.
-      if (result && lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT || lpMsg->message == WM_NULL) {
+      if (lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT || lpMsg->message == WM_NULL) {
         lpMsg->message = WM_KEYDOWN;
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
@@ -556,8 +664,11 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   // though whatever called it will still wait for the override to return, i think
   // when this returns false it means there is no message to procces
   // that is probably the best time to execute bot code
+  std::chrono::steady_clock::time_point afterBot;
+  auto start = std::chrono::high_resolution_clock::now();
   BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   if (result || !lpMsg) return result;
+  auto afterPeek = std::chrono::high_resolution_clock::now();
 
   Initialize();
 
@@ -595,7 +706,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
 
   HWND g_hWnd = game->GetGameWindowHandle();
-
+  
   if (minimize__game_window) {
     ShowWindow(g_hWnd, SW_MINIMIZE);
     minimize__game_window = false;
@@ -632,7 +743,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   }
 
   #endif
-
+  
   time_point now = time_clock::now();
   seconds dt = now - g_LastUpdateTime;
 
@@ -647,25 +758,30 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       }
     }
     
-    if (enabled) {
-      if (LockedInSpec()) {
-        PostQuitMessage(0);
-        quit_game = true;
-      } else if (bot && dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
+    
+    auto beforeBot = std::chrono::high_resolution_clock::now();
+
+    if (!enabled) return result;
+    bool locked = LockedInSpec();
+
+    if (locked) {
+      PostQuitMessage(0);
+      quit_game = true;
+    }
+    else if (bot && dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
 #if DEBUG_RENDER
-        marvin::g_RenderState.renderable_texts.clear();
-        marvin::g_RenderState.renderable_lines.clear();
+      marvin::g_RenderState.renderable_texts.clear();
+      marvin::g_RenderState.renderable_lines.clear();
 #endif
-        if (bot) bot->Update(false, dt.count());
-        UpdateCRC();
-        g_LastUpdateTime = now;
-      }
+      if (bot) bot->Update(dt.count());
+     
+      auto end = std::chrono::high_resolution_clock::now();
+     // marvin::log << "junk: " << std::chrono::duration<float, std::milli>(beforeBot - afterPeek).count() <<
+     //   " bot: " << std::chrono::duration<float, std::milli>(end - beforeBot).count() << std::endl;
+      UpdateCRC();
+      g_LastUpdateTime = now;
     }
-
-    if (g_hWnd && result && lpMsg->message == UM_SETTEXT) {
-      PostMessageA(g_hWnd, WM_SETTEXT, NULL, lpMsg->lParam);
-    }
-
+    
   return result;
 }
 
@@ -693,8 +809,16 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
   DetourAttach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourAttach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
+  DetourAttach(&(PVOID&)RealConnect, OverrideConnect);
+  DetourAttach(&(PVOID&)RealSetTimer, OverrideSetTimer);
+  DetourAttach(&(PVOID&)RealSleep, OverrideSleep);
+  DetourAttach(&(PVOID&)RealGetTickCount, OverrideGetTickCount);
+  DetourAttach(&(PVOID&)RealMsgWaitForMultipleObjects, OverrideMsgWaitForMultipleObjects);
+  
 
   DetourTransactionCommit();
+
+  
 
 }
 
@@ -710,15 +834,21 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
   DetourDetach(&(PVOID&)RealEndDialog, OverrideEndDialog);
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
-  // is this right?
+  DetourDetach(&(PVOID&)RealConnect, OverrideConnect);
   DetourDetach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourDetach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
+  DetourDetach(&(PVOID&)RealSetTimer, OverrideSetTimer);
+  DetourDetach(&(PVOID&)RealSleep, OverrideSleep);
+  DetourDetach(&(PVOID&)RealGetTickCount, OverrideGetTickCount);
+  DetourDetach(&(PVOID&)RealMsgWaitForMultipleObjects, OverrideMsgWaitForMultipleObjects);
 #if DEBUG_RENDER
   if (!initialize_debug) {
       DetourDetach(&(PVOID&)RealBlt, OverrideBlt);
   }
 #endif
   DetourTransactionCommit();
+
+  
 
   //SetWindowText(g_hWnd, "Continuum");
   OverrideGuard::Wait();
@@ -731,9 +861,19 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
       case DLL_PROCESS_ATTACH: {
+        timeBeginPeriod(1);
+        DWORD pid = GetCurrentProcessId();
+
+        // 0–9 ms offset
+        DWORD offsetMs = pid % 10;
+
+        if (offsetMs > 0) {
+          Sleep(offsetMs);
+        }
         // Dont call initialize marvin here
       } break;
       case DLL_PROCESS_DETACH: {
+        timeEndPeriod(1);
         // Dont call cleanup marvin here 
         // don't need to call detourdetach when the program exits because it is safely handled.
       } break;

@@ -116,26 +116,26 @@ uint64_t Time::UniqueIDTimer(GameProxy& game, uint16_t id) {
   return time;
 }
 
-uint64_t Time::UniqueIDTimer(GameProxy& game, std::vector <std::string> list) {
+uint64_t Time::UniqueDelay(GameProxy& game, const std::vector <std::string>& list) {
   uint64_t time = 0;
 
   for (std::size_t i = 0; i < list.size(); i++) {
     if (game.GetPlayer().name == list[i]) {
-        time = ((uint64_t)i + 1) * 200;
+        time = ((uint64_t)i + 1) * 300;
         break;
     }
   }
   return time;
 }
 
-uint64_t Time::UniqueIDTimer(GameProxy& game, std::vector<uint16_t> list) {
+uint64_t Time::UniqueIDTimer(GameProxy& game, std::vector<uint16_t>& list) {
   uint64_t time = 0;
 
   std::sort(list.begin(), list.end());
 
   for (std::size_t i = 0; i < list.size(); i++) {
     if (game.GetPlayer().id == list[i]) {
-        time = ((uint64_t)i + 1) * 200;
+        time = ((uint64_t)i + 1) * 300;
         break;
     }
   }
@@ -194,7 +194,7 @@ uint64_t Time::DevaFreqTimer(GameProxy& game, std::vector<std::string> names) {
 
 #endif
 
-uint64_t Time::DevaFreqTimer(GameProxy& game, std::vector<std::string> names) {
+uint64_t Time::DevaFreqTimer(GameProxy& game, const std::vector<std::string>& names) {
   uint64_t offset = 200;
   uint64_t offset_index = 0;
   bool dueling = false;

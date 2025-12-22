@@ -75,7 +75,7 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
       std::make_unique<behavior::SelectorNode>(freq_warp_attach.get(), handle_enemy.get(), patrol_path_sequence.get());
 
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), respawn_check_.get(), set_ship.get(), spectator_check_.get(), root_selector.get());
+      commands_.get(), respawn_query_.get(), set_ship.get(), spectator_query_.get(), root_selector.get());
                                                               
 
   engine_->PushRoot(std::move(root_sequence));

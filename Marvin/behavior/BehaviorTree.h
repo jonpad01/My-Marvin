@@ -13,7 +13,7 @@ class Bot;
 
 namespace behavior {
 
-enum class ExecuteResult { Success, Failure, Running };
+enum class ExecuteResult { Success, Failure, Running, Ignore, Stop };
 
 struct ExecuteContext {
   Blackboard blackboard;

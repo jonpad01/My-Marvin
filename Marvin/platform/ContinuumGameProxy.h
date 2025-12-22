@@ -96,7 +96,8 @@ class ContinuumGameProxy : public GameProxy {
   bool GameIsClosing();
   bool WriteToPlayerProfile(const ProfileData& data);
 
-  std::string GetName() const override;
+  std::string GetName() override;
+  void SetName(const std::string& name);
   void DumpMemoryToFile(std::size_t address, std::size_t size);
   bool SetMenuProfileIndex();
   ChatMessage FindChatMessage(std::string match) override;
@@ -253,12 +254,13 @@ class ContinuumGameProxy : public GameProxy {
   int reset_ship_index_ = 0;
   bool set_freq_ = false;
   bool set_arena_ = false;
+  bool hs_flag_ = false;
   uint16_t desired_freq_ = 0;
   std::string desired_arena_;
 
   
   uint64_t attach_cooldown_ = 0;
-  uint64_t flag_cooldown_ = 0;
+  uint64_t hs_flag_cooldown_ = 0;
   uint64_t setship_cooldown_ = 0;
   uint64_t message_cooldown_ = 0;
   

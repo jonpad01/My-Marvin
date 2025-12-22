@@ -37,7 +37,7 @@ bool ContinuumGameProxy::UpdateMemory() {
     }
   }
 
-  player_name_ = GetName();
+  if (player_name_.empty()) player_name_ = GetName();
 
   if (!module_base_continuum_) {
     module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
@@ -110,6 +110,7 @@ UpdateState ContinuumGameProxy::Update() {
 
   if (set_freq_) SetFreq(desired_freq_);  // set freq uses resetship
   if (set_arena_) SetArena(desired_arena_);  // set arena uses resetship
+  if (hs_flag_) HSFlag();
 
 
 
@@ -186,7 +187,7 @@ void ContinuumGameProxy::FetchPlayers() {
 
     player.frequency = static_cast<uint16_t>(process_.ReadU32(player_addr + kFreqOffset));
 
-    player.status = static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));  // a bitset/bitfield of bools
+    player.status = static_cast<uint8_t>(process_.ReadU32(player_addr + kStatusOffset));  // a bitset/bitfield
 
     player.bounty = *(u32*)(player_addr + kBountyOffset1) + *(u32*)(player_addr + kBountyOffset2);
 
@@ -675,8 +676,8 @@ const ShipSettings& ContinuumGameProxy::GetShipSettings(int ship) const {
 // then it will change to the last index that the menu was on when the game was launched
 // so when running more than one bot it will change to the name of the last bot launched
 // it might be saving the selected profile to a file and reloading it?
-std::string ContinuumGameProxy::GetName() const {
-
+std::string ContinuumGameProxy::GetName() {
+  //UpdateMemory();
   if (!module_base_menu_) return "";
 
   const std::size_t ProfileStructSize = 2860;
@@ -698,6 +699,11 @@ std::string ContinuumGameProxy::GetName() const {
   name = name.substr(0, strlen(name.c_str()));
 
   return name;
+}
+
+// use this at your own risk
+void ContinuumGameProxy::SetName(const std::string& name) {
+  player_name_ = name;
 }
 
 bool ContinuumGameProxy::SetMenuProfileIndex() {
@@ -1098,16 +1104,36 @@ void ContinuumGameProxy::Attach() {
   attach_cooldown_ = time_.GetTime() + 100;
 }
 
+// hs needs a little bit of time to register player energy before it will 
+// allow a move to the flag frequency
+// this action has to retry but does not block updates
 void ContinuumGameProxy::HSFlag() {
 
-  if (time_.GetTime() < flag_cooldown_) return;
+  // the delay required is probably just the current player latency
+  // the delay should be a fixed value known by all bots
+  const uint64_t kDelay = 100;  
 
-    ResetStatus();
+  if (!hs_flag_) hs_flag_cooldown_ = time_.GetTime() + kDelay; // first run initial delay
+
+  hs_flag_ = true;
+
+  if (player_->dead) {
+    return;
+  }
+
+  if (player_->frequency == 90 || player_->frequency == 91) {
+    hs_flag_ = false;
+    return;
+  }
+
+  ResetStatus();
   SetEnergy(100, "hs flag");
 
-  SendQueuedMessage("?flag");
+  // don't spam or the bot will be silenced
+  if (time_.GetTime() < hs_flag_cooldown_) return;
 
-  flag_cooldown_ = time_.GetTime() + 1000;
+  SendQueuedMessage("?flag");
+  hs_flag_cooldown_ = time_.GetTime() + kDelay;
 }
 
 void ContinuumGameProxy::ResetStatus() {
@@ -1388,6 +1414,7 @@ std::size_t ContinuumGameProxy::GetIDIndex() {
 }
 
 bool ContinuumGameProxy::WriteToPlayerProfile(const ProfileData& data) {
+  UpdateMemory();
   if (!module_base_menu_) return false;
   if (!IsOnMenu()) return false;
 
@@ -1476,6 +1503,7 @@ void ContinuumGameProxy::DumpMemoryToFile(std::size_t address, std::size_t size)
 }
 
 bool ContinuumGameProxy::SetMenuSelectedZone(std::string zone_name) {
+  UpdateMemory();
   if (!module_base_menu_) return false;
   if (!IsOnMenu()) return false;
 

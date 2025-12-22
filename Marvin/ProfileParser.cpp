@@ -18,8 +18,8 @@ std::string ProfileParser::GetWorkingDirectory() {
   return directory.substr(0, directory.size() - 1);
 }
 
-bool ProfileParser::LoadProfileData() {
-  std::vector<std::string> file_raw_data;
+bool ProfileParser::GetStringData(std::vector<std::string>& data) {
+  data.clear();
   std::string path = GetWorkingDirectory() + CONFIG_FILE;
   std::ifstream file(path);
   std::string buffer;
@@ -31,47 +31,73 @@ bool ProfileParser::LoadProfileData() {
   // copy file into a vector, ignoring empty lines
   while (std::getline(file, buffer)) {
     if (buffer.empty()) continue;
-    file_raw_data.push_back(buffer);
+    if (buffer[0] == ';') continue;
+    data.push_back(buffer);
   }
 
   file.close();
 
-  if (file_raw_data.size() % PROFILE_PROPERTY_COUNT != 0) {
+  if (data.size() % PROFILE_PROPERTY_COUNT != 0) {
     return false;
   }
 
   // trim down to just the data
-  for (std::size_t i = 0; i < file_raw_data.size(); i++) {
-    std::size_t pos = file_raw_data[i].find("=");
+  for (std::size_t i = 0; i < data.size(); i++) {
+    std::size_t pos = data[i].find("=");
 
-    if (pos == std::string::npos) {
-      return false;
-    }
+    if (pos == std::string::npos) return false;
 
-    pos = file_raw_data[i].find_first_not_of(" \t\n\r", pos + 1);
+    pos = data[i].find_first_not_of(" \t\n\r", pos + 1);
 
-    file_raw_data[i] = file_raw_data[i].substr(pos);
+    data[i] = data[i].substr(pos);
 
-    pos = file_raw_data[i].find_last_not_of(" \t\n\r\f\v");
-    if (std::string::npos != pos) {
-      file_raw_data[i].erase(pos + 1);
-    }
+    pos = data[i].find_last_not_of(" \t\n\r\f\v");
+    if (std::string::npos != pos) data[i].erase(pos + 1);
   }
+
+  return true;
+}
+
+
+bool ProfileParser::GetProfileNames(std::vector<std::string>& list) {
+  std::vector<std::string> data;
+
+  bool result = GetStringData(data);
+
+  if (!result) return false;
+
+  for (std::size_t i = 0; i < data.size(); i++) {
+    if (i % 6 != 0) continue;
+
+    list.push_back(data[i]);
+  }
+
+  return true;
+}
+
+
+
+bool ProfileParser::GetProfileData(uint32_t index, ProfileData& profile_data) {
+  std::vector<std::string> raw_data;
+
+  bool result = GetStringData(raw_data);
+
+  if (!result) return false;
+
 
   // index 0 needs lines 1-6, index 1 lines 7-12 are needed
-  std::size_t required_size = (profile_index + 1) * PROFILE_PROPERTY_COUNT;
-  std::size_t start = profile_index * PROFILE_PROPERTY_COUNT;
-  if (file_raw_data.size() < required_size) {
-      return false;
-  }
+  std::size_t required_size = (index + 1) * PROFILE_PROPERTY_COUNT;
+  std::size_t start = index * PROFILE_PROPERTY_COUNT;
+
+  if (raw_data.size() < required_size) return false;
 
   // select data using the index
-  profile_data.name = file_raw_data[start];
-  profile_data.password = file_raw_data[start + 1];
-  profile_data.ship = stoi(file_raw_data[start + 2]);
-  profile_data.window_mode = stoi(file_raw_data[start + 3]);
-  profile_data.zone_name = file_raw_data[start + 4];
-  profile_data.chats = file_raw_data[start + 5];
+  profile_data.name = raw_data[start];
+  profile_data.password = raw_data[start + 1];
+  profile_data.ship = stoi(raw_data[start + 2]);
+  profile_data.window_mode = stoi(raw_data[start + 3]);
+  profile_data.zone_name = raw_data[start + 4];
+  profile_data.chats = raw_data[start + 5];
 
   return true;
 }

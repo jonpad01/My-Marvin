@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstring>
 #include <limits>
+#include <functional>
 
 #include "../../Bot.h"
 #include "../../Debug.h"
@@ -14,6 +15,7 @@
 #include "../../platform/ContinuumGameProxy.h"
 #include "../../platform/Platform.h"
 #include "../../MapCoord.h"
+#include "../../ProfileParser.h"
 #include "HyperGateNavigator.h"
 
 namespace marvin {
@@ -53,32 +55,21 @@ const std::vector<MapCoord> kBaseTunnelGates = {MapCoord(961, 63),  MapCoord(960
 
 
 void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
+
+  std::vector<std::string> names;
+  bool result = ProfileParser::GetProfileNames(names);
+
+  if (result) { bot.GetBlackboard().SetBotNames(names); }
+
+  //bot.GetBlackboard().AddBotName(bot.GetGame().GetPlayer().name);
   std::vector<MapCoord> patrol_nodes = {MapCoord(585, 540), MapCoord(400, 570)};
 
-  // bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
-  //  bot.GetBlackboard().Set<uint16_t>("Freq", 999);
-  //  bot.GetBlackboard().Set<uint16_t>("PubTeam0", 90);
-  //   bot.GetBlackboard().Set<uint16_t>("PubTeam1", 91);
-  //  bot.GetBlackboard().Set<uint16_t>("Ship", ship);
-  //   bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
-
   bot.GetBlackboard().Set<std::vector<MapCoord>>(BBKey::PatrolNodes, patrol_nodes);
-  //bot.GetBlackboard().Set<uint16_t>("Freq", 999);
   bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam0, 00);
   bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam1, 01);
   bot.GetBlackboard().Set<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
-
-
- // bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
- // bot.GetBlackboard().SetPubTeam0(90);
- // bot.GetBlackboard().SetPubTeam1(91);
- // bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
-  // fastest allowed for hypersppace
-  //bot.GetBlackboard().SetSetShipCoolDown(5000);
   bot.GetBlackboard().Set<uint64_t>(BBKey::SetShipCoolDown, 5500);
-  //bot.GetBlackboard().SetUpdateLancsFlag(true);
   bot.GetBlackboard().Set<bool>(BBKey::ReadingAnchorList, true);
-  //bot.GetBlackboard().SetUseMultiFire(true);
 
   bot.GetBlackboard().Set<bool>(BBKey::UseMultiFire, true);
   bot.GetBlackboard().Set<bool>(BBKey::UseStealth, true);
@@ -121,6 +112,9 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto HS_move_to_depot = std::make_unique<hs::HSMoveToDepotNode>();
   auto HS_shipstatus = std::make_unique<hs::HSPrintShipStatusNode>();
   auto HS_combat_role = std::make_unique<hs::HSSetCombatRoleNode>();
+  auto marvin_finder = std::make_unique<bot::MarvinFinderNode>();
+  auto get_out_of_spec = std::make_unique<bot::GetOutOfSpecNode>();
+  auto jackpot_query = std::make_unique<hs::HSJackpotQueryNode>();
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
@@ -181,9 +175,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   
 
   auto root_sequence = std::make_unique<behavior::SequenceNode>(
-      commands_.get(), HS_shipstatus.get(), HS_buy_sell.get(), respawn_check_.get(), spectator_check_.get(), dettach_.get(),
-      HS_combat_role.get(), HS_player_sort.get(), team_sort.get(), HS_set_region.get(), HS_set_defense_position.get(), HS_freqman.get(),
-      HS_shipman.get(), HS_warp.get(), HS_toggle.get(), action_selector.get());
+    commands_.get(), get_out_of_spec.get(), jackpot_query.get(), respawn_query_.get(), HS_freqman.get());
 
   engine_->PushRoot(std::move(root_sequence));
 
@@ -229,7 +221,10 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_toggle));
   engine_->PushNode(std::move(HS_flagger_attach));
   engine_->PushNode(std::move(HS_warp));
+  engine_->PushNode(std::move(get_out_of_spec));
   engine_->PushNode(std::move(team_sort));
+  engine_->PushNode(std::move(jackpot_query));
+  engine_->PushNode(std::move(marvin_finder));
   engine_->PushNode(std::move(HS_shipman));
   engine_->PushNode(std::move(HS_freqman));
   engine_->PushNode(std::move(HS_set_defense_position));
@@ -239,6 +234,40 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(action_selector));
 }
 
+// The jackpot is 343234.
+behavior::ExecuteResult HSJackpotQueryNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  const std::string kJackpotMsg = "The jackpot is ";
+
+  // hyperspace hates command spam and will kick players after ~10 in a row
+  // it does eventually reset, 20 seconds is not safe, but i think 100 is
+  if (ctx.bot->GetTime().RepeatedActionDelay("hsjackpotquerynode-send", 100000)) {
+    game.SendChatMessage("?jackpot");
+  }
+
+  for (const ChatMessage& msg : game.GetCurrentChat()) {
+    if (msg.type != ChatType::Arena) continue;
+
+    std::size_t pos = msg.message.find(kJackpotMsg);
+    if (pos == std::string::npos) continue;
+
+    std::string message = msg.message;
+    message = message.substr(pos + kJackpotMsg.size());
+    message.pop_back();
+
+    uint32_t jackpot = std::stoi(message);
+    bb.Set<uint32_t>(BBKey::Jackpot, jackpot);
+  }
+
+  g_RenderState.RenderDebugText("  HSJackpotQueryNode(ignore): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Ignore;
+}
+
+
+
 behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
@@ -246,12 +275,11 @@ behavior::ExecuteResult HSSetCombatRoleNode::Execute(behavior::ExecuteContext& c
 
   uint16_t ship = game.GetPlayer().ship;
   bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
-  //const Player* anchor = bb.GetAnchor();
   const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
 
 
 
-  if (anchor && anchor->id == game.GetPlayer().id && flagging) {
+  if (anchor && anchor->name == game.GetPlayer().name && flagging) {
     bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Anchor);
 
     g_RenderState.RenderDebugText("  HSSetCombatRoleNode(Select Anchor): %llu", timer.GetElapsedTime());
@@ -623,7 +651,6 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  // std::size_t base_index = bb.ValueOr<std::size_t>("BaseIndex", 0);
   std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
   const TeamGoals& goals = ctx.bot->GetTeamGoals().GetGoals();
 
@@ -987,55 +1014,132 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  //uint64_t unique_timer = ctx.bot->GetTime().UniqueIDTimer(game.GetPlayer().id);
-  uint64_t unique_timer = (rand() % 400) + 100;
-  
-  //int flagger_count = bb.GetBaseTeamsCount();
-  bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
+  const uint32_t kJackpotTrigger = 500000;
 
-  //bool update_flag = bb.GetUpdateLancsFlag();
-  //bool search_for_anchor = bb.ValueOr<bool>(BBKey::SearchingForAnchor, false);
+  // bot is specced, so do nothing
+  if (game.GetPlayer().ship == 8) {
+    g_RenderState.RenderDebugText("  HSFreqMan(No Action Taken): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Ignore;
+  }
+
+  float flagger_count = 0.0f;
+  float total_player_count = 0.0f;
+  std::vector<uint16_t> fList(100, 0);
+  uint32_t jackpot = bb.ValueOr<uint32_t>(BBKey::Jackpot, 0);
+
+
+  // get some info about current players
+  for (const Player& player : game.GetPlayers()) {
+    if (player.ship == 8) continue;
+
+    if (player.frequency >= fList.size()) fList.resize(player.frequency + 1);
+    fList[(size_t)player.frequency]++;
+
+    total_player_count++;
+    if (player.frequency == 90 || player.frequency == 91) {
+      flagger_count++;
+    }
+  }
+
+  float percent_flagging = flagger_count / total_player_count; // hopefully wont be 0
+  bool flagging = game.GetPlayer().frequency == 90 || game.GetPlayer().frequency == 91;
 
   //const Player* anchor = bb.GetAnchor();
   const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
   bool flagging_enabled = bb.ValueOr<bool>(BBKey::FlaggingEnabled, true);
 
-  uint16_t anchor_id = 0;
-  if (anchor) {
-    anchor_id = anchor->id;
-  }
-
   // join a flag team
-  //if (flagger_count < 14 && !flagging && bb.GetCanFlag()) {
-    if (!flagging && flagging_enabled) {
-    //if (ctx.bot->GetTime().TimedActionDelay("joingame", unique_timer)) {
+  if (!flagging && jackpot >= kJackpotTrigger) {
+    uint64_t unique_delay = GetJoinDelay(ctx);
+    if (ctx.bot->GetTime().TimedActionDelay("hsfreqmanagernode-join", unique_delay)) {
       game.HSFlag();
 
       g_RenderState.RenderDebugText("  HSFreqMan(Join Flag Team): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
-   // }
-   // g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Join Flag Team): %llu", timer.GetElapsedTime());
-   // return behavior::ExecuteResult::Failure;
+      return behavior::ExecuteResult::Stop;
+    }
+    g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Join Flag Team): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Ignore;
   }
 
   // leave a flag team
-  if (flagging && !flagging_enabled) {
-    //if ((flagger_count > 16 && game.GetPlayer().ship != 6) || !bb.GetCanFlag()) {
-      //if (ctx.bot->GetTime().TimedActionDelay("leavegame", unique_timer)) {
-    std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>(BBKey::FreqPopulationCount, std::vector<uint16_t>{});
-        game.SetFreq(FindOpenFreq(fList, 0));
-        //bb.SetFreq(FindOpenFreq(bb.GetFreqList(), 0));
+  if (flagging && jackpot < kJackpotTrigger) {
+    uint64_t unique_delay = GetLeaveDelay(ctx);
+    if (ctx.bot->GetTime().TimedActionDelay("hsfreqmanagernode-leave", unique_delay)) {
+      game.SetFreq(FindOpenFreq(fList, 0));
 
-        g_RenderState.RenderDebugText("  HSFreqMan(Leave Flag Team): %llu", timer.GetElapsedTime());
-        return behavior::ExecuteResult::Failure;
-     // }
-     // g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Leave Flag Team): %llu", timer.GetElapsedTime());
-     // return behavior::ExecuteResult::Success;
+      g_RenderState.RenderDebugText("  HSFreqMan(Leave Flag Team): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Stop;
+    }
+    g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Leave Flag Team): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Ignore;
   }
 
   g_RenderState.RenderDebugText("  HSFreqMan(No Action Taken): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
+
+uint64_t HSFreqManagerNode::GetJoinDelay(behavior::ExecuteContext& ctx){
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  std::vector <std::string> joiners;
+  const std::vector<std::string>& bot_names = bb.GetBotNames();
+  uint64_t unique_time = 300;
+
+  // bot names is already sorted so this should result in a sorted list
+  for (const std::string& bot_name : bot_names) {
+    for (const Player& player : game.GetPlayers()) {
+      if (player.ship == 8 || player.dead) continue;
+      if (player.frequency == 90 || player.frequency == 91) continue;
+
+      if (player.name == bot_name) {
+        joiners.push_back(player.name);
+      }
+    }
+  }
+
+  for (std::size_t i = 0; i < joiners.size(); i++) {
+    if (joiners[i] == game.GetPlayer().name) {
+      unique_time = i * 300;  // a unique time that all bots should agree on
+      break;
+    }
+  }
+
+  return unique_time;
+}
+
+uint64_t HSFreqManagerNode::GetLeaveDelay(behavior::ExecuteContext& ctx){
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
+
+  std::vector <std::string> leavers;
+  const std::vector<std::string>& bot_names = bb.GetBotNames();
+  uint64_t unique_time = 0;
+
+  // bot names is already sorted so this should result in a sorted list
+  for (const std::string& bot_name : bot_names) {
+    for (const Player& player : game.GetPlayers()) {
+      if (player.ship == 8 || player.dead) continue;
+      if (player.frequency != 90 && player.frequency != 91) continue;
+
+      if (player.name == bot_name) {
+        leavers.push_back(player.name);
+      }
+    }
+  }
+
+  for (std::size_t i = 0; i < leavers.size(); i++) {
+    if (leavers[i] == game.GetPlayer().name) {
+      unique_time = i * 300;  // a unique time that all bots should agree on
+      break;
+    }
+  }
+
+  return unique_time;
+}
+
+
+
 
 behavior::ExecuteResult HSShipManagerNode::Execute(behavior::ExecuteContext& ctx) {
  // return behavior::ExecuteResult::Success;

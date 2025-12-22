@@ -41,6 +41,11 @@ class HSSetRegionNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
+class HSJackpotQueryNode : public behavior::BehaviorNode {
+public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
 class HSSetCombatRoleNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
@@ -91,8 +96,11 @@ class HSSetDefensePositionNode : public behavior::BehaviorNode {
 };
 
 class HSFreqManagerNode : public behavior::BehaviorNode {
- public:
+public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+private:
+  uint64_t GetJoinDelay(behavior::ExecuteContext& ctx);
+  uint64_t GetLeaveDelay(behavior::ExecuteContext& ctx);
 };
 
 class HSFlaggingCheckNode : public behavior::BehaviorNode {

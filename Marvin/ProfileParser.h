@@ -8,15 +8,14 @@ namespace marvin {
 
 class ProfileParser {
  public:
-  ProfileParser(uint32_t index) : profile_index(index) {}
-  bool LoadProfileData();
-  const ProfileData& GetProfileData() { return profile_data; }
+  static bool GetProfileData(uint32_t index, ProfileData& data);
+  static bool GetProfileNames(std::vector<std::string>& names);
 
  private:
-  std::string GetWorkingDirectory();
-
-  uint32_t profile_index;
-  ProfileData profile_data;
+  static std::string GetWorkingDirectory();
+  static bool GetStringData(std::vector<std::string>& data);
 };
+
+
 
 }  // namespace marvin
