@@ -30,7 +30,7 @@ void HockeyBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto shoot_sequence = std::make_unique<behavior::SequenceNode>(looking_at_enemy.get(), shoot_enemy.get());
   auto parallel_shoot_enemy =
-      std::make_unique<behavior::ParallelNode>(shoot_sequence.get(), move_method_selector.get());
+      std::make_unique<behavior::ParallelAnyNode>(shoot_sequence.get(), move_method_selector.get());
   auto los_shoot_conditional =
       std::make_unique<behavior::SequenceNode>(target_in_los.get(), parallel_shoot_enemy.get());
   auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy.get(), follow_path.get());

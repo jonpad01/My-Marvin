@@ -560,6 +560,8 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
     return result;
   }
 
+  // calling this here causes the game to lookup and store whatever name is currently in the player profile
+  // this will get changed later if started by the fuse-loader
   if (!game) {
     game = std::make_shared<marvin::ContinuumGameProxy>();
     return result;

@@ -17,8 +17,10 @@ struct AnchorResult {
 };
 
 class HyperspaceBehaviorBuilder : public BehaviorBuilder {
- public:
+public:
   void CreateBehavior(Bot& bot);
+public:
+  void BuildCenterGunnerTree();
 };
 
 class HSPlayerSortNode : public behavior::BehaviorNode {

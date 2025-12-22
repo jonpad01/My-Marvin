@@ -61,7 +61,7 @@ void ExtremeGamesBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto bomb_sequence = std::make_unique<behavior::SequenceNode>(aim_with_bomb.get(), shoot_bomb.get());
   auto bomb_gun_sequence = std::make_unique<behavior::SelectorNode>(gun_sequence.get(), bomb_sequence.get());
   auto parallel_shoot_enemy =
-      std::make_unique<behavior::ParallelNode>(bomb_gun_sequence.get(), move_method_selector.get());
+      std::make_unique<behavior::ParallelAnyNode>(bomb_gun_sequence.get(), move_method_selector.get());
   auto los_shoot_conditional =
       std::make_unique<behavior::SequenceNode>(target_in_los_.get(), parallel_shoot_enemy.get());
   auto enemy_path_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());

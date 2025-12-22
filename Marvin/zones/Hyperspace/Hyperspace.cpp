@@ -58,8 +58,11 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   std::vector<std::string> names;
   bool result = ProfileParser::GetProfileNames(names);
-
   if (result) { bot.GetBlackboard().SetBotNames(names); }
+
+  uint16_t ship = bot.GetGame().GetPlayer().ship;
+  uint16_t freq = bot.GetGame().GetPlayer().frequency;
+  bool flagging = freq == 90 || freq == 91;
 
   //bot.GetBlackboard().AddBotName(bot.GetGame().GetPlayer().name);
   std::vector<MapCoord> patrol_nodes = {MapCoord(585, 540), MapCoord(400, 570)};
@@ -70,7 +73,6 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   bot.GetBlackboard().Set<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
   bot.GetBlackboard().Set<uint64_t>(BBKey::SetShipCoolDown, 5500);
   bot.GetBlackboard().Set<bool>(BBKey::ReadingAnchorList, true);
-
   bot.GetBlackboard().Set<bool>(BBKey::UseMultiFire, true);
   bot.GetBlackboard().Set<bool>(BBKey::UseStealth, true);
   bot.GetBlackboard().Set<bool>(BBKey::UseCloak, true);
@@ -86,19 +88,62 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseRepel, true);
   bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseBurst, true);
 
-  auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
+
+  // build basic tree for now
+  BuildCenterGunnerTree();
+  return;
+
+
+  switch (ship) {
+  case 0: {
+    if (flagging) {
+
+    }
+    else {
+      BuildCenterGunnerTree();
+    }
+  }break;
+  case 1: {
+
+  }break;
+  case 2: {
+
+  }break;
+  case 3: {
+
+  }break;
+  case 4: {
+
+  }break;
+  case 5: {
+
+  }break;
+  case 6: {
+
+  }break;
+  case 7: {
+
+  }break;
+  case 8: {
+
+  }break;
+  }
+  
+
+#if 0 
+  
   auto anchor_base_path = std::make_unique<bot::AnchorBasePathNode>();
   auto find_enemy_in_base = std::make_unique<bot::FindEnemyInBaseNode>();
 
   auto is_anchor = std::make_unique<bot::IsAnchorNode>();
-  auto bouncing_shot = std::make_unique<bot::BouncingShotNode>();
+  
   auto HS_base_patrol = std::make_unique<hs::HSFlaggerBasePatrolNode>();
-  auto patrol_center = std::make_unique<bot::PatrolNode>();
+  
   auto HS_toggle = std::make_unique<hs::HSToggleNode>();
   auto HS_flagger_attach = std::make_unique<hs::HSAttachNode>();
   auto HS_warp = std::make_unique<hs::HSWarpToCenterNode>();
   auto HS_shipman = std::make_unique<hs::HSShipManagerNode>();
-  auto HS_freqman = std::make_unique<hs::HSFreqManagerNode>();
+ 
   auto HS_set_defense_position = std::make_unique<hs::HSSetDefensePositionNode>();
   auto HS_player_sort = std::make_unique<hs::HSPlayerSortNode>();
   auto team_sort = std::make_unique<bot::SortBaseTeams>();
@@ -112,35 +157,28 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto HS_move_to_depot = std::make_unique<hs::HSMoveToDepotNode>();
   auto HS_shipstatus = std::make_unique<hs::HSPrintShipStatusNode>();
   auto HS_combat_role = std::make_unique<hs::HSSetCombatRoleNode>();
-  auto marvin_finder = std::make_unique<bot::MarvinFinderNode>();
-  auto get_out_of_spec = std::make_unique<bot::GetOutOfSpecNode>();
-  auto jackpot_query = std::make_unique<hs::HSJackpotQueryNode>();
+  //auto marvin_finder = std::make_unique<bot::MarvinFinderNode>();
+ 
 
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
   auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
   auto parallel_shoot_enemy = std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
 
-  auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
+  
   auto anchor_base_path_sequence =
       std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_base_path.get(), follow_path_.get());
-  auto enemy_path_logic_selector = std::make_unique<behavior::SelectorNode>(
-      mine_sweeper_.get(), anchor_base_path_sequence.get(), path_to_enemy_sequence.get());
+
 
   auto anchor_los_parallel = std::make_unique<behavior::ParallelNode>(anchor_base_path_sequence.get());
   auto anchor_los_sequence = std::make_unique<behavior::SequenceNode>(is_anchor.get(), anchor_los_parallel.get());
   auto anchor_los_selector =
       std::make_unique<behavior::SelectorNode>(anchor_los_sequence.get(), parallel_shoot_enemy.get());
 
-  auto los_shoot_conditional =
-      std::make_unique<behavior::SequenceNode>(target_in_los_.get(), anchor_los_selector.get());
-  auto bounce_path_parallel =
-      std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector.get());
-  auto path_or_shoot_selector =
-      std::make_unique<behavior::SelectorNode>(los_shoot_conditional.get(), bounce_path_parallel.get());
+
+  
 
 
-  auto find_enemy_in_center_sequence =
-      std::make_unique<behavior::SequenceNode>(find_enemy_in_center_.get(), path_or_shoot_selector.get());
+
   auto find_enemy_in_base_sequence =  
       std::make_unique<behavior::SequenceNode>(find_enemy_in_base.get(),path_or_shoot_selector.get());
   auto HS_flagger_find_enemy_selector =
@@ -154,7 +192,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
       std::make_unique<behavior::SequenceNode>(HS_gather_flags.get(), follow_path_.get());
   auto HS_drop_flags_sequence = std::make_unique<behavior::SequenceNode>(HS_drop_flags.get(), follow_path_.get());
   auto HS_move_to_base_sequence = std::make_unique<behavior::SequenceNode>(HS_move_to_base.get(), follow_path_.get());
-  auto patrol_center_sequence = std::make_unique<behavior::SequenceNode>(patrol_center.get(), follow_path_.get());
+  
   //auto patrol_selector =
     //  std::make_unique<behavior::SelectorNode>(patrol_center_sequence.get(), patrol_base_sequence.get());
 
@@ -168,14 +206,11 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto HS_move_to_depot_sequence = std::make_unique<behavior::SequenceNode>(HS_move_to_depot.get(), follow_path_.get());
 
 
-  auto action_selector = std::make_unique<behavior::SelectorNode>(
-      HS_move_to_depot_sequence.get(), 
-      flagger_sequence.get(), find_enemy_in_center_sequence.get(), patrol_center_sequence.get());
+ 
 
   
 
-  auto root_sequence = std::make_unique<behavior::SequenceNode>(
-    commands_.get(), get_out_of_spec.get(), jackpot_query.get(), respawn_query_.get(), HS_freqman.get());
+
 
   engine_->PushRoot(std::move(root_sequence));
 
@@ -221,18 +256,65 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   engine_->PushNode(std::move(HS_toggle));
   engine_->PushNode(std::move(HS_flagger_attach));
   engine_->PushNode(std::move(HS_warp));
-  engine_->PushNode(std::move(get_out_of_spec));
+  
   engine_->PushNode(std::move(team_sort));
-  engine_->PushNode(std::move(jackpot_query));
-  engine_->PushNode(std::move(marvin_finder));
+  
+  //engine_->PushNode(std::move(marvin_finder));
   engine_->PushNode(std::move(HS_shipman));
-  engine_->PushNode(std::move(HS_freqman));
+  
   engine_->PushNode(std::move(HS_set_defense_position));
   engine_->PushNode(std::move(HS_player_sort));
   engine_->PushNode(std::move(HS_set_region));
   engine_->PushNode(std::move(HS_is_flagging));
   engine_->PushNode(std::move(action_selector));
+#endif
 }
+
+
+void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
+  auto* get_out_of_spec = engine_->MakeNode<bot::GetOutOfSpecNode>();
+  auto* HS_freqman = engine_->MakeNode<hs::HSFreqManagerNode>();
+  auto* jackpot_query = engine_->MakeNode<hs::HSJackpotQueryNode>();
+  auto* bouncing_shot = engine_->MakeNode<bot::BouncingShotNode>();
+  auto* patrol_center = engine_->MakeNode<bot::PatrolNode>();
+  auto* move_to_enemy = engine_->MakeNode<bot::MoveToEnemyNode>();
+
+  auto* path_to_enemy_sequence =
+    engine_->MakeNode<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
+
+  auto* parallel_shoot_enemy =
+    engine_->MakeNode<behavior::ParallelAnyNode>(shoot_enemy_.get(), move_to_enemy);
+
+  auto* los_shoot_conditional =
+    engine_->MakeNode<behavior::SequenceNode>(target_in_los_.get(), parallel_shoot_enemy);
+  auto bounce_path_parallel =
+    engine_->MakeNode<behavior::ParallelAnyNode>(bouncing_shot, path_to_enemy_sequence);
+
+  auto* path_or_shoot_selector =
+    engine_->MakeNode<behavior::SelectorNode>(mine_sweeper_.get(), los_shoot_conditional, bounce_path_parallel);
+
+  auto* find_enemy_sequence =
+    engine_->MakeNode<behavior::SequenceNode>(find_enemy_in_center_.get(), path_or_shoot_selector);
+
+  auto* patrol_center_sequence =
+    engine_->MakeNode<behavior::SequenceNode>(patrol_center, follow_path_.get());
+
+  auto* enemy_patrol_selector =
+    engine_->MakeNode<behavior::SelectorNode>(find_enemy_sequence, patrol_center_sequence);
+
+  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(
+    commands_.get(), get_out_of_spec, jackpot_query, respawn_query_.get(), HS_freqman, enemy_patrol_selector);
+}
+
+
+
+
+
+
+
+
+
+
 
 // The jackpot is 343234.
 behavior::ExecuteResult HSJackpotQueryNode::Execute(behavior::ExecuteContext& ctx) {

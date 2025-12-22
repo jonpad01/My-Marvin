@@ -215,7 +215,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto los_weapon_selector =
       std::make_unique<behavior::SelectorNode>(DEVA_burst_enemy.get(), DEVA_repel_enemy.get(), shoot_enemy_.get());
   auto parallel_shoot_enemy =
-      std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
+      std::make_unique<behavior::ParallelAnyNode>(los_weapon_selector.get(), move_method_selector.get());
 
   auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
   auto rusher_base_path_sequence = std::make_unique<behavior::SequenceNode>(rusher_base_path.get(), follow_path_.get());
@@ -224,7 +224,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto enemy_path_logic_selector = std::make_unique<behavior::SelectorNode>(mine_sweeper_.get(), rusher_base_path_sequence.get(),
                                                anchor_base_path_sequence.get(), path_to_enemy_sequence.get());
 
-  auto anchor_los_parallel = std::make_unique<behavior::ParallelNode>(DEVA_burst_enemy.get(), mine_sweeper_.get(),
+  auto anchor_los_parallel = std::make_unique<behavior::ParallelAnyNode>(DEVA_burst_enemy.get(), mine_sweeper_.get(),
                                                                       anchor_base_path_sequence.get());
   auto anchor_los_sequence =
       std::make_unique<behavior::SequenceNode>(is_anchor.get(), not_in_center.get(), anchor_los_parallel.get());
@@ -234,7 +234,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto los_shoot_conditional =
       std::make_unique<behavior::SequenceNode>(target_in_los_.get(), los_role_selector.get());
   auto bounce_path_parallel =
-      std::make_unique<behavior::ParallelNode>(bouncing_shot.get(), enemy_path_logic_selector.get());
+      std::make_unique<behavior::ParallelAnyNode>(bouncing_shot.get(), enemy_path_logic_selector.get());
 
   auto path_or_shoot_selector = std::make_unique<behavior::SelectorNode>(
       DEVA_repel_enemy.get(), los_shoot_conditional.get(), bounce_path_parallel.get());

@@ -28,19 +28,19 @@ ExecuteResult SequenceNode::Execute(ExecuteContext& ctx) {
   return ExecuteResult::Success;
 }
 
-ParallelNode::ParallelNode(std::vector<BehaviorNode*> children) : children_(std::move(children)) {}
 
-ExecuteResult ParallelNode::Execute(ExecuteContext& ctx) {
-  ExecuteResult result = ExecuteResult::Success;
+ParallelAnyNode::ParallelAnyNode(std::vector<BehaviorNode*> children) : children_(std::move(children)) {}
+
+ExecuteResult ParallelAnyNode::Execute(ExecuteContext& ctx) {
+  ExecuteResult result = ExecuteResult::Failure;
 
   for (auto& child : children_) {
     ExecuteResult child_result = child->Execute(ctx);
 
     if (child_result == ExecuteResult::Stop) return child_result;
 
-    if (result == ExecuteResult::Success && child_result != ExecuteResult::Success) {
-      // TODO: Implement failure policies
-      // result = child_result;
+    if (child_result == ExecuteResult::Success) {
+      result = child_result;
     }
   }
 

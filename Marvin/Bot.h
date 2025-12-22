@@ -98,6 +98,7 @@ class Bot {
   Vector2f powerball_goal_;
   Vector2f powerball_goal_path_;
   std::string powerball_arena_;
+  
 
   std::shared_ptr<GameProxy> game_;
   std::unique_ptr<path::Pathfinder> pathfinder_;
@@ -114,6 +115,8 @@ class Bot {
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
   std::unique_ptr<BasePaths> base_paths_;
   DoorState previous_door_state_;
+  uint16_t current_ship_ = 99;
+  uint16_t current_freq_ = 99;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;

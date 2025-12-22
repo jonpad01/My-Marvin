@@ -32,7 +32,7 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
     auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
     auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
     auto parallel_shoot_enemy =
-        std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
+        std::make_unique<behavior::ParallelAnyNode>(los_weapon_selector.get(), move_method_selector.get());
 
     auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
 
@@ -68,10 +68,14 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
   srand((unsigned int)(time_.GetTime()));
 
+  //not safe to grab stuff from game here
+
   game_->Update();
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
   previous_door_state_ = DoorState::Load();
+  //current_ship_ = game_->GetPlayer().ship;
+  //current_freq_ = game_->GetPlayer().frequency;
   ctx_.bot = this;
 }
 
@@ -116,8 +120,8 @@ void Bot::Load() {
       break;
     }
     case 4: {
-      SelectBehaviorTree();                                                               // 100ms
-      //log.Write("Behavior Tree Loaded", timer.GetElapsedTime()); 
+      SelectBehaviorTree();    
+                                                                                           // 100ms
       load_index++;
       break;
     }
@@ -142,31 +146,39 @@ void Bot::Update(float dt) {
   if (state == UpdateState::Wait) return;
   
   if (state == UpdateState::Reload) {
-    log << "Reloading bot.";
+    log << "Game update requested reload." << std::endl;
     load_index = 1;
     return;
+  }
+
+  DoorState door_state = DoorState::Load();
+  if (door_state.door_mode != previous_door_state_.door_mode) {
+    log << "Door state requested reload." << std::endl;
+    load_index = 1;
+    previous_door_state_ = door_state;
+  }
+
+  float radius = game_->GetRadius();
+  uint16_t ship = game_->GetPlayer().ship;
+  uint16_t freq = game_->GetPlayer().frequency;
+  
+  if (radius != radius_) {
+    radius_ = radius;
+    load_index = 1;
   }
 
   // the load behavior is determined by the load index
   Load();
   if (load_index != 0) return;
 
-  DoorState door_state = DoorState::Load();
-  if (door_state.door_mode != previous_door_state_.door_mode) {
-    //log.Write("Door state changed.");
-    // Doors changed
-    load_index = 1;
-    previous_door_state_ = door_state;
-    return;
-  }
-
-  float radius = game_->GetRadius();
-  int ship = game_->GetPlayer().ship;
-  
-  if (radius != radius_) {
-    radius_ = radius;
-    load_index = 1;
-    return;
+  // lazy method to update hyperspace tree
+  if (game_->GetZone() == Zone::Hyperspace) {
+    if (ship != current_ship_ || freq != current_freq_) {
+      auto builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+      this->behavior_ = builder->Build(*this);
+      current_ship_ = ship;
+      current_freq_ = freq;
+    }
   }
   
   //u8 id = game_->GetMap().GetTileId(Vector2f(575, 512));
@@ -252,12 +264,9 @@ void Bot::SelectBehaviorTree() {
 
   switch (game_->GetZone()) {
     case Zone::Devastation: {
+
       goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMap(), game_->GetMapFile());
       game_->SendChatMessage("?chat=marvin");
-      if (map_name == "bdelite.lvl") {
-       // log.Write("Building Training behavior tree.");
-        builder = std::make_unique<training::TrainingBehaviorBuilder>();
-      } else {
         if (blackboard_->ValueOr<BDState>(BBKey::BDHostingState, BDState::Stopped) == BDState::Start) {
           builder = std::make_unique<deva::BaseDuelBehaviorBuilder>();
         }
@@ -270,7 +279,7 @@ void Bot::SelectBehaviorTree() {
         //  log.Write("Building Default behavior tree.");
           builder = std::make_unique<DefaultBehaviorBuilder>();
         }
-      }
+      
     } break;
     case Zone::ExtremeGames: {
       builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
@@ -447,7 +456,7 @@ behavior::ExecuteResult GetOutOfSpecNode::Execute(behavior::ExecuteContext& ctx)
   uint16_t ship = game.GetPlayer().ship;
 
   if (ship == 8) {
-    if (ctx.bot->GetTime().RepeatedActionDelay("getoutofspecnode-setship", 2000)) {
+    if (ctx.bot->GetTime().RepeatedActionDelay("getoutofspecnode-setship", 3000)) {
       game.SetShip(rand() % 8);
     }
 
@@ -1519,18 +1528,19 @@ behavior::ExecuteResult MineSweeperNode::Execute(behavior::ExecuteContext& ctx) 
 
     if (weapon_player == nullptr) continue;
     if (weapon_player->frequency == game.GetPlayer().frequency) continue;
-    if (weapon->IsMine()) {
-      if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
-        game.Repel(ctx.bot->GetKeys());
+    if (!weapon->IsMine()) continue;
 
-        g_RenderState.RenderDebugText("  MineSweeperNode(success): %llu", timer.GetElapsedTime());
-        return behavior::ExecuteResult::Success;
-      }
+
+    if (weapon->GetPosition().Distance(game.GetPosition()) < 8.0f && game.GetPlayer().repels > 0) {
+      game.Repel(ctx.bot->GetKeys());
+
+      g_RenderState.RenderDebugText("  MineSweeperNode(repeled): %llu", timer.GetElapsedTime());
+      return behavior::ExecuteResult::Ignore;
     }
   }
 
-  g_RenderState.RenderDebugText("  MineSweeperNode(fail): %llu", timer.GetElapsedTime());
-  return behavior::ExecuteResult::Failure;
+  g_RenderState.RenderDebugText("  MineSweeperNode(did nothing): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Ignore;
 }
 
 behavior::ExecuteResult InLineOfSightNode::Execute(behavior::ExecuteContext& ctx) {
@@ -1614,57 +1624,46 @@ behavior::ExecuteResult InCenterNode::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult BouncingShotNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  CombatRole role = bb.ValueOr<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
-
   const Player* target = bb.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
   bool in_sight = bb.ValueOr<bool>(BBKey::TargetInSight, false);
-  //const Player* target = bb.GetTarget();
-  //bool in_sight = bb.GetTargetInSight();
+  TileId tile_id = game.GetMap().GetTileId(game.GetPosition());
 
-  if (!target || in_sight) {
+  if (!target || in_sight || tile_id == marvin::kSafeTileId) {
     g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
   float energy_pct = (float)game.GetPlayer().energy / game.GetMaxEnergy() * 100.0f;
-
-  //if (bb.ValueOr<bool>("IsAnchor", false) && energy_pct < 50.0f) {
-  if (role == CombatRole::Anchor && energy_pct < 50.0f) {
-    g_RenderState.RenderDebugText("  BouncingShotNode(fail): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
-  }
-
   float target_radius = game.GetShipSettings(target->ship).GetRadius();
+   
 
   ShotResult bResult =
-      ctx.bot->GetShooter().BouncingBombShot(*ctx.bot, target->position, target->velocity, target_radius);
+    ctx.bot->GetShooter().BouncingBombShot(*ctx.bot, target->position, target->velocity, target_radius);
   ShotResult gResult =
-      ctx.bot->GetShooter().BouncingBulletShot(*ctx.bot, target->position, target->velocity, target_radius);
+    ctx.bot->GetShooter().BouncingBulletShot(*ctx.bot, target->position, target->velocity, target_radius);
 
   float bomb_timer = bb.ValueOr<float>(BBKey::BombTimer, 0.0f);
-  //float bomb_cooldown = bb.GetBombCooldown();
   bomb_timer -= ctx.dt;
-  //bb.Set<float>("BombTimer", bomb_timer);
-  //bb.SetBombCooldown(bomb_cooldown);
-
-  if (game.GetMap().GetTileId(game.GetPosition()) != marvin::kSafeTileId) {
-    if (bResult.hit && bomb_timer <= 0.0f) {
-      ctx.bot->GetKeys().Press(VK_TAB);
-      //bb.Set<float>("BombTimer", bomb_delay);
-      bomb_timer = game.GetShipSettings().GetBombFireDelay();
-    } else if (gResult.hit) {
-      ctx.bot->GetKeys().Press(VK_CONTROL);
-    }
-  }
-
   bb.Set<float>(BBKey::BombTimer, bomb_timer);
 
-  g_RenderState.RenderDebugText("  BouncingShotNode(success): %llu", timer.GetElapsedTime());
-  return behavior::ExecuteResult::Success;
+  if (bResult.hit && bomb_timer <= 0.0f) {
+    ctx.bot->GetKeys().Press(VK_TAB);
+    bomb_timer = game.GetShipSettings().GetBombFireDelay();
+    bb.Set<float>(BBKey::BombTimer, bomb_timer);
+    g_RenderState.RenderDebugText("  BouncingShotNode(bombing): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+  else if (gResult.hit) {
+    ctx.bot->GetKeys().Press(VK_CONTROL);
+    g_RenderState.RenderDebugText("  BouncingShotNode(shooting): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+  
+  g_RenderState.RenderDebugText("  BouncingShotNode(did nothing): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Failure;
 }
 
 behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
@@ -1674,10 +1673,9 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.bot->GetBlackboard();
 
   const Player* target_player = bb.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
-  //const Player* target_player = bb.GetTarget();
 
   if (!target_player) {
-    g_RenderState.RenderDebugText("  ShootEnemyNode(fail): %llu", timer.GetElapsedTime());
+    g_RenderState.RenderDebugText("  ShootEnemyNode(no target): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
   const Player& target = *target_player;
@@ -1692,7 +1690,6 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
   Vector2f solution = target.position;
   bb.Set<Vector2f>(BBKey::AimingSolution, solution);
-  //bb.SetSolution(solution);
 
   float radius_multiplier = 1.4f;
 
@@ -1746,7 +1743,6 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
     if (result.hit) {
       if (!onBomb) {
         bb.Set<Vector2f>(BBKey::AimingSolution, solution);
-        //bb.SetSolution(solution);
       }
 
 
@@ -1835,7 +1831,6 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   auto& bb = ctx.bot->GetBlackboard();
 
   Vector2f position = bb.ValueOr<Vector2f>(BBKey::AimingSolution, Vector2f());
-  //Vector2f position = bb.GetSolution();
 
   bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
 

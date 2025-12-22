@@ -27,7 +27,7 @@ namespace training {
     auto move_method_selector = std::make_unique<behavior::SelectorNode>(move_to_enemy.get());
     auto los_weapon_selector = std::make_unique<behavior::SelectorNode>(shoot_enemy_.get());
     auto parallel_shoot_enemy =
-        std::make_unique<behavior::ParallelNode>(los_weapon_selector.get(), move_method_selector.get());
+        std::make_unique<behavior::ParallelAnyNode>(los_weapon_selector.get(), move_method_selector.get());
 
     auto path_to_enemy_sequence = std::make_unique<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
 

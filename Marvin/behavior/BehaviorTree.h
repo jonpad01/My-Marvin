@@ -42,11 +42,11 @@ class SequenceNode : public BehaviorNode {
   std::size_t running_node_index_;
 };
 
-class ParallelNode : public BehaviorNode {
+class ParallelAnyNode : public BehaviorNode {
  public:
-  ParallelNode(std::vector<BehaviorNode*> children);
+  ParallelAnyNode(std::vector<BehaviorNode*> children);
   template <typename... Args>
-  ParallelNode(Args... children) : ParallelNode(std::vector<BehaviorNode*>({std::forward<Args>(children)...})) {}
+  ParallelAnyNode(Args... children) : ParallelAnyNode(std::vector<BehaviorNode*>({std::forward<Args>(children)...})) {}
 
   ExecuteResult Execute(ExecuteContext& ctx) override;
 
