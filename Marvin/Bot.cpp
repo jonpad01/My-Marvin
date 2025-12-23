@@ -65,17 +65,18 @@ class DefaultBehaviorBuilder : public BehaviorBuilder {
 };
 
 
-Bot::Bot(std::shared_ptr<marvin::GameProxy> game) : game_(std::move(game)) {
+Bot::Bot(GameProxy* game) : game_(game) {
   srand((unsigned int)(time_.GetTime()));
 
-  //not safe to grab stuff from game here
-
-  game_->Update();
+  
+  log << "Creating bot." << std::endl;
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
   previous_door_state_ = DoorState::Load();
-  //current_ship_ = game_->GetPlayer().ship;
-  //current_freq_ = game_->GetPlayer().frequency;
+  radius_ = game->GetRadius();
+  current_map_ = game_->GetMapFile();
+  current_ship_ = game_->GetPlayer().ship;
+  current_freq_ = game_->GetPlayer().frequency;
   ctx_.bot = this;
 }
 
@@ -89,14 +90,14 @@ void Bot::Load() {
       return;
     }
     case 1: {
-      //log.Write("LOADING BOT", timer.GetElapsedTime());
+      log << "Reloading bot." << std::endl;
 
       radius_ = game_->GetRadius();
       command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
       //log.Write("Command System Loaded", timer.GetElapsedTime());
       regions_ = std::make_unique<RegionRegistry>(game_->GetMap());                      // 4.3ms
       //log.Write("Regions Created", timer.GetElapsedTime());
-      regions_->Create(game_->GetMap(), radius_);                                        // 121ms
+      regions_->Create(game_->GetMap(), game_->GetRadius());                                        // 121ms
       //log.Write("Regions Loaded", timer.GetElapsedTime());
       load_index++;
       break;
@@ -106,15 +107,15 @@ void Bot::Load() {
       //log.Write("Node Processor Loaded", timer.GetElapsedTime());
       pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);  // 0ms
      // log.Write("Pathfinder Loaded", timer.GetElapsedTime());
-      pathfinder_->SetTraversabletiles(game_->GetMap(), radius_);                         // 43ms
+      pathfinder_->SetTraversabletiles(game_->GetMap(), game_->GetRadius());                         // 43ms
      // log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
-      pathfinder_->CalculateEdges(game_->GetMap(), radius_);                              // 57ms
+      pathfinder_->CalculateEdges(game_->GetMap(), game_->GetRadius());                              // 57ms
      // log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
       load_index++;
       break;
     }
     case 3: {
-      pathfinder_->SetMapWeights(game_->GetMap(), radius_);                               // 250ms
+      pathfinder_->SetMapWeights(game_->GetMap(), game_->GetRadius());                               // 250ms
     //  log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());                  
       load_index++;
       break;
@@ -140,20 +141,28 @@ void Bot::Update(float dt) {
   keys_.ReleaseAll();
   time_.Update();
 
-  UpdateState state = game_->Update();
+  //UpdateState state = game_->Update();
   g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
 
-  if (state == UpdateState::Wait) return;
+  //if (state == UpdateState::Wait) return;
   
-  if (state == UpdateState::Reload) {
-    log << "Game update requested reload." << std::endl;
+  std::string map_name = game_->GetMapFile();
+
+  if (map_name != current_map_) {
+    current_map_ = map_name;
+    log << "Map change reload." << std::endl;
     load_index = 1;
-    return;
   }
+
+  //if (state == UpdateState::Reload) {
+   // log << "Game update requested reload." << std::endl;
+    //load_index = 1;
+    //return;
+  //}
 
   DoorState door_state = DoorState::Load();
   if (door_state.door_mode != previous_door_state_.door_mode) {
-    log << "Door state requested reload." << std::endl;
+    log << "Door state reload." << std::endl;
     load_index = 1;
     previous_door_state_ = door_state;
   }
@@ -163,6 +172,7 @@ void Bot::Update(float dt) {
   uint16_t freq = game_->GetPlayer().frequency;
   
   if (radius != radius_) {
+    log << "Ship radius reload." << std::endl;
     radius_ = radius;
     load_index = 1;
   }
@@ -272,7 +282,7 @@ void Bot::SelectBehaviorTree() {
         }
         else if (goals_->HasCoords()) {
         //  log.Write("Building Devastation behavior tree.");
-          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
           builder = std::make_unique<deva::DevastationBehaviorBuilder>();
         } else {
           game_->SendChatMessage("Warning: I don't have base duel coords for this arena, using default behavior tree.");
@@ -292,7 +302,7 @@ void Bot::SelectBehaviorTree() {
     } break;
     case Zone::Hyperspace: {
       goals_ = std::make_unique<hs::HSFlagRooms>();
-      base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), radius_, *pathfinder_, game_->GetMap());
+      base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
       builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
      // log.Write("Building Hyperspace behavior tree.");
     } break;

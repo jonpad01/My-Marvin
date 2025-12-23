@@ -12,15 +12,6 @@
 
 namespace marvin {
 
-struct ProfileData {
-  std::string name;
-  std::string password;
-  std::string zone_name;
-  std::string chats;
-  int ship = 0;
-  int window_mode = 0;
-};
-
 class Map;
 enum class ConnectState : u32 {
   // This is the ConnectState when the client is on the menu and not attempting to join any zone.
@@ -44,7 +35,7 @@ enum class ConnectState : u32 {
   // This is the same tick count that Continuum uses for the "No data" notification.
   Disconnected
 };
-enum class UpdateState : short { Clear, Wait, Reload };
+
 enum class CombatRole : short { Anchor, Rusher, Bomber, Gunner, Flagger, Turret, EMP, PowerBaller, None };
 enum class CombatDifficulty : short { Nerf, Normal, None };
 enum class BDWarpTo : short { Center, Base, None };
@@ -178,16 +169,12 @@ class GameProxy {
  public:
   virtual ~GameProxy() {}
 
-  virtual UpdateState Update() = 0;
   virtual bool IsLoaded() = 0;
 
   virtual std::string GetName() = 0;
-  //virtual void SetName(const std::string& name) = 0;
-  //virtual HWND GetGameWindowHandle() = 0;
   virtual int GetEnergy() const = 0;
   virtual const float GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
-  //virtual const ShipFlightStatus& GetShipStatus() const = 0;
 
   virtual const Player& GetPlayer() const = 0;
   virtual const std::vector<Player>& GetPlayers() const = 0;
@@ -262,7 +249,7 @@ class GameProxy {
   virtual void Burst(KeyController& keys) = 0;
   virtual void Repel(KeyController& keys) = 0;
   virtual void SetSelectedPlayer(uint16_t id) = 0;
-  virtual std::size_t GetIDIndex() = 0;
+
 
 };
 

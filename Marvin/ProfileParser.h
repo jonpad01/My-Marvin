@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include "GameProxy.h"
+#include "platform/Menu.h"
 
 namespace marvin {
 

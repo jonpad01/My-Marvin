@@ -24,6 +24,7 @@
 #include "KeyController.h"
 #include "MemoryMap.h"
 #include "ProfileParser.h"
+#include "platform/Menu.h"
 
 /* Marvin Basic Operation - Running Multiple Bots
 *
@@ -130,20 +131,21 @@ using time_clock = std::chrono::high_resolution_clock;
 using time_point = time_clock::time_point;
 using seconds = std::chrono::duration<float>;
 
-std::string my_name;
+std::string name;
 uint32_t profile_index = 0;
 
 static time_point g_LastUpdateTime;
-static time_point g_JoinGameStartPoint;
-static time_point g_SharedMemoryStartPoint;
+static time_point g_JoinGameStartPoint = time_clock::now();
+static time_point g_SharedMemoryStartPoint = time_clock::now();;
 static float g_UpdatdeDelay = 1.0f / 60.0f;
 static float g_JoinDelay = 2.0f;
 static float g_SharedMemoryWaitTime = 3.0f;
 
-static float highest_dt = 0.0f;
 
-std::unique_ptr<marvin::Bot> bot = nullptr;
-std::shared_ptr<marvin::ContinuumGameProxy> game = nullptr;
+std::unique_ptr<marvin::Bot> bot;
+std::unique_ptr<marvin::ContinuumGameProxy> game;
+std::unique_ptr<marvin::Menu> menu;
+
 static HHOOK g_hHook = NULL;
 
 static bool enabled = true;
@@ -174,20 +176,6 @@ void UpdateCRC() {
   *(u32*)(game_addr + 0x6d4) = result;
 }
 
-void Initialize() {
-
-  if (!game) game = std::make_shared<marvin::ContinuumGameProxy>();
-
-  if (my_name.empty() && game) {
-    my_name = game->GetName();
-  }
-
-  if (!marvin::log.is_open() && !my_name.empty()) {
-    marvin::log.open(my_name + ".log");
-    marvin::log << "Log file opened - " << my_name << std::endl;
-  }
-}
-
 bool LockedInSpec() {
 
   if (!game) return false;
@@ -196,9 +184,9 @@ bool LockedInSpec() {
   for (const marvin::ChatMessage& msg : game->GetCurrentChat()) {
     if (msg.type != marvin::ChatType::Arena) continue;
 
-    std::string eg_msg = "[ " + my_name + " ]";
+    std::string eg_msg = "[ " + name + " ]";
     std::string eg_packet_loss_msg = "Packet loss too high for you to enter the game.";
-    bool eg_lag_locked = msg.message.compare(0, 4 + my_name.size(), eg_msg) == 0;
+    bool eg_lag_locked = msg.message.compare(0, 4 + name.size(), eg_msg) == 0;
     if (eg_lag_locked || msg.message == eg_packet_loss_msg) return true;
   }
 
@@ -358,7 +346,6 @@ int WINAPI OverrideConnect(SOCKET s, const sockaddr* name, int namelen)
 HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface,
                                       LPRECT src_rect, DWORD flags, LPDDBLTFX fx) {
   OverrideGuard guard;
-  Initialize();
 
   if (!game || !game->IsInGame()) {
     return RealBlt(surface, dest_rect, next_surface, src_rect, flags, fx);
@@ -503,7 +490,11 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
 
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
   OverrideGuard guard;
-  Initialize();
+  SHORT real = RealGetAsyncKeyState(vKey);
+
+  if (!game || game->GameIsClosing()) {  // guard keys when game is closing
+    return real;
+  }
 
  HWND g_hWnd = game->GetGameWindowHandle();
 
@@ -514,15 +505,17 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 #endif
 
     if (GetFocus() == g_hWnd) {
-      return RealGetAsyncKeyState(vKey);
+      return real;
     }
 
     return 0;
   } else if (bot && bot->GetKeys().IsPressed(vKey)) {
-    return (SHORT)0x8000;
+    //return (SHORT)0x8000;
+    //real |= 0x0001;
+    real |= 0x8000;
   }
 
-  return 0;
+  return real;
 }
 
 
@@ -544,27 +537,28 @@ LRESULT WINAPI OverrideDispatchMessageA(const MSG* lpMsg) {
 // this override method is blocked until a message arrives.
 BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) {
   OverrideGuard guard;
-  // only want to manipulate keypresses if the result is true, so call it before returning
+  // only run if the result is true, so call it before returning
   // its important that this is only called once, only return the result from this point.
   bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
   if (!result || !lpMsg) return result;  // if false it means the game menu is closing
+
+  if (!menu) menu = std::make_unique<marvin::Menu>();
+  if (!enabled) return result;
+
+  if (!menu->IsOnMenu()) return result;
 
   if (quit_game) {
     PostQuitMessage(0);
     return result;
   }
 
-  // calling this here causes the game to lookup and store whatever name is currently in the player profile
-  // this will get changed later if started by the fuse-loader
-  if (!game) {
-    game = std::make_shared<marvin::ContinuumGameProxy>();
-    return result;
-  }
-
-
-  if (!marvin::log.is_open() && !my_name.empty()) {
-    marvin::log.open(my_name + ".log");
-    marvin::log << "Log file opened -  " << my_name << std::endl;
+  // allows drop back to menu and reenter
+  if (game) game.reset();
+  if (bot) bot.reset();
+  
+  if (!marvin::log.is_open() && !name.empty()) {
+    marvin::log.open(name + ".log");
+    marvin::log << "Log file opened -  " << name << std::endl;
   }
 
   // ------------ Shared memory used with launcher -------------------------------
@@ -573,12 +567,11 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
   if (sm_state == SharedMemoryState::OpeningMap) {
     if (memory_map.OpenMap()) {
       sm_state = SharedMemoryState::Listening;
-      g_SharedMemoryStartPoint = time_clock::now();
+      //g_SharedMemoryStartPoint = time_clock::now();
     } else {
       sm_state = SharedMemoryState::Failed;
-      my_name = game->GetName();
+      name = menu->GetSelectedProfileName();
     }
-    return result;
   }
 
   if (sm_state == SharedMemoryState::Listening) {
@@ -589,23 +582,20 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       sm_state = SharedMemoryState::WritingToMemory;
     } else if (elapsed.count() > g_SharedMemoryWaitTime) {
       sm_state = SharedMemoryState::Failed;
-      my_name = game->GetName();
+      name = menu->GetSelectedProfileName();
     }
     return result;
   }
 
   if (sm_state == SharedMemoryState::WritingToMemory) {
     marvin::ProfileData data;
-
     bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
 
     if (!result) {
       sm_state = SharedMemoryState::Failed;
-      my_name = game->GetName();
-    } else if (game->WriteToPlayerProfile(data) &&
-               game->SetMenuSelectedZone(data.zone_name)) {
-      my_name = data.name;
-      game->SetName(my_name);
+      name = menu->GetSelectedProfileName();
+    } else if (menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
+      name = data.name;
       sm_state = SharedMemoryState::WritingToLauncher;  // this state is checked in peekmessage after the game loads
     }
     return result;
@@ -613,21 +603,12 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 
   // -------------------------------------------------------------------------
 
+    
 
-  
-
-  // game is on the menu
-  // calling certain functions in the game pointer here will crash because the game is not loaded
-  if (game && game->IsOnMenu()) {  
-    set_title = true;
-    bot = nullptr;  // allow bot set to null even if not enabled
-
-    if (!enabled) return result;
-
-    if (set_join_timer) {
-      g_JoinGameStartPoint = time_clock::now();
-      set_join_timer = false;
-    }
+    //if (set_join_timer) {
+     // g_JoinGameStartPoint = time_clock::now();
+     // set_join_timer = false;
+    //}
 
     seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
 
@@ -639,14 +620,12 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
         lpMsg->message = WM_KEYDOWN;
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
-        set_join_timer = true;
+       // set_join_timer = true;
         joined = true;
 
         return result;
       }
     }
-  }
-
   return result;
 }
 
@@ -660,22 +639,27 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   // though whatever called it will still wait for the override to return, i think
   // when this returns false it means there is no message to procces
   // that is probably the best time to execute bot code
-  std::chrono::steady_clock::time_point afterBot;
-  auto start = std::chrono::high_resolution_clock::now();
+  
   BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   if (result || !lpMsg) return result;
-  auto afterPeek = std::chrono::high_resolution_clock::now();
 
-  Initialize();
+  if (!menu) menu = std::make_unique<marvin::Menu>();
+  if (name.empty()) name = menu->GetSelectedProfileName();
 
-  // bot is set to null when getmsg updates which means game is on the menu
- if (!bot) {
-     // game needs to be rebuilt when reentering game 
-     // so dont call anything for the game pointer before this
-    game = std::make_shared<marvin::ContinuumGameProxy>();
-    auto game2(game);
-    bot = std::make_unique<marvin::Bot>(std::move(game2));
- }
+  if (!game) { game = std::make_unique<marvin::ContinuumGameProxy>(name); }
+  
+  if (!game->IsInGame()) return result;
+  joined = true;
+
+  if (!bot) { 
+    game->Update();
+    bot = std::make_unique<marvin::Bot>(game.get()); 
+  }
+ 
+  if (!marvin::log.is_open()) {
+    marvin::log.open(name + ".log");
+    marvin::log << "Log file opened -  " << name << std::endl;
+  }
 
   if (game->GameIsClosing()) {  // guard peekmsg when game is closing
     return result;
@@ -713,7 +697,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
   // wait until after bot is in the game
   if (set_title && g_hWnd) {
-    SetWindowText(g_hWnd, (kEnabledText + my_name).c_str());
+    SetWindowText(g_hWnd, (kEnabledText + name).c_str());
     set_title = false;
     return result;
   }
@@ -747,15 +731,13 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     if (g_hWnd && GetFocus() == g_hWnd) {
       if (RealGetAsyncKeyState(VK_F10)) {
         enabled = false;
-      SetWindowText(g_hWnd, (kDisabledText + my_name).c_str());
+      SetWindowText(g_hWnd, (kDisabledText + name).c_str());
       } else if (RealGetAsyncKeyState(VK_F9)) {
         enabled = true;
-      SetWindowText(g_hWnd, (kEnabledText + my_name).c_str());
+      SetWindowText(g_hWnd, (kEnabledText + name).c_str());
       }
     }
     
-    
-    auto beforeBot = std::chrono::high_resolution_clock::now();
 
     if (!enabled) return result;
     bool locked = LockedInSpec();
@@ -763,20 +745,26 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     if (locked) {
       PostQuitMessage(0);
       quit_game = true;
+      return result;
     }
-    else if (bot && dt.count() > (float)(1.0f / bot->GetUpdateInterval())) {
+
+   
+    if (dt.count() > 1.0f / 60.0f) {
+
+
 #if DEBUG_RENDER
       marvin::g_RenderState.renderable_texts.clear();
       marvin::g_RenderState.renderable_lines.clear();
 #endif
-      if (bot) bot->Update(dt.count());
-     
+
+      auto start = std::chrono::high_resolution_clock::now();
+      if (game->Update()) { bot->Update(dt.count()); }
       auto end = std::chrono::high_resolution_clock::now();
-     // marvin::log << "junk: " << std::chrono::duration<float, std::milli>(beforeBot - afterPeek).count() <<
-     //   " bot: " << std::chrono::duration<float, std::milli>(end - beforeBot).count() << std::endl;
+      // marvin::log << "Update: " << std::chrono::duration<float, std::milli>(end - start).count() << std::endl;
       UpdateCRC();
       g_LastUpdateTime = now;
     }
+    
     
   return result;
 }

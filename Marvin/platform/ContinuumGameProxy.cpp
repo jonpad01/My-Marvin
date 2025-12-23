@@ -16,9 +16,20 @@ Last fix:  reading multifire status and item counts on other players was not the
 
 namespace marvin {
 
-ContinuumGameProxy::ContinuumGameProxy() : module_base_menu_(0), module_base_continuum_(0) {
+ContinuumGameProxy::ContinuumGameProxy(const std::string& name) : player_name_(name) {
 
-  UpdateMemory();
+  module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
+
+  if (!module_base_continuum_) {
+    MessageBoxA(nullptr, "Did not get module base continuum!", "Yikes", MB_OK);
+  }
+
+  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
+  position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+  // Skip over existing messages on load
+  // this needs to be set when the bot reloads
+  u32 chat_base_addr = game_addr_ + 0x2DD08;
+  chat_index_ = *(u32*)(chat_base_addr + 8);
 }
 
 bool ContinuumGameProxy::IsLoaded() {
@@ -29,15 +40,15 @@ bool ContinuumGameProxy::IsLoaded() {
 }
 
 bool ContinuumGameProxy::UpdateMemory() {
-  if (!module_base_menu_) {
-    module_base_menu_ = process_.GetModuleBase("menu040.dll");
+  //if (!module_base_menu_) {
+  //  module_base_menu_ = process_.GetModuleBase("menu040.dll");
 
-    if (!module_base_menu_) {
-      return false;
-    }
-  }
+  //  if (!module_base_menu_) {
+  //    return false;
+ // //  }
+ // }
 
-  if (player_name_.empty()) player_name_ = GetName();
+ // if (player_name_.empty()) player_name_ = GetName();
 
   if (!module_base_continuum_) {
     module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
@@ -57,31 +68,25 @@ bool ContinuumGameProxy::UpdateMemory() {
   return true;
 }
 
-UpdateState ContinuumGameProxy::Update() {
+bool ContinuumGameProxy::Update() {
   PerformanceTimer timer;
   // Continuum stops processing input when it loses focus, so update the memory
   // to make it think it always has focus.
   SetWindowFocus();
 
-  if (!UpdateMemory()) return UpdateState::Wait;  
+  if (!UpdateMemory()) return false;  
 
   // this fixes memory exceptions when arena recycles
-  if (!IsInGame()) {
-    return UpdateState::Wait;
-  }
+  // doesnt fix multiple bots downloading a new map and writing to the same .lvl file
+  if (!IsInGame()) return false;
 
-  u8* map_memory = (u8*)*(u32*)(game_addr_ + 0x127ec + 0x1d6d0);
+
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
 
   // load new map
   if (mapfile_path_ != map_file_path) {
-    if (!map_memory) {
-      return UpdateState::Wait;
-    } else {
       mapfile_path_ = map_file_path;
       map_ = Map::Load(mapfile_path_);
-      return UpdateState::Reload;
-    }
   }
 
   FetchZone();
@@ -100,12 +105,12 @@ UpdateState ContinuumGameProxy::Update() {
   //g_RenderState.RenderDebugText("Game: Fetch Weapons: %llu", timer.GetElapsedTime());
   
   if (ProcessQueuedMessages()) {
-    return UpdateState::Wait;
+    return false;
   }
 
   if (reset_ship_index_ != 0) { // run and finish before checking setfreq and setarena
     ResetShip();
-    return UpdateState::Wait;
+    return false;
   } 
 
   if (set_freq_) SetFreq(desired_freq_);  // set freq uses resetship
@@ -116,7 +121,7 @@ UpdateState ContinuumGameProxy::Update() {
 
   map_->SetMinedTiles(GetEnemyMines());
 
-  return UpdateState::Clear;
+  return true;
 }
 
 void ContinuumGameProxy::FetchPlayers() {
@@ -514,7 +519,6 @@ void ContinuumGameProxy::FetchDroppedFlags() {
 ConnectState ContinuumGameProxy::GetConnectState() {
   if (!UpdateMemory()) return ConnectState::None;
 
-  if (IsOnMenu()) return ConnectState::None;
 
   ConnectState state = *(ConnectState*)(game_addr_ + 0x127EC + 0x588);
 
@@ -546,12 +550,7 @@ bool ContinuumGameProxy::GameIsClosing() {
   return *leave_ptr == 1;
 }
 
-bool ContinuumGameProxy::IsOnMenu() {
-  UpdateMemory();
-  if (!module_base_menu_) return true;
 
-  return *(u8*)(module_base_menu_ + 0x47a84) == 0;
-}
 
 bool ContinuumGameProxy::IsInGame() {
 
@@ -672,33 +671,9 @@ const ShipSettings& ContinuumGameProxy::GetShipSettings(int ship) const {
   return GetSettings().ShipSettings[ship];
 }
 
-// the selected profile index captured here is valid until the game gets closed back into the menu
-// then it will change to the last index that the menu was on when the game was launched
-// so when running more than one bot it will change to the name of the last bot launched
-// it might be saving the selected profile to a file and reloading it?
+
 std::string ContinuumGameProxy::GetName() {
-  //UpdateMemory();
-  if (!module_base_menu_) return "";
-
-  const std::size_t ProfileStructSize = 2860;
-
-  uint16_t profile_index = process_.ReadU32(module_base_menu_ + 0x47FA0) & 0xFFFF;
-  std::size_t addr = process_.ReadU32(module_base_menu_ + 0x47A38) + 0x15;
-
-  if (!addr) return "";
-  
-  addr += profile_index * ProfileStructSize;
-
-  std::string name = process_.ReadString(addr, 23);
-
-  // remove "^" that gets placed on names when biller is down
-  if (!name.empty() && name[0] == '^') {
-    name.erase(0, 1);
-  }
-
-  name = name.substr(0, strlen(name.c_str()));
-
-  return name;
+  return player_name_;
 }
 
 // use this at your own risk
@@ -706,36 +681,7 @@ void ContinuumGameProxy::SetName(const std::string& name) {
   player_name_ = name;
 }
 
-bool ContinuumGameProxy::SetMenuProfileIndex() {
-  UpdateMemory();
-  if (!module_base_menu_) return false;
-  if (!IsOnMenu()) return false;
-  if (player_name_.empty()) return false;
 
-  const std::size_t ProfileStructSize = 2860;
-  std::size_t addr = process_.ReadU32(module_base_menu_ + 0x47A38) + 0x15;
-  u32 count = process_.ReadU32(module_base_menu_ + 0x47A30);  // size of profile list
-
-  std::string name;
-
-  if (addr == 0) {
-    return false;
-  }
-
-  for (uint16_t i = 0; i < count; i++) {
-    
-    name = process_.ReadString(addr, 23);
-
-    if (name == player_name_) {
-      *(u32*)(module_base_menu_ + 0x47FA0) = i;
-      return true;
-    }
-
-    addr += ProfileStructSize;
-  }
-
-  return false;
-}
 
 HWND ContinuumGameProxy::GetGameWindowHandle() {
   HWND handle = 0;
@@ -1395,186 +1341,13 @@ void ContinuumGameProxy::SetSelectedPlayer(uint16_t id) {
 
 
 
-// find the id index
-std::size_t ContinuumGameProxy::GetIDIndex() {
-  std::size_t index = 0;
 
-  if (!player_) return index;
 
-  for (const Player& player : players_) {
-    // don't count the index of players who are not playing
-    if (player.ship == 8 || (player.name.size() > 0 && player.name[0] == '<')) continue;
 
-    if (player.id < player_->id) {
-      index++;
-    }
-  }
 
-  return index;
-}
 
-bool ContinuumGameProxy::WriteToPlayerProfile(const ProfileData& data) {
-  UpdateMemory();
-  if (!module_base_menu_) return false;
-  if (!IsOnMenu()) return false;
 
-  const std::size_t kProfileNameOffset = 0x00;
-  const std::size_t kPlayerNameOffset = 0x15;
-  const std::size_t kPasswordOffset = 0x2D;
-  const std::size_t kSelectedShipOffset = 0x50;
-  const std::size_t kResolutionWidthOffset = 0x54;
-  const std::size_t kResolutionHeightOffset = 0x58;
-  const std::size_t kRefreshRateOffset = 0x5C;
-  const std::size_t kWindowModeOffset = 0x60;
-  const std::size_t kZoneNameOffset = 0x64;
-  const std::size_t kMacroNameOffset = 0xA5;
-  const std::size_t kKeyDefNameOffset = 0xBA;
-  const std::size_t kChatsOffset = 0xCF;
-  const std::size_t kTargetOffset = 0x150;
-  const std::size_t kAutoOffset = 0x154;
 
-  #if 0 // memory alignment, does not appear to be a struct because of 32 bit aligment issues
-    char profile_name[21];
-    char player_name[24];  // 23 + null
-    char password[33];
-    char unknown[2];
-    uint32_t selected_ship;      // default sets this to max value
-    uint32_t resolution_width;   // default sets to 0
-    uint32_t resolution_height;  // default sets to 0
-    uint32_t refresh_rate;       // default sets to 0
-    uint32_t window_mode;        // default sets to max value
-    char zone_name[65];          // size unsure, maybe less.  default keeps the last zone selected in the drop down box?
-    char macro_name[21];         // size unsure
-    char keydef_name[21];        // size unsure
-    char chats[129];
-    uint32_t target;  // empty box sets to max value
-    char autobox[250];
-    char filler[2270];  // junk at the end seems to all be 0
-  #endif
 
-  std::size_t profile_addr = process_.ReadU32(module_base_menu_ + 0x47A38);
-  if (profile_addr == 0) {
-    return false;
-  }
-
-  //process_.WriteString(profile_addr + kProfileNameOffset, "Default", 21);
-  process_.WriteString(profile_addr + kPlayerNameOffset, data.name, 24);
-  process_.WriteString(profile_addr + kPasswordOffset, data.password, 33);
-  //process_.WriteU32(profile_addr + kSelectedShipOffset, data.ship);
-  //process_.WriteU32(profile_addr + kResolutionHeightOffset, 720);
-  //process_.WriteU32(profile_addr + kResolutionWidthOffset, 1280);
-  //process_.WriteU32(profile_addr + kRefreshRateOffset, 60);
-  //process_.WriteU32(profile_addr + kWindowModeOffset, 0);
-  //process_.WriteString(profile_addr + kZoneNameOffset, data.zone_name, 65);
-  //process_.WriteString(profile_addr + kMacroNameOffset, "Default", 21);
-  //process_.WriteString(profile_addr + kKeyDefNameOffset, "Default", 21);
-  process_.WriteString(profile_addr + kChatsOffset, data.chats, 129);
-  //process_.WriteU32(profile_addr + kTargetOffset, 0xFFFFFFFF);
-  //process_.WriteString(profile_addr + kAutoOffset, "", 250);
-
-  return true;
-}
-
-void ContinuumGameProxy::DumpMemoryToFile(std::size_t address, std::size_t size) {
-  if (!module_base_menu_) return;
-
-  const std::size_t ProfileStructSize = 2860;
-
-  std::size_t zone_index = module_base_menu_ + 0x47F9C;
-  uint16_t profile_index = process_.ReadU32(module_base_menu_ + 0x47FA0) & 0xFFFF;
-  std::size_t profile_addr = process_.ReadU32(module_base_menu_ + 0x47A38);
-  u32 count = process_.ReadU32(module_base_menu_ + 0x47A30);
-
-  
-
-  std::size_t addr = module_base_menu_ + 0x47000;
-
-  std::ofstream f("profile_dump.bin", std::ios::binary);
-
-  for (size_t i = 0; i < 50000; i++) {
-    uint8_t b = process_.ReadU8(addr + i);
-    f.put(b);
-  }
-
-  //uint8_t b = process_.ReadU8(profile_index);
-  //f.put(b);
-
-  f.close();
-}
-
-bool ContinuumGameProxy::SetMenuSelectedZone(std::string zone_name) {
-  UpdateMemory();
-  if (!module_base_menu_) return false;
-  if (!IsOnMenu()) return false;
-
-  struct ZoneInfo {
-    char unknown1[76];
-    unsigned char ip[4];  // Reversed due to endianness
-    unsigned short port;
-    char unknown2[64];
-    char name[32];
-    char unknown3[38];
-  };
-
-  static_assert(sizeof(ZoneInfo) == 216, "Zone size must be 216");
-
-  ZoneInfo* zones = *(ZoneInfo**)(module_base_menu_ + 0x46C58);
-  u16 zone_count = *(u16*)(module_base_menu_ + 0x46C54);
-  u16* current_zone_index = (u16*)(module_base_menu_ + 0x47F9C);
-
-  for (u16 i = 0; i < zone_count; ++i) {
-    std::string_view name = zones[i].name;
-
-    if (name.compare(zone_name) == 0) {
-      *current_zone_index = i;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool ContinuumGameProxy::SetMenuSelectedZone(uint16_t index) {
-  if (!module_base_menu_) return false;
-  if (!IsOnMenu()) return false;
-
-  u16 zone_count = *(u16*)(module_base_menu_ + 0x46C54);
-  u16* current_zone_index = (u16*)(module_base_menu_ + 0x47F9C);
-
-  if (index >= zone_count) return false;
-
-  *current_zone_index = index;
-
-  return true;
-}
-
-std::string ContinuumGameProxy::GetMenuSelectedZoneName() {
-  if (!module_base_menu_) return "";
-  if (!IsOnMenu()) return "";
-
-  struct ZoneInfo {
-    char unknown1[76];
-    unsigned char ip[4];  // Reversed due to endianness
-    unsigned short port;
-    char unknown2[64];
-    char name[32];
-    char unknown3[38];
-  };
-
-  static_assert(sizeof(ZoneInfo) == 216, "Zone size must be 216");
-
-  ZoneInfo* zones = *(ZoneInfo**)(module_base_menu_ + 0x46C58);
-  u16 zone_count = *(u16*)(module_base_menu_ + 0x46C54);
-  u16* current_zone_index = (u16*)(module_base_menu_ + 0x47F9C);
-
-  return zones[*current_zone_index].name;
-}
-
-uint16_t ContinuumGameProxy::GetMenuSelectedZoneIndex() {
-  if (!module_base_menu_) return 0xFFFF;
-  if (!IsOnMenu()) return 0xFFFF;
-
-  return *(u16*)(module_base_menu_ + 0x47F9C);
-}
 
 }  // namespace marvin

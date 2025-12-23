@@ -32,7 +32,7 @@ const std::vector<std::string> kBotNames = {"Testmarv", "Lilmarv", "MadMarv", "M
 
 class Bot {
  public:
-  Bot(std::shared_ptr<GameProxy> game);
+  Bot(GameProxy* game);
   //~Bot() { build_task.detach(); }
 
   void Load();
@@ -89,7 +89,7 @@ class Bot {
 
   void SelectBehaviorTree();
 
-  float radius_ = 0.0f;
+  float radius_;
   float update_interval_ = 60.0f;
 
   uint64_t last_load_timestamp_ = 0;
@@ -100,7 +100,7 @@ class Bot {
   std::string powerball_arena_;
   
 
-  std::shared_ptr<GameProxy> game_;
+  GameProxy* game_;
   std::unique_ptr<path::Pathfinder> pathfinder_;
   std::unique_ptr<RegionRegistry> regions_;
   std::unique_ptr<Blackboard> blackboard_;
@@ -117,6 +117,7 @@ class Bot {
   DoorState previous_door_state_;
   uint16_t current_ship_ = 99;
   uint16_t current_freq_ = 99;
+  std::string current_map_;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;

@@ -28,22 +28,26 @@ ExecuteResult SequenceNode::Execute(ExecuteContext& ctx) {
   return ExecuteResult::Success;
 }
 
-
+// allways run all nodes, return success if any succeed, stop overrides success
 ParallelAnyNode::ParallelAnyNode(std::vector<BehaviorNode*> children) : children_(std::move(children)) {}
 
 ExecuteResult ParallelAnyNode::Execute(ExecuteContext& ctx) {
   ExecuteResult result = ExecuteResult::Failure;
+  bool stopped = false;
 
   for (auto& child : children_) {
     ExecuteResult child_result = child->Execute(ctx);
 
-    if (child_result == ExecuteResult::Stop) return child_result;
+    if (child_result == ExecuteResult::Stop) {
+      stopped = true;
+    }
 
     if (child_result == ExecuteResult::Success) {
       result = child_result;
     }
   }
 
+  if (stopped) return ExecuteResult::Stop;
   return result;
 }
 

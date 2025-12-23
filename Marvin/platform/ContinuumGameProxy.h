@@ -86,20 +86,22 @@ class ContinuumWeapon : public Weapon {
 
 class ContinuumGameProxy : public GameProxy {
  public:
-  ContinuumGameProxy();
+  ContinuumGameProxy(const std::string& name);
 
   bool IsLoaded() override;
-  UpdateState Update() override;
+  bool UpdateMemory();
+
+  bool Update();
+
 
   ConnectState GetConnectState();
   void ExitGame();
   bool GameIsClosing();
-  bool WriteToPlayerProfile(const ProfileData& data);
+  
 
   std::string GetName() override;
   void SetName(const std::string& name);
-  void DumpMemoryToFile(std::size_t address, std::size_t size);
-  bool SetMenuProfileIndex();
+  
   ChatMessage FindChatMessage(std::string match) override;
   std::vector<ChatMessage> GetCurrentChat() override;
   std::vector<ChatMessage> GetChatHistory() override;
@@ -163,18 +165,15 @@ class ContinuumGameProxy : public GameProxy {
   void SendPrivateMessage(const std::string& target, const std::string& mesg) override;
   void SendKey(int vKey) override;
   void SetSelectedPlayer(uint16_t id) override;
-  std::string GetMenuSelectedZoneName();
-  uint16_t GetMenuSelectedZoneIndex();
-  bool SetMenuSelectedZone(std::string zone_name);
-  bool SetMenuSelectedZone(uint16_t index);
-  std::size_t GetIDIndex() override;
+
+
   void SetStatus(StatusFlag status, bool on_off) override;
   void SetVelocity(Vector2f desired) override;
   void SetPosition(Vector2f desired) override;
   void SetSpeed(float desired) override;
   void SetThrust(uint32_t desired) override;
 
-  bool IsOnMenu();
+  
   bool IsInGame();
   
 
@@ -196,7 +195,6 @@ class ContinuumGameProxy : public GameProxy {
     char unknown2[3];
   };
 
-  bool UpdateMemory();
   const ClientSettings& GetSettings() const override;
   const ShipSettings& GetShipSettings() const override;
   const ShipSettings& GetShipSettings(int ship) const override;
@@ -230,7 +228,7 @@ class ContinuumGameProxy : public GameProxy {
 
   ExeProcess process_;
   std::size_t module_base_continuum_ = 0;
-  std::size_t module_base_menu_ = 0;
+  
   std::size_t game_addr_ = 0;
   std::size_t player_addr_ = 0;
   uint32_t* position_data_ = nullptr;

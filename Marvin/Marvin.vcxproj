@@ -157,6 +157,7 @@
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="MapCoord.cpp" />
     <ClCompile Include="MemoryMap.cpp" />
+    <ClCompile Include="platform\Menu.cpp" />
     <ClCompile Include="ProfileParser.cpp" />
     <ClCompile Include="TeamGoals.cpp" />
     <ClCompile Include="Vector2f.cpp" />
@@ -215,6 +216,7 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="MapCoord.h" />
+    <ClInclude Include="platform\Menu.h" />
     <ClInclude Include="ProfileParser.h" />
     <ClInclude Include="Radar.h" />
     <ClInclude Include="MemoryMap.h" />

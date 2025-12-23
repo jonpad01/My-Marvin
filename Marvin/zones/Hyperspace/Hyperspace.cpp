@@ -272,6 +272,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
 
 void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
+
   auto* get_out_of_spec = engine_->MakeNode<bot::GetOutOfSpecNode>();
   auto* HS_freqman = engine_->MakeNode<hs::HSFreqManagerNode>();
   auto* jackpot_query = engine_->MakeNode<hs::HSJackpotQueryNode>();
@@ -287,6 +288,7 @@ void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
 
   auto* los_shoot_conditional =
     engine_->MakeNode<behavior::SequenceNode>(target_in_los_.get(), parallel_shoot_enemy);
+
   auto bounce_path_parallel =
     engine_->MakeNode<behavior::ParallelAnyNode>(bouncing_shot, path_to_enemy_sequence);
 
