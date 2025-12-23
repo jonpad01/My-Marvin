@@ -505,12 +505,6 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
   OverrideGuard guard;
   Initialize();
 
-  //if (!game || game->IsOnMenu()) return RealGetAsyncKeyState(vKey);
-
-  if (game->GameIsClosing()) {  // guard keys when game is closing
-    return 0;
-  }
-
  HWND g_hWnd = game->GetGameWindowHandle();
 
 #if DEBUG_USER_CONTROL
