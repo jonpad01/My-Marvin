@@ -17,27 +17,36 @@ Last fix:  reading multifire status and item counts on other players was not the
 namespace marvin {
 
 ContinuumGameProxy::ContinuumGameProxy(const std::string& name) : player_name_(name) {
+  module_base_continuum_ = 0;
+  InitializeGame();
+}
 
-  module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
+bool ContinuumGameProxy::IsInitialized() {
+  return InitializeGame();
+}
+
+bool ContinuumGameProxy::InitializeGame() {
+
+  if (!module_base_continuum_) {
+    module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
+  }
 
   if (!module_base_continuum_) {
     MessageBoxA(nullptr, "Did not get module base continuum!", "Yikes", MB_OK);
   }
-
-  game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
-  position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
-  // Skip over existing messages on load
-  // this needs to be set when the bot reloads
-  u32 chat_base_addr = game_addr_ + 0x2DD08;
-  chat_index_ = *(u32*)(chat_base_addr + 8);
-}
-
-bool ContinuumGameProxy::IsLoaded() {
-  if (!UpdateMemory() || !player_) {
-    return false;
+  else {
+    game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
+    position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+    // Skip over existing messages on load
+    // this needs to be set when the bot reloads
+    u32 chat_base_addr = game_addr_ + 0x2DD08;
+    chat_index_ = *(u32*)(chat_base_addr + 8);
+    Update();
   }
-  return true;
+
+  return module_base_continuum_ != 0;
 }
+
 
 bool ContinuumGameProxy::UpdateMemory() {
   //if (!module_base_menu_) {
@@ -553,13 +562,11 @@ bool ContinuumGameProxy::GameIsClosing() {
 
 
 bool ContinuumGameProxy::IsInGame() {
+ u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
 
-  if (!UpdateMemory()) return false;
-
-  u8* map_memory = (u8*)*(u32*)(*(u32*)(0x4C1AFC) + 0x127ec + 0x1d6d0);
-  if (map_memory && GetConnectState() == ConnectState::Playing) {
-    return true;
-  }
+ if (map_memory && GetConnectState() == ConnectState::Playing) {
+   return true;
+ }
 
   return false;
 }

@@ -19,6 +19,7 @@ namespace marvin {
 	class Menu {
 	public:
 		Menu();
+		bool IsInitialized();
 
 		bool IsOnMenu();
 		std::string GetSelectedProfileName();
@@ -30,7 +31,7 @@ namespace marvin {
 		bool SetSelectedZone(uint16_t index);
 
 	private:
-		std::size_t module_base_menu_ = 0;
+		std::size_t module_base_menu_;
 		ExeProcess process_;
 	};
 

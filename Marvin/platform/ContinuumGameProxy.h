@@ -88,7 +88,8 @@ class ContinuumGameProxy : public GameProxy {
  public:
   ContinuumGameProxy(const std::string& name);
 
-  bool IsLoaded() override;
+  bool InitializeGame();
+  bool IsInitialized();
   bool UpdateMemory();
 
   bool Update();

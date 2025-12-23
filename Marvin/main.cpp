@@ -490,10 +490,10 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
 
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
   OverrideGuard guard;
-  SHORT real = RealGetAsyncKeyState(vKey);
+  SHORT user_keypress = RealGetAsyncKeyState(vKey);
 
-  if (!game || game->GameIsClosing()) {  // guard keys when game is closing
-    return real;
+  if (!game || !game->IsInitialized() || !game->IsInGame() || game->GameIsClosing()) {  // guard keys
+    return user_keypress;
   }
 
  HWND g_hWnd = game->GetGameWindowHandle();
@@ -505,17 +505,17 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 #endif
 
     if (GetFocus() == g_hWnd) {
-      return real;
+      return user_keypress;
     }
 
     return 0;
   } else if (bot && bot->GetKeys().IsPressed(vKey)) {
     //return (SHORT)0x8000;
-    //real |= 0x0001;
-    real |= 0x8000;
+    //user_keypress |= 0x0001;
+    user_keypress |= 0x8000;
   }
 
-  return real;
+  return user_keypress;
 }
 
 
@@ -535,31 +535,38 @@ LRESULT WINAPI OverrideDispatchMessageA(const MSG* lpMsg) {
 // will not update if the game is running the game window
 // might update if the game is also running the chat window
 // this override method is blocked until a message arrives.
+// TODO: confirm message is for the menu window by comparing HWND
 BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) {
   OverrideGuard guard;
   // only run if the result is true, so call it before returning
   // its important that this is only called once, only return the result from this point.
   bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
-  if (!result || !lpMsg) return result;  // if false it means the game menu is closing
+  if (!result || !lpMsg) return result;  // if false it means the window is closing
+
+
+  // some message pumps are not sent to the menu window so confirm first
+  HWND menu_hwnd = FindWindowA(nullptr, "Continuum 0.40");
+  if (menu_hwnd != lpMsg->hwnd) return result;
+
+  // if closing the game back to the menu, clear these
+  if (game) game.reset();
+  if (bot) bot.reset();
 
   if (!menu) menu = std::make_unique<marvin::Menu>();
-  if (!enabled) return result;
-
-  if (!menu->IsOnMenu()) return result;
+  if (!menu->IsInitialized() || !menu->IsOnMenu() || !enabled || joined) return result;
 
   if (quit_game) {
     PostQuitMessage(0);
     return result;
   }
 
-  // allows drop back to menu and reenter
-  if (game) game.reset();
-  if (bot) bot.reset();
-  
   if (!marvin::log.is_open() && !name.empty()) {
     marvin::log.open(name + ".log");
     marvin::log << "Log file opened -  " << name << std::endl;
   }
+
+  seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
+  if (elapsed.count() < g_JoinDelay) return result;
 
   // ------------ Shared memory used with launcher -------------------------------
 
@@ -610,9 +617,9 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
      // set_join_timer = false;
     //}
 
-    seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
+    //seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
 
-    if (elapsed.count() > g_JoinDelay && !joined) {
+   // if (elapsed.count() > g_JoinDelay && !joined) {
       // press enter and join the game
       // WM_TIMER seems to be the most reliable message to hijack, WM_PAINT only gets sent
       // if the mouse is moved.
@@ -621,11 +628,11 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
         lpMsg->wParam = VK_RETURN;
         lpMsg->lParam = 0;
        // set_join_timer = true;
-        joined = true;
+       // joined = true;
 
         return result;
       }
-    }
+   // }
   return result;
 }
 
@@ -643,16 +650,36 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   if (result || !lpMsg) return result;
 
-  if (!menu) menu = std::make_unique<marvin::Menu>();
-  if (name.empty()) name = menu->GetSelectedProfileName();
 
-  if (!game) { game = std::make_unique<marvin::ContinuumGameProxy>(name); }
+  /*  Required safety checks */
+
+  if (!menu) { 
+    menu = std::make_unique<marvin::Menu>(); 
+  }
+
+  if (!menu->IsInitialized()) return result;
+
+  if (name.empty()) {
+    name = menu->GetSelectedProfileName();
+  }
+
+  if (!game) { 
+    game = std::make_unique<marvin::ContinuumGameProxy>(name);
+  }
   
-  if (!game->IsInGame()) return result;
+  if (!game->IsInitialized() || !game->IsInGame() || game->GameIsClosing()) return result;
+
+  if (game->GetConnectState() == marvin::ConnectState::Disconnected) {
+    PostQuitMessage(0);
+    quit_game = true;
+    return result;
+  }
+
+  /*  -----------------  */
+  
   joined = true;
 
   if (!bot) { 
-    game->Update();
     bot = std::make_unique<marvin::Bot>(game.get()); 
   }
  
@@ -661,21 +688,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     marvin::log << "Log file opened -  " << name << std::endl;
   }
 
-  if (game->GameIsClosing()) {  // guard peekmsg when game is closing
-    return result;
-  }
-
-  marvin::ConnectState state = game->GetConnectState();
-  u8* map_memory = (u8*)*(u32*)((*(u32*)0x4c1afc) + 0x127ec + 0x1d6d0);  // map loaded
-
-  // stop and wait for game and map to load
-  if (state != marvin::ConnectState::Playing || !map_memory) {
-    if (state == marvin::ConnectState::Disconnected) {  //bot got disconnected
-      PostQuitMessage(0);
-      quit_game = true;
-    }
-    return result;
-  }
 
   // the launcher only needs to know that marvin has finished logging in
   // TODO: if the map is being downloaded could send a signal here to make the launcher wait longer.
@@ -724,8 +736,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
   #endif
   
-  time_point now = time_clock::now();
-  seconds dt = now - g_LastUpdateTime;
+ 
 
     // Check for key presses to enable/disable the bot.
     if (g_hWnd && GetFocus() == g_hWnd) {
@@ -738,6 +749,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       }
     }
     
+    time_point now = time_clock::now();
+    seconds dt = now - g_LastUpdateTime;
 
     if (!enabled) return result;
     bool locked = LockedInSpec();
@@ -761,6 +774,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       if (game->Update()) { bot->Update(dt.count()); }
       auto end = std::chrono::high_resolution_clock::now();
       // marvin::log << "Update: " << std::chrono::duration<float, std::milli>(end - start).count() << std::endl;
+
       UpdateCRC();
       g_LastUpdateTime = now;
     }

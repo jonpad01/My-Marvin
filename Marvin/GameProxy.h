@@ -169,8 +169,6 @@ class GameProxy {
  public:
   virtual ~GameProxy() {}
 
-  virtual bool IsLoaded() = 0;
-
   virtual std::string GetName() = 0;
   virtual int GetEnergy() const = 0;
   virtual const float GetEnergyPercent() = 0;

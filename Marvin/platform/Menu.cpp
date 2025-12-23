@@ -1,16 +1,26 @@
 #include "Menu.h"
 #include "..\\Debug.h"
 
+const char* MODULE_NAME = "menu040.dll";
 
 namespace marvin {
 
 	Menu::Menu() {
-		module_base_menu_ = process_.GetModuleBase("menu040.dll");
+		module_base_menu_ = process_.GetModuleBase(MODULE_NAME);
 
     if (!module_base_menu_) {
+      // no log file to record to yet
       MessageBoxA(nullptr, "Did not get module base menu!", "Yikes", MB_OK);
     }
 	}
+
+  bool Menu::IsInitialized() {
+    if (!module_base_menu_) {
+      module_base_menu_ = process_.GetModuleBase(MODULE_NAME);
+    }
+
+    return module_base_menu_ != 0;
+  }
 
   bool Menu::IsOnMenu() {
     if (!module_base_menu_) return false;
