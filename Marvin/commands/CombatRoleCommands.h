@@ -22,7 +22,7 @@ class AnchorCommand : public CommandExecutor {
     bb.Set<CombatRole>(BBKey::CombatRole, CombatRole::Anchor);
   }
 
-  CommandAccessFlags GetAccess() { return CommandAccess_Private; }
+  CommandAccessFlags GetAccess() { return CommandAccess_All; }
   void SetAccess(CommandAccessFlags flags) { return; }
   CommandFlags GetFlags() { return CommandFlag_Lockable; }
   std::vector<std::string> GetAliases() { return {"anchor", "a"}; }
