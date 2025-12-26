@@ -23,7 +23,6 @@ class BaseDuelWarpCoords : public TeamGoalCreator {
   bool ProcessMapRegions(const Map& map);
   bool LoadFile(std::ifstream& file);
   uint16_t GetIntMatch(std::ifstream& file, const std::string& match);
-  std::size_t ParseBaseNumber(const std::string& name);
 
   bool foundMapFiles;
   TeamGoals safes;
