@@ -70,7 +70,6 @@
 * 
 */
 
-
 #define UM_SETTEXT WM_USER + 0x69
 
 // 104 can also be a License Agreement box that only displays on first time setup
@@ -104,7 +103,12 @@ enum class MenuDialogBoxId {
   OptionsOther = 189
 };
 
-enum class SharedMemoryState { OpeningMap, Listening, WritingToMemory, WritingToLauncher, Finished, Failed };
+enum class ComSequence { OpenMap, Listen, WriteToMenu, SendToLauncher, Finished, Failed };
+enum class OperatingState { OnMenu, InGame, LoadingMenu, LoadingGame };
+
+using enum OperatingState;
+using enum ComSequence;
+
 
 struct OverrideGuard {
   static std::atomic<int> depth;
@@ -146,6 +150,8 @@ std::unique_ptr<marvin::Bot> bot;
 std::unique_ptr<marvin::ContinuumGameProxy> game;
 std::unique_ptr<marvin::Menu> menu;
 
+std::thread g_MainThread;
+
 static HHOOK g_hHook = NULL;
 
 static bool enabled = true;
@@ -153,14 +159,25 @@ static bool initialize_debug = true;
 static bool set_title = true;
 static bool set_join_timer = true;
 static bool quit_game = false;
-static bool minimize__game_window = true;
+static bool minimize_game_window = true;
 static bool joined = false;
+static bool g_running = true;
 
-static SharedMemoryState sm_state = SharedMemoryState::OpeningMap;
+//static ComSequence g_ComSequence = ComSequence::OpenMap;
 
 static MemoryMap memory_map;
 static HANDLE hPipe = NULL;
 
+HWND g_MenuHWND = nullptr;
+
+static std::ofstream test_log;
+
+void StopThread() {
+  g_running = false;             // signal the thread to exit
+  if (g_MainThread.joinable()) {
+    g_MainThread.join();           // wait for it to finish
+  }
+}
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -194,24 +211,101 @@ bool LockedInSpec() {
 }
 
 
+ComSequence ConnectToLauncher(ComSequence current) {
+
+  switch (current) {
+  case OpenMap: {
+    if (memory_map.OpenMap()) {
+      return Listen;
+      g_SharedMemoryStartPoint = time_clock::now();
+    }
+    return Failed;   
+  } break;
+  case Listen: {
+    seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
+    if (memory_map.HasData()) {
+      profile_index = memory_map.ReadU32();
+      return WriteToMenu;
+    }
+    else if (elapsed.count() > g_SharedMemoryWaitTime) {
+      return Failed;
+    }
+    return Listen;
+  } break;
+  case WriteToMenu: {
+    marvin::ProfileData data;
+    bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
+
+    if (result && menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
+      name = data.name;
+      return SendToLauncher;  
+    }
+    return Failed;
+  } break;
+  case SendToLauncher: { // this state is checked after the game loads
+    memory_map.WriteU32(134);
+    return Finished;
+  } break;
+  case Finished: {
+    return Finished;
+  } break;
+  case Failed: {
+    return Failed;
+  } break;
+  }
+
+  return Failed;
+
+#if 0 
+  if (g_ComSequence == ComSequence::OpeningMap) {
+    if (memory_map.OpenMap()) {
+      g_ComSequence = ComSequence::Listening;
+      g_SharedMemoryStartPoint = time_clock::now();
+    }
+    else {
+      g_ComSequence = ComSequence::Failed;
+      name = menu->GetSelectedProfileName();
+    }
+  }
+
+  if (g_ComSequence == ComSequence::Listening) {
+    seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
+    if (memory_map.HasData()) {
+      profile_index = memory_map.ReadU32();
+
+      g_ComSequence = ComSequence::WritingToMemory;
+    }
+    else if (elapsed.count() > g_SharedMemoryWaitTime) {
+      g_ComSequence = ComSequence::Failed;
+      name = menu->GetSelectedProfileName();
+    }
+    return;
+  }
+
+  if (g_ComSequence == ComSequence::WritingToMemory) {
+    marvin::ProfileData data;
+    bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
+
+    if (!result) {
+      g_ComSequence = ComSequence::Failed;
+      name = menu->GetSelectedProfileName();
+    }
+    else if (menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
+      name = data.name;
+      g_ComSequence = ComSequence::WritingToLauncher;  // this state is checked in peekmessage after the game loads
+    }
+    return;
+  }
+#endif
+
+}
+
+
+
 // multicont functionallity
 static HANDLE(WINAPI* RealCreateMutexA)(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCSTR lpName) = CreateMutexA;
 // multicont functionallity
 static HANDLE(WINAPI* RealOpenMutexA)(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCSTR lpName) = OpenMutexA;
-
-static int (WINAPI* RealConnect)(SOCKET, const sockaddr*, int) = connect;
-
-static DWORD(WINAPI* RealGetTickCount)() = GetTickCount;
-
-UINT_PTR (WINAPI* RealSetTimer)(HWND hWnd, UINT_PTR nIDEvent, UINT uElapse, TIMERPROC lpTimerFunc) = SetTimer;
-
-static VOID(WINAPI* RealSleep)(DWORD) = Sleep;
-
-DWORD(WINAPI* RealWaitForMultipleObjects)(DWORD nCount, const HANDLE* lpHandles, BOOL bWaitAll, DWORD dwMilliseconds) = WaitForMultipleObjects;
-
-static DWORD(WINAPI* RealWaitForSingleObject)(HANDLE, DWORD) = WaitForSingleObject;
-
-static DWORD(WINAPI* RealMsgWaitForMultipleObjects)(DWORD, const HANDLE*, BOOL, DWORD, DWORD) = MsgWaitForMultipleObjects;
 
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
 
@@ -251,97 +345,6 @@ HANDLE WINAPI OverrideOpenMutexA(DWORD dwDesiredAccess, BOOL bInheritHandle, LPC
   return RealOpenMutexA(dwDesiredAccess, bInheritHandle, lpName);
 }
 
-UINT_PTR WINAPI OverrideSetTimer(HWND hWnd, UINT_PTR nIDEvent, UINT uElapse, TIMERPROC lpTimerFunc) {
-  
-  static DWORD jitter = [] {
-    DWORD pid = GetCurrentProcessId();
-    return pid % 15; // 0–14 ms
-    }();
-
-  // Only jitter non-zero timers
-  if (uElapse >= 30) {
-    uElapse += jitter;
-  }
-
-  return RealSetTimer(hWnd, nIDEvent, uElapse, lpTimerFunc);
-}
-
-
-static bool override_tick_init = false;
-static DWORD last_logged = 0;
-
-DWORD WINAPI OverrideGetTickCount()
-{
-  static DWORD offset = 0;
-
-
-  if (!override_tick_init) {
-    static DWORD offset = (GetCurrentProcessId() * 1103515245u) % 300; // 0-299 ms
-    override_tick_init = true;
-  }
-
-  return RealGetTickCount() + offset;
-
-  DWORD t = RealGetTickCount();
-
-  
-  if (t - last_logged >= 10000)
-  {
-    last_logged = t;
-    // Replace with your logger
-    marvin::log << "GetTickCount crossed 5s boundary: " << t << std::endl;
-  }
-
-  return t;
-}
-
-VOID WINAPI OverrideSleep(DWORD ms)
-{ 
-  static DWORD offset = [] {
-    return GetCurrentProcessId() % 10; // 0–9 ms
-    }();
-
-  if (ms <= 5) {
-    ms += offset;
-  }
-
-  RealSleep(ms);
-}
-
-DWORD WINAPI OverrideMsgWaitForMultipleObjects(DWORD nCount, const HANDLE* lpHandles, BOOL bWaitAll, DWORD dwMilliseconds, DWORD dwWakeMask) {
-  static DWORD offset = [] {
-    return (GetCurrentProcessId() % 10) + 1; // 1–10 ms
-    }();
-
-  //marvin::log << "MWFMO: " << dwMilliseconds << std::endl;
-
-  // Only jitter short waits
-  if (dwMilliseconds <= 10 && dwMilliseconds != INFINITE) {
-    dwMilliseconds += offset;
-  }
-
-  return RealMsgWaitForMultipleObjects(
-    nCount, lpHandles, bWaitAll, dwMilliseconds, dwWakeMask
-  );
-}
-
-int WINAPI OverrideConnect(SOCKET s, const sockaddr* name, int namelen)
-{
-  int result = RealConnect(s, name, namelen);
-
-  if (result == 0) {
-    // Connected successfully → safe to configure socket
-    int bufSize = 256 * 1024;
-    setsockopt(s, SOL_SOCKET, SO_SNDBUF,
-      reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
-
-    BOOL flag = TRUE;
-    setsockopt(s, IPPROTO_TCP, TCP_NODELAY,
-      reinterpret_cast<char*>(&flag), sizeof(flag));
-  }
-
-  return result;
-}
 
 HRESULT STDMETHODCALLTYPE OverrideBlt(LPDIRECTDRAWSURFACE surface, LPRECT dest_rect, LPDIRECTDRAWSURFACE next_surface,
                                       LPRECT src_rect, DWORD flags, LPDDBLTFX fx) {
@@ -526,8 +529,20 @@ SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
 LRESULT WINAPI OverrideDispatchMessageA(const MSG* lpMsg) {
   OverrideGuard guard;
   LRESULT result = RealDispatchMessageA(lpMsg);
+
+  if (!g_MenuHWND || !IsWindow(g_MenuHWND)) {
+    char buf[256];
+    int len = GetWindowTextA(lpMsg->hwnd, buf, sizeof(buf));
+
+    if (len > 0 && strcmp(buf, "Continuum 0.40") != 0) {
+      g_MenuHWND = lpMsg->hwnd;
+    }
+  }
+
   return result;
 }
+
+
 
 
 // MENU
@@ -543,16 +558,20 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
   bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
   if (!result || !lpMsg) return result;  // if false it means the window is closing
 
-
+#if 0
   // some message pumps are not sent to the menu window so confirm first
-  HWND menu_hwnd = FindWindowA(nullptr, "Continuum 0.40");
-  if (menu_hwnd != lpMsg->hwnd) return result;
+  if (!g_MenuHWND || !IsWindow(g_MenuHWND)) {
+    g_MenuHWND = FindWindowA(nullptr, "Continuum 0.40");
+  }
+
+  if (g_MenuHWND != lpMsg->hwnd) return result;
 
   // if closing the game back to the menu, clear these
-  if (game) game.reset();
-  if (bot) bot.reset();
+  if (game) { game.reset(); }
+  if (bot) { bot.reset(); }
 
   if (!menu) menu = std::make_unique<marvin::Menu>();
+  // some messages are still sent after continuum logs into the game
   if (!menu->IsInitialized() || !menu->IsOnMenu() || !enabled || joined) return result;
 
   if (quit_game) {
@@ -571,39 +590,39 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
   // ------------ Shared memory used with launcher -------------------------------
 
   // if the game was not loaded using the launcher, then this should fail 
-  if (sm_state == SharedMemoryState::OpeningMap) {
+  if (g_ComSequence == ComSequence::OpeningMap) {
     if (memory_map.OpenMap()) {
-      sm_state = SharedMemoryState::Listening;
+      g_ComSequence = ComSequence::Listening;
       //g_SharedMemoryStartPoint = time_clock::now();
     } else {
-      sm_state = SharedMemoryState::Failed;
+      g_ComSequence = ComSequence::Failed;
       name = menu->GetSelectedProfileName();
     }
   }
 
-  if (sm_state == SharedMemoryState::Listening) {
+  if (g_ComSequence == ComSequence::Listening) {
     seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
     if (memory_map.HasData()) {
       profile_index = memory_map.ReadU32();
 
-      sm_state = SharedMemoryState::WritingToMemory;
+      g_ComSequence = ComSequence::WritingToMemory;
     } else if (elapsed.count() > g_SharedMemoryWaitTime) {
-      sm_state = SharedMemoryState::Failed;
+      g_ComSequence = ComSequence::Failed;
       name = menu->GetSelectedProfileName();
     }
     return result;
   }
 
-  if (sm_state == SharedMemoryState::WritingToMemory) {
+  if (g_ComSequence == ComSequence::WritingToMemory) {
     marvin::ProfileData data;
     bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
 
     if (!result) {
-      sm_state = SharedMemoryState::Failed;
+      g_ComSequence = ComSequence::Failed;
       name = menu->GetSelectedProfileName();
     } else if (menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
       name = data.name;
-      sm_state = SharedMemoryState::WritingToLauncher;  // this state is checked in peekmessage after the game loads
+      g_ComSequence = ComSequence::WritingToLauncher;  // this state is checked in peekmessage after the game loads
     }
     return result;
   }
@@ -612,10 +631,10 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 
     
 
-    //if (set_join_timer) {
-     // g_JoinGameStartPoint = time_clock::now();
-     // set_join_timer = false;
-    //}
+   // if (set_join_timer) {
+    //  g_JoinGameStartPoint = time_clock::now();
+   //   set_join_timer = false;
+  //  }
 
     //seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
 
@@ -623,17 +642,284 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
       // press enter and join the game
       // WM_TIMER seems to be the most reliable message to hijack, WM_PAINT only gets sent
       // if the mouse is moved.
-      if (lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT || lpMsg->message == WM_NULL) {
-        lpMsg->message = WM_KEYDOWN;
-        lpMsg->wParam = VK_RETURN;
-        lpMsg->lParam = 0;
-       // set_join_timer = true;
-       // joined = true;
+     // if (lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT || lpMsg->message == WM_NULL) {
+  // can alter this message to send keydown events but its hard to cleanly resolve with a keyup
+      //  PostMessage(lpMsg->hwnd, WM_KEYDOWN, VK_RETURN, 0);
+     //   PostMessage(lpMsg->hwnd, WM_KEYUP, VK_RETURN, 0);
+        //lpMsg->message = WM_KEYDOWN;
+       // lpMsg->wParam = VK_RETURN;
+       // lpMsg->lParam = 0;
+      //  set_join_timer = true;
+        joined = true;
 
         return result;
-      }
+#endif
+     // }
    // }
   return result;
+}
+
+
+
+OperatingState GetOperatingState() {
+  if (!menu || !menu->IsInitialized()) return OperatingState::LoadingMenu;
+  if (menu->IsOnMenu()) return OperatingState::OnMenu;
+  if (!game || !game->IsInitialized()) return OperatingState::LoadingGame;
+  if (game->IsInGame()) return OperatingState::InGame;
+
+  return OperatingState::LoadingMenu;
+}
+
+
+void MainThread() {
+
+  ComSequence com = OpenMap;
+  bool reopen_log = true;
+
+  while (g_running) {
+    Sleep(16);
+
+    if (!menu) { menu = std::make_unique<marvin::Menu>(); }
+
+    if (reopen_log && !name.empty()) {
+      if (marvin::log.is_open()) {
+        marvin::log << "Log reopening as : " << name << ".log" << std::endl;
+        marvin::log.close();
+      }
+      marvin::log.open(name + ".log");
+      marvin::log << "Log file opened -  " << name << std::endl;
+      reopen_log = false;
+    }
+
+    OperatingState state = GetOperatingState();
+
+    switch (state) {
+
+    case LoadingMenu: {} break;
+
+      //----------------Menu--------------------------------------------------//
+
+    case OnMenu: {
+      if (game) { game.reset(); }
+      if (bot) { bot.reset(); }
+
+      if (quit_game) {
+        PostQuitMessage(0);
+        return;
+      }
+
+      //----------------Shared Memory-------------------------//
+
+      switch (com) {
+      case OpenMap: {
+        if (memory_map.OpenMap()) {
+          com = Listen;
+          g_SharedMemoryStartPoint = time_clock::now();
+        }
+        else {
+          name = menu->GetSelectedProfileName();
+          com = Failed;
+        }
+      } break;
+      case Listen: {
+        seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
+        if (memory_map.HasData()) {
+          profile_index = memory_map.ReadU32();
+          com = WriteToMenu;
+        }
+        else if (elapsed.count() > g_SharedMemoryWaitTime) {
+          name = menu->GetSelectedProfileName();
+          com = Failed;
+        }
+        continue;
+      } break;
+      case WriteToMenu: {
+        marvin::ProfileData data;
+        bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
+
+        if (result && menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
+          name = data.name;
+          com = SendToLauncher;
+        }
+        else {
+          name = menu->GetSelectedProfileName();
+          com = Failed;
+        }
+      } break;
+      default:
+        break;
+      }
+
+      //----------------Shared Memory---------------------------//
+
+
+      seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
+      if (elapsed.count() < g_JoinDelay || joined) continue;
+
+      if (com == SendToLauncher || com == Failed) {
+        PostMessage(g_MenuHWND, WM_KEYDOWN, VK_RETURN, 0);
+        PostMessage(g_MenuHWND, WM_KEYUP, VK_RETURN, 0);
+        joined = true;
+      }
+
+    } break;
+
+    //----------------Menu--------------------------------------------------//
+
+    case LoadingGame: {
+      if (name.empty()) { name = menu->GetSelectedProfileName(); }
+      if (!game) { game = std::make_unique<marvin::ContinuumGameProxy>(name); }
+    } break;
+
+    //----------------Game--------------------------------------------------//
+
+    case InGame: {
+      HWND hWnd = game->GetGameWindowHandle();
+
+      if (hWnd && GetForegroundWindow() == hWnd && RealGetAsyncKeyState(VK_F9)) {
+        enabled = true;
+        SetWindowText(hWnd, (kEnabledText + name).c_str());
+      }
+
+      if (game->GameIsClosing() || !enabled || quit_game) continue;
+      joined = true;
+
+
+      if (game->GetConnectState() == marvin::ConnectState::Disconnected || LockedInSpec()) {
+        PostQuitMessage(0);
+        quit_game = true;
+        continue;
+      }
+
+      if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
+
+      if (com == SendToLauncher) {
+        memory_map.WriteU32(134);
+        com = Finished;
+      }
+
+      if (hWnd && minimize_game_window) {
+        ShowWindow(hWnd, SW_MINIMIZE);
+        minimize_game_window = false;
+        continue;
+      }
+
+      // wait until after bot is in the game
+      if (set_title && hWnd) {
+        SetWindowText(hWnd, (kEnabledText + name).c_str());
+        set_title = false;
+      }
+
+      // can't use getfocus in a thread 
+      if (hWnd && GetForegroundWindow() == hWnd && RealGetAsyncKeyState(VK_F10)) {
+        enabled = false;
+        SetWindowText(hWnd, (kDisabledText + name).c_str());
+      }
+
+#if DEBUG_RENDER
+      if (initialize_debug) {
+
+        u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
+        LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
+        void** vtable = (*(void***)surface);
+        RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD,
+          LPDDBLTFX))vtable[5];
+
+        DetourRestoreAfterWith();
+
+        DetourTransactionBegin();
+        DetourUpdateThread(GetCurrentThread());
+        DetourAttach(&(PVOID&)RealBlt, OverrideBlt);
+        DetourTransactionCommit();
+
+        initialize_debug = false;
+        continue;
+      }
+
+      marvin::g_RenderState.renderable_texts.clear();
+      marvin::g_RenderState.renderable_lines.clear();
+
+#endif
+
+      time_point now = time_clock::now();
+      seconds dt = now - g_LastUpdateTime;
+
+      auto start = std::chrono::high_resolution_clock::now();
+      if (game->Update()) { bot->Update(dt.count()); }
+      auto end = std::chrono::high_resolution_clock::now();
+      // marvin::log << "Update: " << std::chrono::duration<float, std::milli>(end - start).count() << std::endl;
+
+      UpdateCRC();
+
+
+
+    } break;
+
+    //----------------Game--------------------------------------------------//
+    }
+  }
+
+#if 0 
+    // must block until this is good
+    if (!menu->IsInitialized() || !enabled) continue;
+
+
+    //---------------Menu---------------------------//
+
+    if (menu->IsOnMenu()) {
+      // game address stuff needs to be recalculated if falling back to the menu
+      if (game) { game.reset(); }
+      if (bot) { bot.reset(); }
+
+      if (quit_game) {
+        PostQuitMessage(0);
+        return;
+      }
+
+      seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
+      if (elapsed.count() < g_JoinDelay || joined) continue;
+
+      ConnectToLauncher();
+
+      if (g_ComSequence != ComSequence::WritingToLauncher && g_ComSequence != ComSequence::Failed) continue;
+
+      PostMessage(g_MenuHWND, WM_KEYDOWN, VK_RETURN, 0);
+      PostMessage(g_MenuHWND, WM_KEYUP, VK_RETURN, 0);
+
+      continue; // if on menu, block the code below
+    }
+
+    //---------------Menu---------------------------//
+
+
+
+    //---------------Game---------------------------//
+
+    // name is empty if bot was injected using injector
+    if (name.empty()) { 
+      marvin::log << "here" << std::endl;
+      name = menu->GetSelectedProfileName(); }
+    if (!game) { game = std::make_unique<marvin::ContinuumGameProxy>(name); }
+
+    // must block until this is good
+    if (!game->IsInitialized() || !game->IsInGame() || game->GameIsClosing() || quit_game) continue;
+    joined = true;
+
+    
+    if (game->GetConnectState() == marvin::ConnectState::Disconnected) {
+      PostQuitMessage(0);
+      quit_game = true;
+      continue;
+    }
+
+    if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
+
+ 
+
+  }
+#endif
+
+
 }
 
 //GAME
@@ -650,7 +936,11 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   if (result || !lpMsg) return result;
 
+  //if (game && game->IsInitialized()) { game->Update(); }
 
+
+
+#if 0
   /*  Required safety checks */
 
   if (!menu) { 
@@ -691,9 +981,9 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
   // the launcher only needs to know that marvin has finished logging in
   // TODO: if the map is being downloaded could send a signal here to make the launcher wait longer.
-  if (sm_state == SharedMemoryState::WritingToLauncher) {
+  if (g_ComSequence == ComSequence::WritingToLauncher) {
     memory_map.WriteU32(134);  
-    sm_state = SharedMemoryState::Finished;
+    g_ComSequence = ComSequence::Finished;
   }
 
 
@@ -779,7 +1069,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       g_LastUpdateTime = now;
     }
     
-    
+#endif
   return result;
 }
 
@@ -807,15 +1097,9 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
   DetourAttach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourAttach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
-  DetourAttach(&(PVOID&)RealConnect, OverrideConnect);
-  DetourAttach(&(PVOID&)RealSetTimer, OverrideSetTimer);
-  DetourAttach(&(PVOID&)RealSleep, OverrideSleep);
-  DetourAttach(&(PVOID&)RealGetTickCount, OverrideGetTickCount);
-  DetourAttach(&(PVOID&)RealMsgWaitForMultipleObjects, OverrideMsgWaitForMultipleObjects);
-  
 
-  DetourTransactionCommit();
-
+  LONG commit = DetourTransactionCommit();
+  //test_log << "DetourTransactionCommit returned: " << commit << std::endl;
   
 
 }
@@ -832,13 +1116,9 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealDialogBoxParamA, OverrideDialogBoxParamA);
   DetourDetach(&(PVOID&)RealEndDialog, OverrideEndDialog);
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
-  DetourDetach(&(PVOID&)RealConnect, OverrideConnect);
   DetourDetach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourDetach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
-  DetourDetach(&(PVOID&)RealSetTimer, OverrideSetTimer);
-  DetourDetach(&(PVOID&)RealSleep, OverrideSleep);
-  DetourDetach(&(PVOID&)RealGetTickCount, OverrideGetTickCount);
-  DetourDetach(&(PVOID&)RealMsgWaitForMultipleObjects, OverrideMsgWaitForMultipleObjects);
+
 #if DEBUG_RENDER
   if (!initialize_debug) {
       DetourDetach(&(PVOID&)RealBlt, OverrideBlt);
@@ -846,7 +1126,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 #endif
   DetourTransactionCommit();
 
-  
+  StopThread();
 
   //SetWindowText(g_hWnd, "Continuum");
   OverrideGuard::Wait();
@@ -860,18 +1140,13 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
       case DLL_PROCESS_ATTACH: {
         timeBeginPeriod(1);
-        DWORD pid = GetCurrentProcessId();
-
-        // 0–9 ms offset
-        DWORD offsetMs = pid % 10;
-
-        if (offsetMs > 0) {
-          Sleep(offsetMs);
-        }
-        // Dont call initialize marvin here
+        g_MainThread = std::thread(MainThread);
+        marvin::log.open("bot.log");
+        marvin::log << "Log opened." << std::endl;
       } break;
       case DLL_PROCESS_DETACH: {
         timeEndPeriod(1);
+        StopThread();
         // Dont call cleanup marvin here 
         // don't need to call detourdetach when the program exits because it is safely handled.
       } break;

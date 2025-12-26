@@ -10,7 +10,7 @@ namespace marvin {
 
     if (!module_base_menu_) {
       // no log file to record to yet
-      MessageBoxA(nullptr, "Did not get module base menu!", "Yikes", MB_OK);
+     // MessageBoxA(nullptr, "Did not get module base menu!", "Yikes", MB_OK);
     }
 	}
 
@@ -19,7 +19,13 @@ namespace marvin {
       module_base_menu_ = process_.GetModuleBase(MODULE_NAME);
     }
 
-    return module_base_menu_ != 0;
+    if (!module_base_menu_) return false;
+
+    std::size_t some_addr = process_.ReadU32(module_base_menu_ + 0x47A38);
+
+    if (!some_addr) return false;
+
+    return true;
   }
 
   bool Menu::IsOnMenu() {

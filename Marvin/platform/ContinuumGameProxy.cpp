@@ -26,25 +26,35 @@ bool ContinuumGameProxy::IsInitialized() {
 }
 
 bool ContinuumGameProxy::InitializeGame() {
-
+ 
   if (!module_base_continuum_) {
     module_base_continuum_ = process_.GetModuleBase("Continuum.exe");
+
+    if (!module_base_continuum_) return false;
   }
 
-  if (!module_base_continuum_) {
-    MessageBoxA(nullptr, "Did not get module base continuum!", "Yikes", MB_OK);
-  }
-  else {
-    game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC);
-    position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
-    // Skip over existing messages on load
-    // this needs to be set when the bot reloads
-    u32 chat_base_addr = game_addr_ + 0x2DD08;
-    chat_index_ = *(u32*)(chat_base_addr + 8);
-    Update();
+  if (!game_addr_) { 
+    game_addr_ = process_.ReadU32(module_base_continuum_ + 0xC1AFC); 
+
+    if (game_addr_) {
+      position_data_ = (uint32_t*)(game_addr_ + 0x126BC);
+      // Skip over existing messages on load
+      // this needs to be set when the bot reloads
+      u32 chat_base_addr = game_addr_ + 0x2DD08;
+      chat_index_ = *(u32*)(chat_base_addr + 8);
+    }
+    else {
+      return false;
+    }
   }
 
-  return module_base_continuum_ != 0;
+  if (!player_) { 
+    Update(); 
+
+    if (!player_) return false;
+  }
+
+  return true;
 }
 
 
@@ -82,8 +92,6 @@ bool ContinuumGameProxy::Update() {
   // Continuum stops processing input when it loses focus, so update the memory
   // to make it think it always has focus.
   SetWindowFocus();
-
-  if (!UpdateMemory()) return false;  
 
   // this fixes memory exceptions when arena recycles
   // doesnt fix multiple bots downloading a new map and writing to the same .lvl file
@@ -164,8 +172,6 @@ void ContinuumGameProxy::FetchPlayers() {
   std::size_t base_addr = game_addr_ + 0x127EC;
   std::size_t players_addr = base_addr + 0x884;
   std::size_t count_addr = base_addr + 0x1884;
-
-  if (players_addr == 0 || count_addr == 0) return;
 
   std::size_t count = process_.ReadU32(count_addr) & 0xFFFF;
   
@@ -526,7 +532,7 @@ void ContinuumGameProxy::FetchDroppedFlags() {
 }
 
 ConnectState ContinuumGameProxy::GetConnectState() {
-  if (!UpdateMemory()) return ConnectState::None;
+  //if (!UpdateMemory()) return ConnectState::None;
 
 
   ConnectState state = *(ConnectState*)(game_addr_ + 0x127EC + 0x588);

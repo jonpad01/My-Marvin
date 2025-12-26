@@ -43,11 +43,19 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
   const std::unordered_map<std::string, std::bitset<1024 * 1024>>& uMap = map.GetRegions();
 
   for (const auto& [name, tiles] : uMap) {
+
+    std::size_t pos = name.find("-");
+
+    if (name.size() == pos + 2 && name[pos + 1] == 0 || name[pos + 1] == 1);
+
+    std::string base_name = name.substr(0, pos);
+
+
     // test for the correct pattern
-    const std::regex pattern(R"(^[A-Za-z]+[0-9]+_[01]$)");
+    //const std::regex pattern(R"(^[A-Za-z]+[0-9]+_[01]$)");
 
     // bad match
-    if (!std::regex_match(name, pattern)) continue;
+    //if (!std::regex_match(name, pattern)) continue;
 
     // parse team from string
     int team = name.back() - '0';
