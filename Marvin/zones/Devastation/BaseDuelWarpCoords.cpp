@@ -16,12 +16,16 @@ namespace deva {
 BaseDuelWarpCoords::BaseDuelWarpCoords(const Map& map, const std::string& mapName) : mapName(mapName) {
   foundMapFiles = false;
   
+  bool bases = false;
+
   // process map for regions that point to base safe tiles
- // if (map.HasRegions()) {
-  //  ProcessMapRegions(map);
-//  } else {
-    LoadBaseDuelFile(mapName);  // fall back to baseduel files
-//  } 
+  if (map.HasRegions()) {
+      bases = ProcessMapRegions(map);
+  }
+
+  if (bases == false) {
+      LoadBaseDuelFile(mapName);  // fall back to baseduel files
+  }
 }
 
 bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
@@ -42,6 +46,8 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
 
   const std::unordered_map<std::string, std::bitset<1024 * 1024>>& uMap = map.GetRegions();
 
+  int bases = 0;
+
   for (const auto& [name, tiles] : uMap) {
     // test for the correct pattern
     std::regex base_pattern("^[a-zA-Z0-9]+?([0-9]+)_([0-1])$");
@@ -49,6 +55,8 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
 
     // bad match
     if (!std::regex_search(name, matches, base_pattern)) continue;
+
+    bases++;
 
     // parse team from string
     std::size_t base = std::stoi(matches[1].str());
@@ -58,10 +66,9 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
     for (std::size_t i = 0; i < tiles.size(); ++i) {
       if (!tiles.test(i)) continue;
 
-      MapCoord coord{uint16_t(i % 1024), uint16_t(i / 1024)};
+      MapCoord coord{ uint16_t(i % 1024), uint16_t(i / 1024) };
 
       // place them in order
-      // probably a slow and wasteful method
       if (team == 0) {
         if (base >= safes.t0.size()) safes.t0.resize(base + 1);
         safes.t0[base] = coord;
@@ -74,13 +81,15 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
     }
   }
 
-  // there is no base 0, so index 0 is just MapCoord(0,0)
-  // if it is preserved then the index would match base numbers
-  // but im deleting it in case there are conflicts with other code that reads it
-  safes.t0.erase(safes.t0.begin());
-  safes.t1.erase(safes.t1.begin());
+  if (bases > 0) {
+    // there is no base 0, so index 0 is just MapCoord(0,0)
+    // if it is preserved then the index would match base numbers
+    // but im deleting it now in case there are conflicts with other code that reads it
+    safes.t0.erase(safes.t0.begin());
+    safes.t1.erase(safes.t1.begin());
+  }
 
-  return true;
+  return bases > 0;
 }
 
 // TODO:  check timestamps on existing file
