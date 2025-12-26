@@ -16,12 +16,16 @@ namespace deva {
 BaseDuelWarpCoords::BaseDuelWarpCoords(const Map& map, const std::string& mapName) : mapName(mapName) {
   foundMapFiles = false;
   
+  bool bases = false;
+
   // process map for regions that point to base safe tiles
- // if (map.HasRegions()) {
-  //  ProcessMapRegions(map);
-//  } else {
-    LoadBaseDuelFile(mapName);  // fall back to baseduel files
-//  } 
+  if (map.HasRegions()) {
+      bases = ProcessMapRegions(map);
+  }
+
+  if (bases == false) {
+      LoadBaseDuelFile(mapName);  // fall back to baseduel files
+  }
 }
 
 bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
@@ -42,33 +46,29 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
 
   const std::unordered_map<std::string, std::bitset<1024 * 1024>>& uMap = map.GetRegions();
 
+  int bases = 0;
+
   for (const auto& [name, tiles] : uMap) {
-
-    std::size_t pos = name.find("-");
-
-    if (name.size() == pos + 2 && name[pos + 1] == 0 || name[pos + 1] == 1);
-
-    std::string base_name = name.substr(0, pos);
-
-
     // test for the correct pattern
-    //const std::regex pattern(R"(^[A-Za-z]+[0-9]+_[01]$)");
+    std::regex base_pattern("^[a-zA-Z0-9]+?([0-9]+)_([0-1])$");
+    std::smatch matches;
 
     // bad match
-    //if (!std::regex_match(name, pattern)) continue;
+    if (!std::regex_search(name, matches, base_pattern)) continue;
+
+    bases++;
 
     // parse team from string
-    int team = name.back() - '0';
-    std::size_t base = ParseBaseNumber(name);
+    std::size_t base = std::stoi(matches[1].str());
+    int team = std::stoi(matches[2].str());
 
     // the bitset should only have 1 coordinate so grab the first match
     for (std::size_t i = 0; i < tiles.size(); ++i) {
       if (!tiles.test(i)) continue;
 
-      MapCoord coord{uint16_t(i % 1024), uint16_t(i / 1024)};
+      MapCoord coord{ uint16_t(i % 1024), uint16_t(i / 1024) };
 
       // place them in order
-      // probably a slow and wasteful method
       if (team == 0) {
         if (base >= safes.t0.size()) safes.t0.resize(base + 1);
         safes.t0[base] = coord;
@@ -81,28 +81,15 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
     }
   }
 
-  // there is no base 0, so index 0 is just MapCoord(0,0)
-  // if it is preserved then the index would match base numbers
-  // but im deleting it in case there are conflicts with other code that reads it
-  safes.t0.erase(safes.t0.begin());
-  safes.t1.erase(safes.t1.begin());
-
-  return true;
-}
-
-std::size_t BaseDuelWarpCoords::ParseBaseNumber(const std::string& name) {
-  std::size_t i = 0;
-
-  // skip leading letters
-  while (i < name.size() && !std::isdigit(name[i])) ++i;
-
-  std::size_t base = 0;
-  while (i < name.size() && std::isdigit(name[i])) {
-    base = base * 10 + (name[i] - '0');
-    ++i;
+  if (bases > 0) {
+    // there is no base 0, so index 0 is just MapCoord(0,0)
+    // if it is preserved then the index would match base numbers
+    // but im deleting it now in case there are conflicts with other code that reads it
+    safes.t0.erase(safes.t0.begin());
+    safes.t1.erase(safes.t1.begin());
   }
 
-  return base;
+  return bases > 0;
 }
 
 // TODO:  check timestamps on existing file
