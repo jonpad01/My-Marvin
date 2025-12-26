@@ -44,14 +44,15 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
 
   for (const auto& [name, tiles] : uMap) {
     // test for the correct pattern
-    const std::regex pattern(R"(^[A-Za-z]+[0-9]+_[01]$)");
+    std::regex base_pattern("^[a-zA-Z0-9]+?([0-9]+)_([0-1])$");
+    std::smatch matches;
 
     // bad match
-    if (!std::regex_match(name, pattern)) continue;
+    if (!std::regex_search(name, matches, base_pattern)) continue;
 
     // parse team from string
-    int team = name.back() - '0';
-    std::size_t base = ParseBaseNumber(name);
+    std::size_t base = std::stoi(matches[1].str());
+    int team = std::stoi(matches[2].str());
 
     // the bitset should only have 1 coordinate so grab the first match
     for (std::size_t i = 0; i < tiles.size(); ++i) {
@@ -80,21 +81,6 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
   safes.t1.erase(safes.t1.begin());
 
   return true;
-}
-
-std::size_t BaseDuelWarpCoords::ParseBaseNumber(const std::string& name) {
-  std::size_t i = 0;
-
-  // skip leading letters
-  while (i < name.size() && !std::isdigit(name[i])) ++i;
-
-  std::size_t base = 0;
-  while (i < name.size() && std::isdigit(name[i])) {
-    base = base * 10 + (name[i] - '0');
-    ++i;
-  }
-
-  return base;
 }
 
 // TODO:  check timestamps on existing file
