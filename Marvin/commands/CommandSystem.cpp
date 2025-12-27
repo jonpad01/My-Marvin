@@ -223,7 +223,7 @@ bool CommandSystem::ProcessMessage(Bot& bot, ChatMessage& chat) {
 
           // If the bot is locked, or requester isn't an operator then ignore it.
           // if (!(command.GetFlags() & CommandFlag_Lockable) || !bb.ValueOr<bool>("CmdLock", false) ||
-          if (!(command.GetFlags() & CommandFlag_Lockable) || !locked) {
+          if (!(command.GetFlags() & CommandFlag_Lockable) || !locked || security_level >= SecurityLevel::Elevated) {
 
             command.Execute(*this, bot, chat.player, arg);
 
