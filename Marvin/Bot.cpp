@@ -24,6 +24,8 @@
 
 namespace marvin {
 
+  
+
 class DefaultBehaviorBuilder : public BehaviorBuilder {
  public:
   void CreateBehavior(Bot& bot) {
@@ -69,7 +71,7 @@ Bot::Bot(GameProxy* game) : game_(game) {
   srand((unsigned int)(time_.GetTime()));
 
   
-  log << "Creating bot." << std::endl;
+  //log << "Creating bot." << std::endl;
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
   previous_door_state_ = DoorState::Load();
@@ -80,17 +82,57 @@ Bot::Bot(GameProxy* game) : game_(game) {
   ctx_.bot = this;
 }
 
+bool Bot::CheckLoadState() {
+  switch (worker_state_) {
+  case ThreadState::Start: {
+    load_worker_ = std::thread(&Bot::Load, this);
+    worker_state_ = ThreadState::Running;
+    return false;
+  } break;
+  case ThreadState::Running: {
+    return false;
+  } break;
+  case ThreadState::Finished: {
+    if (load_worker_.joinable()) {
+      load_worker_.join();
+    }
+    return true;
+  } break;
+  }
+  return false;
+}
+
 // run each case, increment the load index and return, so it doesnt run a bunch of stuff in one update
 // and freeze continuum.
 void Bot::Load() {
   PerformanceTimer timer;
- 
+  log << "Loading bot." << std::endl;
+  radius_ = game_->GetRadius();
+  command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
+  //log.Write("Command System Loaded", timer.GetElapsedTime());
+  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());                      // 4.3ms
+  //log.Write("Regions Created", timer.GetElapsedTime());
+  regions_->Create(game_->GetMap(), game_->GetRadius());
+  auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());            // 4.2ms
+  //log.Write("Node Processor Loaded", timer.GetElapsedTime());
+  pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);  // 0ms
+  // log.Write("Pathfinder Loaded", timer.GetElapsedTime());
+  pathfinder_->SetTraversabletiles(game_->GetMap(), game_->GetRadius());                         // 43ms
+  // log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
+  pathfinder_->CalculateEdges(game_->GetMap(), game_->GetRadius());                              // 57ms
+  // log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
+  pathfinder_->SetMapWeights(game_->GetMap(), game_->GetRadius());                               // 250ms
+  //  log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());  
+  SelectBehaviorTree();
+
+  worker_state_ = ThreadState::Finished;
+#if 0
   switch (load_index) {
     case 0: {
       return;
     }
     case 1: {
-      log << "Reloading bot." << std::endl;
+      log << "Loading bot." << std::endl;
 
       radius_ = game_->GetRadius();
       command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
@@ -131,6 +173,7 @@ void Bot::Load() {
       last_load_timestamp_ = time_.GetTime();
     }
   }
+#endif
 }
 
 void Bot::Update(float dt) {
@@ -152,6 +195,7 @@ void Bot::Update(float dt) {
     current_map_ = map_name;
     log << "Map change reload." << std::endl;
     load_index = 1;
+    worker_state_ = ThreadState::Start;
   }
 
   //if (state == UpdateState::Reload) {
@@ -164,6 +208,7 @@ void Bot::Update(float dt) {
   if (door_state.door_mode != previous_door_state_.door_mode) {
     log << "Door state reload." << std::endl;
     load_index = 1;
+    worker_state_ = ThreadState::Start;
     previous_door_state_ = door_state;
   }
 
@@ -175,11 +220,14 @@ void Bot::Update(float dt) {
     log << "Ship radius reload." << std::endl;
     radius_ = radius;
     load_index = 1;
+    worker_state_ = ThreadState::Start;
   }
 
   // the load behavior is determined by the load index
-  Load();
-  if (load_index != 0) return;
+  CheckLoadState();
+  if (worker_state_ != ThreadState::Finished) return;
+  //Load();
+ //if (load_index != 0) return;
 
   // lazy method to update hyperspace tree
   if (game_->GetZone() == Zone::Hyperspace) {

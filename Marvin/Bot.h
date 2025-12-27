@@ -38,6 +38,7 @@ class Bot {
   //~Bot() { build_task.detach(); }
 
   void Load();
+  bool CheckLoadState();
   void Update(float dt);
 
   KeyController& GetKeys() { return keys_; }
@@ -89,6 +90,8 @@ class Bot {
 
  private:
 
+   enum class ThreadState { Start, Running, Finished };
+
   void SelectBehaviorTree();
 
   float radius_;
@@ -124,6 +127,9 @@ class Bot {
   // TODO: Action-key map would be more versatile
   KeyController keys_;
   Time time_;
+
+  std::thread load_worker_;
+  ThreadState worker_state_ = ThreadState::Start;
 };
 
 namespace bot {

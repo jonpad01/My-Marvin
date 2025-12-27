@@ -501,8 +501,6 @@ LRESULT WINAPI OverrideDispatchMessageA(const MSG* lpMsg) {
 }
 
 
-
-
 // MENU
 // the dsound injection method will start here
 // will not update if the game is running the game window
@@ -557,9 +555,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   }
 
   if (!game->IsInGame() || game->GameIsClosing()) return result;
-  
   joined = true;
-
+  
   if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
  
   if (reopen_log && !name.empty()) {
@@ -593,8 +590,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     set_title = false;
     return result;
   }
-
-  #if DEBUG_RENDER
+  
+#if DEBUG_RENDER
   if (initialize_debug) {
 
     u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
@@ -613,9 +610,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     initialize_debug = false;
     return result;
   }
-  
+#endif
  
-
     // Check for key presses to enable/disable the bot.
     if (g_hWnd && GetFocus() == g_hWnd) {
       if (RealGetAsyncKeyState(VK_F10)) {
@@ -629,17 +625,17 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     
     time_point now = time_clock::now();
     seconds dt = now - g_LastUpdateTime;
-
+    
     if (!enabled) return result;
     bool locked = LockedInSpec();
-
+    
     if (locked) {
       PostQuitMessage(0);
       quit_game = true;
       return result;
     }
 
-   
+    
     if (dt.count() > 1.0f / 60.0f) {
 
 
@@ -649,6 +645,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 #endif
 
       auto start = std::chrono::high_resolution_clock::now();
+      
       if (game->Update()) { bot->Update(dt.count()); }
       auto end = std::chrono::high_resolution_clock::now();
       // marvin::log << "Update: " << std::chrono::duration<float, std::milli>(end - start).count() << std::endl;
@@ -657,7 +654,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       g_LastUpdateTime = now;
     }
     
-#endif
+
   return result;
 }
 
