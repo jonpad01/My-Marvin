@@ -104,9 +104,6 @@ enum class MenuDialogBoxId {
 };
 
 enum class ComSequence { OpenMap, Listen, WriteToMenu, SendToLauncher, Finished, Failed };
-enum class OperatingState { OnMenu, InGame, LoadingMenu, LoadingGame };
-
-using enum OperatingState;
 using enum ComSequence;
 
 
@@ -142,15 +139,13 @@ static time_point g_LastUpdateTime;
 static time_point g_JoinGameStartPoint = time_clock::now();
 static time_point g_SharedMemoryStartPoint = time_clock::now();;
 static float g_UpdatdeDelay = 1.0f / 60.0f;
-static float g_JoinDelay = 2.0f;
+static float g_JoinDelay = 3.0f; // any faster and the server will throw a messagebox
 static float g_SharedMemoryWaitTime = 3.0f;
 
 
 std::unique_ptr<marvin::Bot> bot;
 std::unique_ptr<marvin::ContinuumGameProxy> game;
 std::unique_ptr<marvin::Menu> menu;
-
-std::thread g_MainThread;
 
 static HHOOK g_hHook = NULL;
 
@@ -161,23 +156,12 @@ static bool set_join_timer = true;
 static bool quit_game = false;
 static bool minimize_game_window = true;
 static bool joined = false;
-static bool g_running = true;
+bool reopen_log = true;
 
-//static ComSequence g_ComSequence = ComSequence::OpenMap;
+static ComSequence g_ComSequence = ComSequence::OpenMap;
 
 static MemoryMap memory_map;
-static HANDLE hPipe = NULL;
 
-HWND g_MenuHWND = nullptr;
-
-static std::ofstream test_log;
-
-void StopThread() {
-  g_running = false;             // signal the thread to exit
-  if (g_MainThread.joinable()) {
-    g_MainThread.join();           // wait for it to finish
-  }
-}
 
 // This function needs to be called whenever anything changes in Continuum's memory.
 // Continuum keeps track of its memory by calculating a checksum over it. Any changes to the memory outside of the
@@ -209,97 +193,6 @@ bool LockedInSpec() {
 
   return false;
 }
-
-
-ComSequence ConnectToLauncher(ComSequence current) {
-
-  switch (current) {
-  case OpenMap: {
-    if (memory_map.OpenMap()) {
-      return Listen;
-      g_SharedMemoryStartPoint = time_clock::now();
-    }
-    return Failed;   
-  } break;
-  case Listen: {
-    seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
-    if (memory_map.HasData()) {
-      profile_index = memory_map.ReadU32();
-      return WriteToMenu;
-    }
-    else if (elapsed.count() > g_SharedMemoryWaitTime) {
-      return Failed;
-    }
-    return Listen;
-  } break;
-  case WriteToMenu: {
-    marvin::ProfileData data;
-    bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
-
-    if (result && menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
-      name = data.name;
-      return SendToLauncher;  
-    }
-    return Failed;
-  } break;
-  case SendToLauncher: { // this state is checked after the game loads
-    memory_map.WriteU32(134);
-    return Finished;
-  } break;
-  case Finished: {
-    return Finished;
-  } break;
-  case Failed: {
-    return Failed;
-  } break;
-  }
-
-  return Failed;
-
-#if 0 
-  if (g_ComSequence == ComSequence::OpeningMap) {
-    if (memory_map.OpenMap()) {
-      g_ComSequence = ComSequence::Listening;
-      g_SharedMemoryStartPoint = time_clock::now();
-    }
-    else {
-      g_ComSequence = ComSequence::Failed;
-      name = menu->GetSelectedProfileName();
-    }
-  }
-
-  if (g_ComSequence == ComSequence::Listening) {
-    seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
-    if (memory_map.HasData()) {
-      profile_index = memory_map.ReadU32();
-
-      g_ComSequence = ComSequence::WritingToMemory;
-    }
-    else if (elapsed.count() > g_SharedMemoryWaitTime) {
-      g_ComSequence = ComSequence::Failed;
-      name = menu->GetSelectedProfileName();
-    }
-    return;
-  }
-
-  if (g_ComSequence == ComSequence::WritingToMemory) {
-    marvin::ProfileData data;
-    bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
-
-    if (!result) {
-      g_ComSequence = ComSequence::Failed;
-      name = menu->GetSelectedProfileName();
-    }
-    else if (menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
-      name = data.name;
-      g_ComSequence = ComSequence::WritingToLauncher;  // this state is checked in peekmessage after the game loads
-    }
-    return;
-  }
-#endif
-
-}
-
 
 
 // multicont functionallity
@@ -414,9 +307,10 @@ int WINAPI OverrideDialogBoxParamA(HINSTANCE hInstance, LPCTSTR lpTemplate, HWND
    }
 
    // can automate new player generation here by using a hook to fill the player information
+   // confirmed works
    if (dialog_id == MenuDialogBoxId::PlayerInformation) {
      g_hHook = SetWindowsHookExA(WH_CBT, PlayerInformationHook, NULL, GetCurrentThreadId());
-     return IDOK;  // does this work?
+     return IDOK; 
    }
 
   return RealDialogBoxParamA(hInstance, lpTemplate, hWndParent, lpDialogFunc, dwInitParam);
@@ -440,8 +334,6 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   std::string caption = lpCaption;
 
   //marvin::log.Write("Message box found with title: " + caption + " and message text: " + lpText);
-
-
 
   if (caption == "Information") {  
 
@@ -530,13 +422,79 @@ LRESULT WINAPI OverrideDispatchMessageA(const MSG* lpMsg) {
   OverrideGuard guard;
   LRESULT result = RealDispatchMessageA(lpMsg);
 
-  if (!g_MenuHWND || !IsWindow(g_MenuHWND)) {
-    char buf[256];
-    int len = GetWindowTextA(lpMsg->hwnd, buf, sizeof(buf));
+  if (!menu) menu = std::make_unique<marvin::Menu>();
+  if (!menu->IsInitialized() || !menu->IsOnMenu()) return result;
 
-    if (len > 0 && strcmp(buf, "Continuum 0.40") != 0) {
-      g_MenuHWND = lpMsg->hwnd;
+  if (game) { game.reset(); }
+  if (bot) { bot.reset(); }
+  initialize_debug = true;
+  set_title = true;
+
+  if (quit_game) {
+    PostQuitMessage(0);
+    return result;
+  }
+
+  if (reopen_log && !name.empty()) {
+    if (marvin::log.is_open()) {
+      marvin::log << "Log reopening as: " << name << ".log" << std::endl;
+      marvin::log.close();
     }
+    marvin::log.open(name + ".log");
+    marvin::log << "Log file opened from menu:  " << name << std::endl;
+    reopen_log = false;
+  }
+
+  // ------------ Shared memory used with launcher -------------------------------
+
+  // if the game was not loaded using the launcher, then this should fail 
+  switch (g_ComSequence) {
+  case OpenMap: {
+    if (memory_map.OpenMap()) {
+      g_ComSequence = Listen;
+      g_SharedMemoryStartPoint = time_clock::now();
+    }
+    else {
+      name = menu->GetSelectedProfileName();
+      g_ComSequence = Failed;
+    }
+  } break;
+  case Listen: {
+    seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
+    if (memory_map.HasData()) {
+      profile_index = memory_map.ReadU32();
+      g_ComSequence = WriteToMenu;
+    }
+    else if (elapsed.count() > g_SharedMemoryWaitTime) {
+      name = menu->GetSelectedProfileName();
+      g_ComSequence = Failed;
+    }
+    return result;
+  } break;
+  case WriteToMenu: {
+    marvin::ProfileData data;
+    bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
+
+    if (result && menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
+      name = data.name;
+      g_ComSequence = SendToLauncher;
+    }
+    else {
+      name = menu->GetSelectedProfileName();
+      g_ComSequence = Failed;
+    }
+  } break;
+  }
+
+  // -------------------------------------------------------------------------
+
+  seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
+  if (elapsed.count() < g_JoinDelay || joined) return result;
+
+  if (g_ComSequence == SendToLauncher || g_ComSequence == Failed) {
+    PostMessage(lpMsg->hwnd, WM_KEYDOWN, VK_RETURN, 0);
+    PostMessage(lpMsg->hwnd, WM_KEYUP, VK_RETURN, 0);
+    joined = true;
   }
 
   return result;
@@ -558,406 +516,39 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
   bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
   if (!result || !lpMsg) return result;  // if false it means the window is closing
 
-#if 0
-  // some message pumps are not sent to the menu window so confirm first
-  if (!g_MenuHWND || !IsWindow(g_MenuHWND)) {
-    g_MenuHWND = FindWindowA(nullptr, "Continuum 0.40");
-  }
 
-  if (g_MenuHWND != lpMsg->hwnd) return result;
 
-  // if closing the game back to the menu, clear these
-  if (game) { game.reset(); }
-  if (bot) { bot.reset(); }
+  
 
-  if (!menu) menu = std::make_unique<marvin::Menu>();
-  // some messages are still sent after continuum logs into the game
-  if (!menu->IsInitialized() || !menu->IsOnMenu() || !enabled || joined) return result;
-
-  if (quit_game) {
-    PostQuitMessage(0);
-    return result;
-  }
-
-  if (!marvin::log.is_open() && !name.empty()) {
-    marvin::log.open(name + ".log");
-    marvin::log << "Log file opened -  " << name << std::endl;
-  }
-
-  seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
-  if (elapsed.count() < g_JoinDelay) return result;
-
-  // ------------ Shared memory used with launcher -------------------------------
-
-  // if the game was not loaded using the launcher, then this should fail 
-  if (g_ComSequence == ComSequence::OpeningMap) {
-    if (memory_map.OpenMap()) {
-      g_ComSequence = ComSequence::Listening;
-      //g_SharedMemoryStartPoint = time_clock::now();
-    } else {
-      g_ComSequence = ComSequence::Failed;
-      name = menu->GetSelectedProfileName();
-    }
-  }
-
-  if (g_ComSequence == ComSequence::Listening) {
-    seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
-    if (memory_map.HasData()) {
-      profile_index = memory_map.ReadU32();
-
-      g_ComSequence = ComSequence::WritingToMemory;
-    } else if (elapsed.count() > g_SharedMemoryWaitTime) {
-      g_ComSequence = ComSequence::Failed;
-      name = menu->GetSelectedProfileName();
-    }
-    return result;
-  }
-
-  if (g_ComSequence == ComSequence::WritingToMemory) {
-    marvin::ProfileData data;
-    bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
-
-    if (!result) {
-      g_ComSequence = ComSequence::Failed;
-      name = menu->GetSelectedProfileName();
-    } else if (menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
-      name = data.name;
-      g_ComSequence = ComSequence::WritingToLauncher;  // this state is checked in peekmessage after the game loads
-    }
-    return result;
-  }
-
-  // -------------------------------------------------------------------------
-
-    
-
-   // if (set_join_timer) {
-    //  g_JoinGameStartPoint = time_clock::now();
-   //   set_join_timer = false;
-  //  }
-
-    //seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
-
-   // if (elapsed.count() > g_JoinDelay && !joined) {
-      // press enter and join the game
-      // WM_TIMER seems to be the most reliable message to hijack, WM_PAINT only gets sent
-      // if the mouse is moved.
-     // if (lpMsg->message == WM_TIMER || lpMsg->message == WM_PAINT || lpMsg->message == WM_NULL) {
-  // can alter this message to send keydown events but its hard to cleanly resolve with a keyup
-      //  PostMessage(lpMsg->hwnd, WM_KEYDOWN, VK_RETURN, 0);
-     //   PostMessage(lpMsg->hwnd, WM_KEYUP, VK_RETURN, 0);
-        //lpMsg->message = WM_KEYDOWN;
-       // lpMsg->wParam = VK_RETURN;
-       // lpMsg->lParam = 0;
-      //  set_join_timer = true;
-        joined = true;
-
-        return result;
-#endif
-     // }
-   // }
   return result;
 }
 
 
-
-OperatingState GetOperatingState() {
-  if (!menu || !menu->IsInitialized()) return OperatingState::LoadingMenu;
-  if (menu->IsOnMenu()) return OperatingState::OnMenu;
-  if (!game || !game->IsInitialized()) return OperatingState::LoadingGame;
-  if (game->IsInGame()) return OperatingState::InGame;
-
-  return OperatingState::LoadingMenu;
-}
-
-
-void MainThread() {
-
-  ComSequence com = OpenMap;
-  bool reopen_log = true;
-
-  while (g_running) {
-    Sleep(16);
-
-    if (!menu) { menu = std::make_unique<marvin::Menu>(); }
-
-    if (reopen_log && !name.empty()) {
-      if (marvin::log.is_open()) {
-        marvin::log << "Log reopening as : " << name << ".log" << std::endl;
-        marvin::log.close();
-      }
-      marvin::log.open(name + ".log");
-      marvin::log << "Log file opened -  " << name << std::endl;
-      reopen_log = false;
-    }
-
-    OperatingState state = GetOperatingState();
-
-    switch (state) {
-
-    case LoadingMenu: {} break;
-
-      //----------------Menu--------------------------------------------------//
-
-    case OnMenu: {
-      if (game) { game.reset(); }
-      if (bot) { bot.reset(); }
-
-      if (quit_game) {
-        PostQuitMessage(0);
-        return;
-      }
-
-      //----------------Shared Memory-------------------------//
-
-      switch (com) {
-      case OpenMap: {
-        if (memory_map.OpenMap()) {
-          com = Listen;
-          g_SharedMemoryStartPoint = time_clock::now();
-        }
-        else {
-          name = menu->GetSelectedProfileName();
-          com = Failed;
-        }
-      } break;
-      case Listen: {
-        seconds elapsed = time_clock::now() - g_SharedMemoryStartPoint;
-        if (memory_map.HasData()) {
-          profile_index = memory_map.ReadU32();
-          com = WriteToMenu;
-        }
-        else if (elapsed.count() > g_SharedMemoryWaitTime) {
-          name = menu->GetSelectedProfileName();
-          com = Failed;
-        }
-        continue;
-      } break;
-      case WriteToMenu: {
-        marvin::ProfileData data;
-        bool result = marvin::ProfileParser::GetProfileData(profile_index, data);
-
-        if (result && menu->WriteToSelectedProfile(data) && menu->SetSelectedZone(data.zone_name)) {
-          name = data.name;
-          com = SendToLauncher;
-        }
-        else {
-          name = menu->GetSelectedProfileName();
-          com = Failed;
-        }
-      } break;
-      default:
-        break;
-      }
-
-      //----------------Shared Memory---------------------------//
-
-
-      seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
-      if (elapsed.count() < g_JoinDelay || joined) continue;
-
-      if (com == SendToLauncher || com == Failed) {
-        PostMessage(g_MenuHWND, WM_KEYDOWN, VK_RETURN, 0);
-        PostMessage(g_MenuHWND, WM_KEYUP, VK_RETURN, 0);
-        joined = true;
-      }
-
-    } break;
-
-    //----------------Menu--------------------------------------------------//
-
-    case LoadingGame: {
-      if (name.empty()) { name = menu->GetSelectedProfileName(); }
-      if (!game) { game = std::make_unique<marvin::ContinuumGameProxy>(name); }
-    } break;
-
-    //----------------Game--------------------------------------------------//
-
-    case InGame: {
-      HWND hWnd = game->GetGameWindowHandle();
-
-      if (hWnd && GetForegroundWindow() == hWnd && RealGetAsyncKeyState(VK_F9)) {
-        enabled = true;
-        SetWindowText(hWnd, (kEnabledText + name).c_str());
-      }
-
-      if (game->GameIsClosing() || !enabled || quit_game) continue;
-      joined = true;
-
-
-      if (game->GetConnectState() == marvin::ConnectState::Disconnected || LockedInSpec()) {
-        PostQuitMessage(0);
-        quit_game = true;
-        continue;
-      }
-
-      if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
-
-      if (com == SendToLauncher) {
-        memory_map.WriteU32(134);
-        com = Finished;
-      }
-
-      if (hWnd && minimize_game_window) {
-        ShowWindow(hWnd, SW_MINIMIZE);
-        minimize_game_window = false;
-        continue;
-      }
-
-      // wait until after bot is in the game
-      if (set_title && hWnd) {
-        SetWindowText(hWnd, (kEnabledText + name).c_str());
-        set_title = false;
-      }
-
-      // can't use getfocus in a thread 
-      if (hWnd && GetForegroundWindow() == hWnd && RealGetAsyncKeyState(VK_F10)) {
-        enabled = false;
-        SetWindowText(hWnd, (kDisabledText + name).c_str());
-      }
-
-#if DEBUG_RENDER
-      if (initialize_debug) {
-
-        u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
-        LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
-        void** vtable = (*(void***)surface);
-        RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD,
-          LPDDBLTFX))vtable[5];
-
-        DetourRestoreAfterWith();
-
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttach(&(PVOID&)RealBlt, OverrideBlt);
-        DetourTransactionCommit();
-
-        initialize_debug = false;
-        continue;
-      }
-
-      marvin::g_RenderState.renderable_texts.clear();
-      marvin::g_RenderState.renderable_lines.clear();
-
-#endif
-
-      time_point now = time_clock::now();
-      seconds dt = now - g_LastUpdateTime;
-
-      auto start = std::chrono::high_resolution_clock::now();
-      if (game->Update()) { bot->Update(dt.count()); }
-      auto end = std::chrono::high_resolution_clock::now();
-      // marvin::log << "Update: " << std::chrono::duration<float, std::milli>(end - start).count() << std::endl;
-
-      UpdateCRC();
-
-
-
-    } break;
-
-    //----------------Game--------------------------------------------------//
-    }
-  }
-
-#if 0 
-    // must block until this is good
-    if (!menu->IsInitialized() || !enabled) continue;
-
-
-    //---------------Menu---------------------------//
-
-    if (menu->IsOnMenu()) {
-      // game address stuff needs to be recalculated if falling back to the menu
-      if (game) { game.reset(); }
-      if (bot) { bot.reset(); }
-
-      if (quit_game) {
-        PostQuitMessage(0);
-        return;
-      }
-
-      seconds elapsed = time_clock::now() - g_JoinGameStartPoint;
-      if (elapsed.count() < g_JoinDelay || joined) continue;
-
-      ConnectToLauncher();
-
-      if (g_ComSequence != ComSequence::WritingToLauncher && g_ComSequence != ComSequence::Failed) continue;
-
-      PostMessage(g_MenuHWND, WM_KEYDOWN, VK_RETURN, 0);
-      PostMessage(g_MenuHWND, WM_KEYUP, VK_RETURN, 0);
-
-      continue; // if on menu, block the code below
-    }
-
-    //---------------Menu---------------------------//
-
-
-
-    //---------------Game---------------------------//
-
-    // name is empty if bot was injected using injector
-    if (name.empty()) { 
-      marvin::log << "here" << std::endl;
-      name = menu->GetSelectedProfileName(); }
-    if (!game) { game = std::make_unique<marvin::ContinuumGameProxy>(name); }
-
-    // must block until this is good
-    if (!game->IsInitialized() || !game->IsInGame() || game->GameIsClosing() || quit_game) continue;
-    joined = true;
-
-    
-    if (game->GetConnectState() == marvin::ConnectState::Disconnected) {
-      PostQuitMessage(0);
-      quit_game = true;
-      continue;
-    }
-
-    if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
-
- 
-
-  }
-#endif
-
-
-}
-
 //GAME
 // This is used to hook into the main update loop in Continuum so the bot can be updated.
-// the marvin injection method will start here
+// the injector method will start here
 // this updates even if there is no message, but does not update when the game is closed to the menu
+// this is a safe place to read and write memory becasue continuum will be idle
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
   OverrideGuard guard;
   // windows is expecting peekmessage to process quickly, so make it the first thing to execute.
-  // though whatever called it will still wait for the override to return, i think
+  // though whatever called it will still wait for the override to return
   // when this returns false it means there is no message to procces
   // that is probably the best time to execute bot code
   
   BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   if (result || !lpMsg) return result;
 
-  //if (game && game->IsInitialized()) { game->Update(); }
 
-
-
-#if 0
   /*  Required safety checks */
 
-  if (!menu) { 
-    menu = std::make_unique<marvin::Menu>(); 
-  }
-
+  if (!menu) { menu = std::make_unique<marvin::Menu>(); }
   if (!menu->IsInitialized()) return result;
 
-  if (name.empty()) {
-    name = menu->GetSelectedProfileName();
-  }
+  if (name.empty()) { name = menu->GetSelectedProfileName(); }
+  if (!game) { game = std::make_unique<marvin::ContinuumGameProxy>(name); }
 
-  if (!game) { 
-    game = std::make_unique<marvin::ContinuumGameProxy>(name);
-  }
-  
-  if (!game->IsInitialized() || !game->IsInGame() || game->GameIsClosing()) return result;
+  if (!game->IsInitialized()) return result;
 
   if (game->GetConnectState() == marvin::ConnectState::Disconnected) {
     PostQuitMessage(0);
@@ -965,37 +556,36 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return result;
   }
 
-  /*  -----------------  */
+  if (!game->IsInGame() || game->GameIsClosing()) return result;
   
   joined = true;
 
-  if (!bot) { 
-    bot = std::make_unique<marvin::Bot>(game.get()); 
-  }
+  if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
  
-  if (!marvin::log.is_open()) {
+  if (reopen_log && !name.empty()) {
+    if (marvin::log.is_open()) {
+      marvin::log << "Log closed and reopening as: " << name << ".log" << std::endl;
+      marvin::log.close();
+    }
     marvin::log.open(name + ".log");
-    marvin::log << "Log file opened -  " << name << std::endl;
+    marvin::log << "Log file opened from game:  " << name << std::endl;
+    reopen_log = false;
   }
-
 
   // the launcher only needs to know that marvin has finished logging in
   // TODO: if the map is being downloaded could send a signal here to make the launcher wait longer.
-  if (g_ComSequence == ComSequence::WritingToLauncher) {
+  if (g_ComSequence == ComSequence::SendToLauncher) {
     memory_map.WriteU32(134);  
     g_ComSequence = ComSequence::Finished;
   }
 
-
   HWND g_hWnd = game->GetGameWindowHandle();
   
-  if (minimize__game_window) {
+  if (minimize_game_window) {
     ShowWindow(g_hWnd, SW_MINIMIZE);
-    minimize__game_window = false;
+    minimize_game_window = false;
     return result;
   }
-
- 
 
   // wait until after bot is in the game
   if (set_title && g_hWnd) {
@@ -1023,8 +613,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     initialize_debug = false;
     return result;
   }
-
-  #endif
   
  
 
@@ -1126,8 +714,6 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
 #endif
   DetourTransactionCommit();
 
-  StopThread();
-
   //SetWindowText(g_hWnd, "Continuum");
   OverrideGuard::Wait();
   bot = nullptr;
@@ -1140,13 +726,11 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
       case DLL_PROCESS_ATTACH: {
         timeBeginPeriod(1);
-        g_MainThread = std::thread(MainThread);
         marvin::log.open("bot.log");
         marvin::log << "Log opened." << std::endl;
       } break;
       case DLL_PROCESS_DETACH: {
         timeEndPeriod(1);
-        StopThread();
         // Dont call cleanup marvin here 
         // don't need to call detourdetach when the program exits because it is safely handled.
       } break;
