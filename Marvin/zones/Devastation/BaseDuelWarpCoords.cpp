@@ -58,7 +58,7 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
 
   for (const auto& [region_name, tiles] : uMap) {
 
-    std::size_t pos = region_name.find("_");
+    std::size_t pos = region_name.rfind("_");
 
     if (pos == std::string::npos || pos + 2 != region_name.size()) continue;
     if (region_name[pos + 1] != '0' && region_name[pos + 1] != '1') continue;
