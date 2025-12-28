@@ -1,29 +1,32 @@
 #pragma once
 #include <vector>
+#include <unordered_map>
+#include <string>
+#include <variant>
 
+#include "MapCoord.h"
 
 namespace marvin {
 
-struct MapCoord;
+  //struct MapCoord;
+  
 
 // 2 sets is not needed but is more readable when working with specific zones
 // only 1 set will be used depending on what zone is loaded
-struct TeamGoals {
-  bool Empty();
-  void Clear();
 
-  // paired set for devastation
-  std::vector<MapCoord> t0;
-  std::vector<MapCoord> t1;
+  struct TeamGoals {
+    std::string base_name;
+    MapCoord t0;
+    MapCoord t1;
 
-  // paired set for hyperspace
-  std::vector<MapCoord> entrances;
-  std::vector<MapCoord> flag_rooms;
-};
+    MapCoord hyper_gate;
+    MapCoord flag_room;
+  };
 
 class TeamGoalCreator {
  public:
   virtual bool HasCoords() = 0;
-  virtual const TeamGoals& GetGoals() = 0;
+  //virtual const std::unordered_map<std::string, GoalPairs>& GetTeamGoals() = 0;
+  virtual const std::vector<TeamGoals>& GetTeamGoals() = 0;
 };
 }  // namespace marvin

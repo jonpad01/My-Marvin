@@ -35,7 +35,7 @@ namespace marvin {
       UseMultiFire, UseCloak, UseStealth, UseXRadar, UseAntiWarp,
       // team basing stuff
       PubEventTeam0, PubEventTeam1,
-      EnemyGuardPoint, TeamGuardPoint, BaseIndex,
+      EnemyGuardPoint, TeamGuardPoint, CurrentBase,
       CombatRole, 
       AnchorDistanceAdjustment, AllowLagAttaching,
       TeamAnchor, EnemyAnchor,
@@ -53,7 +53,7 @@ namespace marvin {
       TargetPlayer, AimingSolution, CombatDifficulty, TargetInSight,
       BombTimer,
       // deva baseduel hosting
-      BDHostingState, BDWarpToArea, BDTeam0Score, BDTeam1Score, BDBaseIndex,
+      BDHostingState, BDWarpToArea, BDTeam0Score, BDTeam1Score, BDCurrentBaseIndex,
       // staff stuff
       StaffChatAnnouncments, CommandLocked,
       // timer stuff

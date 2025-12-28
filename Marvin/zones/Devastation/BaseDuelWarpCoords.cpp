@@ -16,24 +16,25 @@ namespace deva {
 BaseDuelWarpCoords::BaseDuelWarpCoords(const Map& map, const std::string& mapName) : mapName(mapName) {
   foundMapFiles = false;
   
-  bool bases = false;
+  bool result = false;
+  //safes.t1.reserve(200);
+  //safes.t0.reserve(200);
 
   // process map for regions that point to base safe tiles
   if (map.HasRegions()) {
-      bases = ProcessMapRegions(map);
+    result = ProcessMapRegions(map);
   }
 
-  if (bases == false) {
-      LoadBaseDuelFile(mapName);  // fall back to baseduel files
+  if (!result) {
+     LoadBaseDuelFile(mapName);  // fall back to baseduel files
   }
 }
 
 bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
   /*
-   * looking for region names that fit this format EG1_0, EG1_1
+   * looking for region names that fit this format EG1_0, EG1_1, #_1, @_0
    *
-   * EG : Extreme Games arena (Devastation has many baseduel style arenas)
-   * 1  : Base number (Devastation uses 50+ bases per map)
+   * EG1 : Anything before the underscore is just a string name
    * _  : Spacer
    * 0  : Team 0  (there are only two teams, 1 and 0)
    *
@@ -44,23 +45,27 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
    * Each Base will have 2 regions, one for each team
    */
 
+  //coords.clear();
+  //safes = std::make_unique<std::vector<DevastationBDSafes>>();
+
+  safes.clear();
+  std::map<std::string, TeamGoals> temp;
+
   const std::unordered_map<std::string, std::bitset<1024 * 1024>>& uMap = map.GetRegions();
 
-  int bases = 0;
+  //int bases = 0;
+  //PairedCoord key;
 
-  for (const auto& [name, tiles] : uMap) {
-    // test for the correct pattern
-    std::regex base_pattern("^[a-zA-Z0-9]+?([0-9]+)_([0-1])$");
-    std::smatch matches;
+  for (const auto& [region_name, tiles] : uMap) {
 
-    // bad match
-    if (!std::regex_search(name, matches, base_pattern)) continue;
+    std::size_t pos = region_name.find("_");
 
-    bases++;
+    if (pos == std::string::npos || pos + 2 != region_name.size()) continue;
+    if (region_name[pos + 1] != '0' && region_name[pos + 1] != '1') continue;
 
-    // parse team from string
-    std::size_t base = std::stoi(matches[1].str());
-    int team = std::stoi(matches[2].str());
+   
+    std::string base_name = region_name.substr(0, pos);
+    int team = region_name[pos + 1] - '0';
 
     // the bitset should only have 1 coordinate so grab the first match
     for (std::size_t i = 0; i < tiles.size(); ++i) {
@@ -68,28 +73,35 @@ bool BaseDuelWarpCoords::ProcessMapRegions(const Map& map) {
 
       MapCoord coord{ uint16_t(i % 1024), uint16_t(i / 1024) };
 
-      // place them in order
+      temp[base_name].base_name = base_name;
+
       if (team == 0) {
-        if (base >= safes.t0.size()) safes.t0.resize(base + 1);
-        safes.t0[base] = coord;
+        //safes.t0.push_back(coord);
+        temp[base_name].t0 = coord;
+        //bases++;
       } else {
-        if (base >= safes.t1.size()) safes.t1.resize(base + 1);
-        safes.t1[base] = coord;
+        //safes.t1.push_back(coord);
+        temp[base_name].t1 = coord;
       }
 
       break;
     }
   }
 
-  if (bases > 0) {
+  // copy into permanent storage type
+  for (const auto& [name, coords] : temp) {
+    safes.push_back(coords);
+  }
+
+  //if (bases > 0) {
     // there is no base 0, so index 0 is just MapCoord(0,0)
     // if it is preserved then the index would match base numbers
     // but im deleting it now in case there are conflicts with other code that reads it
-    safes.t0.erase(safes.t0.begin());
-    safes.t1.erase(safes.t1.begin());
-  }
+    //safes.t0.erase(safes.t0.begin());
+   // safes.t1.erase(safes.t1.begin());
+  //}
 
-  return bases > 0;
+  return !safes.empty();
 }
 
 // TODO:  check timestamps on existing file
@@ -107,7 +119,8 @@ bool BaseDuelWarpCoords::LoadBaseDuelFile(const std::string& mapName) {
   std::ifstream file;
   bool fileFound = false;
   bool result = false;
-  safes.Clear();
+  //safes.Clear();
+  safes.clear();
 
   // file name format is basewarp-XXX.ini where XXX = map name
   // searches the Continuum folder in C:\Program Files\ for the basewarp.ini files
@@ -137,6 +150,7 @@ bool BaseDuelWarpCoords::LoadBaseDuelFile(const std::string& mapName) {
   return result;
 }
 
+// TODO: Read the correct base name from basewarp file
 bool BaseDuelWarpCoords::LoadFile(std::ifstream& file) {
   if (!file) return false;
 
@@ -145,6 +159,7 @@ bool BaseDuelWarpCoords::LoadFile(std::ifstream& file) {
   bool has_x2 = false, has_y2 = false;
 
   std::string line;
+  uint16_t generic_key = 0;
 
   while (std::getline(file, line)) {
 
@@ -162,16 +177,32 @@ bool BaseDuelWarpCoords::LoadFile(std::ifstream& file) {
     if (parse(line, "X2=", t1.x)) has_x2 = true;
     if (parse(line, "Y2=", t1.y)) has_y2 = true;
 
-    // When we have a full pair, store and reset
-    if (has_x1 && has_y1) {
-      safes.t0.push_back(t0);
-      has_x1 = has_y1 = false;
+    if (has_x1 && has_y1 && has_x2 && has_y2) {
+      std::string base_name = std::to_string(generic_key);
+      
+      TeamGoals temp;
+      temp.t0 = t0;
+      temp.t1 = t1;
+      temp.base_name = base_name;
+
+      safes.push_back(temp);
+
+      //coords[base_name].t0 = t0;
+      //coords[base_name].t1 = t1;
+      generic_key++;
+      has_x1 = has_y1 = has_x2 = has_y2 = false;
     }
 
-    if (has_x2 && has_y2) {
-      safes.t1.push_back(t1);
-      has_x2 = has_y2 = false;
-    }
+    // When we have a full pair, store and reset
+   // if (has_x1 && has_y1) {
+   //   safes.t0.push_back(t0);
+    //  has_x1 = has_y1 = false;
+   // }
+
+    //if (has_x2 && has_y2) {
+     // safes.t1.push_back(t1);
+     // has_x2 = has_y2 = false;
+   // }
   }
 
   return true;

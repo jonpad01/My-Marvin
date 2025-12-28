@@ -330,7 +330,7 @@ void Bot::SelectBehaviorTree() {
         }
         else if (goals_->HasCoords()) {
         //  log.Write("Building Devastation behavior tree.");
-          base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
+          base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
           builder = std::make_unique<deva::DevastationBehaviorBuilder>();
         } else {
           game_->SendChatMessage("Warning: I don't have base duel coords for this arena, using default behavior tree.");
@@ -350,7 +350,7 @@ void Bot::SelectBehaviorTree() {
     } break;
     case Zone::Hyperspace: {
       goals_ = std::make_unique<hs::HSFlagRooms>();
-      base_paths_ = std::make_unique<BasePaths>(goals_->GetGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
+      base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
       builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
      // log.Write("Building Hyperspace behavior tree.");
     } break;

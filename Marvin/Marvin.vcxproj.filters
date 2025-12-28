@@ -99,9 +99,6 @@
     <ClCompile Include="MapCoord.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TeamGoals.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="zones\Hyperspace\HyperspaceFlagRooms.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

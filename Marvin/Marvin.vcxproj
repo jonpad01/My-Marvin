@@ -159,7 +159,6 @@
     <ClCompile Include="MemoryMap.cpp" />
     <ClCompile Include="platform\Menu.cpp" />
     <ClCompile Include="ProfileParser.cpp" />
-    <ClCompile Include="TeamGoals.cpp" />
     <ClCompile Include="Vector2f.cpp" />
     <ClCompile Include="Vector2i.h" />
     <ClCompile Include="zones\Devastation\BaseDuelWarpCoords.cpp" />

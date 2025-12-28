@@ -694,7 +694,7 @@ behavior::ExecuteResult HSMoveToBaseNode::Execute(behavior::ExecuteContext& ctx)
   bool in_tunnel = ctx.bot->GetRegions().IsConnected(game.GetPlayer().position, kHyperTunnelCoord);
   float radius = game.GetShipSettings().GetRadius();
   //std::size_t index = bb.GetBDBaseIndex();
-  std::size_t index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
+  std::size_t index = bb.ValueOr<std::size_t>(BBKey::CurrentBase, 0);
 
   if (!in_center && !in_tunnel) {
     g_RenderState.RenderDebugText("  HSPatrolBaseNode(In Base): %llu", timer.GetElapsedTime());
@@ -735,8 +735,8 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
-  const TeamGoals& goals = ctx.bot->GetTeamGoals().GetGoals();
+  std::size_t base_index = ctx.bot->GetBasePaths().GetBase();
+  const std::vector<TeamGoals>& goals = ctx.bot->GetGoals().GetTeamGoals();
 
   const Player* enemy_anchor = nullptr;
 
@@ -766,7 +766,7 @@ behavior::ExecuteResult HSPlayerSortNode::Execute(behavior::ExecuteContext& ctx)
     // player is on a flag team and not a fake player
     if ((player.frequency == 90 || player.frequency == 91) && player.name[0] != '<') {
       if (player.frequency != game.GetPlayer().frequency) {
-        if (ctx.bot->GetRegions().IsConnected(player.position, goals.entrances[base_index])) {
+        if (ctx.bot->GetRegions().IsConnected(player.position, goals[base_index].hyper_gate)) {
           // check for an enemy lanc of not then select enemy spid or lev
           if (player.ship == 6) {
             enemy_anchor = &game.GetPlayers()[i];
@@ -899,23 +899,23 @@ const Player* HSPlayerSortNode::FindAnchorInBase(const std::vector<const Player*
   const Player* anchor = nullptr;
   std::vector<const Player*> enemy_list = bb.ValueOr<std::vector<const Player*>>(BBKey::EnemyTeamPlayerList, std::vector<const Player*>());
 
-  const std::vector<MapCoord>& base_regions = bot.GetTeamGoals().GetGoals().entrances;
+  //const std::vector<MapCoord>& base_regions = bot.GetGoals().GetTeamGoals().entrances;
   auto ns = path::PathNodeSearch::Create(bot, bot.GetBasePath());
 
   float closest_anchor_distance_to_enemy = std::numeric_limits<float>::max();
   
   for (std::size_t i = 0; i < anchors.size(); i++) {
     const Player* player = anchors[i];
-    MapCoord reference = base_regions[bot.GetBasePaths().GetBaseIndex()];
-    if (!bot.GetRegions().IsConnected(player->position, reference)) {
+   // MapCoord reference = base_regions[bot.GetBasePaths().GetBaseIndex()];
+   // if (!bot.GetRegions().IsConnected(player->position, reference)) {
       continue;
-    }
+   // }
 
     for (std::size_t i = 0; i < enemy_list.size(); i++) {
       const Player* enemy = enemy_list[i];
-      if (!bot.GetRegions().IsConnected(enemy->position, reference)) {
+     // if (!bot.GetRegions().IsConnected(enemy->position, reference)) {
         continue;
-      }
+    //  }
 
       float distance = ns->GetPathDistance(enemy->position, player->position);
       if (distance < closest_anchor_distance_to_enemy) {
@@ -931,16 +931,16 @@ const Player* HSPlayerSortNode::FindAnchorInAnyBase(const std::vector<const Play
   auto& game = bot.GetGame();
 
   const Player* anchor = nullptr;
-  const std::vector<MapCoord>& base_regions = bot.GetTeamGoals().GetGoals().entrances;
+  //const std::vector<MapCoord>& base_regions = bot.GetTeamGoals().GetGoals().entrances;
 
   for (std::size_t i = 0; i < anchors.size(); i++) {
     const Player* player = anchors[i];
-    for (MapCoord base_coord : base_regions) {
-      if (bot.GetRegions().IsConnected(player->position, base_coord)) {
+   // for (MapCoord base_coord : base_regions) {
+    //  if (bot.GetRegions().IsConnected(player->position, base_coord)) {
         anchor = player;
         break;
-      }
-    }
+    //  }
+   // }
   }
   return anchor;
 }
@@ -988,8 +988,8 @@ behavior::ExecuteResult HSSetRegionNode::Execute(behavior::ExecuteContext& ctx) 
   auto& bb = ctx.bot->GetBlackboard();
   RegionRegistry& regions = ctx.bot->GetRegions();
 
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
+ // const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+ // const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
 
   bool in_center = regions.IsConnected((MapCoord)game.GetPosition(), MapCoord(512, 512));
 
@@ -1008,12 +1008,12 @@ behavior::ExecuteResult HSSetRegionNode::Execute(behavior::ExecuteContext& ctx) 
    }
 
    // if in a base set that base as the index
-   for (std::size_t i = 0; i < entrances.size(); i++) {
-    if (regions.IsConnected(position, entrances[i])) {
-      ctx.bot->GetBasePaths().SetBase(i);
-      break;
-    }
-   }
+ //  for (std::size_t i = 0; i < entrances.size(); i++) {
+  //  if (regions.IsConnected(position, entrances[i])) {
+    //  ctx.bot->GetBasePaths().SetBase(i);
+     // break;
+  //  }
+  // }
   
   g_RenderState.RenderDebugText("  HSSetRegionNode: %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -1029,14 +1029,14 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
     return behavior::ExecuteResult::Success;
   }
 
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
-  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
+ // const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+//  const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
+ // std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
 
-  if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
+ // if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
     g_RenderState.RenderDebugText("  HSDefensePositionNode(Not In Base): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
-  }
+ // }
 
   //const Player* team_anchor = bb.GetAnchor();
   //const Player* enemy_anchor = bb.GetEnemyAnchor();
@@ -1046,8 +1046,8 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
     if (!enemy_anchor) {
       //bb.SetTeamSafe(flagrooms[base_index]);
       //bb.SetEnemySafe(entrances[base_index]);
-      bb.Set<MapCoord>(BBKey::TeamGuardPoint, flagrooms[base_index]);
-      bb.Set<MapCoord>(BBKey::EnemyGuardPoint, entrances[base_index]);
+    //  bb.Set<MapCoord>(BBKey::TeamGuardPoint, flagrooms[base_index]);
+    //  bb.Set<MapCoord>(BBKey::EnemyGuardPoint, entrances[base_index]);
 
       g_RenderState.RenderDebugText("  HSDefensePositionNode(No Enemy Anchor): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
@@ -1056,15 +1056,15 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
     if (!team_anchor) {
       //bb.SetTeamSafe(entrances[base_index]);
       //bb.SetEnemySafe(flagrooms[base_index]);
-      bb.Set<MapCoord>(BBKey::TeamGuardPoint, entrances[base_index]);
-      bb.Set<MapCoord>(BBKey::EnemyGuardPoint, flagrooms[base_index]);
+    //  bb.Set<MapCoord>(BBKey::TeamGuardPoint, entrances[base_index]);
+    //  bb.Set<MapCoord>(BBKey::EnemyGuardPoint, flagrooms[base_index]);
       g_RenderState.RenderDebugText("  HSDefensePositionNode(No Team Anchor): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
     }
 
 
-    if (ctx.bot->GetRegions().IsConnected(team_anchor->position, entrances[base_index])) {
-      if (ctx.bot->GetRegions().IsConnected(enemy_anchor->position, entrances[base_index])) {
+  //  if (ctx.bot->GetRegions().IsConnected(team_anchor->position, entrances[base_index])) {
+    //  if (ctx.bot->GetRegions().IsConnected(enemy_anchor->position, entrances[base_index])) {
       auto ns = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
       std::size_t team_node = ns->FindNearestNodeBFS(team_anchor->position);
       std::size_t enemy_node = ns->FindNearestNodeBFS(enemy_anchor->position);
@@ -1074,19 +1074,19 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
       if (team_node < enemy_node) {
         //bb.SetTeamSafe(entrances[base_index]);
        // bb.SetEnemySafe(flagrooms[base_index]);
-        bb.Set<MapCoord>(BBKey::TeamGuardPoint, entrances[base_index]);
-        bb.Set<MapCoord>(BBKey::EnemyGuardPoint, flagrooms[base_index]);
+    //    bb.Set<MapCoord>(BBKey::TeamGuardPoint, entrances[base_index]);
+   //     bb.Set<MapCoord>(BBKey::EnemyGuardPoint, flagrooms[base_index]);
         // bb.Set<Vector2f>("TeamSafe", entrances[base_index]);
         // bb.Set<Vector2f>("EnemySafe", flagrooms[base_index]);
       } else {
         //bb.SetTeamSafe(flagrooms[base_index]);
         //bb.SetEnemySafe(entrances[base_index]);
-        bb.Set<MapCoord>(BBKey::TeamGuardPoint, flagrooms[base_index]);
-        bb.Set<MapCoord>(BBKey::EnemyGuardPoint, entrances[base_index]);
+     //   bb.Set<MapCoord>(BBKey::TeamGuardPoint, flagrooms[base_index]);
+     //   bb.Set<MapCoord>(BBKey::EnemyGuardPoint, entrances[base_index]);
         // bb.Set<Vector2f>("TeamSafe", flagrooms[base_index]);
         // bb.Set<Vector2f>("EnemySafe", entrances[base_index]);
-      }
-      }
+     // }
+    //  }
     }
 
   g_RenderState.RenderDebugText("  HSDefensePositionNode(Flagging): %llu", timer.GetElapsedTime());
@@ -1334,9 +1334,9 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
 
   //const Player* anchor = bb.GetAnchor();
   const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+//  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
   //std::size_t base_index = bb.GetBDBaseIndex();
-  std::size_t base_index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
+//  std::size_t base_index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
 
   if (!anchor) {
     g_RenderState.RenderDebugText("  HSAttachNode(No Anchor): %llu", timer.GetElapsedTime());
@@ -1348,10 +1348,10 @@ behavior::ExecuteResult HSAttachNode::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Failure;
   }
 
-  if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
+ // if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
     g_RenderState.RenderDebugText("  HSAttachNode(In Active Base): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
-  }
+ // }
 
   bool anchor_in_safe = game.GetMap().GetTileId(anchor->position) == kSafeTileId;
 
@@ -1470,22 +1470,22 @@ behavior::ExecuteResult HSFlaggerBasePatrolNode::Execute(behavior::ExecuteContex
 
   float radius = game.GetShipSettings().GetRadius();
   //std::size_t index = bb.GetBDBaseIndex();
-  std::size_t index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
+ // std::size_t index = bb.ValueOr<std::size_t>(BBKey::BaseIndex, 0);
+ // const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+ // const std::vector<MapCoord>& flagrooms = ctx.bot->GetTeamGoals().GetGoals().flag_rooms;
 
-  if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), flagrooms[index])) {
+  //if (!ctx.bot->GetRegions().IsConnected(game.GetPosition(), flagrooms[index])) {
     g_RenderState.RenderDebugText("  HSPatrolBaseNode(Not in base): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
-  }
+  //}
 
   // bot has flags so head to flagroom
   if (game.GetPlayer().flags > 0) {
-    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPlayer().position, flagrooms[index], radius);
+   // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPlayer().position, flagrooms[index], radius);
     g_RenderState.RenderDebugText("  HSPatrolBaseNode(Heading To Flag Room): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   } else {
-    ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPlayer().position, entrances[index], radius);
+   // ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPlayer().position, entrances[index], radius);
     g_RenderState.RenderDebugText("  HSPatrolBaseNode(Heading To Entrance): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
   }
@@ -1502,8 +1502,8 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
 
   //const Player* anchor = bb.GetAnchor();
   const Player* anchor = bb.ValueOr<const Player*>(BBKey::TeamAnchor, nullptr);
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
+  //const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+  //std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
   float radius = game.GetShipSettings().GetRadius();
 
   if (game.GetPlayer().flags < 1) {
@@ -1512,7 +1512,7 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
   }  
 
   if (anchor && !ctx.bot->GetRegions().IsConnected(game.GetPosition(), anchor->position)) {
-    if (ctx.bot->GetRegions().IsConnected(anchor->position, entrances[base_index])) {
+    //if (ctx.bot->GetRegions().IsConnected(anchor->position, entrances[base_index])) {
       // if (ctx.bot->GetTime().RepeatedActionDelay("attachwithflags", 3000)) {
       //   game.SetEnergy(100.0f);
       //   game.SendChatMessage(":" + anchor->name + ":?attach");
@@ -1520,25 +1520,25 @@ behavior::ExecuteResult HSDropFlagsNode::Execute(behavior::ExecuteContext& ctx) 
       game.Attach(anchor->name);
       g_RenderState.RenderDebugText("  HSDropFlagsNode(Attaching To Anchor): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Failure;
-    }
+    //}
   }
 
   MapCoord team_safe = bb.ValueOr<MapCoord>(BBKey::TeamGuardPoint, MapCoord{});
 
 
-  if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
-    if (entrances[base_index] != team_safe) {
+  //if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), entrances[base_index])) {
+   // if (entrances[base_index] != team_safe) {
       ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), team_safe, radius);
       g_RenderState.RenderDebugText("  HSDropFlagsNode(Dropping Flags): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Success;
-    }
-  } else {
+    //}
+  //} else {
      HyperGateNavigator navigator(ctx.bot->GetRegions());
-    Vector2f waypoint = navigator.GetWayPoint(game.GetPosition(), entrances[base_index]);
-     ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), waypoint, radius);
+   // Vector2f waypoint = navigator.GetWayPoint(game.GetPosition(), entrances[base_index]);
+  //   ctx.bot->GetPathfinder().CreatePath(*ctx.bot, game.GetPosition(), waypoint, radius);
      g_RenderState.RenderDebugText("  HSDropFlagsNode(Heading To Base): %llu", timer.GetElapsedTime());
      return behavior::ExecuteResult::Success;
-  }
+  //}
 
   g_RenderState.RenderDebugText("  HSDropFlagsNode(Not Dropping Flags): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Failure;
@@ -1630,22 +1630,22 @@ const Flag* HSGatherFlagsNode::SelectFlag(behavior::ExecuteContext& ctx) {
 
   MapCoord team_safe = bb.ValueOr<MapCoord>(BBKey::TeamGuardPoint, MapCoord{});
 
-  const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
-  std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
+ // const std::vector<MapCoord>& entrances = ctx.bot->GetTeamGoals().GetGoals().entrances;
+  //std::size_t base_index = ctx.bot->GetBasePaths().GetBaseIndex();
 
   for (const Flag& flag : game.GetDroppedFlags()) {
     if (flag.frequency == game.GetPlayer().frequency) {
       continue;
     }
-    if (ctx.bot->GetRegions().IsConnected(flag.position, entrances[base_index])) {
+   // if (ctx.bot->GetRegions().IsConnected(flag.position, entrances[base_index])) {
       if (flag.frequency != game.GetPlayer().frequency) {
         // flags are gaurded by enemy team
-        if (entrances[base_index] == team_safe) {
+       // if (entrances[base_index] == team_safe) {
           if (!flag.IsNeutral()) {
             continue;
           }
-        }
-      }
+       // }
+     // }
     }
 
     if (ctx.bot->GetRegions().IsConnected(game.GetPosition(), flag.position)) {

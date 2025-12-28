@@ -153,7 +153,9 @@ behavior::ExecuteResult EndBDNode::Execute(behavior::ExecuteContext& ctx) {
 
 behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-  const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
+
+ // const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
+ // const std::unordered_map<std::string, GoalPairs>& warp = ctx.bot->GetTeamGoals().GetTeamGoals();
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
@@ -192,7 +194,7 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
   bool team0_on_safe = false;
   bool team1_on_safe = false;
 
-  std::size_t base_index = bb.ValueOr<std::size_t>(BBKey::BDBaseIndex, 0);
+  //std::string base = bb.ValueOr<std::string>(BBKey::BDCurrentBase, {});
   //std::size_t base_index = bb.GetBDBaseIndex();
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
@@ -201,31 +203,36 @@ behavior::ExecuteResult RunBDNode::Execute(behavior::ExecuteContext& ctx) {
     bool on_safe_tile = game.GetMap().GetTileId(player.position) == kSafeTileId;
 
     if (player.frequency == 00) {
-      MapCoord enemy_safe = warp.t1[base_index];
-      float dist_to_safe = player.position.Distance(enemy_safe);
-      bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
+
+     // auto it = warp.find
+
+      //MapCoord enemy_safe = warp.t1[base_index];
+
+
+     // float dist_to_safe = player.position.Distance(enemy_safe);
+     // bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
 
       // kind of hacky could be better
-      if (on_safe_tile && dist_to_safe < 5.0f) {
+      //if (on_safe_tile && dist_to_safe < 5.0f) {
         team0_on_safe = true;
-      }
-      if (in_base && IsValidPosition(player.position)) {
+     // }
+     // if (in_base && IsValidPosition(player.position)) {
         team0_dead = false;
-      }
+      //}
     }
 
     if (player.frequency == 01) {
-      MapCoord enemy_safe = warp.t0[base_index];
-      float dist_to_safe = player.position.Distance(enemy_safe);
-      bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
+     // MapCoord enemy_safe = warp.t0[base_index];
+      //float dist_to_safe = player.position.Distance(enemy_safe);
+      //bool in_base = ctx.bot->GetRegions().IsConnected(player.position, enemy_safe);
 
       // kind of hacky could be better
-      if (on_safe_tile && dist_to_safe < 5.0f) {
+     // if (on_safe_tile && dist_to_safe < 5.0f) {
         team1_on_safe = true;
-      }
-      if (in_base && IsValidPosition(player.position)) {
+      //}
+     // if (in_base && IsValidPosition(player.position)) {
         team1_dead = false;
-      }
+      //}
     }
   }
 
@@ -393,37 +400,37 @@ void BDWarpTeamNode::WarpAllToBase(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
+  //const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
 
-  std::size_t random_index = rand() % warp.t0.size();
+  //std::size_t random_index = rand() % warp.t0.size();
   // std::size_t previous_index = bb.ValueOr<std::size_t>("BDBaseIndex", 0);
   //std::size_t previous_index = bb.GetBDBaseIndex();
-  std::size_t previous_index = bb.ValueOr<std::size_t>(BBKey::BDBaseIndex, 0);
+  //std::size_t previous_index = bb.ValueOr<std::size_t>(BBKey::BDBaseIndex, 0);
 
-  while (random_index == previous_index) {
-    random_index = rand() % warp.t0.size();
-  }
+  //while (random_index == previous_index) {
+   // random_index = rand() % warp.t0.size();
+  //}
 
-  bb.Set<std::size_t>(BBKey::BDBaseIndex, random_index);
+ // bb.Set<std::size_t>(BBKey::BDBaseIndex, random_index);
   //bb.SetBDBaseIndex(random_index);
 
   for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
     const Player& player = game.GetPlayers()[i];
 
     if (player.frequency == 00) {
-      int team_safe_x = (int)warp.t0[random_index].x;
-      int team_safe_y = (int)warp.t0[random_index].y;
-      std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
+     // int team_safe_x = (int)warp.t0[random_index].x;
+     // int team_safe_y = (int)warp.t0[random_index].y;
+      //std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
       game.SendPrivateMessage(player.name, "?shipreset");
-      game.SendPrivateMessage(player.name, warp_msg);
+      //game.SendPrivateMessage(player.name, warp_msg);
     }
 
     if (player.frequency == 01) {
-      int team_safe_x = (int)warp.t1[random_index].x;
-      int team_safe_y = (int)warp.t1[random_index].y;
-      std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
+     // int team_safe_x = (int)warp.t1[random_index].x;
+     // int team_safe_y = (int)warp.t1[random_index].y;
+     // std::string warp_msg = "?warpto " + std::to_string(team_safe_x) + " " + std::to_string(team_safe_y);
       game.SendPrivateMessage(player.name, "?shipreset");
-      game.SendPrivateMessage(player.name, warp_msg);
+      //game.SendPrivateMessage(player.name, warp_msg);
     }
   }
   // bb.Set<uint64_t>("BDWarpCooldown", ctx.bot->GetTime().GetTime());
@@ -435,8 +442,8 @@ bool BDWarpTeamNode::AllInBase(behavior::ExecuteContext& ctx) {
   auto& bb = ctx.bot->GetBlackboard();
 
   //std::size_t index = bb.GetBDBaseIndex();
-  std::size_t index = bb.ValueOr<std::size_t>(BBKey::BDBaseIndex, 0);
-  const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
+  //std::size_t index = bb.ValueOr<std::size_t>(BBKey::BDBaseIndex, 0);
+  //const TeamGoals& warp = ctx.bot->GetTeamGoals().GetGoals();
 
   bool result = true;
 
@@ -444,12 +451,12 @@ bool BDWarpTeamNode::AllInBase(behavior::ExecuteContext& ctx) {
     const Player& player = game.GetPlayers()[i];
 
     if (player.frequency == 00 || player.frequency == 01) {
-      bool connected = ctx.bot->GetRegions().IsConnected(player.position, warp.t0[index]);
+     // bool connected = ctx.bot->GetRegions().IsConnected(player.position, warp.t0[index]);
 
-      if (!connected) {
+      //if (!connected) {
         result = false;
         break;
-      }
+      //}
     }
   }
 

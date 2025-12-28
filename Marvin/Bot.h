@@ -52,7 +52,7 @@ class Bot {
   SteeringBehavior& GetSteering() { return steering_; }
   InfluenceMap& GetInfluenceMap() { return *influence_map_; }
   CommandSystem& GetCommandSystem() { return *command_system_; }
-  TeamGoalCreator& GetTeamGoals() { return *goals_; }
+  TeamGoalCreator& GetGoals() { return *goals_; }
   BasePaths& GetBasePaths() { return *base_paths_; }
   uint64_t GetLastLoadTimeStamp() { return last_load_timestamp_; }
   float GetUpdateInterval() { return update_interval_; }
@@ -60,7 +60,7 @@ class Bot {
 
   const std::vector<Vector2f>& GetBasePath() {
     //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
-    return base_paths_->GetBasePath();
+    return base_paths_->GetPath();
   }
 
   std::size_t GetTeamSafeIndex(uint16_t freq) {
@@ -73,14 +73,14 @@ class Bot {
       return 0;
     } else if (freq == high_index_team) {
       //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0)).size() - 1;
-      return base_paths_->GetBasePath().size() - 1;
+      return base_paths_->GetPath().size() - 1;
     }
     return 0;
   }
 
   const Vector2f& GetTeamSafePosition(uint16_t freq) {
    // return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0))[GetTeamSafeIndex(freq)];
-    return base_paths_->GetBasePath()[GetTeamSafeIndex(freq)];
+    return base_paths_->GetPath()[GetTeamSafeIndex(freq)];
   }
 
   void Move(const Vector2f& target, float target_distance);
@@ -115,7 +115,7 @@ class Bot {
   std::unique_ptr<CommandSystem> command_system_;
   Shooter shooter_;
 
-  //std::unique_ptr<deva::BaseDuelWarpCoords> warps_;
+
   std::unique_ptr<TeamGoalCreator> goals_;
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
   std::unique_ptr<BasePaths> base_paths_;
