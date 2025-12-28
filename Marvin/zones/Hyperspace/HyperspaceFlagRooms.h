@@ -9,12 +9,10 @@ class HSFlagRooms : public TeamGoalCreator {
  public:
   HSFlagRooms();
 
-  //const std::unordered_map<std::string, GoalPairs>& GetTeamGoals();
   const std::vector<TeamGoals>& GetTeamGoals();
   bool HasCoords();
 
  private:
-   //std::unordered_map<std::string, GoalPairs> goals_;
   std::vector<TeamGoals> goals_;
 };
 

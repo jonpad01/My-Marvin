@@ -23,10 +23,6 @@ const std::vector<TeamGoals>& HSFlagRooms::GetTeamGoals() {
   return goals_;
 }
 
-//const TeamGoals& HSFlagRooms::GetGoals() {
-//  return goals_;
-//}
-
 bool HSFlagRooms::HasCoords() {
   return true;
 }
