@@ -384,26 +384,22 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   return RealMessageBoxA(hWnd, lpText, lpCaption, uType);
 }
 
-// returns keypresses to anything that is in focus
+// returns keypresses to the game even if its not in focus
 // must check if the game is in focus and if not return 0
-// this checks multiple keys every frame so don't do heavy work here
+// must allow bot to press keys even when not in focus
+// this is called for multiple keys every frame so don't do heavy work here
 // use peekmessage to determine if game is in focus or not
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
   OverrideGuard guard;
   SHORT user_keypress = RealGetAsyncKeyState(vKey);
 
-  if (!g_GameFocused) return 0;
-  if (!enabled) return user_keypress;
-
-#if DEBUG_USER_CONTROL
-  return user_keypress;
+  if (bot && bot->GetKeys().IsPressed(vKey) && enabled) {
+#if !DEBUG_USER_CONTROL
+   return user_keypress |= 0x8000;
 #endif
+  }
 
- if (bot && bot->GetKeys().IsPressed(vKey)) {
-    user_keypress |= 0x8000;
- }
-
-  return user_keypress;
+  return g_GameFocused ? user_keypress : 0;
 }
 
 
@@ -507,10 +503,6 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
   bool result = RealGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
   if (!result || !lpMsg) return result;  // if false it means the window is closing
 
-
-
-  
-
   return result;
 }
 
@@ -522,6 +514,7 @@ BOOL WINAPI OverrideGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT
 // this is a safe place to read and write memory becasue continuum will be idle
 BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
   OverrideGuard guard;
+  
   // windows is expecting peekmessage to process quickly, so make it the first thing to execute.
   // though whatever called it will still wait for the override to return
   // when this returns false it means there is no message to procces
@@ -529,7 +522,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   
   BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   if (result || !lpMsg) return result;
-
+ 
   /*  Required safety checks */
 
   if (!menu) { menu = std::make_unique<marvin::Menu>(); }
@@ -554,7 +547,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 
   // check for game window focus and cache it
   g_GameFocused = g_hWnd == GetForegroundWindow();
- 
+  
   if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
  
   if (reopen_log && !name.empty()) {
@@ -589,7 +582,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   
 #if DEBUG_RENDER
   if (initialize_debug) {
-
     u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
     LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
     void** vtable = (*(void***)surface);
@@ -609,7 +601,7 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
 #endif
  
     // Check for key presses to enable/disable the bot.
-    if (g_hWnd && GetFocus() == g_hWnd) {
+    if (g_GameFocused) {
       if (RealGetAsyncKeyState(VK_F10)) {
         enabled = false;
       SetWindowText(g_hWnd, (kDisabledText + name).c_str());
@@ -630,27 +622,27 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
       quit_game = true;
       return result;
     }
-
+    
     
     if (dt.count() > 1.0f / 60.0f) {
-
 
 #if DEBUG_RENDER
       marvin::g_RenderState.renderable_texts.clear();
       marvin::g_RenderState.renderable_lines.clear();
 #endif
-
-      auto start = std::chrono::high_resolution_clock::now();
-      
-      if (game->Update()) { bot->Update(dt.count()); }
-      auto end = std::chrono::high_resolution_clock::now();
-      // marvin::log << "Update: " << std::chrono::duration<float, std::milli>(end - start).count() << std::endl;
+ 
+      if (game->Update()) {
+        marvin::PerformanceTimer timer;
+        bot->Update(dt.count()); 
+        marvin::g_RenderState.RenderDebugText("  Total Update Time: %04llu", timer.GetElapsedTime());
+      }
 
       UpdateCRC();
       g_LastUpdateTime = now;
+      
     }
     
-
+    
   return result;
 }
 

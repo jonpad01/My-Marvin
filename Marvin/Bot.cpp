@@ -102,11 +102,10 @@ bool Bot::CheckLoadState() {
   return false;
 }
 
-// run each case, increment the load index and return, so it doesnt run a bunch of stuff in one update
-// and freeze continuum.
+
 void Bot::Load() {
   PerformanceTimer timer;
-  log << "Loading bot." << std::endl;
+ 
   radius_ = game_->GetRadius();
   command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
   //log.Write("Command System Loaded", timer.GetElapsedTime());
@@ -126,66 +125,22 @@ void Bot::Load() {
   SelectBehaviorTree();
 
   worker_state_ = ThreadState::Finished;
-#if 0
-  switch (load_index) {
-    case 0: {
-      return;
-    }
-    case 1: {
-      log << "Loading bot." << std::endl;
-
-      radius_ = game_->GetRadius();
-      command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
-      //log.Write("Command System Loaded", timer.GetElapsedTime());
-      regions_ = std::make_unique<RegionRegistry>(game_->GetMap());                      // 4.3ms
-      //log.Write("Regions Created", timer.GetElapsedTime());
-      regions_->Create(game_->GetMap(), game_->GetRadius());                                        // 121ms
-      //log.Write("Regions Loaded", timer.GetElapsedTime());
-      load_index++;
-      break;
-    }
-    case 2: {
-      auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());            // 4.2ms
-      //log.Write("Node Processor Loaded", timer.GetElapsedTime());
-      pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);  // 0ms
-     // log.Write("Pathfinder Loaded", timer.GetElapsedTime());
-      pathfinder_->SetTraversabletiles(game_->GetMap(), game_->GetRadius());                         // 43ms
-     // log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
-      pathfinder_->CalculateEdges(game_->GetMap(), game_->GetRadius());                              // 57ms
-     // log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
-      load_index++;
-      break;
-    }
-    case 3: {
-      pathfinder_->SetMapWeights(game_->GetMap(), game_->GetRadius());                               // 250ms
-    //  log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());                  
-      load_index++;
-      break;
-    }
-    case 4: {
-      SelectBehaviorTree();    
-                                                                                           // 100ms
-      load_index++;
-      break;
-    }
-    default: {
-      load_index = 0;
-      last_load_timestamp_ = time_.GetTime();
-    }
-  }
-#endif
+  log << "Bot loaded in: " << timer.GetElapsedTime() << "us" << std::endl;
 }
 
 void Bot::Update(float dt) {
-
   PerformanceTimer timer;
+
+  float radius = game_->GetRadius();
+  uint16_t ship = game_->GetPlayer().ship;
+  uint16_t freq = game_->GetPlayer().frequency;
+  std::string map_name = game_->GetMapFile();
+
   g_RenderState.debug_y = 30.0f;
 
   keys_.ReleaseAll();
   time_.Update();
   
-  std::string map_name = game_->GetMapFile();
-
   if (map_name != map_name_) {
     map_name_ = map_name;
     log << "Map change reload." << std::endl;
@@ -199,10 +154,6 @@ void Bot::Update(float dt) {
     door_state_ = door_state;
   }
 
-  float radius = game_->GetRadius();
-  uint16_t ship = game_->GetPlayer().ship;
-  uint16_t freq = game_->GetPlayer().frequency;
-  
   if (radius != radius_) {
     log << "Ship radius reload." << std::endl;
     radius_ = radius;
@@ -261,9 +212,9 @@ void Bot::Update(float dt) {
     g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
 #endif
  
-  g_RenderState.RenderDebugText("BeforeBehavior: %llu", timer.GetElapsedTime());
+
   behavior_->Update(ctx_);
-  g_RenderState.RenderDebugText("Behavior: %llu", timer.GetElapsedTime());
+
 
 
   //#if 0 // Test wall avoidance. This should be moved somewhere in the behavior tree
@@ -285,7 +236,7 @@ void Bot::Update(float dt) {
     ctx_.bot->GetBlackboard().Set<bool>(BBKey::FlyInReverse, false);
   }
 
-  g_RenderState.RenderDebugText("EndBotUpdate: %llu", timer.GetElapsedTime());
+  //g_RenderState.RenderDebugText("BotUpdate: %llu", timer.TimeSinceConstruction());
 }
 
 void Bot::SelectBehaviorTree() {
