@@ -157,6 +157,7 @@ static bool quit_game = false;
 static bool minimize_game_window = true;
 static bool joined = false;
 bool reopen_log = true;
+static bool g_GameFocused = false;
 
 static ComSequence g_ComSequence = ComSequence::OpenMap;
 
@@ -383,32 +384,24 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   return RealMessageBoxA(hWnd, lpText, lpCaption, uType);
 }
 
+// returns keypresses to anything that is in focus
+// must check if the game is in focus and if not return 0
+// this checks multiple keys every frame so don't do heavy work here
+// use peekmessage to determine if game is in focus or not
 SHORT WINAPI OverrideGetAsyncKeyState(int vKey) {
   OverrideGuard guard;
   SHORT user_keypress = RealGetAsyncKeyState(vKey);
 
-  if (!game || !game->IsInitialized() || !game->IsInGame() || game->GameIsClosing()) {  // guard keys
-    return user_keypress;
-  }
-
- HWND g_hWnd = game->GetGameWindowHandle();
+  if (!g_GameFocused) return 0;
+  if (!enabled) return user_keypress;
 
 #if DEBUG_USER_CONTROL
-  if (1) {
-#else
-  if (!enabled) {
+  return user_keypress;
 #endif
 
-    if (GetFocus() == g_hWnd) {
-      return user_keypress;
-    }
-
-    return 0;
-  } else if (bot && bot->GetKeys().IsPressed(vKey)) {
-    //return (SHORT)0x8000;
-    //user_keypress |= 0x0001;
+ if (bot && bot->GetKeys().IsPressed(vKey)) {
     user_keypress |= 0x8000;
-  }
+ }
 
   return user_keypress;
 }
@@ -537,7 +530,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   BOOL result = RealPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
   if (result || !lpMsg) return result;
 
-
   /*  Required safety checks */
 
   if (!menu) { menu = std::make_unique<marvin::Menu>(); }
@@ -555,8 +547,14 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
   }
 
   if (!game->IsInGame() || game->GameIsClosing()) return result;
+
+  // and finally, we are in the game
+  HWND g_hWnd = game->GetGameWindowHandle();
   joined = true;
-  
+
+  // check for game window focus and cache it
+  g_GameFocused = g_hWnd == GetForegroundWindow();
+ 
   if (!bot) { bot = std::make_unique<marvin::Bot>(game.get()); }
  
   if (reopen_log && !name.empty()) {
@@ -576,8 +574,6 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     g_ComSequence = ComSequence::Finished;
   }
 
-  HWND g_hWnd = game->GetGameWindowHandle();
-  
   if (minimize_game_window) {
     ShowWindow(g_hWnd, SW_MINIMIZE);
     minimize_game_window = false;

@@ -340,6 +340,7 @@ behavior::ExecuteResult DevaDebugNode::Execute(behavior::ExecuteContext& ctx) {
     return behavior::ExecuteResult::Success;
 }
 
+
 behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
   auto& game = ctx.bot->GetGame();
@@ -390,6 +391,7 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
   g_RenderState.RenderDebugText("  DevaSetRegionNode(completed): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
+
 
 behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;

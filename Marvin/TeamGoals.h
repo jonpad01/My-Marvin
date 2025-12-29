@@ -8,25 +8,21 @@
 
 namespace marvin {
 
-  //struct MapCoord;
-  
-
-// 2 sets is not needed but is more readable when working with specific zones
-// only 1 set will be used depending on what zone is loaded
-
+  // 2 sets is not needed but is more readable when working with specific zones
+  // only 1 set will be used depending on what zone is loaded
   struct TeamGoals {
+    // devastation set
     std::string base_name;
     MapCoord t0;
     MapCoord t1;
-
+    // hyperspace set
     MapCoord hyper_gate;
     MapCoord flag_room;
   };
 
-class TeamGoalCreator {
- public:
-  virtual bool HasCoords() = 0;
-  //virtual const std::unordered_map<std::string, GoalPairs>& GetTeamGoals() = 0;
-  virtual const std::vector<TeamGoals>& GetTeamGoals() = 0;
-};
+  class TeamGoalCreator {
+  public:
+    virtual bool HasCoords() = 0;
+    virtual const std::vector<TeamGoals>& GetTeamGoals() = 0;
+  };
 }  // namespace marvin

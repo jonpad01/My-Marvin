@@ -502,11 +502,11 @@ behavior::ExecuteResult HSBuySellNode::Execute(behavior::ExecuteContext& ctx) {
   int count = items.count;
 
   // when changing radius bot takes a long time to load so reset the timestamp after if finishes
-  if (ctx.bot->GetLastLoadTimeStamp() > items.timestamp) {
-    bb.SetHSBuySellTimeStamp(ctx.bot->GetLastLoadTimeStamp());
-    g_RenderState.RenderDebugText("  HSBuySellNode(Setting Timestamp): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Failure;
-  }
+ // if (ctx.bot->GetLastLoadTimeStamp() > items.timestamp) {
+ //   bb.SetHSBuySellTimeStamp(ctx.bot->GetLastLoadTimeStamp());
+ //   g_RenderState.RenderDebugText("  HSBuySellNode(Setting Timestamp): %llu", timer.GetElapsedTime());
+ //   return behavior::ExecuteResult::Failure;
+ // }
 
   if (items.action != HSItemTransaction::Buy && items.action != HSItemTransaction::Sell) {
     g_RenderState.RenderDebugText("  HSBuySellNode(No Action Taken): %llu", timer.GetElapsedTime());

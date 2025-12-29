@@ -74,11 +74,11 @@ Bot::Bot(GameProxy* game) : game_(game) {
   //log << "Creating bot." << std::endl;
   blackboard_ = std::make_unique<Blackboard>();
   influence_map_ = std::make_unique<InfluenceMap>();
-  previous_door_state_ = DoorState::Load();
+  door_state_ = DoorState::Load();
   radius_ = game->GetRadius();
-  current_map_ = game_->GetMapFile();
-  current_ship_ = game_->GetPlayer().ship;
-  current_freq_ = game_->GetPlayer().frequency;
+  map_name_ = game_->GetMapFile();
+  ship_ = game_->GetPlayer().ship;
+  freq_ = game_->GetPlayer().frequency;
   ctx_.bot = this;
 }
 
@@ -183,33 +183,20 @@ void Bot::Update(float dt) {
 
   keys_.ReleaseAll();
   time_.Update();
-
-  //UpdateState state = game_->Update();
-  g_RenderState.RenderDebugText("GameUpdate: %llu", timer.GetElapsedTime());
-
-  //if (state == UpdateState::Wait) return;
   
   std::string map_name = game_->GetMapFile();
 
-  if (map_name != current_map_) {
-    current_map_ = map_name;
+  if (map_name != map_name_) {
+    map_name_ = map_name;
     log << "Map change reload." << std::endl;
-    load_index = 1;
     worker_state_ = ThreadState::Start;
   }
 
-  //if (state == UpdateState::Reload) {
-   // log << "Game update requested reload." << std::endl;
-    //load_index = 1;
-    //return;
-  //}
-
   DoorState door_state = DoorState::Load();
-  if (door_state.door_mode != previous_door_state_.door_mode) {
+  if (door_state.door_mode != door_state_.door_mode) {
     log << "Door state reload." << std::endl;
-    load_index = 1;
     worker_state_ = ThreadState::Start;
-    previous_door_state_ = door_state;
+    door_state_ = door_state;
   }
 
   float radius = game_->GetRadius();
@@ -219,34 +206,20 @@ void Bot::Update(float dt) {
   if (radius != radius_) {
     log << "Ship radius reload." << std::endl;
     radius_ = radius;
-    load_index = 1;
     worker_state_ = ThreadState::Start;
   }
 
-  // the load behavior is determined by the load index
   CheckLoadState();
   if (worker_state_ != ThreadState::Finished) return;
-  //Load();
- //if (load_index != 0) return;
 
   // lazy method to update hyperspace tree
   if (game_->GetZone() == Zone::Hyperspace) {
-    if (ship != current_ship_ || freq != current_freq_) {
+    if (ship != ship_ || freq != freq_) {
       auto builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
       this->behavior_ = builder->Build(*this);
-      current_ship_ = ship;
-      current_freq_ = freq;
+      ship_ = ship;
+      freq_ = freq;
     }
-  }
-  
-  //u8 id = game_->GetMap().GetTileId(Vector2f(575, 512));
-  //g_RenderState.RenderDebugText("Tile Id: %u", id);
-  CombatDifficulty difficulty = blackboard_->ValueOr<CombatDifficulty>(BBKey::CombatDifficulty, CombatDifficulty::Normal);
-
-  if (difficulty == CombatDifficulty::Nerf) {
-    update_interval_ = 10;
-  } else {
-    update_interval_ = 60;
   }
 
   steering_.Reset();

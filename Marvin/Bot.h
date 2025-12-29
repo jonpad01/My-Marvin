@@ -35,7 +35,6 @@ const std::vector<std::string> kBotNames = { "Testmarv", "Lilmarv", "MadMarv", "
 class Bot {
  public:
   Bot(GameProxy* game);
-  //~Bot() { build_task.detach(); }
 
   void Load();
   bool CheckLoadState();
@@ -54,25 +53,18 @@ class Bot {
   CommandSystem& GetCommandSystem() { return *command_system_; }
   TeamGoalCreator& GetGoals() { return *goals_; }
   BasePaths& GetBasePaths() { return *base_paths_; }
-  uint64_t GetLastLoadTimeStamp() { return last_load_timestamp_; }
-  float GetUpdateInterval() { return update_interval_; }
-  void SetUpdateInterval(float value) { update_interval_ = value; }
 
   const std::vector<Vector2f>& GetBasePath() {
-    //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0));
     return base_paths_->GetPath();
   }
 
   std::size_t GetTeamSafeIndex(uint16_t freq) {
     uint16_t low_index_team = ctx_.blackboard.ValueOr<uint16_t>(BBKey::PubEventTeam0, 999);
     uint16_t high_index_team = ctx_.blackboard.ValueOr<uint16_t>(BBKey::PubEventTeam1, 999);
-    //uint16_t low_index_team = blackboard_->GetPubTeam0();
-    //uint16_t high_index_team = blackboard_->GetPubTeam1();
 
     if (freq == low_index_team) {
       return 0;
     } else if (freq == high_index_team) {
-      //return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0)).size() - 1;
       return base_paths_->GetPath().size() - 1;
     }
     return 0;
@@ -95,10 +87,6 @@ class Bot {
   void SelectBehaviorTree();
 
   float radius_;
-  float update_interval_ = 60.0f;
-
-  uint64_t last_load_timestamp_ = 0;
-  int load_index = 1;
 
   Vector2f powerball_goal_;
   Vector2f powerball_goal_path_;
@@ -119,10 +107,11 @@ class Bot {
   std::unique_ptr<TeamGoalCreator> goals_;
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
   std::unique_ptr<BasePaths> base_paths_;
-  DoorState previous_door_state_;
-  uint16_t current_ship_ = 99;
-  uint16_t current_freq_ = 99;
-  std::string current_map_;
+
+  DoorState door_state_;
+  uint16_t ship_ = 99;
+  uint16_t freq_ = 99;
+  std::string map_name_;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;
