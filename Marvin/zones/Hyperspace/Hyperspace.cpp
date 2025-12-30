@@ -21,6 +21,9 @@
 namespace marvin {
 namespace hs {
 
+  enum class HSTree : uint8_t { CenterGunner, CenterBomber, PowerBaller };
+  using enum HSTree;
+
 const std::string kBuySuccess = "You purchased ";
 const std::string kSellSuccess = "You sold ";
 const std::string kSlotsFull = "You do not have enough free ";
@@ -53,16 +56,97 @@ const std::vector<MapCoord> kBaseTunnelGates = {MapCoord(961, 63),  MapCoord(960
                                                 MapCoord(512, 959), MapCoord(64, 960),  MapCoord(64, 672),
                                                 MapCoord(65, 65), MapCoord(512, 64)};
 
+uint8_t HSTreeSelector::GetBehaviorTree(Bot& bot) {
+
+  uint16_t ship = bot.GetGame().GetPlayer().ship;
+  uint16_t freq = bot.GetGame().GetPlayer().frequency;
+  bool flagging = freq == 90 || freq == 91;
+
+  uint8_t key = (uint8_t)CenterGunner;
+
+  switch (ship) {
+  case 0: {
+    if (flagging) {
+      key = (uint8_t)CenterGunner;
+    }
+    else {
+      key = (uint8_t)CenterGunner;
+    }
+  }break;
+  case 1: {
+    if (flagging) {
+      key = (uint8_t)CenterBomber;
+    }
+    else {
+      key = (uint8_t)CenterBomber;
+    }
+  }break;
+  case 2: {
+    if (flagging) {
+      key = (uint8_t)CenterGunner;
+    }
+    else {
+      key = (uint8_t)CenterGunner;
+    }
+  }break;
+  case 3: {
+    if (flagging) {
+      key = (uint8_t)CenterBomber;
+    }
+    else {
+      key = (uint8_t)CenterBomber;
+    }
+  }break;
+  case 4: {
+    if (flagging) {
+      key = (uint8_t)CenterGunner;
+    }
+    else {
+      key = (uint8_t)CenterGunner;
+    }
+  }break;
+  case 5: {
+    if (flagging) {
+      key = (uint8_t)CenterBomber;
+    }
+    else {
+      key = (uint8_t)CenterBomber;
+    }
+  }break;
+  case 6: {
+    if (flagging) {
+      key = (uint8_t)CenterGunner;
+    }
+    else {
+      key = (uint8_t)CenterGunner;
+    }
+  }break;
+  case 7: {
+    if (flagging) {
+      key = (uint8_t)CenterGunner;
+    }
+    else {
+      key = (uint8_t)CenterGunner;
+    }
+  }break;
+  case 8: {
+    if (flagging) {
+      key = (uint8_t)CenterGunner;
+    }
+    else {
+      key = (uint8_t)CenterGunner;
+    }
+  }break;
+  }
+
+  return key;
+}
 
 void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
   std::vector<std::string> names;
   bool result = ProfileParser::GetProfileNames(names);
   if (result) { bot.GetBlackboard().SetBotNames(names); }
-
-  uint16_t ship = bot.GetGame().GetPlayer().ship;
-  uint16_t freq = bot.GetGame().GetPlayer().frequency;
-  bool flagging = freq == 90 || freq == 91;
 
   //bot.GetBlackboard().AddBotName(bot.GetGame().GetPlayer().name);
   std::vector<MapCoord> patrol_nodes = {MapCoord(585, 540), MapCoord(400, 570)};
@@ -88,47 +172,15 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseRepel, true);
   bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseBurst, true);
 
+  get_out_of_spec = engine_->MakeNode<bot::GetOutOfSpecNode>();
+  HS_freqman = engine_->MakeNode<hs::HSFreqManagerNode>();
+  jackpot_query = engine_->MakeNode<hs::HSJackpotQueryNode>();
+  bouncing_shot = engine_->MakeNode<bot::BouncingShotNode>();
+  patrol_center = engine_->MakeNode<bot::PatrolNode>();
+  move_to_enemy = engine_->MakeNode<bot::MoveToEnemyNode>();
 
-  // build basic tree for now
   BuildCenterGunnerTree();
-  return;
-
-
-  switch (ship) {
-  case 0: {
-    if (flagging) {
-
-    }
-    else {
-      BuildCenterGunnerTree();
-    }
-  }break;
-  case 1: {
-
-  }break;
-  case 2: {
-
-  }break;
-  case 3: {
-
-  }break;
-  case 4: {
-
-  }break;
-  case 5: {
-
-  }break;
-  case 6: {
-
-  }break;
-  case 7: {
-
-  }break;
-  case 8: {
-
-  }break;
-  }
-  
+  BuildCenterBomberTree();
 
 #if 0 
   
@@ -273,12 +325,7 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 
 void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
 
-  auto* get_out_of_spec = engine_->MakeNode<bot::GetOutOfSpecNode>();
-  auto* HS_freqman = engine_->MakeNode<hs::HSFreqManagerNode>();
-  auto* jackpot_query = engine_->MakeNode<hs::HSJackpotQueryNode>();
-  auto* bouncing_shot = engine_->MakeNode<bot::BouncingShotNode>();
-  auto* patrol_center = engine_->MakeNode<bot::PatrolNode>();
-  auto* move_to_enemy = engine_->MakeNode<bot::MoveToEnemyNode>();
+  uint8_t index = (uint8_t)HSTree::CenterGunner;
 
   auto* path_to_enemy_sequence =
     engine_->MakeNode<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
@@ -304,11 +351,18 @@ void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
   auto* enemy_patrol_selector =
     engine_->MakeNode<behavior::SelectorNode>(find_enemy_sequence, patrol_center_sequence);
 
-  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(
+  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index,
     commands_.get(), get_out_of_spec, jackpot_query, respawn_query_.get(), HS_freqman, enemy_patrol_selector);
 }
 
 
+void HyperspaceBehaviorBuilder::BuildCenterBomberTree() {
+
+  uint8_t index = (uint8_t)HSTree::CenterBomber;
+
+  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index,
+    commands_.get(), get_out_of_spec, jackpot_query, respawn_query_.get(), HS_freqman);
+}
 
 
 

@@ -1,8 +1,10 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 
 #include "BehaviorTree.h"
+#include "..//Debug.h"
 
 namespace marvin {
 namespace behavior {
@@ -26,9 +28,12 @@ class BehaviorEngine {
   }
 
   template <typename T, typename... Args>
-  inline T* MakeRoot(Args&&... args) {
+  inline T* MakeRoot(uint8_t key, Args&&... args) {
     T* root = MakeNode<T>(std::forward<Args>(args)...);
-    behavior_tree_ = root;
+
+    behavior_trees_[key] = root;
+    SetBehaviorTree(root);
+    key_ = key;
     return root;
   }
 
@@ -40,10 +45,24 @@ class BehaviorEngine {
 
   void Update(ExecuteContext& ctx);
 
+  void SetActiveTree(uint8_t key) {
+    if (key_ == key) return;
+    
+    auto it = behavior_trees_.find(key);
+
+    if (it != behavior_trees_.end()) {
+      behavior_tree_ = it->second;
+      key_ = key;
+    }
+  }
+
  private:
    // this is the raw pointer tree that is called to be executed
    // calling get() on a unique_ptr gives this
   BehaviorNode* behavior_tree_;
+  std::unordered_map<uint8_t, BehaviorNode*> behavior_trees_;
+  uint8_t key_ = 99;
+  //std::vector<BehaviorNode*> behavior_trees__;
   // this container keeps the pointer tree alive and is never accessed
   // these are unique_ptr which stays alive as long as the owner is alive
   std::vector<std::unique_ptr<behavior::BehaviorNode>> behavior_nodes_;

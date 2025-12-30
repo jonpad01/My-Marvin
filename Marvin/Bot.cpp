@@ -28,6 +28,7 @@ namespace marvin {
 
 class DefaultBehaviorBuilder : public BehaviorBuilder {
  public:
+
   void CreateBehavior(Bot& bot) {
     auto move_to_enemy = std::make_unique<bot::MoveToEnemyNode>();
 
@@ -82,10 +83,10 @@ Bot::Bot(GameProxy* game) : game_(game) {
   ctx_.bot = this;
 }
 
-bool Bot::CheckLoadState() {
+bool Bot::UpdateProcessorThread() {
   switch (worker_state_) {
   case ThreadState::Start: {
-    load_worker_ = std::thread(&Bot::Load, this);
+    load_worker_ = std::thread(&Bot::ProcessMap, this);
     worker_state_ = ThreadState::Running;
     return false;
   } break;
@@ -103,10 +104,15 @@ bool Bot::CheckLoadState() {
 }
 
 
-void Bot::Load() {
+void Bot::ProcessMap() {
   PerformanceTimer timer;
  
   radius_ = game_->GetRadius();
+  ship_ = game_->GetPlayer().ship;
+  freq_ = game_->GetPlayer().frequency;
+  map_name_ = game_->GetMapFile();
+  door_state_ = DoorState::Load();
+
   command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
   //log.Write("Command System Loaded", timer.GetElapsedTime());
   regions_ = std::make_unique<RegionRegistry>(game_->GetMap());                      // 4.3ms
@@ -122,6 +128,7 @@ void Bot::Load() {
   // log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
   pathfinder_->SetMapWeights(game_->GetMap(), game_->GetRadius());                               // 250ms
   //  log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());  
+  SetGoals();
   SelectBehaviorTree();
 
   worker_state_ = ThreadState::Finished;
@@ -135,34 +142,38 @@ void Bot::Update(float dt) {
   uint16_t ship = game_->GetPlayer().ship;
   uint16_t freq = game_->GetPlayer().frequency;
   std::string map_name = game_->GetMapFile();
+  DoorState door_state = DoorState::Load();
 
   g_RenderState.debug_y = 30.0f;
 
   keys_.ReleaseAll();
   time_.Update();
+
   
+  //  -------- Reprocess Map ----------------
+
   if (map_name != map_name_) {
-    map_name_ = map_name;
-    log << "Map change reload." << std::endl;
+    log << "Map changed from: " << map_name_ << " to: " << map_name << std::endl;
     worker_state_ = ThreadState::Start;
   }
 
-  DoorState door_state = DoorState::Load();
   if (door_state.door_mode != door_state_.door_mode) {
-    log << "Door state reload." << std::endl;
+    log << "Door state changed from: " << door_state_.door_mode << " to: " << door_state.door_mode << std::endl;
     worker_state_ = ThreadState::Start;
-    door_state_ = door_state;
   }
 
   if (radius != radius_) {
-    log << "Ship radius reload." << std::endl;
-    radius_ = radius;
+    log << "Ship radius changed from: " << radius_ << " to: " << radius << std::endl;
     worker_state_ = ThreadState::Start;
   }
 
-  CheckLoadState();
-  if (worker_state_ != ThreadState::Finished) return;
+  if (!UpdateProcessorThread()) return;
 
+  //  -------- Reprocess Map ----------------
+   
+  
+
+#if 0 
   // lazy method to update hyperspace tree
   if (game_->GetZone() == Zone::Hyperspace) {
     if (ship != ship_ || freq != freq_) {
@@ -172,6 +183,7 @@ void Bot::Update(float dt) {
       freq_ = freq;
     }
   }
+#endif 
 
   steering_.Reset();
   ctx_.dt = dt;
@@ -212,7 +224,10 @@ void Bot::Update(float dt) {
     g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
 #endif
  
-
+  if (tree_selector_) {
+    uint8_t key = tree_selector_->GetBehaviorTree(*this);
+    behavior_->SetActiveTree(key);
+  }
   behavior_->Update(ctx_);
 
 
@@ -239,6 +254,24 @@ void Bot::Update(float dt) {
   //g_RenderState.RenderDebugText("BotUpdate: %llu", timer.TimeSinceConstruction());
 }
 
+void Bot::SetGoals() {
+
+  switch (game_->GetZone()) {
+  case Zone::Devastation: {
+    goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMap(), game_->GetMapFile());
+    if (goals_->HasCoords()) {
+      base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
+    }
+  } break;
+  case Zone::Hyperspace: {
+    goals_ = std::make_unique<hs::HSFlagRooms>();
+    if (goals_->HasCoords()) {
+      base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
+    }
+  } break;
+  }
+}
+
 void Bot::SelectBehaviorTree() {
 
   std::unique_ptr<BehaviorBuilder> builder;
@@ -247,14 +280,11 @@ void Bot::SelectBehaviorTree() {
   switch (game_->GetZone()) {
     case Zone::Devastation: {
 
-      goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMap(), game_->GetMapFile());
-      game_->SendChatMessage("?chat=marvin");
-        if (blackboard_->ValueOr<BDState>(BBKey::BDHostingState, BDState::Stopped) == BDState::Start) {
-          builder = std::make_unique<deva::BaseDuelBehaviorBuilder>();
-        }
-        else if (goals_->HasCoords()) {
+      //goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMap(), game_->GetMapFile());
+      //game_->SendChatMessage("?chat=marvin");
+        if (goals_->HasCoords()) {
         //  log.Write("Building Devastation behavior tree.");
-          base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
+          //base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
           builder = std::make_unique<deva::DevastationBehaviorBuilder>();
         } else {
           game_->SendChatMessage("Warning: I don't have base duel coords for this arena, using default behavior tree.");
@@ -273,9 +303,10 @@ void Bot::SelectBehaviorTree() {
       builder = std::make_unique<hz::HockeyBehaviorBuilder>();
     } break;
     case Zone::Hyperspace: {
-      goals_ = std::make_unique<hs::HSFlagRooms>();
-      base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
+     // goals_ = std::make_unique<hs::HSFlagRooms>();
+     // base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
       builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
+      tree_selector_ = std::make_unique<hs::HSTreeSelector>();
      // log.Write("Building Hyperspace behavior tree.");
     } break;
     case Zone::PowerBall: {

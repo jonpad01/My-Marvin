@@ -116,6 +116,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
  
   //bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
+  bot.GetGame().SendChatMessage("?chat=marvin");
+
   std::string name = Lowercase(bot.GetGame().GetPlayer().name);
   uint16_t ship = bot.GetGame().GetPlayer().ship;
 

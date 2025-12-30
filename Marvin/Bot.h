@@ -22,6 +22,7 @@
 namespace marvin {
 class GameProxy;
 struct Player;
+class BehaviorTreeSelector;
 
 const std::vector<std::string> kBotNames = { "Testmarv", "Lilmarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1",
                                             "Marv2",   "Marv3",   "Marv4",      "Marv5",      "Marv6",
@@ -36,8 +37,8 @@ class Bot {
  public:
   Bot(GameProxy* game);
 
-  void Load();
-  bool CheckLoadState();
+  void ProcessMap();
+  bool UpdateProcessorThread();
   void Update(float dt);
 
   KeyController& GetKeys() { return keys_; }
@@ -85,6 +86,7 @@ class Bot {
    enum class ThreadState { Start, Running, Finished };
 
   void SelectBehaviorTree();
+  void SetGoals();
 
   float radius_;
 
@@ -106,6 +108,7 @@ class Bot {
 
   std::unique_ptr<TeamGoalCreator> goals_;
   std::unique_ptr<behavior::BehaviorEngine> behavior_;
+  std::unique_ptr<BehaviorTreeSelector> tree_selector_;
   std::unique_ptr<BasePaths> base_paths_;
 
   DoorState door_state_;
@@ -325,8 +328,15 @@ class MoveToEnemyNode : public behavior::BehaviorNode {
 
 }  // namespace bot
 
+class BehaviorTreeSelector {
+public:
+  virtual uint8_t GetBehaviorTree(Bot& bot) = 0;
+};
+
 class BehaviorBuilder {
  public:
+   
+
   std::unique_ptr<behavior::BehaviorEngine> Build(Bot& bot) {
     BuildCommonNodes();
     CreateBehavior(bot);
@@ -337,7 +347,7 @@ class BehaviorBuilder {
 
  protected:
   virtual void CreateBehavior(Bot& bot) = 0;
-
+  
   void BuildCommonNodes() {
     engine_ = std::make_unique<behavior::BehaviorEngine>();
 

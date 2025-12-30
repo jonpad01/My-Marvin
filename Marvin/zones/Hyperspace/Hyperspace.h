@@ -16,12 +16,7 @@ struct AnchorResult {
   bool has_summoner;
 };
 
-class HyperspaceBehaviorBuilder : public BehaviorBuilder {
-public:
-  void CreateBehavior(Bot& bot);
-public:
-  void BuildCenterGunnerTree();
-};
+
 
 class HSPlayerSortNode : public behavior::BehaviorNode {
  public:
@@ -131,6 +126,28 @@ class HSAttachNode : public behavior::BehaviorNode {
 class HSToggleNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
+class HSTreeSelector : public BehaviorTreeSelector {
+public:
+  uint8_t GetBehaviorTree(Bot& bot);
+};
+
+
+class HyperspaceBehaviorBuilder : public BehaviorBuilder {
+public:
+  void CreateBehavior(Bot& bot);
+private:
+
+  void BuildCenterGunnerTree();
+  void BuildCenterBomberTree();
+
+  bot::GetOutOfSpecNode* get_out_of_spec;
+  HSFreqManagerNode* HS_freqman;
+  HSJackpotQueryNode* jackpot_query;
+  bot::BouncingShotNode* bouncing_shot;
+  bot::PatrolNode* patrol_center;
+  bot::MoveToEnemyNode* move_to_enemy;
 };
 
 }  // namespace hs
