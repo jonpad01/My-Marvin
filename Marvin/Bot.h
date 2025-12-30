@@ -72,7 +72,6 @@ class Bot {
   }
 
   const Vector2f& GetTeamSafePosition(uint16_t freq) {
-   // return base_paths_->GetBasePath(ctx_.blackboard.ValueOr<std::size_t>(BB::BaseIndex, 0))[GetTeamSafeIndex(freq)];
     return base_paths_->GetPath()[GetTeamSafeIndex(freq)];
   }
 
@@ -85,7 +84,7 @@ class Bot {
 
    enum class ThreadState { Start, Running, Finished };
 
-  void SelectBehaviorTree();
+  void BuildRootTree();
   void SetGoals();
 
   float radius_;
@@ -112,9 +111,10 @@ class Bot {
   std::unique_ptr<BasePaths> base_paths_;
 
   DoorState door_state_;
-  uint16_t ship_ = 99;
-  uint16_t freq_ = 99;
+  uint16_t ship_;
+  uint16_t freq_;
   std::string map_name_;
+  Zone zone_;
 
   // TODO: Action-key map would be more versatile
   KeyController keys_;

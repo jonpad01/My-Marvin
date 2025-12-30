@@ -80,7 +80,11 @@ Bot::Bot(GameProxy* game) : game_(game) {
   map_name_ = game_->GetMapFile();
   ship_ = game_->GetPlayer().ship;
   freq_ = game_->GetPlayer().frequency;
+  zone_ = game_->GetZone();
   ctx_.bot = this;
+
+  SetGoals();
+  BuildRootTree();
 }
 
 bool Bot::UpdateProcessorThread() {
@@ -107,29 +111,41 @@ bool Bot::UpdateProcessorThread() {
 void Bot::ProcessMap() {
   PerformanceTimer timer;
  
+  const Map& map = game_->GetMap();
+  Zone zone = game_->GetZone();
+  std::string map_name = game_->GetMapFile();
+
   radius_ = game_->GetRadius();
   ship_ = game_->GetPlayer().ship;
   freq_ = game_->GetPlayer().frequency;
-  map_name_ = game_->GetMapFile();
   door_state_ = DoorState::Load();
 
-  command_system_ = std::make_unique<CommandSystem>(game_->GetZone());                // 0ms
+  command_system_ = std::make_unique<CommandSystem>(zone);                // 0ms
   //log.Write("Command System Loaded", timer.GetElapsedTime());
-  regions_ = std::make_unique<RegionRegistry>(game_->GetMap());                      // 4.3ms
+  regions_ = std::make_unique<RegionRegistry>(map);                      // 4.3ms
   //log.Write("Regions Created", timer.GetElapsedTime());
-  regions_->Create(game_->GetMap(), game_->GetRadius());
-  auto processor = std::make_unique<path::NodeProcessor>(game_->GetMap());            // 4.2ms
+  regions_->Create(map, radius_);
+  auto processor = std::make_unique<path::NodeProcessor>(map);            // 4.2ms
   //log.Write("Node Processor Loaded", timer.GetElapsedTime());
   pathfinder_ = std::make_unique<path::Pathfinder>(std::move(processor), *regions_);  // 0ms
   // log.Write("Pathfinder Loaded", timer.GetElapsedTime());
-  pathfinder_->SetTraversabletiles(game_->GetMap(), game_->GetRadius());                         // 43ms
+  pathfinder_->SetTraversabletiles(map, radius_);                         // 43ms
   // log.Write("Pathfinder traversable tiles Loaded", timer.GetElapsedTime());
-  pathfinder_->CalculateEdges(game_->GetMap(), game_->GetRadius());                              // 57ms
+  pathfinder_->CalculateEdges(map, radius_);                              // 57ms
   // log.Write("Pathfinder edges Loaded", timer.GetElapsedTime());
-  pathfinder_->SetMapWeights(game_->GetMap(), game_->GetRadius());                               // 250ms
+  pathfinder_->SetMapWeights(map, radius_);                               // 250ms
   //  log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());  
-  SetGoals();
-  SelectBehaviorTree();
+  
+  if (map_name_ != map_name) {
+    SetGoals();
+  }
+
+  if (zone_ != zone) {
+    BuildRootTree();
+  }
+
+  map_name_ = map_name;
+  zone_ = zone;
 
   worker_state_ = ThreadState::Finished;
   log << "Bot loaded in: " << timer.GetElapsedTime() << "us" << std::endl;
@@ -171,19 +187,7 @@ void Bot::Update(float dt) {
 
   //  -------- Reprocess Map ----------------
    
-  
-
-#if 0 
-  // lazy method to update hyperspace tree
-  if (game_->GetZone() == Zone::Hyperspace) {
-    if (ship != ship_ || freq != freq_) {
-      auto builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
-      this->behavior_ = builder->Build(*this);
-      ship_ = ship;
-      freq_ = freq;
-    }
-  }
-#endif 
+ 
 
   steering_.Reset();
   ctx_.dt = dt;
@@ -272,26 +276,20 @@ void Bot::SetGoals() {
   }
 }
 
-void Bot::SelectBehaviorTree() {
+void Bot::BuildRootTree() {
 
   std::unique_ptr<BehaviorBuilder> builder;
-  std::string map_name = game_->GetMapFile(); 
+  Zone zone = game_->GetZone();
 
-  switch (game_->GetZone()) {
+  switch (zone) {
     case Zone::Devastation: {
-
-      //goals_ = std::make_unique<deva::BaseDuelWarpCoords>(game_->GetMap(), game_->GetMapFile());
-      //game_->SendChatMessage("?chat=marvin");
-        if (goals_->HasCoords()) {
-        //  log.Write("Building Devastation behavior tree.");
-          //base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
-          builder = std::make_unique<deva::DevastationBehaviorBuilder>();
-        } else {
-          game_->SendChatMessage("Warning: I don't have base duel coords for this arena, using default behavior tree.");
-        //  log.Write("Building Default behavior tree.");
-          builder = std::make_unique<DefaultBehaviorBuilder>();
-        }
-      
+      if (goals_->HasCoords()) {
+        builder = std::make_unique<deva::DevastationBehaviorBuilder>();
+      }
+      else {
+        game_->SendChatMessage("Warning: I don't have base duel coords for this arena, using default behavior tree.");
+        builder = std::make_unique<DefaultBehaviorBuilder>();
+      }
     } break;
     case Zone::ExtremeGames: {
       builder = std::make_unique<eg::ExtremeGamesBehaviorBuilder>();
@@ -303,11 +301,8 @@ void Bot::SelectBehaviorTree() {
       builder = std::make_unique<hz::HockeyBehaviorBuilder>();
     } break;
     case Zone::Hyperspace: {
-     // goals_ = std::make_unique<hs::HSFlagRooms>();
-     // base_paths_ = std::make_unique<BasePaths>(goals_->GetTeamGoals(), game_->GetRadius(), *pathfinder_, game_->GetMap());
       builder = std::make_unique<hs::HyperspaceBehaviorBuilder>();
       tree_selector_ = std::make_unique<hs::HSTreeSelector>();
-     // log.Write("Building Hyperspace behavior tree.");
     } break;
     case Zone::PowerBall: {
       // builder = std::make_unique<pb::PowerBallBehaviorBuilder>();
@@ -318,7 +313,6 @@ void Bot::SelectBehaviorTree() {
   }
 
   this->behavior_ = builder->Build(*this);
-
 }
 
 void Bot::Move(const Vector2f& target, float target_distance) {

@@ -20,91 +20,6 @@ namespace marvin {
 namespace deva {
 
 
-
-#if 0
-
-std::vector<Vector2f> oldkBaseSafes0 = {
-    Vector2f(512, 512),
-    Vector2f(32, 56),    Vector2f(185, 58),   Vector2f(247, 40),  Vector2f(383, 64),  Vector2f(579, 62),
-    Vector2f(667, 56),   Vector2f(743, 97),   Vector2f(963, 51),  Vector2f(32, 111),  Vector2f(222, 82),
-    Vector2f(385, 148),  Vector2f(499, 137),  Vector2f(624, 185), Vector2f(771, 189), Vector2f(877, 110),
-    Vector2f(3, 154),    Vector2f(242, 195),  Vector2f(326, 171), Vector2f(96, 258),  Vector2f(182, 303),
-    Vector2f(297, 287),  Vector2f(491, 296),  Vector2f(555, 324), Vector2f(764, 259), Vector2f(711, 274),
-    Vector2f(904, 303),  Vector2f(170, 302),  Vector2f(147, 379), Vector2f(280, 310), Vector2f(425, 326),
-    Vector2f(569, 397),  Vector2f(816, 326),  Vector2f(911, 347), Vector2f(97, 425),  Vector2f(191, 471),
-    Vector2f(359, 445),  Vector2f(688, 392),  Vector2f(696, 545), Vector2f(854, 447), Vector2f(16, 558),
-    Vector2f(245, 610),  Vector2f(270, 595),  Vector2f(5, 641),   Vector2f(381, 610), Vector2f(422, 634),
-    Vector2f(565, 584),  Vector2f(726, 598),  Vector2f(859, 639), Vector2f(3, 687),   Vector2f(135, 710),
-    Vector2f(287, 715),  Vector2f(414, 687),  Vector2f(612, 713), Vector2f(726, 742), Vector2f(1015, 663),
-    Vector2f(50, 806),   Vector2f(160, 841),  Vector2f(310, 846), Vector2f(497, 834), Vector2f(585, 861),
-    Vector2f(737, 755),  Vector2f(800, 806),  Vector2f(913, 854), Vector2f(91, 986),  Vector2f(175, 901),
-    Vector2f(375, 887),  Vector2f(499, 909),  Vector2f(574, 846), Vector2f(699, 975), Vector2f(864, 928),
-    Vector2f(221, 1015), Vector2f(489, 1008), Vector2f(769, 983), Vector2f(948, 961), Vector2f(947, 511),
-    Vector2f(580, 534)};
-
-std::vector<Vector2f> oldkBaseSafes1 = {
-    Vector2f(512, 512),
-    Vector2f(102, 56),   Vector2f(189, 58),  Vector2f(373, 40),   Vector2f(533, 64),  Vector2f(606, 57),
-    Vector2f(773, 56),   Vector2f(928, 46),  Vector2f(963, 47),   Vector2f(140, 88),  Vector2f(280, 82),
-    Vector2f(395, 148),  Vector2f(547, 146), Vector2f(709, 117),  Vector2f(787, 189), Vector2f(993, 110),
-    Vector2f(181, 199),  Vector2f(258, 195), Vector2f(500, 171),  Vector2f(100, 258), Vector2f(280, 248),
-    Vector2f(446, 223),  Vector2f(524, 215), Vector2f(672, 251),  Vector2f(794, 259), Vector2f(767, 274),
-    Vector2f(972, 215),  Vector2f(170, 336), Vector2f(170, 414),  Vector2f(314, 391), Vector2f(455, 326),
-    Vector2f(623, 397),  Vector2f(859, 409), Vector2f(1013, 416), Vector2f(97, 502),  Vector2f(228, 489),
-    Vector2f(365, 445),  Vector2f(770, 392), Vector2f(786, 545),  Vector2f(903, 552), Vector2f(122, 558),
-    Vector2f(245, 650),  Vector2f(398, 595), Vector2f(130, 640),  Vector2f(381, 694), Vector2f(422, 640),
-    Vector2f(626, 635),  Vector2f(808, 598), Vector2f(1004, 583), Vector2f(138, 766), Vector2f(241, 795),
-    Vector2f(346, 821),  Vector2f(525, 687), Vector2f(622, 703),  Vector2f(862, 742), Vector2f(907, 769),
-    Vector2f(98, 806),   Vector2f(295, 864), Vector2f(453, 849),  Vector2f(504, 834), Vector2f(682, 792),
-    Vector2f(746, 810),  Vector2f(800, 812), Vector2f(1004, 874), Vector2f(57, 909),  Vector2f(323, 901),
-    Vector2f(375, 996),  Vector2f(503, 909), Vector2f(694, 846),  Vector2f(720, 895), Vector2f(881, 945),
-    Vector2f(272, 1015), Vector2f(617, 929), Vector2f(775, 983),  Vector2f(948, 983), Vector2f(1012, 494),
-    Vector2f(669, 497)};
-
-
-struct BaseSpawns {
-    std::vector<Vector2f> t0 = {
-      Vector2f(512, 512), // center
-      Vector2f(139, 420), Vector2f(259, 337),  Vector2f(341, 447), Vector2f(114, 455),  Vector2f(861, 871), 
-      Vector2f(886, 393), Vector2f(793, 331),  Vector2f(721, 657), Vector2f(650, 747),  Vector2f(795, 752),  // 10
-      Vector2f(863, 801), Vector2f(716, 851),  Vector2f(838, 820), Vector2f(776, 968),  Vector2f(492, 600),
-      Vector2f(230, 969), Vector2f(302, 67),   Vector2f(552, 17),  Vector2f(698, 52),   Vector2f(798, 41),  // 20
-      Vector2f(188, 106), Vector2f(284, 172),  Vector2f(429, 100), Vector2f(507, 196),  Vector2f(759, 151),
-      Vector2f(56, 194),  Vector2f(196, 259),  Vector2f(347, 176), Vector2f(414, 229),  Vector2f(567, 312),  // 30
-      Vector2f(676, 216), Vector2f(764, 272),  Vector2f(814, 286), Vector2f(980, 231),  Vector2f(746, 377),
-      Vector2f(62, 337),  Vector2f(135, 336),  Vector2f(125, 540), Vector2f(105, 607),  Vector2f(187, 645),  // 40
-      Vector2f(313, 570), Vector2f(601, 520),  Vector2f(831, 490), Vector2f(1008, 450), Vector2f(641, 590),
-      Vector2f(878, 603), Vector2f(52, 715),   Vector2f(128, 720), Vector2f(353, 741),  Vector2f(198, 840),  // 50
-      Vector2f(335, 877), Vector2f(105, 11),   Vector2f(891, 151), Vector2f(957, 43),   Vector2f(944, 907),
-      Vector2f(910, 987), Vector2f(418, 694),  Vector2f(57, 781),  Vector2f(630, 680),  Vector2f(517, 704),  // 60
-      Vector2f(623, 446), Vector2f(492, 877),  Vector2f(67, 968),  Vector2f(166, 1018), Vector2f(633, 900),
-      Vector2f(394, 936), Vector2f(286, 1018), Vector2f(526, 942), Vector2f(613, 1002)  // 69
-  };
-
-    std::vector<Vector2f> t1 = {
-        Vector2f(512, 512),  // center
-        Vector2f(297, 511),  Vector2f(311, 418),  Vector2f(341, 531), Vector2f(127, 523),  Vector2f(861, 957), 
-        Vector2f(1006, 387), Vector2f(930, 305),  Vector2f(821, 657), Vector2f(705, 821),  Vector2f(799, 756),  // 10
-        Vector2f(983, 801),  Vector2f(716, 923),  Vector2f(838, 852), Vector2f(808, 968),  Vector2f(475, 673),
-        Vector2f(376, 902),  Vector2f(310, 67),   Vector2f(562, 17),  Vector2f(694, 56),   Vector2f(885, 128),  // 20
-        Vector2f(193, 201),  Vector2f(328, 172),  Vector2f(397, 200), Vector2f(620, 196),  Vector2f(849, 91),
-        Vector2f(135, 230),  Vector2f(196, 267),  Vector2f(317, 293), Vector2f(448, 348),  Vector2f(514, 365),  // 30
-        Vector2f(676, 226),  Vector2f(844, 174),  Vector2f(814, 373), Vector2f(980, 295),  Vector2f(838, 468),
-        Vector2f(72, 337),   Vector2f(93, 442),   Vector2f(125, 562), Vector2f(233, 607),  Vector2f(197, 645),  // 40
-        Vector2f(347, 679),  Vector2f(697, 520),  Vector2f(859, 518), Vector2f(1008, 536), Vector2f(649, 590),
-        Vector2f(966, 683),  Vector2f(52, 727),   Vector2f(128, 806), Vector2f(353, 747),  Vector2f(243, 840),  // 50
-        Vector2f(455, 798),  Vector2f(35, 106),   Vector2f(962, 191), Vector2f(957, 121),  Vector2f(977, 919),
-        Vector2f(1010, 987), Vector2f(410, 787),  Vector2f(67, 781),  Vector2f(666, 722),  Vector2f(527, 704),  // 60
-        Vector2f(633, 446),  Vector2f(611, 774),  Vector2f(77, 968),  Vector2f(176, 1018), Vector2f(654, 921),
-        Vector2f(484, 900),  Vector2f(476, 1018), Vector2f(602, 917), Vector2f(718, 986)  // 69
-  };
-};
-
-#endif
-
-
-
-
 void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   //const BaseSpawns& spawn = bot.GetBaseDuelSpawns().GetSpawns();
   float radius = bot.GetGame().GetShipSettings().GetRadius();
@@ -130,15 +45,6 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
                                           MapCoord(568, 454), MapCoord(454, 568), MapCoord(454, 454),
                                           MapCoord(568, 568), MapCoord(454, 568), MapCoord(568, 454)};
 
-    //bot.GetBlackboard().SetCombatRoleDefault(CombatRole::Rusher);
-    //bot.GetBlackboard().SetMultiFireDefault(false);
-    //bot.GetBlackboard().SetStealthDefault(false);
-    //bot.GetBlackboard().SetCloakDefault(false);
-    //bot.GetBlackboard().SetXradarDeufault(true);
-    //bot.GetBlackboard().SetDecoyDefault(true);
-    //bot.GetBlackboard().SetRepelDefault(false);
-    //bot.GetBlackboard().SetBurstDefault(true);
-
     bot.GetBlackboard().Set<bool>(BBKey::UseMultiFire, false);
     bot.GetBlackboard().Set<bool>(BBKey::UseStealth, false);
     bot.GetBlackboard().Set<bool>(BBKey::UseCloak, false);
@@ -154,38 +60,13 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseRepel, false);
     bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseBurst, true);
 
-    //bot.GetBlackboard().SetUseMultiFire(false);
-    //bot.GetBlackboard().SetUseStealth(false);
-    //bot.GetBlackboard().SetUseCloak(false);
-    //bot.GetBlackboard().SetUseXradar(true);
-    //bot.GetBlackboard().SetUseDecoy(true);
-    //bot.GetBlackboard().SetUseRepel(false);
-    //bot.GetBlackboard().SetUseBurst(true);
-
-  //  bot.GetBlackboard().Set<std::vector<Vector2f>>("PatrolNodes", patrol_nodes);
-   // bot.GetBlackboard().Set<uint16_t>("Freq", 999);
-   // bot.GetBlackboard().Set<uint16_t>("PubTeam0", 00);
-   // bot.GetBlackboard().Set<uint16_t>("PubTeam1", 01);
-    //bot.GetBlackboard().Set<uint16_t>(BB::PubTeam0, 00);
-    //bot.GetBlackboard().Set<uint16_t>(BB::PubTeam1, 01);
-    //bot.GetBlackboard().Set<uint16_t>("Ship", ship);
-    //bot.GetBlackboard().Set<Vector2f>("Spawn", Vector2f(512, 512));
-
     bot.GetBlackboard().Set<std::vector<MapCoord>>(BBKey::PatrolNodes, patrol_nodes);
-    //bot.GetBlackboard().Set<uint16_t>("Freq", 999);
     bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam0, 00);
     bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam1, 01);
     bot.GetBlackboard().Set<uint16_t>(BBKey::RequestedShip, ship);
     bot.GetBlackboard().Set<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
     bot.GetBlackboard().Set<RequestedCommand>(BBKey::RequestedCommand, RequestedCommand::ShipChange);
 
-   // bot.GetBlackboard().SetPatrolNodes(patrol_nodes);
-    //bot.GetBlackboard().SetFreq(999);
-   // bot.GetBlackboard().SetPubTeam0(00);
-  //  bot.GetBlackboard().SetPubTeam1(01);
-   // bot.GetBlackboard().SetShip((Ship)ship);
-  //  bot.GetBlackboard().SetCommandRequest(CommandRequestType::ShipChange);
-   // bot.GetBlackboard().SetCenterSpawn(MapCoord(512, 512));
   
   
     // behavior nodes
@@ -211,6 +92,8 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto DEVA_freqman = std::make_unique<deva::DevaFreqMan>();
   auto team_sort = std::make_unique<bot::SortBaseTeams>();
   auto DEVA_set_region = std::make_unique<deva::DevaSetRegionNode>();
+
+
 
   // logic nodes
   auto move_method_selector = std::make_unique<behavior::SelectorNode>(DEVA_move_to_enemy.get());
