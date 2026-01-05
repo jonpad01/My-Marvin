@@ -12,15 +12,19 @@
 
 namespace marvin {
 
+  static float SignedAngle(const Vector2f& from, const Vector2f& to) {
+    float dot = from.Dot(to);
+    float cross = from.x * to.y - from.y * to.x;
+    return std::atan2(cross, dot); // radians (-pi .. +pi)
+  }
+
 float GetCurrentSpeed(GameProxy& game) {
   return game.GetPlayer().velocity.Length();
 }
 
-SteeringBehavior::SteeringBehavior() : rotation_(0.0f) {}
-
 void SteeringBehavior::Reset() {
   force_ = Vector2f();
-  rotation_ = 0.0f;
+  rotation_.reset();
 }
 
 void SteeringBehavior::Seek(Bot& bot, Vector2f target, float multiplier) {
@@ -41,33 +45,57 @@ void SteeringBehavior::Flee(Bot& bot, Vector2f target) {
   force_ += desired - game.GetPlayer().velocity;
 }
 
-void SteeringBehavior::Arrive(Bot& bot, Vector2f target, float deceleration) {
+void SteeringBehavior::Arrive(Bot& bot, Vector2f target, Vector2f target_velocity) {
   auto& game = bot.GetGame();
-  float max_speed = game.GetMaxSpeed();
-  // the desired final speed
-  float final_speed = 0.0f;
+
+  target_ = target;
+
+ // float turn_rate_rad = (game.GetRotation() / 400.0f) * 2.0f * M_PI;
+  Vector2f vel = game.GetPlayer().velocity;
+  float thrust = game.GetThrust();
+  float max_speed = game.GetMaxSpeed() + 1.0f; // fix for jitter when hitting top speed
+
+
+ // Vector2f vel_dir = Normalize(vel);
+ // Vector2f brake_dir = -vel_dir;
+
+  //float angle_to_brake = std::abs(SignedAngle(brake_dir, game.GetPlayer().GetHeading()));
+ // float time_to_rotate = angle_to_brake / turn_rate_rad;
+ // float distance_during_turn = vel.Length() * time_to_rotate;
+
+
 
   Vector2f to_target = target - game.GetPosition();
-  //float current_speed = game.GetPlayer().velocity.Length();
-  // speed flying towards target waypoint
-  float current_speed = (Normalize(game.GetPlayer().velocity).Dot(Normalize(to_target))) * game.GetPlayer().velocity.Length();
   float distance = to_target.Length();
-  float thrust = game.GetThrust();
-  // how long it takes to stop
-  float time_to_zero = std::abs(current_speed) / thrust;
-  // how many tiles it needs to travel to adjust to this speed
-  float braking_distance = ((current_speed + final_speed) / 2.0f) * time_to_zero;
+  Vector2f relative_vel = vel - target_velocity;
 
-  if (distance > 0) {
-      // the speed it can move at with time to stop
-    float speed = (distance / time_to_zero) * 2.0f;
+ // float closing_speed = relative_vel.Dot(Normalize(to_target));
+ // float braking_distance = (closing_speed * closing_speed) / (2.0f * thrust);
+  //float total_braking_distance = braking_distance + distance_during_turn;
 
-    speed = std::min(speed, max_speed);
+  //float effective_distance = std::max(0.0f, distance - distance_during_turn);
 
-    Vector2f desired = Normalize(to_target) * speed;
+  //float desired_closing_speed = std::sqrt(2.0f * thrust * effective_distance);
 
-    force_ += desired - game.GetPlayer().velocity;
-  }
+
+  float desired_closing_speed = (std::sqrt(std::max(0.0f, 2.0f * thrust * distance)));
+  desired_closing_speed = std::min(desired_closing_speed, max_speed);
+
+  Vector2f desired_relative_vel = Normalize(to_target) * desired_closing_speed;
+  Vector2f desired_world_vel = desired_relative_vel + target_velocity;
+
+  force_ += desired_world_vel - vel; 
+
+  //Vector2f accel = desired_world_vel - vel;
+
+ // float accel_len = accel.Length();
+ // float max_accel = thrust; 
+
+ // if (accel_len > max_accel)
+  //  accel = accel * (max_accel / accel_len);
+
+  //force_ += accel;
+  RenderWorldBox(game.GetPosition(), target, 0.875f);
 }
 
 void SteeringBehavior::AnchorSpeed(Bot& bot, Vector2f target) {
@@ -110,12 +138,15 @@ void SteeringBehavior::Face(Bot& bot, Vector2f target) {
   auto& game = bot.GetGame();
   Vector2f to_target = target - game.GetPosition();
 
-  Vector2f heading = Rotate(game.GetPlayer().GetHeading(), rotation_);
+  Vector2f heading = Rotate(game.GetPlayer().GetHeading(), rotation_.value_or(0.0f));
 
   float rotation = std::atan2(heading.y, heading.x) - std::atan2(to_target.y, to_target.x);
 
-  rotation_ += WrapToPi(rotation);
+  rotation_.emplace(rotation_.value_or(0.0f) + WrapToPi(rotation));
 }
+
+
+#if 0 
 
 void SteeringBehavior::Steer(Bot& bot, bool backwards) {
   auto& game = bot.GetGame();
@@ -153,18 +184,22 @@ void SteeringBehavior::Steer(Bot& bot, bool backwards) {
   // If the steering system calculated any rotation then rotate from the heading
   // to desired orientation.
   if (rotation_ != 0.0f) {
-    rotate_target = Rotate(heading, -rotation_);
+    //rotate_target = Rotate(heading, -rotation_);  // changed
+    Vector2f rotDir = Rotate(heading, -rotation_);
+    rotate_target = Normalize(rotDir + steering_direction);
   }
 
   if (!has_force) {
     steering_direction = rotate_target;
   }
   Vector2f perp = marvin::Perpendicular(heading);
-  bool behind = force_.Dot(heading) < 0;
+  //bool behind = force_.Dot(heading) < 0;  // changed
+  bool behind = steering_direction.Dot(heading) < 0;
   // This is whether or not the steering direction is pointing to the left of
   // the ship.
   bool leftside = steering_direction.Dot(perp) < 0;
 
+#if 0 
   // Cap the steering direction so it's pointing toward the rotate target.
   if (steering_direction.Dot(rotate_target) < 0.75) {
     float rotation = 0.1f;
@@ -177,6 +212,7 @@ void SteeringBehavior::Steer(Bot& bot, bool backwards) {
 
     leftside = steering_direction.Dot(perp) < 0;
   }
+#endif
 
   bool clockwise = !leftside;
 
@@ -204,22 +240,129 @@ void SteeringBehavior::Steer(Bot& bot, bool backwards) {
     keys.Set(VK_LEFT, !clockwise);
   }
 
-#if 0
+#if DEBUG_RENDER_STEERING
 
     Vector2f center = GetWindowCenter();
 
     if (has_force) {
-        Vector2f force_direction = Normalize(force);
-        float force_percent = force.Length() / 22.0f;
+        Vector2f force_direction = Normalize(force_);
+        float force_percent = force_.Length() / 22.0f;
         RenderLine(center, center + (force_direction * 100 * force_percent), RGB(255, 255, 0)); //yellow
     }
     
-    RenderLine(center, center + (heading * 100), RGB(255, 0, 0)); //red
-    RenderLine(center, center + (perp * 100), RGB(100, 0, 100));  //purple
+   // RenderLine(center, center + (heading * 100), RGB(255, 0, 0)); //red
+  //  RenderLine(center, center + (perp * 100), RGB(100, 0, 100));  //purple
     RenderLine(center, center + (rotate_target * 85), RGB(0, 0, 255)); //blue
     RenderLine(center, center + (steering_direction * 75), RGB(0, 255, 0)); //green
 #endif
 }
+
+#endif
+
+
+
+
+void SteeringBehavior::Steer(Bot& bot, float dt, SteeringOverride override) {
+  auto& game = bot.GetGame();
+  auto& bb = bot.GetBlackboard();
+  auto& keys = bot.GetKeys();
+
+  constexpr float DEG_TO_RAD = (float)M_PI / 180.0f;
+  constexpr float HALF_PI = (float)M_PI / 2.0f;
+
+  // continuum has 40 possible rotation headings
+  // each possible rotation point is about 9 degress
+  float deadzone = DEG_TO_RAD * (360.0f / 40.0f) * 0.5f;
+
+  float rotation_deg_per_sec = game.GetRotation() * 0.9f;
+  float rotation_rad_per_sec = rotation_deg_per_sec * DEG_TO_RAD;
+  float max_turn_this_frame = rotation_rad_per_sec * dt;
+
+  Vector2f heading = game.GetPlayer().GetHeading();
+
+  bool has_force = force_.LengthSq() > 0.0f;
+
+  // Desired movement direction
+  Vector2f desired_dir = has_force ? Normalize(force_) : heading;
+  Vector2f desired_heading = desired_dir;
+
+
+  // ---- SIGNED ANGLE CONTROLLER ----
+
+  // signed angle expects y coord to be reversed and im too lazy to learn how it works
+  float angle = -SignedAngle(heading, desired_heading);
+  float abs_angle = std::abs(angle);
+
+  // if desired heading is behind the ship just fly in reverse, maybe it can rotate back when
+  // its flying at top speed
+  bool invert = (abs_angle > HALF_PI && override == SteeringOverride::None) || override == SteeringOverride::Reverse;
+
+  if (invert) {
+    angle = -angle;
+    abs_angle = M_PI - abs_angle;
+  }
+
+  // the bot was told to face something
+  if (rotation_.has_value()) {
+    deadzone *= 0.5f;
+    angle = rotation_.value();
+    abs_angle = std::abs(angle);
+  }
+  else if (!has_force) {
+    return; // nothing to do
+  }
+
+  // ---- ROTATION ----
+
+  if (abs_angle > deadzone) {
+    if (angle > 0.0f) {
+      keys.Set(VK_LEFT, true);
+      keys.Set(VK_RIGHT, false);
+    }
+    else {
+      keys.Set(VK_RIGHT, true);
+      keys.Set(VK_LEFT, false);
+    }
+  }
+
+  // ---- THRUST ----
+  if (!has_force) return;
+
+  bool can_face_target = abs_angle < (max_turn_this_frame * 2.0f);
+
+  // the force is perpendicular-ish to the heading
+  // this can probably be based on the ships max turn as well instead of arbitrary radians
+  bool target_perp = abs_angle > 1.0f && abs_angle < 2.14f;
+
+  // dont apply thrust if the ship can't rotate in time, good only when the desired heading is only slightly out of range
+  if (!can_face_target && !target_perp) return;
+
+  // if the desired heading is nearly perp, try to kill the ships momentum 
+  if (target_perp) {
+    desired_dir = -Normalize(game.GetPlayer().velocity);
+  }
+
+  bool behind = heading.Dot(desired_dir) < 0.0f;
+
+  if (behind) {
+    keys.Press(VK_DOWN);
+  }
+  else {
+    keys.Press(VK_UP);
+  }
+
+
+#if DEBUG_RENDER_STEERING
+  Vector2f center = GetWindowCenter();
+  RenderLine(center, center + heading * 80, RGB(255, 0, 0)); // heading (red)
+  RenderLine(center, center + desired_dir * 80, RGB(0, 255, 0)); // desired (green)
+  RenderLine(center, center + force_ * 3.0f, RGB(255, 255, 0)); //yellow
+  g_RenderState.RenderDebugText("     abs_angle: %07.4f", abs_angle);
+#endif
+}
+
+
+
 
 void SteeringBehavior::AvoidWalls(Bot& bot, float max_look_ahead) {
   auto& game = bot.GetGame();
@@ -261,9 +404,9 @@ void SteeringBehavior::AvoidWalls(Bot& bot, float max_look_ahead) {
       result.distance = check_distance;
       color = RGB(0, 100, 0);
     }
-#if 0
-        RenderWorldLine(game_.GetPosition(), game_.GetPosition(),
-            game_.GetPosition() + Normalize(feelers[i]) * result.distance, color);
+#if DEBUG_RENDER_STEERING
+        RenderWorldLine(game.GetPosition(), game.GetPosition(),
+            game.GetPosition() + Normalize(feelers[i]) * result.distance, color);
 #endif
   }
 

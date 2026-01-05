@@ -1156,7 +1156,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
     hover_distance += 5;
   }
 
-  ctx.bot->Move(shot_position, hover_distance);
+  ctx.bot->Move(target->position, hover_distance, target->velocity);
 
   ctx.bot->GetSteering().Face(*ctx.bot, shot_position);
 

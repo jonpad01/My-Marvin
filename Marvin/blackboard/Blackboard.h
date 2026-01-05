@@ -41,14 +41,14 @@ namespace marvin {
       TeamAnchor, EnemyAnchor,
       TeamPlayerList, EnemyTeamPlayerList, TeamShipCount,
       TeamInBase, EnemyInBase, LastInBase,
-      FlyInReverse, ActivateSwarm,
+      SteeringOverride, ActivateSwarm,
       // hyperspace stuff
       ReadingAnchorList, AnchorHasSummoner, FlaggingEnabled, Jackpot,
       // balling stuff
       TargetBall,
       // centering stuff
       PatrolIndex, PatrolNodes, FreqPopulationCount, CenterSpawnPoint,
-      FrequencyLocked,
+      FrequencyLocked, HoverDistance,
       // enemy targeting stuff
       TargetPlayer, AimingSolution, CombatDifficulty, TargetInSight,
       BombTimer,

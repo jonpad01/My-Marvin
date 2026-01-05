@@ -75,24 +75,14 @@ class Bot {
     return base_paths_->GetPath()[GetTeamSafeIndex(freq)];
   }
 
-  void Move(const Vector2f& target, float target_distance);
-
-  bool MaxEnergyCheck();
-  void FindPowerBallGoal();
+  void Move(const Vector2f& target, float target_distance, Vector2f target_velocity = {0.0f,0.0f});
 
  private:
 
-   enum class ThreadState { Start, Running, Finished };
+   enum class ThreadState { Start, StartAll, Running, RunningAll, Finished };
 
   void BuildRootTree();
   void SetGoals();
-
-  float radius_;
-
-  Vector2f powerball_goal_;
-  Vector2f powerball_goal_path_;
-  std::string powerball_arena_;
-  
 
   GameProxy* game_;
   std::unique_ptr<path::Pathfinder> pathfinder_;
@@ -113,6 +103,7 @@ class Bot {
   DoorState door_state_;
   uint16_t ship_;
   uint16_t freq_;
+  float radius_;
   std::string map_name_;
   Zone zone_;
 
@@ -121,8 +112,9 @@ class Bot {
   Time time_;
 
   std::thread load_worker_;
-  ThreadState worker_state_ = ThreadState::Start;
+  ThreadState worker_state_ = ThreadState::StartAll;
 };
+
 
 namespace bot {
 

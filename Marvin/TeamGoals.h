@@ -13,8 +13,8 @@ namespace marvin {
   struct TeamGoals {
     // devastation set
     std::string base_name;
-    MapCoord t0;
-    MapCoord t1;
+    MapCoord t0; 
+    MapCoord t1; 
     // hyperspace set
     MapCoord hyper_gate;
     MapCoord flag_room;

@@ -106,8 +106,8 @@ class ContinuumGameProxy : public GameProxy {
   ChatMessage FindChatMessage(std::string match) override;
   std::vector<ChatMessage> GetCurrentChat() override;
   std::vector<ChatMessage> GetChatHistory() override;
-  int GetEnergy() const override;
-  const float GetEnergyPercent() override;
+  uint16_t GetEnergy() const override;
+  const uint16_t GetEnergyPercent() override;
   Vector2f GetPosition() const override;
   HWND GetGameWindowHandle();
   //const ShipFlightStatus& GetShipStatus() const override;
@@ -115,6 +115,8 @@ class ContinuumGameProxy : public GameProxy {
   const Player& GetPlayer() const override;
   const std::vector<Player>& GetPlayers() const override;
 
+  float GetBulletTravel() const override;
+  float GetBombTravel() const override;
   const float GetMaxEnergy() override;
   const float GetThrust() override;
   const float GetRotation() override;

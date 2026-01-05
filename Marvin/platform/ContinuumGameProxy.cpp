@@ -95,7 +95,7 @@ bool ContinuumGameProxy::Update() {
 
   // this fixes memory exceptions when arena recycles
   // doesnt fix multiple bots downloading a new map and writing to the same .lvl file
-  if (!IsInGame()) return false;
+  if (!IsInGame() || GameIsClosing()) return false;
 
 
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
@@ -706,7 +706,7 @@ HWND ContinuumGameProxy::GetGameWindowHandle() {
   return handle;
 }
 
-int ContinuumGameProxy::GetEnergy() const {
+uint16_t ContinuumGameProxy::GetEnergy() const {
   return player_->energy;
 }
 
@@ -751,16 +751,16 @@ const Player* ContinuumGameProxy::GetPlayerByName(const std::string& name) const
   return nullptr;
 }
 
-const float ContinuumGameProxy::GetEnergyPercent() {
-  return ((float)GetEnergy() / player_->flight_status.max_energy) * 100.0f;
+const uint16_t ContinuumGameProxy::GetEnergyPercent() {
+  return (100 * GetEnergy() / (uint16_t)player_->flight_status.max_energy);
 }
 
 const float ContinuumGameProxy::GetMaxEnergy() {
   return (float)player_->flight_status.max_energy;
 }
 
-const float ContinuumGameProxy::GetThrust() {
-  return (float)player_->flight_status.thrust * 10.0f / 16.0f;
+const float ContinuumGameProxy::GetThrust() { // this is right.
+  return (float)player_->flight_status.thrust  * 10.0f / 16.0f;
 }
 
 const float ContinuumGameProxy::GetMaxSpeed() {
@@ -787,14 +787,15 @@ const float ContinuumGameProxy::GetMaxSpeed(u16 ship) {
 }
 
 const float ContinuumGameProxy::GetRotation() {
-  // float rotation = GetShipSettings().GetInitialRotation();
 
-  // if (zone_ == Zone::Devastation) {
-  //   rotation = GetShipSettings().GetMaximumRotation();
-  // }
-  //
-  // changed from  / 200.f as / 400.f converts to rotations/second
-  float rotation = ((float)player_->flight_status.rotation) / 400.0f;
+  // a value of 400 = the ship rotates 360 degrees in 1 second
+   
+  //float degrees_per_second = rotation_units * (360.0f / 400.0f);
+  //float radians_per_second = rotation_units * (2(PI) / 400);
+
+
+
+  float rotation = ((float)player_->flight_status.rotation);
 
   return rotation;
 }
@@ -821,6 +822,20 @@ const std::string ContinuumGameProxy::GetMapFile() const {
   std::string file = process_.ReadString((*(u32*)(game_addr_ + 0x127ec + 0x6C4)) + 0x01, 16);
 
   return file;
+}
+
+float ContinuumGameProxy::GetBulletTravel() const {
+  float speed = GetShipSettings().GetBulletSpeed();
+  float time = GetSettings().GetBulletAliveTime();
+
+  return speed * time;
+}
+
+float ContinuumGameProxy::GetBombTravel() const {
+  float speed = GetShipSettings().GetBombSpeed();
+  float time = GetSettings().GetBombAliveTime();
+
+  return speed * time;
 }
 
 void ContinuumGameProxy::SetVelocity(Vector2f desired) {

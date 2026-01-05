@@ -21,7 +21,7 @@
 namespace marvin {
 namespace hs {
 
-  enum class HSTree : uint8_t { CenterGunner, CenterBomber, PowerBaller };
+  enum class HSTree : uint8_t { CenterGunner, CenterBomber, PowerBaller, CenterSafer, DeadPlayer, Spectator };
   using enum HSTree;
 
 const std::string kBuySuccess = "You purchased ";
@@ -57,85 +57,89 @@ const std::vector<MapCoord> kBaseTunnelGates = {MapCoord(961, 63),  MapCoord(960
                                                 MapCoord(65, 65), MapCoord(512, 64)};
 
 uint8_t HSTreeSelector::GetBehaviorTree(Bot& bot) {
+  auto& game = bot.GetGame();
 
-  uint16_t ship = bot.GetGame().GetPlayer().ship;
-  uint16_t freq = bot.GetGame().GetPlayer().frequency;
+  uint16_t ship = game.GetPlayer().ship;
+  uint16_t freq = game.GetPlayer().frequency;
+  bool on_center_safe = game.GetMap().GetTileId(game.GetPosition()) == marvin::kSafeTileId &&
+    bot.GetRegions().IsConnected(game.GetPosition(), MapCoord(512, 512));
   bool flagging = freq == 90 || freq == 91;
 
   uint8_t key = (uint8_t)CenterGunner;
 
+  if (game.GetPlayer().dead) return (uint8_t)DeadPlayer;
+
+  if (on_center_safe && ship < 8) {
+   // return (uint8_t)CenterSafer;
+  }
+
   switch (ship) {
   case 0: {
     if (flagging) {
-      key = (uint8_t)CenterGunner;
+     
     }
     else {
-      key = (uint8_t)CenterGunner;
+ 
     }
   }break;
   case 1: {
     if (flagging) {
-      key = (uint8_t)CenterBomber;
+      //key = (uint8_t)CenterBomber;
     }
     else {
-      key = (uint8_t)CenterBomber;
+      //key = (uint8_t)CenterBomber;
     }
   }break;
   case 2: {
     if (flagging) {
-      key = (uint8_t)CenterGunner;
+      
     }
     else {
-      key = (uint8_t)CenterGunner;
+     
     }
   }break;
   case 3: {
     if (flagging) {
-      key = (uint8_t)CenterBomber;
+      //key = (uint8_t)CenterBomber;
     }
     else {
-      key = (uint8_t)CenterBomber;
+      //key = (uint8_t)CenterBomber;
     }
   }break;
   case 4: {
     if (flagging) {
-      key = (uint8_t)CenterGunner;
+     
     }
     else {
-      key = (uint8_t)CenterGunner;
+  
     }
   }break;
   case 5: {
     if (flagging) {
-      key = (uint8_t)CenterBomber;
+      //key = (uint8_t)CenterBomber;
     }
     else {
-      key = (uint8_t)CenterBomber;
+      //key = (uint8_t)CenterBomber;
     }
   }break;
   case 6: {
     if (flagging) {
-      key = (uint8_t)CenterGunner;
+     
     }
     else {
-      key = (uint8_t)CenterGunner;
+     
     }
   }break;
   case 7: {
     if (flagging) {
-      key = (uint8_t)CenterGunner;
+     
     }
     else {
-      key = (uint8_t)CenterGunner;
+     
     }
   }break;
   case 8: {
-    if (flagging) {
-      key = (uint8_t)CenterGunner;
-    }
-    else {
-      key = (uint8_t)CenterGunner;
-    }
+    key = (uint8_t)Spectator;
   }break;
   }
 
@@ -178,9 +182,13 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   bouncing_shot = engine_->MakeNode<bot::BouncingShotNode>();
   patrol_center = engine_->MakeNode<bot::PatrolNode>();
   move_to_enemy = engine_->MakeNode<bot::MoveToEnemyNode>();
+  center_safe_path = engine_->MakeNode<hs::HSCenterSafePathNode>();
 
   BuildCenterGunnerTree();
   BuildCenterBomberTree();
+  CenterSaferTree();
+  SpectatorTree();
+  DeadPlayerTree();
 
 #if 0 
   
@@ -256,76 +264,14 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
   auto flagger_sequence = std::make_unique<behavior::SequenceNode>(HS_is_flagging.get(), flagger_selector.get());
 
   auto HS_move_to_depot_sequence = std::make_unique<behavior::SequenceNode>(HS_move_to_depot.get(), follow_path_.get());
-
-
- 
-
-  
-
-
-
-  engine_->PushRoot(std::move(root_sequence));
-
-  engine_->PushNode(std::move(move_method_selector));
-  engine_->PushNode(std::move(los_weapon_selector));
-  engine_->PushNode(std::move(parallel_shoot_enemy));
-  engine_->PushNode(std::move(los_shoot_conditional));
-  engine_->PushNode(std::move(path_to_enemy_sequence));
-  engine_->PushNode(std::move(path_or_shoot_selector));
-  engine_->PushNode(std::move(find_enemy_in_center_sequence));
-  engine_->PushNode(std::move(move_to_enemy));
-  engine_->PushNode(std::move(anchor_base_path));
-  engine_->PushNode(std::move(is_anchor));
-  engine_->PushNode(std::move(anchor_los_parallel));
-  engine_->PushNode(std::move(anchor_los_sequence));
-  engine_->PushNode(std::move(anchor_los_selector));
-  engine_->PushNode(std::move(bouncing_shot));
-  engine_->PushNode(std::move(bounce_path_parallel));
-  engine_->PushNode(std::move(anchor_base_path_sequence));
-  engine_->PushNode(std::move(enemy_path_logic_selector));
-  engine_->PushNode(std::move(find_enemy_in_base));
-  engine_->PushNode(std::move(HS_flagger_find_enemy_selector));
-  engine_->PushNode(std::move(find_enemy_in_base_sequence));
-  engine_->PushNode(std::move(HS_drop_flags_sequence));
-  engine_->PushNode(std::move(HS_drop_flags));
-  //engine_->PushNode(std::move(find_enemy_selector));
-  engine_->PushNode(std::move(flagger_selector));
-  engine_->PushNode(std::move(HS_base_patrol));
-  engine_->PushNode(std::move(patrol_center));
-  engine_->PushNode(std::move(HS_base_patrol_sequence));
-  engine_->PushNode(std::move(patrol_center_sequence));
-  engine_->PushNode(std::move(HS_gather_flags_sequence));
-  engine_->PushNode(std::move(HS_move_to_base_sequence));
-  engine_->PushNode(std::move(HS_move_to_base));
-  engine_->PushNode(std::move(HS_gather_flags));
-  engine_->PushNode(std::move(HS_buy_sell));
-  engine_->PushNode(std::move(HS_move_to_depot_sequence));
-  engine_->PushNode(std::move(HS_move_to_depot));
-  engine_->PushNode(std::move(HS_shipstatus));
-  engine_->PushNode(std::move(HS_combat_role));
- // engine_->PushNode(std::move(patrol_selector));
-  engine_->PushNode(std::move(flagger_sequence));
-  engine_->PushNode(std::move(HS_toggle));
-  engine_->PushNode(std::move(HS_flagger_attach));
-  engine_->PushNode(std::move(HS_warp));
-  
-  engine_->PushNode(std::move(team_sort));
-  
-  //engine_->PushNode(std::move(marvin_finder));
-  engine_->PushNode(std::move(HS_shipman));
-  
-  engine_->PushNode(std::move(HS_set_defense_position));
-  engine_->PushNode(std::move(HS_player_sort));
-  engine_->PushNode(std::move(HS_set_region));
-  engine_->PushNode(std::move(HS_is_flagging));
-  engine_->PushNode(std::move(action_selector));
 #endif
 }
 
 
 void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
-
   uint8_t index = (uint8_t)HSTree::CenterGunner;
+
+
 
   auto* path_to_enemy_sequence =
     engine_->MakeNode<behavior::SequenceNode>(path_to_enemy_.get(), follow_path_.get());
@@ -357,7 +303,6 @@ void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
 
 
 void HyperspaceBehaviorBuilder::BuildCenterBomberTree() {
-
   uint8_t index = (uint8_t)HSTree::CenterBomber;
 
   auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index,
@@ -365,10 +310,68 @@ void HyperspaceBehaviorBuilder::BuildCenterBomberTree() {
 }
 
 
+void HyperspaceBehaviorBuilder::CenterSaferTree() {
+  uint8_t index = (uint8_t)HSTree::CenterSafer;
+
+  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index,
+    commands_.get(), HS_freqman, center_safe_path, follow_path_.get());
+}
+
+
+void HyperspaceBehaviorBuilder::SpectatorTree() {
+  uint8_t index = (uint8_t)HSTree::Spectator;
+  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index, commands_.get());
+}
+
+void HyperspaceBehaviorBuilder::DeadPlayerTree() {
+  uint8_t index = (uint8_t)HSTree::DeadPlayer;
+  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index, commands_.get());
+}
 
 
 
+// usage, pick a random path out of center safe
+behavior::ExecuteResult HSCenterSafePathNode::Execute(behavior::ExecuteContext& ctx) {
+  PerformanceTimer timer;
+  auto& game = ctx.bot->GetGame();
+  auto& bb = ctx.bot->GetBlackboard();
 
+  Vector2f pos{ 523, 523 };
+
+  // hardcoded for lancs, they have a hard time
+  if (game.GetPlayer().ship == 6) {
+    ctx.bot->GetPathfinder().FindPath(game.GetMap(), game.GetPosition(), pos, game.GetRadius());
+
+    g_RenderState.RenderDebugText("  HSPathToSafeWarpNode(lanc): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  const std::unordered_map<std::string, std::bitset<1024 * 1024>>& uMap = game.GetMap().GetRegions();
+  float closest_dist = 999999.9f;
+  MapCoord closest_coord;
+
+  for (const auto& [region_name, tiles] : uMap) {
+    if (region_name != "centerwarp") continue;
+
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+      if (!tiles.test(i)) continue;
+
+      MapCoord coord{ uint16_t(i % 1024), uint16_t(i / 1024) };
+      float dist = coord.Distance(game.GetPosition());
+
+      if (dist < closest_dist) {
+        closest_dist = dist;
+        closest_coord = coord;
+      }
+    }
+    break;
+  }
+
+  ctx.bot->GetPathfinder().FindPath(game.GetMap(), game.GetPosition(), closest_coord, game.GetRadius());
+
+  g_RenderState.RenderDebugText("  HSPathToSafeWarpNode(success): %llu", timer.GetElapsedTime());
+  return behavior::ExecuteResult::Success;
+}
 
 
 
@@ -1190,17 +1193,17 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
   if (!flagging && jackpot >= kJackpotTrigger) {
     uint64_t unique_delay = GetJoinDelay(ctx);
     if (ctx.bot->GetTime().TimedActionDelay("hsfreqmanagernode-join", unique_delay)) {
-      game.HSFlag();
+    //  game.HSFlag();
 
-      g_RenderState.RenderDebugText("  HSFreqMan(Join Flag Team): %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Stop;
+   //   g_RenderState.RenderDebugText("  HSFreqMan(Join Flag Team): %llu", timer.GetElapsedTime());
+     // return behavior::ExecuteResult::Stop;
     }
-    g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Join Flag Team): %llu", timer.GetElapsedTime());
-    return behavior::ExecuteResult::Ignore;
+  //  g_RenderState.RenderDebugText("  HSFreqMan(Waiting To Join Flag Team): %llu", timer.GetElapsedTime());
+  //  return behavior::ExecuteResult::Ignore;
   }
 
   // leave a flag team
-  if (flagging && jackpot < kJackpotTrigger) {
+  if (flagging ) { //&& jackpot < kJackpotTrigger) {
     uint64_t unique_delay = GetLeaveDelay(ctx);
     if (ctx.bot->GetTime().TimedActionDelay("hsfreqmanagernode-leave", unique_delay)) {
       game.SetFreq(FindOpenFreq(fList, 0));

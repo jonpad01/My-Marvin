@@ -65,7 +65,7 @@ struct Player {
   bool multifire_status;
  // bool multifire_capable;
 
-  int32_t energy;
+  uint16_t energy;
   uint16_t id;
   uint16_t attach_id;
   uint16_t ship; // 0 = warbird, 8 = spectator 

@@ -44,6 +44,7 @@ enum class RequestedCommand : short { ShipChange, ArenaChange, FreqChange, None 
 enum class WeaponType : short { None, Bullet, BouncingBullet, Bomb, ProximityBomb, Repel, Decoy, Burst, Thor };
 enum class AnchorType : short { Summoner, Evoker, None};
 enum class Ship : uint16_t { Warbird, Javelin, Spider, Leviathan, Terrier, Weasel, Lancaster, Shark, Spectator };
+enum class SteeringOverride { Forward, Reverse, None };
 
 enum class ChatType {
   Arena,
@@ -170,8 +171,8 @@ class GameProxy {
   virtual ~GameProxy() {}
 
   virtual std::string GetName() = 0;
-  virtual int GetEnergy() const = 0;
-  virtual const float GetEnergyPercent() = 0;
+  virtual uint16_t GetEnergy() const = 0;
+  virtual const uint16_t GetEnergyPercent() = 0;
   virtual Vector2f GetPosition() const = 0;
 
   virtual const Player& GetPlayer() const = 0;
@@ -188,6 +189,8 @@ class GameProxy {
   virtual const float GetMaxSpeed(u16 ship) = 0;
   virtual const float GetThrust() = 0;
   virtual const uint64_t GetRespawnTime() = 0;
+  virtual float GetBulletTravel() const = 0;
+  virtual float GetBombTravel() const = 0;
 
 
   virtual const Zone GetZone() = 0;

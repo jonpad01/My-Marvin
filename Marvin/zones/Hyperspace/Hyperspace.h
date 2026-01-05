@@ -48,6 +48,11 @@ class HSSetCombatRoleNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 };
 
+class HSCenterSafePathNode : public behavior::BehaviorNode {
+public:
+  behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
+};
+
 class HSBuySellNode : public behavior::BehaviorNode {
  public:
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
@@ -141,6 +146,9 @@ private:
 
   void BuildCenterGunnerTree();
   void BuildCenterBomberTree();
+  void CenterSaferTree();
+  void SpectatorTree();
+  void DeadPlayerTree();
 
   bot::GetOutOfSpecNode* get_out_of_spec;
   HSFreqManagerNode* HS_freqman;
@@ -148,6 +156,7 @@ private:
   bot::BouncingShotNode* bouncing_shot;
   bot::PatrolNode* patrol_center;
   bot::MoveToEnemyNode* move_to_enemy;
+  HSCenterSafePathNode* center_safe_path;
 };
 
 }  // namespace hs

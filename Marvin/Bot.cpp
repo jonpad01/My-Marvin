@@ -77,23 +77,24 @@ Bot::Bot(GameProxy* game) : game_(game) {
   influence_map_ = std::make_unique<InfluenceMap>();
   door_state_ = DoorState::Load();
   radius_ = game->GetRadius();
-  map_name_ = game_->GetMapFile();
+  //map_name_ = game_->GetMapFile();
   ship_ = game_->GetPlayer().ship;
   freq_ = game_->GetPlayer().frequency;
-  zone_ = game_->GetZone();
+  zone_ = game->GetZone();
   ctx_.bot = this;
 
-  SetGoals();
-  BuildRootTree();
 }
 
 bool Bot::UpdateProcessorThread() {
+
   switch (worker_state_) {
+  case ThreadState::StartAll: 
   case ThreadState::Start: {
+    worker_state_ = (ThreadState)(int(worker_state_) + 2);  // hacky enum addition
     load_worker_ = std::thread(&Bot::ProcessMap, this);
-    worker_state_ = ThreadState::Running;
     return false;
   } break;
+  case ThreadState::RunningAll:
   case ThreadState::Running: {
     return false;
   } break;
@@ -119,6 +120,8 @@ void Bot::ProcessMap() {
   ship_ = game_->GetPlayer().ship;
   freq_ = game_->GetPlayer().frequency;
   door_state_ = DoorState::Load();
+  zone_ = zone;
+  map_name_ = map_name;
 
   command_system_ = std::make_unique<CommandSystem>(zone);                // 0ms
   //log.Write("Command System Loaded", timer.GetElapsedTime());
@@ -136,16 +139,10 @@ void Bot::ProcessMap() {
   pathfinder_->SetMapWeights(map, radius_);                               // 250ms
   //  log.Write("PathFinder Weights Loaded", timer.GetElapsedTime());  
   
-  if (map_name_ != map_name) {
+  if (worker_state_ == ThreadState::RunningAll) {
     SetGoals();
-  }
-
-  if (zone_ != zone) {
     BuildRootTree();
   }
-
-  map_name_ = map_name;
-  zone_ = zone;
 
   worker_state_ = ThreadState::Finished;
   log << "Bot loaded in: " << timer.GetElapsedTime() << "us" << std::endl;
@@ -168,22 +165,28 @@ void Bot::Update(float dt) {
   
   //  -------- Reprocess Map ----------------
 
+  if (!UpdateProcessorThread()) return;
+
   if (map_name != map_name_) {
+    map_name_ = map_name;
     log << "Map changed from: " << map_name_ << " to: " << map_name << std::endl;
-    worker_state_ = ThreadState::Start;
+    worker_state_ = ThreadState::StartAll;
+    return;
   }
 
   if (door_state.door_mode != door_state_.door_mode) {
+    door_state_.door_mode = door_state.door_mode;
     log << "Door state changed from: " << door_state_.door_mode << " to: " << door_state.door_mode << std::endl;
     worker_state_ = ThreadState::Start;
+    return;
   }
 
   if (radius != radius_) {
+    radius_ = radius;
     log << "Ship radius changed from: " << radius_ << " to: " << radius << std::endl;
-    worker_state_ = ThreadState::Start;
+    worker_state_ = ThreadState::StartAll;
+    return;
   }
-
-  if (!UpdateProcessorThread()) return;
 
   //  -------- Reprocess Map ----------------
    
@@ -235,24 +238,19 @@ void Bot::Update(float dt) {
   behavior_->Update(ctx_);
 
 
+ // g_RenderState.RenderDebugText("  rotation: %07.2f", game_->GetRotation());
+//  g_RenderState.RenderDebugText("  speed 2: %f", current_speed);
+//  g_RenderState.RenderDebugText("  speed 3: %f", bot_speed);
+ 
+  //RenderWorldBox(game_->GetPosition(), Vector2f(512, 512), 0.875f);
 
-  //#if 0 // Test wall avoidance. This should be moved somewhere in the behavior tree
-  //std::vector<Vector2f> path = ctx_.blackboard.ValueOr<std::vector<Vector2f>>("Path", std::vector<Vector2f>());
-  const std::vector<Vector2f>& path = pathfinder_->GetPath();
-  constexpr float kNearbyTurn = 20.0f;
-  constexpr float kMaxAvoidDistance = 35.0f;
-
-  if (!path.empty() && path[0].DistanceSq(game_->GetPosition()) < kNearbyTurn * kNearbyTurn) {
-    steering_.AvoidWalls(*this, kMaxAvoidDistance);
-  }
-  //#endif
+  //Move(Vector2f(512, 512), 0, Vector2f(0, 0));
 
   if (ship != 8) {
-   // steering_.Steer(*this, ctx_.blackboard.ValueOr<bool>("SteerBackwards", false));
-    bool fly_in_reverse = ctx_.bot->GetBlackboard().ValueOr<bool>(BBKey::FlyInReverse, false);
-    steering_.Steer(*this, fly_in_reverse);
-    //ctx_.bot->GetBlackboard().SetSteerBackwards(false);
-    ctx_.bot->GetBlackboard().Set<bool>(BBKey::FlyInReverse, false);
+    SteeringOverride override =
+      ctx_.bot->GetBlackboard().ValueOr<SteeringOverride>(BBKey::SteeringOverride, SteeringOverride::None);
+    steering_.Steer(*this, dt, override);
+    ctx_.bot->GetBlackboard().Set<SteeringOverride>(BBKey::SteeringOverride, SteeringOverride::None);
   }
 
   //g_RenderState.RenderDebugText("BotUpdate: %llu", timer.TimeSinceConstruction());
@@ -315,11 +313,12 @@ void Bot::BuildRootTree() {
   this->behavior_ = builder->Build(*this);
 }
 
-void Bot::Move(const Vector2f& target, float target_distance) {
+void Bot::Move(const Vector2f& target, float target_distance, Vector2f target_velocity) {
   const Player& bot_player = game_->GetPlayer();
   float distance = bot_player.position.Distance(target);
   float speed_sq = game_->GetPlayer().velocity.LengthSq();
 
+# if 0
   if (speed_sq < 0.3f * 0.3f) {
     Vector2f direction = Normalize(target - bot_player.position);
     Vector2f new_direction;
@@ -335,110 +334,26 @@ void Bot::Move(const Vector2f& target, float target_distance) {
     steering_.Seek(*this, target);
     return;
   }
+#endif
 
   if (distance > target_distance) {
-    steering_.Arrive(*this, target, 0);
+    steering_.Arrive(*this, target, target_velocity);
   }
-
   else if (distance <= target_distance) {
     Vector2f to_target = target - bot_player.position;
 
-    steering_.Arrive(*this, target - Normalize(to_target) * target_distance, 0);
+    steering_.Arrive(*this, target - Normalize(to_target) * target_distance, target_velocity);
+  }
+
+  const std::vector<Vector2f>& path = pathfinder_->GetPath();
+  constexpr float kNearbyTurn = 20.0f;
+  constexpr float kMaxAvoidDistance = 35.0f;
+
+  if (!path.empty() && path[0].DistanceSq(game_->GetPosition()) < kNearbyTurn * kNearbyTurn) {
+   steering_.AvoidWalls(*this, kMaxAvoidDistance);
   }
 }
 
-#if 0
-void Bot::CreateBasePaths(const std::vector<Vector2f>& start_vector, const std::vector<Vector2f>& end_vector,
-                          float radius) {
-  PerformanceTimer timer;
-  base_paths_.clear();
-
-  for (std::size_t i = 0; i < start_vector.size(); i++) {
-    Vector2f position_1 = start_vector[i];
-    Vector2f position_2 = end_vector[i];
-
-    Path base_path = GetPathfinder().FindPath(game_->GetMap(), std::vector<Vector2f>(), position_1, position_2, radius);
-
-    base_paths_.push_back(base_path);
-  }
-  
-  g_RenderState.RenderDebugText("CreateBasePaths: %llu", timer.GetElapsedTime());
-}
-
-#endif
-
-void Bot::FindPowerBallGoal() {
-  powerball_goal_;
-  powerball_goal_path_;
-
-  float closest_distance = std::numeric_limits<float>::max();
-
-  // player is in original
-  if (game_->GetMapFile() == "powerlg.lvl") {
-    if (game_->GetPlayer().frequency == 00) {
-      powerball_goal_ = Vector2f(945, 512);
-
-      std::vector<Vector2f> goal1_paths{Vector2f(945, 495), Vector2f(926, 512), Vector2f(962, 511), Vector2f(944, 528)};
-
-      for (std::size_t i = 0; i < goal1_paths.size(); i++) {
-        float distance = goal1_paths[i].Distance(game_->GetPosition());
-        if (distance < closest_distance) {
-          powerball_goal_path_ = goal1_paths[i];
-          closest_distance = distance;
-        }
-      }
-    } else {
-      powerball_goal_ = Vector2f(72, 510);
-
-      std::vector<Vector2f> goal0_paths{Vector2f(89, 510), Vector2f(72, 526), Vector2f(55, 509), Vector2f(73, 492)};
-
-      for (std::size_t i = 0; i < goal0_paths.size(); i++) {
-        float distance = goal0_paths[i].Distance(game_->GetPosition());
-        if (distance < closest_distance) {
-          powerball_goal_path_ = goal0_paths[i];
-          closest_distance = distance;
-        }
-      }
-    }
-  }
-  // player is in pub
-  else if (game_->GetMapFile() == "combo_pub.lvl") {
-    std::vector<Vector2f> arenas{Vector2f(512, 133), Vector2f(512, 224), Vector2f(512, 504), Vector2f(512, 775)};
-    std::vector<Vector2f> goal_0{Vector2f(484, 137), Vector2f(398, 263), Vector2f(326, 512), Vector2f(435, 780)};
-    std::vector<Vector2f> goal_1{Vector2f(540, 137), Vector2f(625, 263), Vector2f(697, 512), Vector2f(587, 780)};
-
-    for (std::size_t i = 0; i < arenas.size(); i++) {
-      if (GetRegions().IsConnected((MapCoord)game_->GetPosition(), arenas[i])) {
-        if (game_->GetPlayer().frequency == 00) {
-          powerball_goal_ = goal_1[i];
-          powerball_goal_path_ = powerball_goal_;
-        } else {
-          powerball_goal_ = goal_0[i];
-          powerball_goal_path_ = powerball_goal_;
-        }
-      }
-    }
-  }
-}
-
-bool Bot::MaxEnergyCheck() {
-  float max_energy = game_->GetMaxEnergy();
-
-  float energy_pct = ((float)game_->GetEnergy() / max_energy) * 100.0f;
-  bool result = false;
-
-  if ((game_->GetPlayer().status & 2) != 0) {
-    game_->Cloak(keys_);
-  }
-  // will cause eg to return true when prized and energy is above initial
-  else if (energy_pct >= 100.0f) {
-    result = true;
-  }
-  if (game_->GetPlayer().dead) {
-    result = false;
-  }
-  return result;
-}
 
 namespace bot {
 
@@ -1179,22 +1094,15 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
+  SteeringOverride override = SteeringOverride::Forward;
   Vector2f center_spawn = bb.ValueOr<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
   bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), center_spawn);
-
   auto search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
-  //const Player* enemy = GetEnemy(ctx);
-  //const Player* enemy = bb.GetTarget();
   bool on_safe_tile = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
-
-  //bool in_center = bb.ValueOr<bool>("InCenter", true);
-  //bool is_anchor_ = bb.ValueOr<bool>("IsAnchor", false);
-  //bool last_in_base = bb.ValueOr<bool>("LastInBase", false);
   const Player* enemy = bb.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
-  //bool in_center = bb.GetInCenter();
   CombatRole role = bb.ValueOr<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
   bool last_in_base = bb.ValueOr<bool>(BBKey::LastInBase, false);
-  //bool last_in_base = bb.GetLastInBase();
+
   int manual_distance_adjustment = bb.ValueOr<int>(BBKey::AnchorDistanceAdjustment, 0);
 
   if ( !enemy || in_center || (role != CombatRole::Anchor && !last_in_base)) {
@@ -1219,16 +1127,13 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   size_t bot_node = search->FindNearestNodeBFS(game.GetPosition());
   size_t enemy_node = search->FindNearestNodeBFS(enemy->position);
 
-  //team_safe_node_ = ctx.bot->GetTeamSafeIndex(game.GetPlayer().frequency);
- // enemy_safe_node_ = ctx.bot->GetTeamSafeIndex(enemy_->frequency);
   // this flag is important as it allows the bot to switch reference points even if the enemy target leaked past the team
   bool high_side = bot_node > enemy_node;
 
   // the enemy target is player with the highest net bullet travell in the direction of the bot
   // use the target found in find enemy node to get the front most node for reference
   // use the los_decrement flag to determine which direction in the base path the refernce nodes should be calculated 
- // enemy_fore_ = search_->FindForwardLOSNode(enemy_->position, enemy_node_, enemy_radius, !high_side_);
- // enemy_aft_ = search_->FindRearLOSNode(enemy_->position, enemy_node_, enemy_radius, !high_side_);
+
   
   Vector2f bot_fore = search->FindForwardLOSNode(position, bot_node, radius, high_side);
   Vector2f bot_aft = search->FindRearLOSNode(position, bot_node, radius, high_side);
@@ -1304,13 +1209,12 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   
   if (pathlength < desired_distance || AvoidInfluence(ctx)) {
     desired_position = bot_aft;
-    bb.Set<bool>(BBKey::FlyInReverse, true);
-    //bb.SetSteerBackwards(true);
+    override = SteeringOverride::Reverse;
   }
 
   //g_RenderState.RenderDebugText("  TEAM THREAT: %f", team_threat_);
   //g_RenderState.RenderDebugText("  ENEMY TEAM THREAT: %f", enemy_team_threat_);
-  RenderWorldBox(game.GetPosition(), enemy->position, 0.875f);
+  //RenderWorldBox(game.GetPosition(), enemy->position, 0.875f);
 
   if (on_safe_tile && desired_position == bot_aft) {
     ctx.bot->GetKeys().Press(VK_CONTROL);
@@ -1318,6 +1222,8 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   } else {
     ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, desired_position, radius);
   }
+
+  bb.Set<SteeringOverride>(BBKey::SteeringOverride, override);
 
   g_RenderState.RenderDebugText("  AnchorBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
@@ -1755,13 +1661,14 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
 
       float bullet_travel = (weapon_velocity * alive_time).Length();
 
+#if DEBUG_RENDER_SHOOTER
       RenderWorldLine(bot.position, bot.position, solution, RGB(100, 0, 0));
       RenderWorldLine(bot.position, bot.position, bot.position + bot.GetHeading() * (solution - bot.position).Length(),
                       RGB(100, 100, 0));
 
       RenderWorldLine(bot.position, bot.position, bot.position + Normalize(weapon_velocity) * bullet_travel,
                       onBomb ? RGB(0, 0, 100) : RGB(0, 100, 100));
-
+#endif
 
       // Use target position in the distance calculation instead of solution so it will still aim at them while they are
       // moving away
@@ -1799,8 +1706,9 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
           }
         }
 
-
+#if DEBUG_RENDER_SHOOTER
         RenderWorldBox(bot.position, bBox_min, bBox_min + box_extent, RGB(0, 255, 0));
+#endif
 
         if (FloatingRayBoxIntersect(bot.position, bot.GetHeading(), solution, nearby_radius, &dist, &norm)) {
         //if (FloatingRayBoxIntersect(bot.position, Normalize(weapon_velocity), solution, nearby_radius, &dist, &norm)) {
@@ -1837,21 +1745,54 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  Vector2f position = bb.ValueOr<Vector2f>(BBKey::AimingSolution, Vector2f());
+  const Player* target = bb.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
+  Vector2f solution = bb.ValueOr<Vector2f>(BBKey::AimingSolution, Vector2f());
+  float hover_distance = 15.0f;
 
-  bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
-
-  float hover_distance = 0.0f;
-
-  if (in_safe)
-    hover_distance = 0.0f;
-  else {
-    hover_distance = 10.0f;
+  if (!target) {
+    g_RenderState.RenderDebugText("  MoveToEnemyNode (no target): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Failure;
   }
 
-  ctx.bot->Move(position, hover_distance);
+  if (bb.Has(BBKey::HoverDistance)) {
+    hover_distance = bb.ValueOr<float>(BBKey::HoverDistance, 0);
+    ctx.bot->Move(solution, hover_distance);
+    ctx.bot->GetSteering().Face(*ctx.bot, solution);
 
-  ctx.bot->GetSteering().Face(*ctx.bot, position);
+    g_RenderState.RenderDebugText("  MoveToEnemyNode(blackboard): %llu", timer.GetElapsedTime());
+    return behavior::ExecuteResult::Success;
+  }
+
+  
+  uint16_t energy_pct = game.GetEnergyPercent();
+  bool in_safe = game.GetMap().GetTileId(game.GetPlayer().position) == marvin::kSafeTileId;
+  float travel_distance = game.GetBulletTravel();
+  bool has_double = game.GetShipSettings().HasDoubleBarrel();
+
+  float adjust = 0.15f * travel_distance;
+  float base = travel_distance * 0.30f;
+  float energyFactor = 1.0f - ((float)energy_pct / 100.0f);
+
+  if (!has_double) {
+    travel_distance = game.GetBombTravel();
+    adjust = 0.10f * travel_distance;
+    base = travel_distance * 0.25f;
+  }
+
+  hover_distance = base + adjust * energyFactor;
+
+  
+  if (in_safe) {
+    if (has_double) {
+      hover_distance = 0.0f;
+    }
+    else {
+      hover_distance *= 2.0f;
+    }
+  }
+
+  ctx.bot->Move(target->position, hover_distance, target->velocity);
+  ctx.bot->GetSteering().Face(*ctx.bot, solution);
 
   g_RenderState.RenderDebugText("  MoveToEnemyNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
