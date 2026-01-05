@@ -16,18 +16,30 @@
 typedef void (*InitFunc)();
 typedef void (*CleanupFunc)();
 
+struct MonitorContext {
+  char marvinPath[MAX_PATH];
+  char loadedPath[MAX_PATH];
+  HMODULE hModule;
+};
+
+struct FindWindowCtx {
+  DWORD pid = 0;
+  HWND hwnd = nullptr;
+  char className[MAX_PATH];
+};
+
 //const std::string MARVIN_DLL_FOLDER = "E:\\Code_Projects\\My-Marvin\\bin";
 
 std::ofstream debug_log;
 
-static HMODULE hModule = NULL;
+//static HMODULE hModule = NULL;
 static HMODULE dsound = NULL;
 static std::string g_MarvinPath;
 static std::string g_MarvinDirectory;
 static std::string g_MarvinDll;
 static std::string g_MarvinLoadedPath;
-static FILETIME g_LastTime;
-static std::thread g_MonitorThread;
+
+HANDLE g_ThreadHandle = nullptr;
 
 static std::string GetLocalPath() {
   char path[MAX_PATH];
@@ -37,6 +49,27 @@ static std::string GetLocalPath() {
   return std::string(path);
 }
 
+BOOL CALLBACK EnumProc(HWND hwnd, LPARAM lParam) {
+  auto* ctx = reinterpret_cast<FindWindowCtx*>(lParam);
+
+  if (IsWindowVisible(hwnd)) return TRUE;
+  DWORD pid = 0;
+  GetWindowThreadProcessId(hwnd, &pid);
+
+  if (pid != ctx->pid) return TRUE;
+
+  char title[256]{};
+  GetWindowTextA(hwnd, title, sizeof(title));
+  char className[256];
+  GetClassNameA(hwnd, className, sizeof(className));
+
+  //if (strcmp(title, "Default IME") != 0) return TRUE;
+  //if (strcmp(title, "MSCTFIME UI") != 0) return TRUE;
+  if (strcmp(className, ctx->className) != 0) return TRUE;
+
+  ctx->hwnd = hwnd;
+  return FALSE; // stop enumeration
+}
 
 
 std::vector<std::string> GetArguments() {
@@ -110,7 +143,7 @@ static std::string GetSystemLibrary(const char* library) {
 bool GetLastWriteTime(const char* filename, FILETIME* ft) {
   WIN32_FILE_ATTRIBUTE_DATA data;
 
-  if (GetFileAttributesExA(g_MarvinPath.c_str(), GetFileExInfoStandard, &data)) {
+  if (GetFileAttributesExA(filename, GetFileExInfoStandard, &data)) {
     *ft = data.ftLastWriteTime;
     return true;
   }
@@ -160,7 +193,7 @@ bool WaitForUnload(const std::string& path) {
 }
 
 void LoadMarvin(const char* source) {
-  hModule = LoadLibrary(source);
+ HMODULE hModule = LoadLibrary(source);
 
   if (hModule) {
     InitFunc init = (InitFunc)GetProcAddress(hModule, "InitializeMarvin");
@@ -172,7 +205,7 @@ void LoadMarvin(const char* source) {
 }
 
 
-void LoadMarvinWithTempFile(const char* original, const char* temp) {
+void HotReloadMarvin(HMODULE& hModule, const char* original, const char* temp) {
   if (hModule) {
      CleanupFunc cleanup = (CleanupFunc)GetProcAddress(hModule, "CleanupMarvin");
 
@@ -194,26 +227,76 @@ void LoadMarvinWithTempFile(const char* original, const char* temp) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 
-  LoadMarvin(temp);
-}
+  hModule = LoadLibrary(temp);
 
-void MonitorDevFile() {
-  FILETIME time;
+  if (hModule) {
+    InitFunc init = (InitFunc)GetProcAddress(hModule, "InitializeMarvin");
 
-  while (true) {
-    if (GetLastWriteTime(g_MarvinPath.c_str(), &time)) {
-      if (CompareFileTime(&time, &g_LastTime) > 0) {
-        LoadMarvinWithTempFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
-        GetLastWriteTime(g_MarvinLoadedPath.c_str(), &time);
-        g_LastTime = time;
-      }
+    if (init) {
+      init();
     }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 }
 
+// dsound.dll gets unloaded when continuum exits
+// continuum does not call dll_detach, possibly because of the way it gets loaded
+// this thread should not read global variables
+// the only method for this thread to detect game state and exit is to watch window hwnd
+// everything else is too late and thread is force stopped
+// the thread grabs a hidden hwnd at startup that remains valid when transitioning to the game
+// when transitioning back to the menu the window is destroyed and the hwnd will become invalid
+// and this thread will exit
+// so if the game is dropped to the menu and reloaded, hot swapping will be disabled
+DWORD WINAPI MonitorThread(LPVOID param) {
+  FILETIME time{};
+  FILETIME lastTime{};
+  HMODULE hModule = NULL;
 
+  //OutputDebugStringA("MonitorThread: thread created\n");
+
+  // thread owns path data and doesnt have to read globals
+  std::unique_ptr<MonitorContext> ctx(static_cast<MonitorContext*>(param));
+
+  HotReloadMarvin(hModule, ctx->marvinPath, ctx->loadedPath);
+  GetLastWriteTime(ctx->loadedPath, &lastTime);
+
+  FindWindowCtx window;
+  HWND hwnd = nullptr;
+
+  // try to find the window
+  for (int i = 0; i < 500; i++) {
+    Sleep(100);
+    window.pid = GetCurrentProcessId();
+    strncpy_s(window.className, "MSCTFIME UI", MAX_PATH);
+    EnumWindows(EnumProc, reinterpret_cast<LPARAM>(&window));
+    hwnd = window.hwnd;
+
+    if (hwnd) { 
+     // OutputDebugStringA("MonitorThread: hwnd found\n");
+      break;
+    }
+  }
+
+  while (true) {
+
+    // game is closing or hwnd was never found
+    if (!IsWindow(hwnd)) {
+       break;
+    }
+
+    if (GetLastWriteTime(ctx->marvinPath, &time)) {
+      if (CompareFileTime(&time, &lastTime) > 0) {
+        HotReloadMarvin(hModule, ctx->marvinPath, ctx->loadedPath);
+        //OutputDebugStringA("MonitorThread: marvin reloaded.\n");
+        lastTime = time;
+      }
+    }
+    Sleep(100);
+  }
+
+  //OutputDebugStringA("MonitorThread: thread stopped\n");
+  return 0;
+}
 
 static std::vector<std::string> GetLoadRequests(const char* filename) {
   std::vector<std::string> requests;
@@ -254,11 +337,13 @@ void InitializeLoader() {
   }
 }
 
-// child process wont allow a handle with process_all_access from inside this dll
+// parent process will allow but child process wont
 bool IsRealProcess() {
   HANDLE h = OpenProcess(PROCESS_ALL_ACCESS, FALSE, GetCurrentProcessId());
+
   if (!h && GetLastError() == ERROR_ACCESS_DENIED) return true;  
-  if (h) CloseHandle(h);
+
+  if (h) { CloseHandle(h); }
   return false;
 }
 
@@ -277,13 +362,13 @@ bool IsElevated() {
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
   switch (dwReason) {
     case DLL_PROCESS_ATTACH: {
-
+      
       // Continuum respawns itself to apply a DACL, so dsound.dll will get loaded twice
       // if loaded into the parent process do nothing because its going to exit anyway
       if (!IsRealProcess()) {
         return TRUE;
       } 
-
+      //debug_log.open("dsound.Log");
       DWORD pid = GetCurrentProcessId();
      // debug_log.open("fuse_loader - " + std::to_string(pid) + ".log", std::ios::out);
 
@@ -300,11 +385,19 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
       g_MarvinDll = "Marvin-" + std::to_string(pid) + ".dll";
       SetMarvinPath();
 
+      // can't do file copies to the C: without elevated access
+      // so only allow hot reloading when ran as admin
+      if (IsElevated()) {        
+        auto* ctx = new MonitorContext{};
 
-      if (IsElevated()) {
-        LoadMarvinWithTempFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
-        GetLastWriteTime(g_MarvinLoadedPath.c_str(), &g_LastTime);
-        g_MonitorThread = std::thread(MonitorDevFile);
+        strncpy_s(ctx->marvinPath, g_MarvinPath.c_str(), MAX_PATH);
+        strncpy_s(ctx->loadedPath, g_MarvinLoadedPath.c_str(), MAX_PATH);
+        g_ThreadHandle = CreateThread(nullptr, 0, MonitorThread, ctx, 0, nullptr);
+
+        if (!g_ThreadHandle) { delete ctx; }
+
+        //LoadMarvinWithTempFile(g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
+
       } else {
         LoadMarvin(g_MarvinPath.c_str());
       }
@@ -318,10 +411,7 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
      // debug_log << "Hook count: " << hook_count << std::endl;
     } break;
     case DLL_PROCESS_DETACH: {
-      // there is no good method to delete temp marvin files here because they will still be loaded
-      // an option might be memory mapping or reflective loading
-      // dont need to unload libraries here as that is already handled when the process exits.
-      // dont need to exit the thead that was created as it seems to exit automatically.
+      // the game does not call this when closing so can't do anything here
     } break;
   }
 

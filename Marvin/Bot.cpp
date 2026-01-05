@@ -162,11 +162,11 @@ void Bot::Update(float dt) {
   keys_.ReleaseAll();
   time_.Update();
 
-  
+ 
   //  -------- Reprocess Map ----------------
 
   if (!UpdateProcessorThread()) return;
-
+  
   if (map_name != map_name_) {
     map_name_ = map_name;
     log << "Map changed from: " << map_name_ << " to: " << map_name << std::endl;
@@ -190,7 +190,7 @@ void Bot::Update(float dt) {
 
   //  -------- Reprocess Map ----------------
    
- 
+  
 
   steering_.Reset();
   ctx_.dt = dt;
@@ -213,7 +213,7 @@ void Bot::Update(float dt) {
   shooter_.DebugUpdate(*this);
 #endif
 
-  #if DEBUG_RENDER_BASE_PATHS
+#if DEBUG_RENDER_BASE_PATHS
 
   Vector2f position = game_->GetPosition();
   const std::vector<std::vector<Vector2f>>& base_paths = GetBasePaths().GetBasePaths();
@@ -226,7 +226,7 @@ void Bot::Update(float dt) {
 
 #endif
 
-  #if DEBUG_RENDER_REGION_REGISTRY
+#if DEBUG_RENDER_REGION_REGISTRY
     regions_->DebugUpdate(game_->GetPosition());
     g_RenderState.RenderDebugText("RegionDebugUpdate: %llu", timer.GetElapsedTime());
 #endif
@@ -236,7 +236,6 @@ void Bot::Update(float dt) {
     behavior_->SetActiveTree(key);
   }
   behavior_->Update(ctx_);
-
 
  // g_RenderState.RenderDebugText("  rotation: %07.2f", game_->GetRotation());
 //  g_RenderState.RenderDebugText("  speed 2: %f", current_speed);

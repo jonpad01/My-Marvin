@@ -24,7 +24,7 @@ class SteeringBehavior {
   void Pursue(Bot& bot, const Player& enemy);
   void Face(Bot& bot, Vector2f target);
 
-  void Steer(Bot& bot, float dt, SteeringOverride override);
+  void Steer(Bot& bot, float dt, SteeringOverride override);   
 
   void AvoidWalls(Bot& bot, float max_look_ahead);
 

@@ -282,7 +282,7 @@ void SteeringBehavior::Steer(Bot& bot, float dt, SteeringOverride override) {
 
   bool has_force = force_.LengthSq() > 0.0f;
 
-  // Desired movement direction
+  // Desired movement direction  
   Vector2f desired_dir = has_force ? Normalize(force_) : heading;
   Vector2f desired_heading = desired_dir;
 
@@ -299,7 +299,7 @@ void SteeringBehavior::Steer(Bot& bot, float dt, SteeringOverride override) {
 
   if (invert) {
     angle = -angle;
-    abs_angle = M_PI - abs_angle;
+    abs_angle = (float)M_PI - abs_angle;
   }
 
   // the bot was told to face something

@@ -91,7 +91,7 @@ class Bot {
   behavior::ExecuteContext ctx_;
   SteeringBehavior steering_;
   std::unique_ptr<InfluenceMap> influence_map_;
-  std::unique_ptr<CommandSystem> command_system_;
+  std::unique_ptr<CommandSystem> command_system_;  
   Shooter shooter_;
 
 
