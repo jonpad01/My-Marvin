@@ -10,6 +10,8 @@ namespace marvin {
 
 namespace hs {
 
+  enum class HSTree : uint8_t;
+
 struct AnchorResult {
   AnchorSet anchors;
   bool found;
@@ -136,6 +138,9 @@ class HSToggleNode : public behavior::BehaviorNode {
 class HSTreeSelector : public BehaviorTreeSelector {
 public:
   uint8_t GetBehaviorTree(Bot& bot);
+
+private:
+  HSTree CenterBehaviorSelector(Bot& bot);
 };
 
 

@@ -75,6 +75,7 @@ HANDLE StartContinuum() {
 
     // This is the real Continuum game process.
     hChild = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, FALSE, pid);
+
     if (!hChild) {
       std::cout << "Failed to open child process: " << GetLastError() << "\n";
     }

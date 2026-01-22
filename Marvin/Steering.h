@@ -30,9 +30,7 @@ class SteeringBehavior {
 
  private:
 
-   Vector2f target_;
-  Vector2f force_;
-  //float rotation_;
+  Vector2f velocityDelta_;
   std::optional<float> rotation_;
 };
 

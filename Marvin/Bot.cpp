@@ -237,7 +237,10 @@ void Bot::Update(float dt) {
   }
   behavior_->Update(ctx_);
 
- // g_RenderState.RenderDebugText("  rotation: %07.2f", game_->GetRotation());
+  // 9 = ~191 -- 23 = ~490 -- 30 = 637 -- 48 = 1024
+  //uint16_t zoom = game_->GetSettings().MapZoomFactor;
+
+  //g_RenderState.RenderDebugText("  zoom: %u", zoom);
 //  g_RenderState.RenderDebugText("  speed 2: %f", current_speed);
 //  g_RenderState.RenderDebugText("  speed 3: %f", bot_speed);
  
@@ -833,7 +836,6 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   Vector2f center_spawn = bb.ValueOr<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
   bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), center_spawn);
 
-  //if (!bb.ValueOr<bool>("InCenter", true)) {
   if (!in_center) {
     g_RenderState.RenderDebugText("  FindEnemyInCenterNode(NotInCenter): %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
@@ -847,10 +849,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   for (std::size_t i = 0; i < game.GetPlayers().size(); ++i) {
     const Player& player = game.GetPlayers()[i];
 
-    if (!IsValidTarget(*ctx.bot, player, role)) {
-     // g_RenderState.RenderDebugText("  Not Valid %llu", timer.GetElapsedTime());
-      continue;
-    }
+    if (!IsValidTarget(*ctx.bot, player)) continue;
 
     float cost = CalculateCost(ctx, bot, player);
 
@@ -864,7 +863,7 @@ behavior::ExecuteResult FindEnemyInCenterNode::Execute(behavior::ExecuteContext&
   //const Player* current_target = bb.ValueOr<const Player*>("Target", nullptr);
   const Player* current_target = bb.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
 
-  if (current_target && IsValidTarget(*ctx.bot, *current_target, role)) {
+  if (current_target && IsValidTarget(*ctx.bot, *current_target)) {
     // Calculate the cost to the current target so there's some stickiness
     // between close targets.
     const float kStickiness = 2.5f;
@@ -890,7 +889,7 @@ float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  float dist = bot_player.position.Distance(target.position);
+  float dist = bot_player.position.Distance(target.position);  
 
   // How many seconds it takes to rotate 180 degrees
   float rotate_speed = game.GetRotation() * 0.5f;
@@ -902,6 +901,45 @@ float FindEnemyInCenterNode::CalculateCost(behavior::ExecuteContext& ctx, const 
   float rotate_cost = std::abs(dot) * rotate_speed;
 
   return move_cost + rotate_cost;
+}
+
+bool FindEnemyInCenterNode::IsValidTarget(Bot& bot, const Player& target) {
+  auto& game = bot.GetGame();
+
+  const Player& player = game.GetPlayer();
+
+  if (target.dead) return false;
+  if (target.id == game.GetPlayer().id) return false;
+  if (target.ship > 7) return false;
+  if (target.frequency == game.GetPlayer().frequency) return false;
+  if (target.name[0] == '<') return false; // hs fake players
+  if (game.GetMap().GetTileId(target.position) == marvin::kSafeTileId) return false;
+  if (!bot.GetRegions().IsConnected(player.position, target.position)) return false;
+  
+  float zoom_tiles = (float)game.GetSettings().MapZoomFactor * (1024.0f / 48.0f);
+  Vector2f map_range(zoom_tiles, zoom_tiles);
+  Vector2f map_min = game.GetPosition() - map_range / 2.0f;
+  Vector2f map_max = game.GetPosition() + map_range / 2.0f;
+  bool on_radar = InRect(target.position, map_min, map_max);
+
+  // 1 = stealth, 2= cloak, 3 = both, 4 = xradar
+  bool stealthing = (target.status & 1) != 0;
+  bool cloaking = (target.status & 2) != 0;
+
+  Vector2f resolution(1920, 1080);
+  Vector2f view_min = game.GetPosition() - resolution / 2.0f / 16.0f;
+  Vector2f view_max = game.GetPosition() + resolution / 2.0f / 16.0f;
+  bool on_screen = InRect(target.position, view_min, view_max);
+
+  if (!on_screen && !on_radar) return false;
+
+  // if the bot doesnt have xradar
+  if (!(bot.GetGame().GetPlayer().status & 4)) {
+    if (stealthing && !on_screen) return false;
+    if (cloaking && !on_radar) return false;
+  }
+
+  return true;
 }
 
 // get the closest player to the bot using path distance
@@ -972,6 +1010,47 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   }
 
   return result;
+}
+
+bool FindEnemyInBaseNode::IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
+  auto& game = bot.GetGame();
+
+  const Player& player = game.GetPlayer();
+
+  // anchors shoud wait until the target is no longer lag attachable
+  if (combat_role != CombatRole::Anchor && (target.dead || !IsValidPosition(target.position))) {
+    return false;
+  }
+  else if (!IsValidPosition(target.position)) {
+    return false;
+  }
+
+  if (target.id == game.GetPlayer().id) return false;
+  if (target.ship > 7) return false;
+  if (target.frequency == game.GetPlayer().frequency) return false;
+  if (target.name[0] == '<') return false;
+  if (game.GetMap().GetTileId(target.position) == marvin::kSafeTileId) return false;
+  if (!bot.GetRegions().IsConnected(player.position, target.position)) return false;
+
+  // TODO: check if player is cloaking and outside radar range
+  // 1 = stealth, 2= cloak, 3 = both, 4 = xradar
+  bool stealthing = (target.status & 1) != 0;
+  bool cloaking = (target.status & 2) != 0;
+
+  Vector2f resolution(1920, 1080);
+  Vector2f view_min_ = game.GetPosition() - resolution / 2.0f / 16.0f;
+  Vector2f view_max_ = game.GetPosition() + resolution / 2.0f / 16.0f;
+  bool visible = InRect(target.position, view_min_, view_max_);
+
+  //if (!visible) return false;
+
+  // if the bot doesnt have xradar
+  if (!(bot.GetGame().GetPlayer().status & 4)) {
+    if (stealthing && cloaking) return false;
+    if (stealthing && !visible) return false;
+  }
+
+  return true;
 }
 
 behavior::ExecuteResult PathToEnemyNode::Execute(behavior::ExecuteContext& ctx) {
@@ -1271,6 +1350,56 @@ const Player* AnchorBasePathNode::GetEnemy(behavior::ExecuteContext& ctx) {
     }
   }
   return result;
+}
+
+bool AnchorBasePathNode::IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
+  auto& game = bot.GetGame();
+
+  const Player& bot_player = game.GetPlayer();
+
+  // anchors shoud wait until the target is no longer lag attachable
+  if (combat_role != CombatRole::Anchor && (target.dead || !IsValidPosition(target.position))) {
+    return false;
+  }
+  else if (!IsValidPosition(target.position)) {
+    return false;
+  }
+
+  if (target.id == game.GetPlayer().id) return false;
+  if (target.ship > 7) return false;
+  if (target.frequency == game.GetPlayer().frequency) return false;
+  if (target.name[0] == '<') return false;
+
+  if (game.GetMap().GetTileId(target.position) == marvin::kSafeTileId) {
+    return false;
+  }
+
+  MapCoord bot_coord(bot_player.position);
+  MapCoord target_coord(target.position);
+
+  if (!bot.GetRegions().IsConnected(bot_coord, target_coord)) {
+    return false;
+  }
+
+  // TODO: check if player is cloaking and outside radar range
+  // 1 = stealth, 2= cloak, 3 = both, 4 = xradar
+  bool stealthing = (target.status & 1) != 0;
+  bool cloaking = (target.status & 2) != 0;
+
+  Vector2f resolution(1920, 1080);
+  Vector2f view_min_ = game.GetPosition() - resolution / 2.0f / 16.0f;
+  Vector2f view_max_ = game.GetPosition() + resolution / 2.0f / 16.0f;
+  bool visible = InRect(target.position, view_min_, view_max_);
+
+  //if (!visible) return false;
+
+  // if the bot doesnt have xradar
+  if (!(bot.GetGame().GetPlayer().status & 4)) {
+    if (stealthing && cloaking) return false;
+    if (stealthing && !visible) return false;
+  }
+
+  return true;
 }
 
 void AnchorBasePathNode::CalculateTeamThreat(behavior::ExecuteContext& ctx, const Player* enemy) {

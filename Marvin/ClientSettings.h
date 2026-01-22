@@ -431,6 +431,7 @@ class ClientSettings {
   short BounceFactor;
   // A number representing how much the map is zoomed out for radar.
   // (48 = whole map on radar, 49 + = effectively disable radar)
+  // conversion to tiles is   zoomfactor * (1024 / 48)
   short MapZoomFactor;
   //
   short MaxBonus;

@@ -23,7 +23,7 @@ float GetCurrentSpeed(GameProxy& game) {
 }
 
 void SteeringBehavior::Reset() {
-  force_ = Vector2f();
+  velocityDelta_ = Vector2f();
   rotation_.reset();
 }
 
@@ -33,7 +33,7 @@ void SteeringBehavior::Seek(Bot& bot, Vector2f target, float multiplier) {
 
   Vector2f desired = Normalize(target - game.GetPosition()) * speed * multiplier;
 
-  force_ += desired - game.GetPlayer().velocity;
+  velocityDelta_ += desired - game.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Flee(Bot& bot, Vector2f target) {
@@ -42,13 +42,11 @@ void SteeringBehavior::Flee(Bot& bot, Vector2f target) {
 
   Vector2f desired = Normalize(game.GetPosition() - target) * speed;
 
-  force_ += desired - game.GetPlayer().velocity;
+  velocityDelta_ += desired - game.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Arrive(Bot& bot, Vector2f target, Vector2f target_velocity) {
   auto& game = bot.GetGame();
-
-  target_ = target;
 
  // float turn_rate_rad = (game.GetRotation() / 400.0f) * 2.0f * M_PI;
   Vector2f vel = game.GetPlayer().velocity;
@@ -84,7 +82,7 @@ void SteeringBehavior::Arrive(Bot& bot, Vector2f target, Vector2f target_velocit
   Vector2f desired_relative_vel = Normalize(to_target) * desired_closing_speed;
   Vector2f desired_world_vel = desired_relative_vel + target_velocity;
 
-  force_ += desired_world_vel - vel; 
+  velocityDelta_ += desired_world_vel - vel;
 
   //Vector2f accel = desired_world_vel - vel;
 
@@ -104,7 +102,7 @@ void SteeringBehavior::AnchorSpeed(Bot& bot, Vector2f target) {
 
   Vector2f desired = Normalize(target - game.GetPosition()) * 5;
 
-  force_ += desired - game.GetPlayer().velocity;
+  velocityDelta_ += desired - game.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Stop(Bot& bot, Vector2f target) {
@@ -113,7 +111,7 @@ void SteeringBehavior::Stop(Bot& bot, Vector2f target) {
 
   Vector2f desired = Normalize(target - game.GetPosition()) * 5;
 
-  force_ += desired - game.GetPlayer().velocity;
+  velocityDelta_ += desired - game.GetPlayer().velocity;
 }
 
 void SteeringBehavior::Pursue(Bot& bot, const Player& enemy) {
@@ -279,11 +277,13 @@ void SteeringBehavior::Steer(Bot& bot, float dt, SteeringOverride override) {
   float max_turn_this_frame = rotation_rad_per_sec * dt;
 
   Vector2f heading = game.GetPlayer().GetHeading();
+  float thrust = game.GetThrust();
+  float max_speed = game.GetMaxSpeed();
 
-  bool has_force = force_.LengthSq() > 0.0f;
+  bool has_force = velocityDelta_.LengthSq() > 0.0f;
 
   // Desired movement direction  
-  Vector2f desired_dir = has_force ? Normalize(force_) : heading;
+  Vector2f desired_dir = has_force ? Normalize(velocityDelta_) : heading;
   Vector2f desired_heading = desired_dir;
 
 
@@ -293,11 +293,12 @@ void SteeringBehavior::Steer(Bot& bot, float dt, SteeringOverride override) {
   float angle = -SignedAngle(heading, desired_heading);
   float abs_angle = std::abs(angle);
 
-  // if desired heading is behind the ship just fly in reverse, maybe it can rotate back when
-  // its flying at top speed
+  // if desired heading is behind the ship just fly in reverse rather than waste time rotating
   bool invert = (abs_angle > HALF_PI && override == SteeringOverride::None) || override == SteeringOverride::Reverse;
 
-  if (invert) {
+  // if the delta is low then the ship should have time to return to forward facing
+  // delta only gets that low when the ship is hitting top speed or stopping on a dime
+  if (invert && velocityDelta_.Length() > 1.5f) {
     angle = -angle;
     abs_angle = (float)M_PI - abs_angle;
   }
@@ -328,18 +329,34 @@ void SteeringBehavior::Steer(Bot& bot, float dt, SteeringOverride override) {
   // ---- THRUST ----
   if (!has_force) return;
 
-  bool can_face_target = abs_angle < (max_turn_this_frame * 2.0f);
+  bool can_face_target = abs_angle < (max_turn_this_frame * 2.0f) || abs_angle <= deadzone;
 
   // the force is perpendicular-ish to the heading
   // this can probably be based on the ships max turn as well instead of arbitrary radians
-  bool target_perp = abs_angle > 1.0f && abs_angle < 2.14f;
+  bool force_perp = abs_angle > 1.0f && abs_angle < 2.14f;
 
-  // dont apply thrust if the ship can't rotate in time, good only when the desired heading is only slightly out of range
-  if (!can_face_target && !target_perp) return;
+  // can the ship correct its momentum?
+  angle = -SignedAngle(heading, Normalize(game.GetPlayer().velocity));
+  abs_angle = std::abs(angle);
+
+  bool velocity_perp = abs_angle > 1.25f && abs_angle < 1.89f && game.GetPlayer().velocity.LengthSq() > 1.0f;
+
+  if (velocity_perp) {
+    g_RenderState.RenderDebugText("     PERP");
+  }
+
+  // ship needs more time to rotate
+  if (!can_face_target) {
+    return;
+    //if (!force_perp || velocity_perp) return;
+    //desired_dir = -Normalize(game.GetPlayer().velocity);
+  }
+
+  //if ((!can_face_target && !force_perp) || velocity_perp) return;
 
   // if the desired heading is nearly perp, try to kill the ships momentum 
-  if (target_perp) {
-    desired_dir = -Normalize(game.GetPlayer().velocity);
+  if (force_perp) {
+    //desired_dir = -Normalize(game.GetPlayer().velocity);
   }
 
   bool behind = heading.Dot(desired_dir) < 0.0f;
@@ -411,7 +428,7 @@ void SteeringBehavior::AvoidWalls(Bot& bot, float max_look_ahead) {
   }
 
   if (force_count > 0) {
-    force_ += force * (1.0f / force_count);
+    velocityDelta_ += force * (1.0f / force_count);
   }
 }
 

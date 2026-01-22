@@ -13,6 +13,8 @@
 #include <vector>
 #include <thread>
 
+#define DEV_SWAP 0
+
 typedef void (*InitFunc)();
 typedef void (*CleanupFunc)();
 
@@ -192,7 +194,7 @@ bool WaitForUnload(const std::string& path) {
   return true;
 }
 
-void LoadMarvin(const char* source) {
+HMODULE LoadMarvin(const char* source) {
  HMODULE hModule = LoadLibrary(source);
 
   if (hModule) {
@@ -202,6 +204,8 @@ void LoadMarvin(const char* source) {
       init();
     }
   }
+
+  return hModule;
 }
 
 
@@ -239,10 +243,12 @@ void HotReloadMarvin(HMODULE& hModule, const char* original, const char* temp) {
 }
 
 // dsound.dll gets unloaded when continuum exits
-// continuum does not call dll_detach, possibly because of the way it gets loaded
+// continuum does not call dll_detach
 // this thread should not read global variables
 // the only method for this thread to detect game state and exit is to watch window hwnd
 // everything else is too late and thread is force stopped
+// if continuum closes during a call to loadlibrary or freelibrary, 
+// im pretty sure it gets stuck in a load lock and never fully teriminates
 // the thread grabs a hidden hwnd at startup that remains valid when transitioning to the game
 // when transitioning back to the menu the window is destroyed and the hwnd will become invalid
 // and this thread will exit
@@ -250,15 +256,15 @@ void HotReloadMarvin(HMODULE& hModule, const char* original, const char* temp) {
 DWORD WINAPI MonitorThread(LPVOID param) {
   FILETIME time{};
   FILETIME lastTime{};
-  HMODULE hModule = NULL;
+  //HMODULE hModule = NULL;
 
   //OutputDebugStringA("MonitorThread: thread created\n");
 
   // thread owns path data and doesnt have to read globals
   std::unique_ptr<MonitorContext> ctx(static_cast<MonitorContext*>(param));
 
-  HotReloadMarvin(hModule, ctx->marvinPath, ctx->loadedPath);
-  GetLastWriteTime(ctx->loadedPath, &lastTime);
+  //HotReloadMarvin(hModule, ctx->marvinPath, ctx->loadedPath);
+  GetLastWriteTime(ctx->marvinPath, &lastTime);
 
   FindWindowCtx window;
   HWND hwnd = nullptr;
@@ -286,7 +292,7 @@ DWORD WINAPI MonitorThread(LPVOID param) {
 
     if (GetLastWriteTime(ctx->marvinPath, &time)) {
       if (CompareFileTime(&time, &lastTime) > 0) {
-        HotReloadMarvin(hModule, ctx->marvinPath, ctx->loadedPath);
+        HotReloadMarvin(ctx->hModule, ctx->marvinPath, ctx->loadedPath);
         //OutputDebugStringA("MonitorThread: marvin reloaded.\n");
         lastTime = time;
       }
@@ -389,7 +395,10 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID reserved) {
       // so only allow hot reloading when ran as admin
       if (IsElevated()) {        
         auto* ctx = new MonitorContext{};
-
+        HMODULE module = NULL;
+        // if loaded for the first time in the thread it breaks the multicont mutex override for some reason
+        HotReloadMarvin(module, g_MarvinPath.c_str(), g_MarvinLoadedPath.c_str());
+        ctx->hModule = module;
         strncpy_s(ctx->marvinPath, g_MarvinPath.c_str(), MAX_PATH);
         strncpy_s(ctx->loadedPath, g_MarvinLoadedPath.c_str(), MAX_PATH);
         g_ThreadHandle = CreateThread(nullptr, 0, MonitorThread, ctx, 0, nullptr);

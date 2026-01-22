@@ -416,7 +416,6 @@ LRESULT WINAPI OverrideDispatchMessageA(const MSG* lpMsg) {
 
   if (game) { game.reset(); }
   if (bot) { bot.reset(); }
-  initialize_debug = true;
   set_title = true;
 
   if (quit_game) {
@@ -539,7 +538,10 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return result;
   }
 
-  if (!game->IsInGame() || game->GameIsClosing()) return result;
+  if (!game->IsInGame() || game->GameIsClosing()) {
+    bot.reset();  // for arena recycle
+    return result;
+  }
 
   // and finally, we are in the game
   HWND g_hWnd = game->GetGameWindowHandle();
@@ -585,8 +587,8 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     u32 graphics_addr = *(u32*)(0x4C1AFC) + 0x30;
     LPDIRECTDRAWSURFACE surface = (LPDIRECTDRAWSURFACE) * (u32*)(graphics_addr + 0x44);
     void** vtable = (*(void***)surface);
-    RealBlt = (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD,
-                                           LPDDBLTFX))vtable[5];
+    RealBlt = 
+      (HRESULT(STDMETHODCALLTYPE*)(LPDIRECTDRAWSURFACE surface, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDBLTFX))vtable[5];
 
     DetourRestoreAfterWith();
 

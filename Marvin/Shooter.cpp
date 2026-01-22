@@ -387,6 +387,8 @@ bool CanShootBomb(GameProxy& game, const Map& map, Vector2f player, Vector2f tar
   return true;
 }
 
+#if 0 
+
 bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
   auto& game = bot.GetGame();
 
@@ -415,6 +417,7 @@ bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
   if (!bot.GetRegions().IsConnected(bot_coord, target_coord)) {
     return false;
   }
+
   // TODO: check if player is cloaking and outside radar range
   // 1 = stealth, 2= cloak, 3 = both, 4 = xradar
   bool stealthing = (target.status & 1) != 0;
@@ -423,17 +426,19 @@ bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role) {
   Vector2f resolution(1920, 1080);
   Vector2f view_min_ = game.GetPosition() - resolution / 2.0f / 16.0f;
   Vector2f view_max_ = game.GetPosition() + resolution / 2.0f / 16.0f;
+  bool visible = InRect(target.position, view_min_, view_max_);
+
+  if (!visible) return false;
 
   // if the bot doesnt have xradar
   if (!(bot.GetGame().GetPlayer().status & 4)) {
     if (stealthing && cloaking) return false;
-
-    bool visible = InRect(target.position, view_min_, view_max_);
-
     if (stealthing && !visible) return false;
   }
 
   return true;
 }
+
+#endif
 
 }  // namespace marvin

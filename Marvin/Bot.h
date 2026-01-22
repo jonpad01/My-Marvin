@@ -210,6 +210,7 @@ class FindEnemyInCenterNode : public behavior::BehaviorNode {
 
  private:
   float CalculateCost(behavior::ExecuteContext& ctx, const Player& bot_player, const Player& target);
+  bool IsValidTarget(Bot& bot, const Player& target);
 };
 
 class FindEnemyInBaseNode : public behavior::BehaviorNode {
@@ -217,6 +218,7 @@ class FindEnemyInBaseNode : public behavior::BehaviorNode {
   behavior::ExecuteResult Execute(behavior::ExecuteContext& ctx);
 
  private:
+   bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role);
 };
 
 class PathToEnemyNode : public behavior::BehaviorNode {
@@ -240,6 +242,7 @@ class AnchorBasePathNode : public behavior::BehaviorNode {
 
  private:
 
+  bool IsValidTarget(Bot& bot, const Player& target, CombatRole combat_role);
   bool AvoidInfluence(behavior::ExecuteContext& ctx);
   const Player* GetEnemy(behavior::ExecuteContext& ctx);
   void CalculateTeamThreat(behavior::ExecuteContext& ctx, const Player* enemy);

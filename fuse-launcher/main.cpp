@@ -55,6 +55,7 @@ int main(int argc, char* argv[]) {
   std::ifstream continuum_exe(GetWorkingDirectory() + "\\Continuum.exe");
   std::ifstream dsound_dll(GetWorkingDirectory() + "\\dsound.dll");
 
+#if 1 
   if (!continuum_exe.good() || !dsound_dll.good()) {
     continuum_exe.close();
     dsound_dll.close();
@@ -62,6 +63,7 @@ int main(int argc, char* argv[]) {
     std::cin.get();
     return EXIT_FAILURE;
   }
+#endif
 
   continuum_exe.close();
   dsound_dll.close();

@@ -61,17 +61,25 @@ uint8_t HSTreeSelector::GetBehaviorTree(Bot& bot) {
 
   uint16_t ship = game.GetPlayer().ship;
   uint16_t freq = game.GetPlayer().frequency;
-  bool on_center_safe = game.GetMap().GetTileId(game.GetPosition()) == marvin::kSafeTileId &&
-    bot.GetRegions().IsConnected(game.GetPosition(), MapCoord(512, 512));
+
+  bool on_center_safe = 
+    game.GetMap().GetTileId(game.GetPosition()) == marvin::kSafeTileId &&
+    bot.GetRegions().IsConnected(game.GetPosition(), MapCoord(512, 512)) &&
+    game.GetPosition().Distance(Vector2f(512.0f, 512.0f)) < 50.0f;
+
   bool flagging = freq == 90 || freq == 91;
 
   uint8_t key = (uint8_t)CenterGunner;
 
   if (game.GetPlayer().dead) return (uint8_t)DeadPlayer;
 
+  if (ship == 8) return (uint8_t)Spectator;
+
   if (on_center_safe && ship < 8) {
-   // return (uint8_t)CenterSafer;
+    //return (uint8_t)CenterSafer;
   }
+
+  if (!flagging) return (uint8_t)CenterBehaviorSelector(bot);
 
   switch (ship) {
   case 0: {
@@ -267,6 +275,42 @@ void HyperspaceBehaviorBuilder::CreateBehavior(Bot& bot) {
 #endif
 }
 
+HSTree HSTreeSelector::CenterBehaviorSelector(Bot& bot) {
+  auto& game = bot.GetGame();
+
+  uint16_t ship = game.GetPlayer().ship;
+  HSTree key = CenterGunner;
+
+  switch (ship) {
+  case 0: {
+
+  }break;
+  case 1: {
+
+  }break;
+  case 2: {
+
+  }break;
+  case 3: {
+
+  }break;
+  case 4: {
+
+  }break;
+  case 5: {
+ 
+  }break;
+  case 6: {
+
+  }break;
+  case 7: {
+
+  }break;
+  }
+
+  return key;
+}
+
 
 void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
   uint8_t index = (uint8_t)HSTree::CenterGunner;
@@ -298,7 +342,7 @@ void HyperspaceBehaviorBuilder::BuildCenterGunnerTree() {
     engine_->MakeNode<behavior::SelectorNode>(find_enemy_sequence, patrol_center_sequence);
 
   auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index,
-    commands_.get(), get_out_of_spec, jackpot_query, respawn_query_.get(), HS_freqman, enemy_patrol_selector);
+    commands_.get(), jackpot_query, HS_freqman, enemy_patrol_selector);
 }
 
 
@@ -306,7 +350,7 @@ void HyperspaceBehaviorBuilder::BuildCenterBomberTree() {
   uint8_t index = (uint8_t)HSTree::CenterBomber;
 
   auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index,
-    commands_.get(), get_out_of_spec, jackpot_query, respawn_query_.get(), HS_freqman);
+    commands_.get(), get_out_of_spec, jackpot_query, HS_freqman);
 }
 
 
@@ -320,7 +364,7 @@ void HyperspaceBehaviorBuilder::CenterSaferTree() {
 
 void HyperspaceBehaviorBuilder::SpectatorTree() {
   uint8_t index = (uint8_t)HSTree::Spectator;
-  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index, commands_.get());
+  auto* root_sequence = engine_->MakeRoot<behavior::SequenceNode>(index, commands_.get(), get_out_of_spec);
 }
 
 void HyperspaceBehaviorBuilder::DeadPlayerTree() {

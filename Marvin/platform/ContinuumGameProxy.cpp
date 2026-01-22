@@ -93,9 +93,12 @@ bool ContinuumGameProxy::Update() {
   // to make it think it always has focus.
   SetWindowFocus();
 
-  // this fixes memory exceptions when arena recycles
+  // reload map when arena recycles
   // doesnt fix multiple bots downloading a new map and writing to the same .lvl file
-  if (!IsInGame() || GameIsClosing()) return false;
+  if (!IsInGame() || GameIsClosing()) {
+    mapfile_path_.clear();
+    return false;
+  }
 
 
   std::string map_file_path = GetServerFolder() + "\\" + GetMapFile();
@@ -225,13 +228,14 @@ void ContinuumGameProxy::FetchPlayers() {
       player_id_ = player.id;
       player_addr_ = player_addr;
 
-      player.flight_status.rotation = *(u32*)(player_addr + 0x278) + *(u32*)(player_addr + 0x274);
-      player.flight_status.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
-      player.flight_status.shrapnel = *(u32*)(player_addr + 0x2A8) + *(u32*)(player_addr + 0x2AC);
-      player.flight_status.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
-      player.flight_status.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
       player.flight_status.max_energy = *(u32*)(player_addr + 0x1C8) + *(u32*)(player_addr + 0x1C4);
+      player.flight_status.recharge = *(u32*)(player_addr + 0x1E8) + *(u32*)(player_addr + 0x1EC);
+      player.flight_status.thrust = *(u32*)(player_addr + 0x244) + *(u32*)(player_addr + 0x248);
+      player.flight_status.rotation = *(u32*)(player_addr + 0x278) + *(u32*)(player_addr + 0x274);
+      player.flight_status.shrapnel = *(u32*)(player_addr + 0x2A8) + *(u32*)(player_addr + 0x2AC);
+      player.flight_status.speed = *(u32*)(player_addr + 0x350) + *(u32*)(player_addr + 0x354);
 
+ 
       // the id of the player the bot is attached to, a value of -1 means its not attached, or 65535
       player.attach_id = process_.ReadU32(player_addr + 0x1C);
 
@@ -532,8 +536,6 @@ void ContinuumGameProxy::FetchDroppedFlags() {
 }
 
 ConnectState ContinuumGameProxy::GetConnectState() {
-  //if (!UpdateMemory()) return ConnectState::None;
-
 
   ConnectState state = *(ConnectState*)(game_addr_ + 0x127EC + 0x588);
 
