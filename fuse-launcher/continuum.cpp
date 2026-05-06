@@ -7,8 +7,8 @@
 
 /* 
 * Continuum relaunches itself to apply a DACL, and exits the parent process
-* This method creates a job object then adds the parent process to the job
-* Then queries the pid of the child process spawned by the parent process
+* This method creates a job object, adds the parent process to the job,
+* then queries the pid of the child process spawned by the parent process
 */
 HANDLE StartContinuum() {
   HANDLE hChild = NULL;

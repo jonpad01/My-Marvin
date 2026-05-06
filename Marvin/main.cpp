@@ -543,6 +543,17 @@ BOOL WINAPI OverridePeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UIN
     return result;
   }
 
+  auto chat = game->GetCurrentChat();
+
+  for (marvin::ChatMessage msg : chat) {
+    std::string biller_restored = "Notice: Connection to user database server restored. Log in again for full functionality";
+    if (msg.message == biller_restored && msg.type == marvin::ChatType::Arena) {
+      PostQuitMessage(0);
+      quit_game = true;
+      return result;
+    }
+  }
+
   // and finally, we are in the game
   HWND g_hWnd = game->GetGameWindowHandle();
   joined = true;

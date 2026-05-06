@@ -7,6 +7,12 @@
 #include <thread>
 #include <chrono>
 
+/*
+This project can be debugged if attached after it has been launched normally.
+Running it with visual studio debugger (F5) will cause continuum to detect that the parent process
+is in a debug enviroment (its parent process is visual studio and not explorer?) and it will hang.
+*/
+
 #ifdef UNICODE
 #undef UNICODE
 #endif
