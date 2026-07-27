@@ -128,7 +128,7 @@ class Blackboard {
   void SetAllToDefault() {
     for (std::size_t i = 0; i < (size_t)BBKey::COUNT; ++i) {
       auto& default_slot = default_data[i];
-      if (!default_slot.hasValue) return;
+      if (!default_slot.hasValue) continue;
       auto& slot = data[i];
       slot.value = std::move(default_slot.value);
       slot.hasValue = default_slot.hasValue;

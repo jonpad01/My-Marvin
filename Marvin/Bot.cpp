@@ -258,8 +258,15 @@ void Bot::Update(float dt) {
   //Move(Vector2f(512, 512), 0, Vector2f(0, 0));
 
   if (ship != 8) {
+    const std::vector<Vector2f>& path = pathfinder_->GetPath();
+    constexpr float kNearbyTurn = 20.0f;
+    constexpr float kMaxAvoidDistance = 35.0f;
+
+    if (!path.empty() && path[0].DistanceSq(game_->GetPosition()) < kNearbyTurn * kNearbyTurn) {
+      steering_.AvoidWalls(*this, kMaxAvoidDistance);
+    }
     SteeringOverride override =
-      ctx_.bot->GetBlackboard().ValueOr<SteeringOverride>(BBKey::SteeringOverride, SteeringOverride::None);
+    ctx_.bot->GetBlackboard().ValueOr<SteeringOverride>(BBKey::SteeringOverride, SteeringOverride::None);
     steering_.Steer(*this, dt, override);
     ctx_.bot->GetBlackboard().Set<SteeringOverride>(BBKey::SteeringOverride, SteeringOverride::None);
   }
@@ -354,14 +361,6 @@ void Bot::Move(const Vector2f& target, float target_distance, Vector2f target_ve
     Vector2f to_target = target - bot_player.position;
 
     steering_.Arrive(*this, target - Normalize(to_target) * target_distance, target_velocity);
-  }
-
-  const std::vector<Vector2f>& path = pathfinder_->GetPath();
-  constexpr float kNearbyTurn = 20.0f;
-  constexpr float kMaxAvoidDistance = 35.0f;
-
-  if (!path.empty() && path[0].DistanceSq(game_->GetPosition()) < kNearbyTurn * kNearbyTurn) {
-   steering_.AvoidWalls(*this, kMaxAvoidDistance);
   }
 }
 
@@ -1170,6 +1169,35 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
 
   ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, enemy->position, radius);
+
+  auto& path = ctx.bot->GetPathfinder().GetPath();
+  auto search = path::PathNodeSearch::Create(*ctx.bot, path);
+
+  float bullet_speed = game.GetShipSettings().GetBulletSpeed();
+  float alive_time = game.GetSettings().GetBulletAliveTime();
+
+  float bullet_range = bullet_speed * alive_time;
+
+  float distance = search->GetPathDistance(0, path.size() - 1);
+
+  distance -= bullet_range;
+  //float distance = (float)ctx.bot->GetPathfinder().GetPath().size();
+  Vector2f velocity = game.GetPlayer().velocity;
+  float time_to_enemy = distance / velocity.Length();
+
+
+
+  float rotate_speed = game.GetRotation();
+  float time_to_rotate = (400.0f / rotate_speed); // time to rotate 360 degreen
+
+  if (time_to_enemy < time_to_rotate) {
+    bb.Set<SteeringOverride>(BBKey::SteeringOverride, SteeringOverride::Forward);
+  }
+
+  //g_RenderState.RenderDebugText("  Distance: %f", distance);
+  //g_RenderState.RenderDebugText("  Bullet Range: %f", bullet_range);
+  //g_RenderState.RenderDebugText("  Time to Enemy: %f", time_to_enemy);
+  //g_RenderState.RenderDebugText("  Time to Rotate: %f", time_to_rotate);
 
   g_RenderState.RenderDebugText("  RusherBasePathNode(success): %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;

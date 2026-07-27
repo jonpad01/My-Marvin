@@ -1010,6 +1010,7 @@ behavior::ExecuteResult DevaMoveToEnemyNode::Execute(behavior::ExecuteContext& c
 
   ctx.bot->Move(target->position, hover_distance, target->velocity);
 
+  //ctx.bot->GetSteering().Seek(*ctx.bot, target->position, hover_distance);
   ctx.bot->GetSteering().Face(*ctx.bot, shot_position);
 
   g_RenderState.RenderDebugText("  DevaMoveToEnemyNode: %llu", timer.GetElapsedTime());
