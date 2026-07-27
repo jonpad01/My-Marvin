@@ -387,7 +387,7 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
   return RealMessageBoxA(hWnd, lpText, lpCaption, uType);
 }
 
-// used check if continuum is writing to a lvl
+// used to check if continuum is writing to a lvl
 // fixes a bug where a zone recycle causes multiple bots to write to the same lvl file
 // this causes CreateFileA to return INVALID_HANDLE_VALUE, if continuum gets this return value it exits / crashes
 // this fix opens a dummy file and passes the handle to continuum so it has something to write to and wont crash

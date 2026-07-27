@@ -25,9 +25,9 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
   float radius = bot.GetGame().GetShipSettings().GetRadius();
   //bot.GetBlackboard().SetCombatRole(CombatRole::Rusher);
 
-  //if (!bot.GetBlackboard().Has("combatrole")) {
-  //  bot.GetBlackboard().Set<CombatRole>("combatrole", CombatRole::Rusher);
- // }
+  if (!bot.GetBlackboard().Has(BBKey::CombatRole)) {
+    bot.GetBlackboard().Set<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
+  }
  
   //bot.CreateBasePaths(spawn.t0, spawn.t1, radius);
 
@@ -59,6 +59,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseDecoy, true);
     bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseRepel, false);
     bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseBurst, true);
+    bot.GetBlackboard().SetDefaultValue<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
 
     bot.GetBlackboard().Set<std::vector<MapCoord>>(BBKey::PatrolNodes, patrol_nodes);
     bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam0, 00);
