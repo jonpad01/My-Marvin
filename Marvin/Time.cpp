@@ -135,7 +135,7 @@ uint64_t Time::UniqueIDTimer(GameProxy& game, std::vector<uint16_t>& list) {
 
   for (std::size_t i = 0; i < list.size(); i++) {
     if (game.GetPlayer().id == list[i]) {
-        time = ((uint64_t)i + 1) * 300;
+        time = ((uint64_t)i + 1) * 400;
         break;
     }
   }

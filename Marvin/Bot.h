@@ -24,13 +24,15 @@ class GameProxy;
 struct Player;
 class BehaviorTreeSelector;
 
-const std::vector<std::string> kBotNames = { "Testmarv", "Lilmarv", "MadMarv", "MarvMaster", "Baked Cake", "Marv1",
-                                            "Marv2",   "Marv3",   "Marv4",      "Marv5",      "Marv6",
-                                            "Marv7",   "Marv8",   "FrogBot",    "X-Marv1",    "X-Marv2",
-                                            "X-Marv3",    "X-Marv4", "X-Marv5", "X-Marv6",    "X-Marv7",
-                                            "X-Marv8",    "X-Marv9",    "X-Notify2", "MarvA1",  "MarvA2",
-                                            "MarvA3", "MarvA4", "MarvA5", "MarvA6", "MarvA7",    "MarvA8",
-                                            "MarvA9" };
+const std::vector<std::string> kBotNames = { "Testmarv", "TestMarv1", "TestMarv2", "TestMarv3", "TestMarv4", 
+                                             "TestMarv5", "TestMarv6", "TestMarv7", "TestMarv8", "Lilmarv", 
+                                             "MadMarv", "MarvMaster", "Baked Cake", "Marv1",
+                                             "Marv2",   "Marv3",   "Marv4",      "Marv5",      "Marv6",
+                                             "Marv7",   "Marv8",   "FrogBot",    "X-Marv1",    "X-Marv2",
+                                             "X-Marv3",    "X-Marv4", "X-Marv5", "X-Marv6",    "X-Marv7",
+                                             "X-Marv8",    "X-Marv9",    "X-Notify2", "MarvA1",  "MarvA2",
+                                             "MarvA3", "MarvA4", "MarvA5", "MarvA6", "MarvA7",    "MarvA8",
+                                             "MarvA9" };
 
 
 class Bot {

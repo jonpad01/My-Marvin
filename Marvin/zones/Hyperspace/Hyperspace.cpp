@@ -1250,7 +1250,7 @@ behavior::ExecuteResult HSFreqManagerNode::Execute(behavior::ExecuteContext& ctx
   if (flagging ) { //&& jackpot < kJackpotTrigger) {
     uint64_t unique_delay = GetLeaveDelay(ctx);
     if (ctx.bot->GetTime().TimedActionDelay("hsfreqmanagernode-leave", unique_delay)) {
-      game.SetFreq(FindOpenFreq(fList, 0));
+      game.SetFreq(FindOpenFreq(fList, 0, 3));
 
       g_RenderState.RenderDebugText("  HSFreqMan(Leave Flag Team): %llu", timer.GetElapsedTime());
       return behavior::ExecuteResult::Stop;

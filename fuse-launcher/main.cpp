@@ -94,6 +94,7 @@ int main(int argc, char* argv[]) {
   }
 
   for (std::size_t i = 0; i < bot_data.size(); i++) {
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     bot_data[i].handle = StartMarvin((uint32_t)i, bot_data[i].profile_data, bot_data[i].name);
   }
 

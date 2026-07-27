@@ -280,23 +280,17 @@ behavior::ExecuteResult DevaSetRegionNode::Execute(behavior::ExecuteContext& ctx
 
 behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
-
+  
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
   bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
-  //std::vector<uint16_t> team_mates = GetTeamMates(ctx);
-  //uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), team_mates);
-  //g_RenderState.RenderDebugText("BOT OFFSET:  %llu", offset);
-  uint16_t test = 1000;
-  uint64_t max_offset = kBotNames.size() * 200;
-  //const std::vector<uint16_t>& fList = bb.GetFreqList();
+  uint64_t max_offset = kBotNames.size() * 400;
   std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>(BBKey::FreqPopulationCount, std::vector<uint16_t>{});
   CombatRole role = bb.ValueOr<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
 
   bool frequency_locked = bb.ValueOr<bool>(BBKey::FrequencyLocked, false);
 
-  //if (bb.ValueOr<bool>("FreqLock", false) || (bb.ValueOr<bool>("IsAnchor", false) && dueling)) {
   if (frequency_locked || (role == CombatRole::Anchor && dueling)) {
     g_RenderState.RenderDebugText("  DevaFreqMan:(locked/anchoring) %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Success;
@@ -311,7 +305,7 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
  
     if (ctx.bot->GetTime().TimedActionDelay("leave_crowded", offset)) {
    //   game.SendChatMessage("My timer was triggered: " + std::to_string(offset));
-      game.SetFreq(FindOpenFreq(fList, 2));
+      game.SetFreq(FindOpenFreq(fList, 2, 0));
     }
     g_RenderState.RenderDebugText("  DevaFreqMan:(Find Open Freq) %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
@@ -357,86 +351,17 @@ behavior::ExecuteResult DevaFreqMan::Execute(behavior::ExecuteContext& ctx) {
 
     if (ctx.bot->GetTime().TimedActionDelay("leaveduelteam", offset)) {
      // game.SendChatMessage("My timer was triggered: " + std::to_string(offset));
-      game.SetFreq(FindOpenFreq(fList, 2));
+      game.SetFreq(FindOpenFreq(fList, 2, 0));
     }
     g_RenderState.RenderDebugText("  DevaFreqMan:(Leave Duel Team) %llu", timer.GetElapsedTime());
     return behavior::ExecuteResult::Failure;
   }
 
-
-
-
-
-  #if 0
-  uint64_t offset = ctx.bot->GetTime().DevaFreqTimer(ctx.bot->GetGame(), kBotNames);
-  //uint64_t offset = ctx.bot->GetTime().UniqueIDTimer(ctx.bot->GetGame(), game.GetPlayer().id);
-
-  //std::vector<uint16_t> fList = bb.ValueOr<std::vector<uint16_t>>("FreqList", std::vector<uint16_t>());
-  const std::vector<uint16_t>& fList = bb.GetFreqList();
-
-  // if player is on a non duel team size greater than 2, breaks the zone balancer
-  if (game.GetPlayer().frequency != 00 && game.GetPlayer().frequency != 01) {
-    if (fList[game.GetPlayer().frequency] > 1) {
-      g_RenderState.RenderDebugText("  FList 0: %i", fList[game.GetPlayer().frequency]);
-      if (ctx.bot->GetTime().TimedActionDelay("get_off_large_freq", offset)) {
-        game.SetFreq(FindOpenFreq(fList, 2));
-      }
-
-      g_RenderState.RenderDebugText("  DevaFreqMan:(jump from oversized team) %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
-    }
-  }
-
-  // duel team is uneven
-  if (fList[0] != fList[1]) {
-    if (!dueling) {
-      if (ctx.bot->GetTime().TimedActionDelay("join_duel_team", offset)) {
-        if (fList[0] < fList[1]) {
-          game.SetFreq(0);
-        } else {
-          // get on freq 1
-          game.SetFreq(1);
-        }
-      }
-      g_RenderState.RenderDebugText("  DevaFreqMan:(jump onto dueling team) %llu", timer.GetElapsedTime());
-      return behavior::ExecuteResult::Failure;
-      // } else if (bb.ValueOr<bool>("InCenter", true) ||
-    } else if (bb.GetInCenter()) {  // bot is on a duel team
-      // bb.ValueOr<std::vector<Player>>("TeamList", std::vector<Player>()).size() == 0 ||
-      // bb.ValueOr<bool>("TeamInBase", false)) {  // bot is on a duel team
-
-      if ((game.GetPlayer().frequency == 00 && fList[0] > fList[1]) ||
-          (game.GetPlayer().frequency == 01 && fList[0] < fList[1])) {
-          #if 0
-        // look for players not on duel team, make bot wait longer to see if the other player will get in
-        for (std::size_t i = 0; i < game.GetPlayers().size(); i++) {
-          const Player& player = game.GetPlayers()[i];
-
-          if (player.frequency > 01 && player.frequency < 100) {
-            float energy_pct = player.energy / game.GetShipSettings(player.ship).MaximumEnergy * 100.0f;
-            if (energy_pct < 100.0f) {
-              g_RenderState.RenderDebugText("  DevaFreqMan:(wait for other players) %llu", timer.GetElapsedTime());
-              return behavior::ExecuteResult::Failure;
-            }
-          }
-        }
-        #endif
-        if (ctx.bot->GetTime().TimedActionDelay("get_off_duel_team", offset)) {
-          game.SetFreq(FindOpenFreq(fList, 2));
-        }
-
-        g_RenderState.RenderDebugText("  FList 0: %i", fList[0]);
-        g_RenderState.RenderDebugText("  Flist 1: %i", fList[1]);
-        g_RenderState.RenderDebugText("  DevaFreqMan:(jump off dueling team) %llu", timer.GetElapsedTime());
-        return behavior::ExecuteResult::Failure;
-      }
-    }
-  }
-  #endif
-
   g_RenderState.RenderDebugText("  DevaFreqMan:(success) %llu", timer.GetElapsedTime());
   return behavior::ExecuteResult::Success;
 }
+
+
 
 bool DevaFreqMan::ShouldJoinTeam0(behavior::ExecuteContext& ctx) {
   PerformanceTimer timer;
@@ -453,6 +378,8 @@ bool DevaFreqMan::ShouldJoinTeam0(behavior::ExecuteContext& ctx) {
   return false;
 }
 
+
+
 bool DevaFreqMan::ShouldJoinTeam1(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
@@ -465,6 +392,8 @@ bool DevaFreqMan::ShouldJoinTeam1(behavior::ExecuteContext& ctx) {
   }
   return false;
 }
+
+
 
 bool DevaFreqMan::ShouldLeaveDuelTeam(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
@@ -481,6 +410,8 @@ bool DevaFreqMan::ShouldLeaveDuelTeam(behavior::ExecuteContext& ctx) {
   return false;
 }
 
+
+
 bool DevaFreqMan::ShouldLeaveCrowdedFreq(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
@@ -496,89 +427,7 @@ bool DevaFreqMan::ShouldLeaveCrowdedFreq(behavior::ExecuteContext& ctx) {
   return false;
 }
 
-#if 0
-bool DevaFreqMan::ShouldJoinTeam0(behavior::ExecuteContext& ctx) {
-  PerformanceTimer timer;
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.bot->GetBlackboard();
-  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
-  const std::vector<uint16_t>& fList = bb.GetFreqList();
 
-  if (fList[0] < fList[1] && !dueling) {
-    g_RenderState.RenderDebugText("  DevaFreqMan:(Should Join Team 0) %llu", timer.GetElapsedTime());
-    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
-    uint16_t chosen = GetLowestID(ctx, joiners);
-
-    if (chosen == game.GetPlayer().id) {
-      g_RenderState.RenderDebugText("  DevaFreqMan:(Chosen) %llu", timer.GetElapsedTime());
-      return true;
-    }
-  }
-  g_RenderState.RenderDebugText("  DevaFreqMan:(Not Chosen) %llu", timer.GetElapsedTime());
-  return false;
-}
-
-bool DevaFreqMan::ShouldJoinTeam1(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.bot->GetBlackboard();
-  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
-  const std::vector<uint16_t>& fList = bb.GetFreqList();
-
-  if (fList[1] < fList[0] && !dueling) {
-    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
-    uint16_t chosen = GetLowestID(ctx, joiners);
-
-    if (chosen == game.GetPlayer().id) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool DevaFreqMan::ShouldLeaveDuelTeam(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.bot->GetBlackboard();
-  const std::vector<uint16_t>& fList = bb.GetFreqList();
-
-  uint16_t freq = game.GetPlayer().frequency;
-  bool should_leave = (fList[0] > fList[1] && freq == 00) || (fList[1] > fList[0] && freq == 01);
-
-  if (should_leave) {
-    std::vector<uint16_t> joiners = GetDuelTeamJoiners(ctx);
-
-    if (!joiners.empty()) return false;
-
-    std::vector<uint16_t> team_mates = GetDuelTeamMates(ctx);
-
-    uint16_t chosen = GetLowestID(ctx, team_mates);
-
-    if (chosen == game.GetPlayer().id) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool DevaFreqMan::ShouldLeaveCrowdedFreq(behavior::ExecuteContext& ctx) {
-  auto& game = ctx.bot->GetGame();
-  auto& bb = ctx.bot->GetBlackboard();
-  const std::vector<uint16_t>& fList = bb.GetFreqList();
-
-  bool dueling = game.GetPlayer().frequency == 00 || game.GetPlayer().frequency == 01;
-  bool crowded = fList[game.GetPlayer().frequency] > 1;
-
-  if (crowded && !dueling) {
-    std::vector<uint16_t> team_mates = GetTeamMates(ctx);
-    uint16_t chosen = GetLowestID(ctx, team_mates);
-
-    if (chosen == game.GetPlayer().id) {
-      return true;
-    }
-  }
-  return false;
-}
-
-#endif
 
 // get a list of bots that also want to join
 std::vector<uint16_t> DevaFreqMan::GetDuelTeamJoiners(behavior::ExecuteContext& ctx) {
@@ -599,6 +448,8 @@ std::vector<uint16_t> DevaFreqMan::GetDuelTeamJoiners(behavior::ExecuteContext& 
   }
   return list;
 }
+
+
 
 std::vector<uint16_t> DevaFreqMan::GetTeamMates(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();

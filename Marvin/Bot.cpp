@@ -83,6 +83,16 @@ Bot::Bot(GameProxy* game) : game_(game) {
   zone_ = game->GetZone();
   ctx_.bot = this;
 
+  //  test marvs
+
+  //std::size_t result = game_->GetName().find("TestMarv");
+
+  //if (result != std::string::npos) {
+  //  game_->SendChatMessage("?go #bakedcake");
+  //}
+
+  // test marvs
+
 }
 
 bool Bot::UpdateProcessorThread() {
@@ -161,7 +171,6 @@ void Bot::Update(float dt) {
 
   keys_.ReleaseAll();
   time_.Update();
-
  
   //  -------- Reprocess Map ----------------
 
@@ -704,7 +713,7 @@ behavior::ExecuteResult SortBaseTeams::Execute(behavior::ExecuteContext& ctx) {
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
 
-  const uint16_t kInitialFreqListSize = 100;
+  const std::size_t kInitialFreqListSize = 100;
 
   const Player& bot = game.GetPlayer();
 
@@ -1841,6 +1850,7 @@ behavior::ExecuteResult ShootEnemyNode::Execute(behavior::ExecuteContext& ctx) {
         if (FloatingRayBoxIntersect(bot.position, bot.GetHeading(), solution, nearby_radius, &dist, &norm)) {
         //if (FloatingRayBoxIntersect(bot.position, Normalize(weapon_velocity), solution, nearby_radius, &dist, &norm)) {
           ctx.bot->GetKeys().Press(weapon_key);
+          //ctx.bot->GetKeys().Press(VK_TAB);
           g_RenderState.RenderDebugText("  ShootEnemyNode (success): %llu", timer.GetElapsedTime());
           return behavior::ExecuteResult::Success;
         }
@@ -1920,6 +1930,7 @@ behavior::ExecuteResult MoveToEnemyNode::Execute(behavior::ExecuteContext& ctx) 
   }
 
   ctx.bot->Move(target->position, hover_distance, target->velocity);
+  //ctx.bot->Move(target->position, 20.0f, target->velocity);
   ctx.bot->GetSteering().Face(*ctx.bot, solution);
 
   g_RenderState.RenderDebugText("  MoveToEnemyNode(success): %llu", timer.GetElapsedTime());

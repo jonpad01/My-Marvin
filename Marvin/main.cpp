@@ -203,6 +203,9 @@ static HANDLE(WINAPI* RealOpenMutexA)(DWORD dwDesiredAccess, BOOL bInheritHandle
 
 static SHORT(WINAPI* RealGetAsyncKeyState)(int vKey) = GetAsyncKeyState;
 
+static HANDLE(WINAPI* RealCreateFileA)(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+  LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) = CreateFileA;
+
 LRESULT(WINAPI* RealDispatchMessageA)(const MSG* lpMsg) = DispatchMessageA;
 
 static BOOL(WINAPI* RealPeekMessageA)(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
@@ -382,6 +385,39 @@ int WINAPI OverrideMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT 
 
   // return 0 to supress all other message boxes, though im allowing them to popup so i can try to document them.
   return RealMessageBoxA(hWnd, lpText, lpCaption, uType);
+}
+
+// used check if continuum is writing to a lvl
+// fixes a bug where a zone recycle causes multiple bots to write to the same lvl file
+// this causes CreateFileA to return INVALID_HANDLE_VALUE, if continuum gets this return value it exits / crashes
+// this fix opens a dummy file and passes the handle to continuum so it has something to write to and wont crash
+HANDLE WINAPI OverrideCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+  LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+  OverrideGuard guard;
+
+  HANDLE result = RealCreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+
+  const char* extension = strrchr(lpFileName, '.');
+
+  if (strstr(lpFileName, "zone") == NULL || !extension || strcmp(extension, ".lvl") != 0)
+    return result;
+
+  int counter = 1;
+  std::string name = lpFileName;
+  std::string dir, output;
+
+  size_t slashPos = name.find_last_of("\\/");
+  dir = name.substr(0, slashPos + 1);
+
+  while (result == INVALID_HANDLE_VALUE) {
+
+    output = dir + "MARVINFAKEFILE" + std::to_string(counter) + ".lvl";
+    result = CreateFileA(output.c_str(), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+
+    counter++;
+  }
+
+  return result;
 }
 
 // returns keypresses to the game even if its not in focus
@@ -683,6 +719,7 @@ extern "C" __declspec(dllexport) void InitializeMarvin() {
   DetourAttach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
   DetourAttach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourAttach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
+  DetourAttach(&(PVOID&)RealCreateFileA, OverrideCreateFileA);
 
   LONG commit = DetourTransactionCommit();
   //test_log << "DetourTransactionCommit returned: " << commit << std::endl;
@@ -704,6 +741,7 @@ extern "C" __declspec(dllexport) void CleanupMarvin() {
   DetourDetach(&(PVOID&)RealMessageBoxA, OverrideMessageBoxA);
   DetourDetach(&(PVOID&)RealCreateMutexA, OverrideCreateMutexA);
   DetourDetach(&(PVOID&)RealOpenMutexA, OverrideOpenMutexA);
+  DetourDetach(&(PVOID&)RealCreateFileA, OverrideCreateFileA);
 
 #if DEBUG_RENDER
   if (!initialize_debug) {
