@@ -504,6 +504,7 @@ behavior::ExecuteResult BDClearScoreNode::Execute(behavior::ExecuteContext& ctx)
 
   auto& game = ctx.bot->GetGame();
   auto& bb = ctx.bot->GetBlackboard();
+  return behavior::ExecuteResult::Success;
 }
 
 }  // namespace training

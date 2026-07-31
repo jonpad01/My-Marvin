@@ -1028,7 +1028,8 @@ bool Map::DecodeRegionTiles(std::span<const std::byte> data, std::bitset<1024 * 
   return true;
 }
 
-const std::vector<std::string>* Map::GetRegions(MapCoord coord) const {
+
+const std::vector<std::string> Map::GetRegions(MapCoord coord) const {
   std::vector<std::string> result;
 
   for (const auto& [name, tiles] : regions) {
@@ -1036,8 +1037,9 @@ const std::vector<std::string>* Map::GetRegions(MapCoord coord) const {
       result.push_back(name);
     }
   }
-  return &result;
+  return result;
 }
+
 
 bool Map::HasRegion(const std::string& name) const {
 

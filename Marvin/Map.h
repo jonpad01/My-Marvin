@@ -93,7 +93,7 @@ class Map {
   void SetMinedTiles(std::vector<Weapon*> tiles);
   void ClearMinedTiles();
 
-  const std::vector<std::string>* GetRegions(MapCoord coord) const;
+  const std::vector<std::string> GetRegions(MapCoord coord) const;
   bool HasRegion(const std::string& name) const;
   const std::bitset<1024 * 1024>* GetTileSet(std::string name) const;
   bool HasRegions() const { return !regions.empty(); }
