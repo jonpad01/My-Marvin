@@ -12,11 +12,14 @@ uint64_t Time::GetTime() {
 }
 
 void Time::Update() {
+  const auto current_time = GetTime();
   
-  for (auto i = data_.begin(); i != data_.end(); i++) {
-    if (GetTime() > i->second.expire_timestamp + 100) {
-      data_.erase(i->first);
-      i = data_.begin();
+  for (auto i = data_.begin(); i != data_.end();) {
+    if (current_time > i->second.expire_timestamp + 100) {
+      i = data_.erase(i);
+    }
+    else {
+      i++;
     }
   }
 
