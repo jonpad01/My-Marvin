@@ -1168,9 +1168,11 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
 
 
-  ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, enemy->position, radius);
+  const std::vector<Vector2f>& path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, enemy->position, radius);
 
-  auto& path = ctx.bot->GetPathfinder().GetPath();
+  // test path
+  if (path.empty()) {}
+  
   auto search = path::PathNodeSearch::Create(*ctx.bot, path);
 
   float bullet_speed = game.GetShipSettings().GetBulletSpeed();
