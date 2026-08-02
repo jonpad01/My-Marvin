@@ -983,7 +983,7 @@ behavior::ExecuteResult FindEnemyInBaseNode::Execute(behavior::ExecuteContext& c
   }
 
   // search creation is about 10-30 microseconds, search can be null
-  auto search = path::PathNodeSearch::Create(*ctx.bot, base_path);
+  std::unique_ptr<path::PathNodeSearch> search = path::PathNodeSearch::Create(*ctx.bot, base_path);
   std::size_t bot_node = search->FindNearestNodeBFS(game.GetPosition());
 
   const Player* target = nullptr;
@@ -1169,13 +1169,10 @@ behavior::ExecuteResult RusherBasePathNode::Execute(behavior::ExecuteContext& ct
 
 
   const std::vector<Vector2f>& path = ctx.bot->GetPathfinder().CreatePath(*ctx.bot, position, enemy->position, radius);
-
-  // test path
-  if (path.empty()) {}
   
-  auto search = path::PathNodeSearch::Create(*ctx.bot, path);
+  std::unique_ptr<path::PathNodeSearch> search = path::PathNodeSearch::Create(*ctx.bot, path);
 
-  float bullet_speed = game.GetShipSettings().GetBulletSpeed();
+  float bullet_speed = game.GetShipSettings().GetBulletSpeed() + game.GetPlayer().velocity.Length();
   float alive_time = game.GetSettings().GetBulletAliveTime();
 
   float bullet_range = bullet_speed * alive_time;
@@ -1214,7 +1211,7 @@ behavior::ExecuteResult AnchorBasePathNode::Execute(behavior::ExecuteContext& ct
   SteeringOverride override = SteeringOverride::Forward;
   Vector2f center_spawn = bb.ValueOr<Vector2f>(BBKey::CenterSpawnPoint, Vector2f(512, 512));
   bool in_center = ctx.bot->GetRegions().IsConnected(game.GetPosition(), center_spawn);
-  auto search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
+  std::unique_ptr<path::PathNodeSearch> search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
   bool on_safe_tile = game.GetMap().GetTileId(game.GetPosition()) == kSafeTileId;
   const Player* enemy = bb.ValueOr<const Player*>(BBKey::TargetPlayer, nullptr);
   CombatRole role = bb.ValueOr<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
@@ -1355,7 +1352,7 @@ const Player* AnchorBasePathNode::GetEnemy(behavior::ExecuteContext& ctx) {
   float shortest_distance = std::numeric_limits<float>::max();
   //float shortest_time_to_bot = std::numeric_limits<float>::max();
  
-  auto search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
+  std::unique_ptr<path::PathNodeSearch> search = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
   std::size_t bot_node = search->FindNearestNodeBFS(game.GetPosition());
   CombatRole role = bb.ValueOr<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
   uint16_t pubTeam0Freq = bb.ValueOr<uint16_t>(BBKey::PubEventTeam0, 9999);

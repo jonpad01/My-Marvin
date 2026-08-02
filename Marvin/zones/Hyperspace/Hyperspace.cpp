@@ -1001,7 +1001,7 @@ const Player* HSPlayerSortNode::FindAnchorInBase(const std::vector<const Player*
   std::vector<const Player*> enemy_list = bb.ValueOr<std::vector<const Player*>>(BBKey::EnemyTeamPlayerList, std::vector<const Player*>());
 
   //const std::vector<MapCoord>& base_regions = bot.GetGoals().GetTeamGoals().entrances;
-  auto ns = path::PathNodeSearch::Create(bot, bot.GetBasePath());
+  std::unique_ptr<path::PathNodeSearch> ns = path::PathNodeSearch::Create(bot, bot.GetBasePath());
 
   float closest_anchor_distance_to_enemy = std::numeric_limits<float>::max();
   
@@ -1166,7 +1166,7 @@ behavior::ExecuteResult HSSetDefensePositionNode::Execute(behavior::ExecuteConte
 
   //  if (ctx.bot->GetRegions().IsConnected(team_anchor->position, entrances[base_index])) {
     //  if (ctx.bot->GetRegions().IsConnected(enemy_anchor->position, entrances[base_index])) {
-      auto ns = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
+    std::unique_ptr<path::PathNodeSearch> ns = path::PathNodeSearch::Create(*ctx.bot, ctx.bot->GetBasePath());
       std::size_t team_node = ns->FindNearestNodeBFS(team_anchor->position);
       std::size_t enemy_node = ns->FindNearestNodeBFS(enemy_anchor->position);
 

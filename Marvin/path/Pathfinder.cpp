@@ -649,13 +649,9 @@ float PathNodeSearch::GetPathDistance(const Vector2f& pos1, const Vector2f& pos2
 }
 
   float PathNodeSearch::GetPathDistance(std::size_t index1, std::size_t index2) {
-    
-    float max = FLT_MAX;
 
-    if (path.empty()) return max;
-    if (index1 >= path.size() || index2 >= path.size()) return max;
-      
-    if (index1 == index2) return 0.0f;
+    if (path.empty() || index1 == index2) return 0.0f;
+    if (index1 >= path.size() || index2 >= path.size()) return 0.0f;
 
     float distance = 0.0f;
 
@@ -663,15 +659,19 @@ float PathNodeSearch::GetPathDistance(const Vector2f& pos1, const Vector2f& pos2
     size_t end = std::max(index1, index2);
 
     for (size_t i = start; i < end; i++) {
+
+			if (i + 1 >= path.size()) break;
+
       distance += path[i].Distance(path[i + 1]);
     }
     return distance;
   }
 
   std::unique_ptr<PathNodeSearch> PathNodeSearch::Create(Bot& bot, const std::vector<Vector2f>& path) {
+		
     if (path.empty()) {
-      return nullptr;
-    }
+			return std::unique_ptr<PathNodeSearch>(new PathNodeSearch(bot, path, 0));
+		}
 
     std::size_t size = bot.GetRegions().GetTileCount(path[0]) + 1;
     return std::unique_ptr<PathNodeSearch>(new PathNodeSearch(bot, path, size));

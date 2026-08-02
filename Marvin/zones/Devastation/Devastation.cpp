@@ -646,7 +646,7 @@ void DevaAttachNode::SetAttachTarget(behavior::ExecuteContext& ctx) {
   auto& pf = ctx.bot->GetPathfinder();
 
   const std::vector<Vector2f>& path = ctx.bot->GetBasePath();
-  auto ns = path::PathNodeSearch::Create(*ctx.bot, path);
+  std::unique_ptr<path::PathNodeSearch> ns = path::PathNodeSearch::Create(*ctx.bot, path);
 
   std::vector<const Player*> team_list = bb.ValueOr<std::vector<const Player*>>(BBKey::TeamPlayerList, std::vector<const Player*>());
   //std::vector<const Player*> combined_list = bb.ValueOr<std::vector<const Player*>>(BBKey::EnemyTeamPlayerList, std::vector<const Player*>());
