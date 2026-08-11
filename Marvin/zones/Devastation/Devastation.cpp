@@ -60,6 +60,7 @@ void DevastationBehaviorBuilder::CreateBehavior(Bot& bot) {
     bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseRepel, false);
     bot.GetBlackboard().SetDefaultValue<bool>(BBKey::UseBurst, true);
     bot.GetBlackboard().SetDefaultValue<CombatRole>(BBKey::CombatRole, CombatRole::Rusher);
+    bot.GetBlackboard().SetDefaultValue<int>(BBKey::AnchorDistanceAdjustment, 0);
 
     bot.GetBlackboard().Set<std::vector<MapCoord>>(BBKey::PatrolNodes, patrol_nodes);
     bot.GetBlackboard().Set<uint16_t>(BBKey::PubEventTeam0, 00);
